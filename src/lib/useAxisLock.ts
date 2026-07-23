@@ -7,9 +7,15 @@ interface AxisLockConfig {
 }
 
 /**
- * Axis lock for scrollable containers on mobile.
- * Once the user scrolls past `threshold` in one dominant axis,
- * locks that axis until touch ends.
+ * Axis lock for horizontally-scrollable containers on mobile.
+ *
+ * How it works:
+ * - The container element has overflow-x:auto (handles horizontal scroll).
+ * - Vertical scroll is handled by the PAGE / parent, NOT by this element.
+ * - Axis lock prevents diagonal: dominant axis wins, other axis is suppressed.
+ *
+ * Locked to Y (vertical):  Let native page scroll through, do NOT preventDefault.
+ * Locked to X (horizontal): preventDefault to stop page scroll, manually set scrollLeft.
  */
 export function useAxisLock<T extends HTMLElement>(
   config: AxisLockConfig = {}
@@ -45,25 +51,25 @@ export function useAxisLock<T extends HTMLElement>(
     const cy = e.touches[0].clientY
     const st = s.current
 
+    const dx = cx - st.startX
+    const dy = cy - st.startY
+
+    // Determine lock axis if not yet locked
     if (st.lock === 'none') {
-      const dx = cx - st.startX
-      const dy = cy - st.startY
       if (Math.abs(dx) < threshold && Math.abs(dy) < threshold) return
       st.lock = Math.abs(dx) > Math.abs(dy) ? 'x' : 'y'
     }
 
-    if (st.lock === 'y') {
-      el.scrollTop += cy - st.lastY
+    if (st.lock === 'x') {
+      // Horizontal lock: manually scroll the container, prevent page scroll
+      el.scrollLeft += cx - st.lastX
+      e.preventDefault()
     }
-    // When locked to x, we do nothing — native overflow-x handles it.
-    // We just prevent default so the page doesn't also scroll y.
+    // Vertical lock: do nothing — let native page scroll handle it.
+    // No preventDefault, no scrollTop manipulation.
 
     st.lastX = cx
     st.lastY = cy
-
-    if (st.lock === 'y') {
-      e.preventDefault()
-    }
   }, [threshold])
 
   return { ref, handlers: { onTouchStart, onTouchMove } }

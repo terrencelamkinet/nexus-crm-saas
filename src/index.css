@@ -481,7 +481,7 @@ tbody tr:hover .menu-dots{opacity:1}
   .mobile-view-all{font-size:12.5px!important;font-weight:600!important;background:var(--color-surface)!important;border:1px solid var(--color-divider)!important;border-radius:var(--radius-md)!important;padding:6px 16px!important;height:36px!important;box-shadow:var(--shadow-sm);width:100%;max-width:280px}
   .kpi-grid{grid-template-columns:1fr;gap:12px}
   .data-table{overflow:visible}
-  .table-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch;touch-action:pan-x}
+  .table-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
   .data-table table{min-width:640px}
   .data-table th,.data-table td{padding:11px 12px;font-size:12.5px}
   .kanban-board{grid-auto-columns:84vw;gap:10px;scroll-snap-type:x mandatory}
@@ -757,7 +757,7 @@ textarea.input-field{resize:vertical;min-height:60px}
 .settings-coming-btn.disabled{opacity:.45;cursor:not-allowed}
 .settings-coming-btn svg{flex-shrink:0}
 .coming-soon-badge{margin-left:auto;font-size:9px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;padding:1px 6px;border-radius:999px;background:var(--color-surface-offset-2);color:var(--color-text-faint)}
-  .kanban-scroll{padding:16px 18px;overflow-x:auto;-webkit-overflow-scrolling:touch;touch-action:pan-x}
+.kanban-scroll{padding:16px 18px;overflow-x:auto;-webkit-overflow-scrolling:touch}
 /* Fix cascade: detail-grid base style at line 637 overrode earlier media query */
 @media (max-width:1024px){.detail-grid{grid-template-columns:1fr}}
 .board-view{display:flex;gap:14px;align-items:start;min-height:200px}
