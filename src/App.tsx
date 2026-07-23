@@ -10,8 +10,10 @@ import CompaniesDetailPage from './modules/companies/CompaniesDetailPage';
 import ProjectsPage from './modules/projects/ProjectsPage';
 import ProjectsDetailPage from './modules/projects/ProjectsDetailPage';
 import DealsPage from './pages/DealsPage';
-import TasksPage from './pages/TasksPage';
-import TouchpointsPage from './pages/TouchpointsPage';
+import TasksPage from './modules/tasks/TasksPage';
+import TaskDetailPage from './modules/tasks/TaskDetailPage';
+import TouchpointsPage from './modules/touchpoints/TouchpointsPage';
+import TouchpointDetailPage from './modules/touchpoints/TouchpointDetailPage';
 import NameCardsPage from './pages/NameCardsPage';
 import SettingsPage from './pages/SettingsPage';
 import SalesGate from './components/SalesGate';
@@ -42,8 +44,10 @@ function App() {
           <Route path="projects" element={<ProjectGate><ProjectsPage /></ProjectGate>} />
           <Route path="projects/:id" element={<ProjectGate><ProjectsDetailPage /></ProjectGate>} />
           <Route path="deals" element={<SalesGate><DealsPage /></SalesGate>} />
-          <Route path="tasks" element={<TasksPage />} />
           <Route path="touchpoints" element={<TouchpointsPage />} />
+          <Route path="touchpoints/:id" element={<TouchpointDetailPage />} />
+          <Route path="tasks" element={<TasksPage />} />
+          <Route path="tasks/:id" element={<TaskDetailPage />} />
           <Route path="namecards" element={<NameCardsPage />} />
           <Route path="reports" element={
             <div className="p-8">
