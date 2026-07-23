@@ -449,12 +449,13 @@ tbody tr:hover .menu-dots{opacity:1}
    ═══════════════════════════════════════════ */
 @media (max-width:480px){
   html{-webkit-text-size-adjust:100%}
-  body{font-size:14px}
-  .topbar{padding:0 12px;gap:10px;padding-top:env(safe-area-inset-top);height:calc(var(--topbar-h) + env(safe-area-inset-top))}
+  body{font-size:14px;overflow-y:auto;overflow-x:hidden}
+  .app-shell{height:auto;min-height:100dvh}
+  .topbar{position:sticky;top:0;z-index:20;padding:0 12px;gap:10px;padding-top:env(safe-area-inset-top);height:calc(var(--topbar-h) + env(safe-area-inset-top))}
   .topbar-hamburger{width:40px;height:40px}
   .icon-btn{width:40px;height:40px}
   .btn-primary{padding:0 12px;font-size:12.5px}
-  .main-content{padding:16px 12px 88px}
+  .main-content{padding:16px 12px 88px;overflow-y:visible}
   .page-header{flex-direction:column;align-items:stretch;gap:12px}
   .page-header h1{font-size:19px}
   .header-actions{width:100%}
