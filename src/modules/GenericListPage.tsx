@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { Plus, Search, X, Trash2, Edit3, ChevronRight, MoreHorizontal, Download, ArrowUpDown } from 'lucide-react'
-import { useAxisLock } from '../lib/useAxisLock'
 import { useNavigate } from 'react-router-dom'
 import { apiClient } from '../lib/api'
 import { CellRenderer, FieldsRenderer } from './shared/FieldsRenderer'
@@ -17,7 +16,6 @@ const FILTERABLE_TYPES = ['select', 'status', 'text', 'title', 'number', 'date']
 
 export default function GenericListPage({ config, extraData }: Props) {
   const navigate = useNavigate()
-  const axisLock = useAxisLock<HTMLDivElement>({ threshold: 10 })
   const [query, setQuery] = useState('')
   const [data, setData] = useState<ListResponse | null>(null)
   const [loading, setLoading] = useState(true)
@@ -586,7 +584,7 @@ export default function GenericListPage({ config, extraData }: Props) {
           <BoardView items={items} config={config} navigate={navigate} groupBy={view === 'board' ? 'status' : 'contact_type'} />
         ) : (
           <>
-            <div ref={axisLock.ref} className="table-scroll" {...axisLock.handlers}>
+            <div className="table-scroll">
               <table>
               <thead>
                 <tr>
