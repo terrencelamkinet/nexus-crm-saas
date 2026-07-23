@@ -105,7 +105,7 @@ class ContactCreate(BaseModel):
     numbers: list[str] = []
     office_phone: Optional[str] = None
     namecard_path: Optional[str] = None
-    status: str = "lead"
+    status: Optional[str] = None
     source: Optional[str] = None
     owner_id: Optional[UUID] = None
 
