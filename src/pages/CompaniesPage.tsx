@@ -1,68 +1,194 @@
-import { Plus, Search, Building2 } from 'lucide-react';
+import { useState } from 'react';
+import { Plus, Search, Building2, X } from 'lucide-react';
+import { useApi, useSearch, useCreateModal, TableSkeleton, ErrorBox } from '../lib/useApi';
+import { apiClient } from '../lib/api';
 
-const companies = [
-  { name: 'Kinetix Systems', industry: 'IT Solutions', contacts: 12, deals: 3, value: '$1.2M', status: 'Active' },
-  { name: 'HCL Technologies', industry: 'IT Services', contacts: 8, deals: 5, value: '$2.1M', status: 'Active' },
-  { name: 'Digidations HK', industry: 'Digital Agency', contacts: 3, deals: 1, value: '$150K', status: 'Warm' },
-  { name: 'Wymax Technologies', industry: 'Networking', contacts: 2, deals: 0, value: '$0', status: 'New' },
-  { name: 'Kaspersky Lab', industry: 'Cybersecurity', contacts: 4, deals: 2, value: '$800K', status: 'Active' },
-];
+interface Company {
+  id: string;
+  name: string;
+  industry: string | null;
+  domain: string | null;
+  status: string;
+  created_at: string;
+}
+
+interface CompanyListResponse {
+  items: Company[];
+  total: number;
+  page: number;
+  page_size: number;
+}
+
+const statusColors: Record<string, string> = {
+  Active: 'badge-active',
+  '': 'badge-p3',
+};
+
+const defaultForm = { name: '', industry: '', domain: '', status: 'Active' };
 
 export default function CompaniesPage() {
+  const { query, setQuery, searchParams } = useSearch();
+  const { data, loading, error, refresh } = useApi<CompanyListResponse>(`/api/v1/crm/companies${searchParams}`);
+  const create = useCreateModal();
+  const [form, setForm] = useState(defaultForm);
+  const [saving, setSaving] = useState(false);
+
+  const handleCreate = async () => {
+    if (!form.name.trim()) return;
+    setSaving(true);
+    try {
+      await apiClient.post('/api/v1/crm/companies', {
+        name: form.name,
+        industry: form.industry || null,
+        domain: form.domain || null,
+        status: form.status === 'Active' ? 'active' : 'inactive',
+      });
+      setForm(defaultForm);
+      create.closeModal();
+      refresh();
+    } catch (e: any) {
+      alert(e.detail || e.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const items = data?.items ?? [];
+  const total = data?.total ?? 0;
+
   return (
-    <div className="p-6">
-      <div className="flex items-center justify-between mb-6">
+    <div className="main-content">
+      {/* Header */}
+      <div className="page-header">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Companies</h1>
-          <p className="text-sm text-slate-500 mt-1">48 companies</p>
+          <h1>Companies</h1>
+          <p>{total} companies</p>
         </div>
-        <button className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700">
-          <Plus className="w-4 h-4" /> New Company
-        </button>
+        <div className="header-actions">
+          <button
+            onClick={create.openModal}
+            className="btn-primary"
+          >
+            <Plus className="w-4 h-4" /> New Company
+          </button>
+        </div>
       </div>
-      <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
-        <div className="p-4 border-b border-slate-100">
-          <div className="flex items-center gap-2 flex-1 max-w-sm px-3 py-1.5 bg-slate-50 rounded-lg border border-slate-200">
-            <Search className="w-4 h-4 text-slate-400" />
-            <input type="text" placeholder="Search companies..." className="bg-transparent border-none outline-none text-sm w-full" />
+
+      {/* Table */}
+      <div className="data-table">
+        <div className="panel-head">
+          <div className="search-box">
+            <Search className="w-4 h-4" />
+            <input
+              type="text"
+              placeholder="Search companies..."
+              value={query}
+              onChange={e => setQuery(e.target.value)}
+            />
           </div>
         </div>
-        <table className="w-full">
-          <thead>
-            <tr className="text-xs text-slate-500 uppercase bg-slate-50">
-              <th className="text-left px-4 py-3 font-medium">Name</th>
-              <th className="text-left px-4 py-3 font-medium">Industry</th>
-              <th className="text-left px-4 py-3 font-medium hidden md:table-cell">Contacts</th>
-              <th className="text-left px-4 py-3 font-medium hidden md:table-cell">Active Deals</th>
-              <th className="text-left px-4 py-3 font-medium hidden lg:table-cell">Total Value</th>
-              <th className="text-left px-4 py-3 font-medium">Status</th>
-            </tr>
-          </thead>
-          <tbody>
-            {companies.map((c, i) => (
-              <tr key={i} className="border-t border-slate-100 hover:bg-slate-50 cursor-pointer">
-                <td className="px-4 py-3">
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-lg bg-purple-100 flex items-center justify-center"><Building2 className="w-4 h-4 text-purple-600" /></div>
-                    <span className="text-sm font-medium text-slate-900">{c.name}</span>
-                  </div>
-                </td>
-                <td className="px-4 py-3 text-sm text-slate-600">{c.industry}</td>
-                <td className="px-4 py-3 text-sm text-slate-600 hidden md:table-cell">{c.contacts}</td>
-                <td className="px-4 py-3 text-sm text-slate-600 hidden md:table-cell">{c.deals}</td>
-                <td className="px-4 py-3 text-sm text-slate-600 hidden lg:table-cell">{c.value}</td>
-                <td className="px-4 py-3">
-                  <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
-                    c.status === 'Active' ? 'bg-emerald-100 text-emerald-700' :
-                    c.status === 'Warm' ? 'bg-amber-100 text-amber-700' :
-                    'bg-blue-100 text-blue-700'
-                  }`}>{c.status}</span>
-                </td>
+
+        {loading ? (
+          <TableSkeleton rows={5} cols={6} />
+        ) : error ? (
+          <ErrorBox message={error} onRetry={refresh} />
+        ) : items.length === 0 ? (
+          <div className="p-8 text-center text-sm text-slate-400">No companies found</div>
+        ) : (
+          <table>
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Industry</th>
+                <th className="hidden md:table-cell">Domain</th>
+                <th>Status</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {items.map((c) => (
+                <tr key={c.id}>
+                  <td>
+                    <div className="row-name">
+                      <div className="list-icon">
+                        <Building2 className="w-4 h-4" />
+                      </div>
+                      <span>{c.name}</span>
+                    </div>
+                  </td>
+                  <td>{c.industry || '—'}</td>
+                  <td className="hidden md:table-cell">{c.domain || '—'}</td>
+                  <td>
+                    <span className={`badge ${statusColors[c.status] || 'badge-p3'}`}>
+                      {c.status || 'Active'}
+                    </span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
       </div>
+
+      {/* Create Modal */}
+      {create.open && (
+        <div className="modal-overlay">
+          <div className="modal">
+            <div className="modal-head">
+              <h2>New Company</h2>
+              <button onClick={create.closeModal} className="modal-x"><X className="w-5 h-5" /></button>
+            </div>
+            <div className="modal-body">
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Name *</label>
+                  <input
+                    type="text"
+                    value={form.name}
+                    onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
+                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-highlight focus:border-primary"
+                    placeholder="Company name"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Industry</label>
+                  <input
+                    type="text"
+                    value={form.industry}
+                    onChange={e => setForm(f => ({ ...f, industry: e.target.value }))}
+                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-highlight focus:border-primary"
+                    placeholder="e.g. IT Solutions"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Domain</label>
+                  <input
+                    type="text"
+                    value={form.domain}
+                    onChange={e => setForm(f => ({ ...f, domain: e.target.value }))}
+                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-highlight focus:border-primary"
+                    placeholder="e.g. kinetix.com"
+                  />
+                </div>
+              </div>
+            </div>
+            <div className="modal-foot">
+              <button
+                onClick={create.closeModal}
+                className="btn-secondary"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleCreate}
+                disabled={saving || !form.name.trim()}
+                className="btn-primary"
+              >
+                {saving ? 'Creating...' : 'Create'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

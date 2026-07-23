@@ -3,15 +3,19 @@ import Sidebar from './Sidebar';
 import Header from './Header';
 
 export default function Layout() {
+  const closeMobile = () => {
+    const shell = document.getElementById('appShell');
+    if (shell) shell.classList.remove('mobile-open');
+  };
+
   return (
-    <div className="flex h-screen overflow-hidden">
+    <div className="app-shell" id="appShell">
+      <div className="scrim" onClick={closeMobile}></div>
       <Sidebar />
-      <div className="flex-1 flex flex-col overflow-hidden">
-        <Header />
-        <main className="flex-1 overflow-y-auto bg-slate-50">
-          <Outlet />
-        </main>
-      </div>
+      <Header />
+      <main className="main-content">
+        <Outlet />
+      </main>
     </div>
   );
 }

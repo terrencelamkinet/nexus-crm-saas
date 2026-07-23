@@ -1,66 +1,279 @@
-import { Plus } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Plus, X } from 'lucide-react';
+import { apiClient } from '../lib/api';
+import { useCreateModal, ErrorBox } from '../lib/useApi';
 
-const stages = [
-  { name: 'Proposal', color: 'bg-blue-500', deals: [
-    { name: 'HKMA AppScan', company: 'Kinetix', amount: '$500K', prob: '85%', owner: 'Peter W' },
-    { name: 'Firewall Renewal', company: 'HCL', amount: '$350K', prob: '70%', owner: 'Mary C' },
-  ]},
-  { name: 'Negotiate', color: 'bg-amber-500', deals: [
-    { name: 'Network Upgrade', company: 'Kinetix', amount: '$1.2M', prob: '60%', owner: 'Peter W' },
-    { name: 'EDR Solution', company: 'Kaspersky', amount: '$800K', prob: '55%', owner: 'John L' },
-  ]},
-  { name: 'P.O.', color: 'bg-emerald-500', deals: [
-    { name: 'License Renewal', company: 'Digidations', amount: '$150K', prob: '95%', owner: 'Cathy C' },
-  ]},
-  { name: 'Delivery', color: 'bg-purple-500', deals: [
-    { name: 'Server Migration', company: 'HCL', amount: '$600K', prob: '90%', owner: 'Mary C' },
-  ]},
-];
+// ---------------------------------------------------------------------------
+// Types
+// ---------------------------------------------------------------------------
+
+interface Pipeline {
+  id: string;
+  name: string;
+}
+
+interface Stage {
+  id: string;
+  name: string;
+  probability: number;
+  order_index: number;
+}
+
+interface Deal {
+  id: string;
+  name: string;
+  amount: number | null;
+  probability: number;
+  stage_id: string;
+  company?: { id: string; name: string } | null;
+  contact?: { id: string; name: string } | null;
+  status: string;
+}
+
+// ---------------------------------------------------------------------------
+// Component
+// ---------------------------------------------------------------------------
 
 export default function DealsPage() {
-  return (
-    <div className="p-6">
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900">Deals Pipeline</h1>
-          <p className="text-sm text-slate-500 mt-1">14 active deals · $4.2M total</p>
+  const [pipelines, setPipelines] = useState<Pipeline[]>([]);
+  const [stages, setStages] = useState<Stage[]>([]);
+  const [deals, setDeals] = useState<Deal[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [pipelineId, setPipelineId] = useState<string | null>(null);
+  const create = useCreateModal();
+  const [form, setForm] = useState({ name: '', amount: '', company_id: '', contact_id: '', stage_id: '' });
+  const [saving, setSaving] = useState(false);
+  const [companies, setCompanies] = useState<{ id: string; name: string }[]>([]);
+
+  const fetchData = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      // 1. Fetch pipelines
+      const pipeRes = await apiClient.get<{ items: Pipeline[]; total: number }>('/api/v1/crm/deal-pipelines?page=1&page_size=10');
+      const pipes = pipeRes.items || [];
+      setPipelines(pipes);
+
+      if (pipes.length === 0) {
+        setStages([]);
+        setDeals([]);
+        setLoading(false);
+        return;
+      }
+
+      const pid = pipelineId || pipes[0].id;
+      setPipelineId(pid);
+
+      // 2. Fetch stages for selected pipeline
+      const stageRes = await apiClient.get<{ items: Stage[]; total: number }>(`/api/v1/crm/deal-stages?pipeline_id=${pid}&page=1&page_size=20`);
+      const stageList = (stageRes.items || []).sort((a: Stage, b: Stage) => a.order_index - b.order_index);
+      setStages(stageList);
+
+      // 3. Fetch deals
+      const dealRes = await apiClient.get<{ items: Deal[]; total: number }>('/api/v1/crm/deals?page=1&page_size=100');
+      setDeals(dealRes.items || []);
+
+      // 4. Fetch companies for dropdown
+      const compRes = await apiClient.get<{ items: { id: string; name: string }[]; total: number }>('/api/v1/crm/companies?page=1&page_size=50');
+      setCompanies(compRes.items || []);
+    } catch (e: any) {
+      setError(e.detail || e.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => { fetchData(); }, []);
+  useEffect(() => { if (pipelineId) fetchData(); }, [pipelineId]);
+
+  const dealsByStage: Record<string, Deal[]> = {};
+  stages.forEach(s => { dealsByStage[s.id] = []; });
+  deals.forEach(d => {
+    if (d.stage_id && dealsByStage[d.stage_id]) {
+      dealsByStage[d.stage_id].push(d);
+    }
+  });
+
+  const totalAmount = deals.reduce((sum, d) => sum + (d.amount || 0), 0);
+  const formatAmount = (n: number | null) => {
+    if (!n) return '$0';
+    if (n >= 1000000) return `$${(n / 1000000).toFixed(1)}M`;
+    if (n >= 1000) return `$${(n / 1000).toFixed(0)}K`;
+    return `$${n.toLocaleString()}`;
+  };
+
+  const handleCreate = async () => {
+    if (!form.name.trim() || !form.stage_id) return;
+    setSaving(true);
+    try {
+      await apiClient.post('/api/v1/crm/deals', {
+        name: form.name,
+        amount: form.amount ? parseFloat(form.amount) : null,
+        company_id: form.company_id || null,
+        contact_id: form.contact_id || null,
+        stage_id: form.stage_id,
+        pipeline_id: pipelineId,
+        status: 'open',
+      });
+      setForm({ name: '', amount: '', company_id: '', contact_id: '', stage_id: '' });
+      create.closeModal();
+      fetchData();
+    } catch (e: any) {
+      alert(e.detail || e.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="main-content">
+        <div className="animate-pulse space-y-4">
+          <div className="h-8 bg-slate-200 rounded w-48" />
+          <div className="kanban-board">
+            {[1,2,3,4].map(i => <div key={i} className="kanban-col" style={{ minHeight: 0 }} />)}
+          </div>
         </div>
-        <button className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700">
-          <Plus className="w-4 h-4" /> New Deal
-        </button>
       </div>
-      <div className="flex gap-4 overflow-x-auto pb-4">
-        {stages.map((stage) => (
-          <div key={stage.name} className="flex-shrink-0 w-72">
-            <div className="flex items-center gap-2 mb-3">
-              <div className={`w-3 h-3 rounded-full ${stage.color}`}></div>
-              <h3 className="text-sm font-semibold text-slate-700">{stage.name}</h3>
-              <span className="text-xs text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full ml-auto">{stage.deals.length}</span>
-            </div>
-            <div className="space-y-2">
-              {stage.deals.map((deal, i) => (
-                <div key={i} className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm hover:shadow-md transition-shadow cursor-pointer">
-                  <p className="text-sm font-semibold text-slate-900">{deal.name}</p>
-                  <p className="text-xs text-slate-500 mt-0.5">{deal.company}</p>
-                  <div className="flex items-center justify-between mt-3 pt-3 border-t border-slate-100">
-                    <span className="text-sm font-bold text-slate-900">{deal.amount}</span>
-                    <div className="flex items-center gap-2">
-                      <div className="w-16 h-1.5 bg-slate-200 rounded-full overflow-hidden">
-                        <div className={`h-full rounded-full ${stage.color}`} style={{ width: deal.prob }}></div>
-                      </div>
-                      <span className="text-xs text-slate-500">{deal.prob}</span>
-                    </div>
+    );
+  }
+
+  if (error) return <div className="main-content"><ErrorBox message={error} onRetry={fetchData} /></div>;
+
+  return (
+    <div className="main-content">
+      {/* Header */}
+      <div className="page-header">
+        <div>
+          <h1>Deals Pipeline</h1>
+          <p>
+            {deals.length} active deals · {formatAmount(totalAmount)} total
+          </p>
+        </div>
+        <div className="header-actions">
+          {pipelines.length > 1 && (
+            <select
+              value={pipelineId || ''}
+              onChange={e => setPipelineId(e.target.value)}
+              className="px-3 py-2 border border-slate-200 rounded-lg text-sm"
+            >
+              {pipelines.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+            </select>
+          )}
+          <button
+            onClick={() => {
+              if (stages.length > 0) setForm(f => ({ ...f, stage_id: stages[0].id }));
+              create.openModal();
+            }}
+            className="btn-primary"
+          >
+            <Plus className="w-4 h-4" /> New Deal
+          </button>
+        </div>
+      </div>
+
+      {/* Kanban Board */}
+      {stages.length === 0 ? (
+        <div className="text-center text-sm text-slate-400 py-12">No pipeline stages configured</div>
+      ) : (
+        <div className="kanban-scroll">
+          <div className="kanban-board">
+            {stages.map((stage) => {
+              const stageDeals = dealsByStage[stage.id] || [];
+              return (
+                <div key={stage.id} className="kanban-col">
+                  <div className="kanban-col-head">
+                    <span className="title">{stage.name}</span>
+                    <span className="count">{stageDeals.length}</span>
                   </div>
-                  <p className="text-xs text-slate-400 mt-2">{deal.owner}</p>
+                  <div>
+                    {stageDeals.length === 0 ? (
+                      <div className="p-4 text-center text-xs text-slate-400 border-2 border-dashed border-slate-200 rounded-xl">
+                        No deals
+                      </div>
+                    ) : (
+                      stageDeals.map((deal) => (
+                        <div key={deal.id} className="deal-card">
+                          <p className="name">{deal.name}</p>
+                          <p className="company">{deal.company?.name || '—'}</p>
+                          <div className="amt-row">
+                            <span className="amt">{formatAmount(deal.amount)}</span>
+                            <div className="flex items-center gap-2">
+                              <div className="w-16 h-1.5 bg-slate-200 rounded-full overflow-hidden">
+                                <div className="h-full rounded-full bg-blue-500" style={{ width: `${(deal.probability ?? 0)}%` }} />
+                              </div>
+                              <span className="text-xs text-slate-500">{(deal.probability ?? 0)}%</span>
+                            </div>
+                          </div>
+                          <div className="owner-row">
+                            <span className="text-xs text-slate-400">{deal.contact?.name || '—'}</span>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
                 </div>
-              ))}
-              <button className="w-full py-2 text-sm text-slate-400 hover:text-slate-600 border-2 border-dashed border-slate-200 rounded-xl hover:border-slate-300 transition-colors">
-                + Add deal
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Create Modal */}
+      {create.open && (
+        <div className="modal-overlay">
+          <div className="modal">
+            <div className="modal-head">
+              <h2>New Deal</h2>
+              <button onClick={create.closeModal} className="modal-x"><X className="w-5 h-5" /></button>
+            </div>
+            <div className="modal-body">
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Name *</label>
+                  <input type="text" value={form.name}
+                    onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
+                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-highlight focus:border-primary"
+                    placeholder="Deal name" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Amount</label>
+                  <input type="number" value={form.amount}
+                    onChange={e => setForm(f => ({ ...f, amount: e.target.value }))}
+                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-highlight focus:border-primary"
+                    placeholder="e.g. 500000" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Company</label>
+                  <select value={form.company_id}
+                    onChange={e => setForm(f => ({ ...f, company_id: e.target.value }))}
+                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm">
+                    <option value="">— None —</option>
+                    {companies.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Stage</label>
+                  <select value={form.stage_id}
+                    onChange={e => setForm(f => ({ ...f, stage_id: e.target.value }))}
+                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm">
+                    {stages.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                  </select>
+                </div>
+              </div>
+            </div>
+            <div className="modal-foot">
+              <button onClick={create.closeModal}
+                className="btn-secondary">Cancel</button>
+              <button onClick={handleCreate} disabled={saving || !form.name.trim()}
+                className="btn-primary">
+                {saving ? 'Creating...' : 'Create'}
               </button>
             </div>
           </div>
-        ))}
-      </div>
+        </div>
+      )}
     </div>
   );
 }

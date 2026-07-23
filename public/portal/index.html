@@ -9,7 +9,7 @@
 (function(){
   try {
     const auth = JSON.parse(localStorage.getItem('nexus_auth') || '{}');
-    if (!auth.token || !auth.expires || Date.now() >= auth.expires) {
+    if (!auth.access_token || !auth.expires || Date.now() >= auth.expires) {
       window.location.href = '/login/';
     }
   } catch(e) {
@@ -1315,6 +1315,14 @@ function showToast(type, message, actionLabel, actionFn){
   const timer=setTimeout(dismiss, 3200);
   function dismiss(){clearTimeout(timer);el.classList.remove('show');setTimeout(()=>el.remove(),200);}
 }
+
+// Auth guard
+(function() {
+  const auth = JSON.parse(localStorage.getItem('nexus_auth') || '{}');
+  if (!auth.access_token || !auth.expires || Date.now() > auth.expires) {
+    window.location.href = '/login/';
+  }
+})();
 </script>
 </body>
 </html>

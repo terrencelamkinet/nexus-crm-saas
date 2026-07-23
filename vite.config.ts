@@ -12,7 +12,27 @@ export default defineConfig({
       configureServer(server) {
         server.middlewares.use((req: any, res: any, next: any) => {
           const url = req.url || ''
-          
+
+          // Proxy /api/* to FastAPI auth backend
+          if (url.startsWith('/api/') || url.startsWith('/health')) {
+            const http = require('http')
+            const options = {
+              hostname: '127.0.0.1',
+              port: 8001,
+              path: url,
+              method: req.method,
+              headers: { ...req.headers, host: '127.0.0.1:8001' }
+            }
+            const proxyReq = http.request(options, (proxyRes: any) => {
+              res.writeHead(proxyRes.statusCode || 200, proxyRes.headers)
+              proxyRes.pipe(res)
+            })
+            proxyReq.on('error', () => { res.statusCode = 502; res.end('Bad Gateway') })
+            if (req.body) proxyReq.write(req.body)
+            req.pipe ? req.pipe(proxyReq) : proxyReq.end()
+            return
+          }
+
           // Handle design02 and design01 paths (backward compat)
           if (url === '/design02' || url.startsWith('/design02/') ||
               url === '/design01' || url.startsWith('/design01/')) {
@@ -46,7 +66,9 @@ export default defineConfig({
           if (urlPath === '/') {
             filePath = path.resolve(__dirname, 'public', 'index.html')
           } else if (urlPath === '/login' || urlPath === '/login/') {
-            filePath = path.resolve(__dirname, 'public', 'login', 'index.html')
+            // Redirect old login portal to new React SPA sign-in
+            res.writeHead(302, { 'Location': '/sign-in' })
+            return res.end()
           } else if (urlPath === '/portal' || urlPath === '/portal/') {
             filePath = path.resolve(__dirname, 'public', 'portal', 'index.html')
           } else if (urlPath.startsWith('/css/') || urlPath.startsWith('/js/') || urlPath.startsWith('/data/')) {

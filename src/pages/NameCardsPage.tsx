@@ -1,46 +1,65 @@
-import { Upload, ScanLine, CheckCircle } from 'lucide-react';
+import { ScanLine, CheckCircle } from 'lucide-react';
+import { useApi, CardSkeleton, ErrorBox } from '../lib/useApi';
 
-const cards = [
-  { name: 'Cathy Cheung', title: 'Director', company: 'Digidations HK', phone: '+852 9001 2345', email: 'cathy@digi.com', status: 'Saved' },
-  { name: 'Ken Lau', title: 'Sales Manager', company: 'Wymax Technologies', phone: '+852 8111 2222', email: 'ken@wymax.com', status: 'Saved' },
-  { name: 'Kirby Tsang', title: 'Engineer', company: 'Wymax Technologies', phone: '+852 8333 4444', email: 'kirby@wymax.com', status: 'Saved' },
-];
+interface NameCard {
+  id: string;
+  name: string;
+  title: string | null;
+  company: string | null;
+  phone: string | null;
+  email: string | null;
+  status: string;
+  created_at: string;
+}
+
+interface NameCardListResponse {
+  items: NameCard[];
+  total: number;
+}
 
 export default function NameCardsPage() {
+  const { data, loading, error, refresh } = useApi<NameCardListResponse>('/api/v1/crm/name-cards?page=1&page_size=50');
+
+  const items = data?.items ?? [];
+  const total = data?.total ?? 0;
+
   return (
-    <div className="p-6">
-      <div className="flex items-center justify-between mb-6">
+    <div className="main-content">
+      <div className="page-header">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">NameCard Scanner</h1>
-          <p className="text-sm text-slate-500 mt-1">3 cards scanned today</p>
+          <h1>NameCard Scanner</h1>
+          <p>{total} cards scanned</p>
         </div>
-        <button className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700">
-          <Upload className="w-4 h-4" /> Upload Card
-        </button>
       </div>
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {cards.map((card, i) => (
-          <div key={i} className="bg-white rounded-xl border border-slate-200 overflow-hidden">
-            <div className="h-36 bg-gradient-to-br from-slate-100 to-slate-200 flex items-center justify-center">
-              <ScanLine className="w-12 h-12 text-slate-300" />
-            </div>
-            <div className="p-4 space-y-1.5">
-              <div className="flex items-center justify-between">
-                <p className="text-sm font-semibold text-slate-900">{card.name}</p>
-                <CheckCircle className="w-4 h-4 text-emerald-500" />
+
+      {loading ? (
+        <CardSkeleton count={3} />
+      ) : error ? (
+        <ErrorBox message={error} onRetry={refresh} />
+      ) : items.length === 0 ? (
+        <div className="p-8 text-center text-sm" style={{color:'var(--color-text-faint)'}}>No name cards yet</div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {items.map((card) => (
+            <div key={card.id} className="panel">
+              <div className="h-36 flex items-center justify-center"
+                   style={{background:'var(--color-surface-dynamic)'}}>
+                <ScanLine className="w-12 h-12" style={{color:'var(--color-text-faint)'}} />
               </div>
-              <p className="text-xs text-slate-500">{card.title}</p>
-              <p className="text-xs text-blue-600 font-medium">{card.company}</p>
-              <p className="text-xs text-slate-500">{card.phone}</p>
-              <p className="text-xs text-slate-500">{card.email}</p>
-              <div className="flex gap-2 mt-3 pt-3 border-t border-slate-100">
-                <button className="flex-1 py-1.5 text-xs font-medium bg-blue-600 text-white rounded-lg hover:bg-blue-700">View</button>
-                <button className="flex-1 py-1.5 text-xs font-medium text-slate-600 border border-slate-200 rounded-lg hover:bg-slate-50">Re-scan</button>
+              <div className="p-4 space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <p className="list-title">{card.name}</p>
+                  <CheckCircle className="w-4 h-4" style={{color:'var(--color-success)'}} />
+                </div>
+                <p className="list-sub">{card.title || '—'}</p>
+                <p className="text-xs font-medium" style={{color:'var(--color-primary)'}}>{card.company || '—'}</p>
+                <p className="list-sub">{card.phone || '—'}</p>
+                <p className="list-sub">{card.email || '—'}</p>
               </div>
             </div>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

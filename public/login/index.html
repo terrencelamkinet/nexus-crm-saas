@@ -3,7 +3,8 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-<title>nexus-auth-portal</title>
+<title>NEXUS CRM</title>
+<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://api.fontshare.com/v2/css?f[]=general-sans@400,500,600,700&f[]=cabinet-grotesk@500,700,800&display=swap" rel="stylesheet">
@@ -11,7 +12,7 @@
 :root,[data-theme="light"]{
 --color-bg:#f7f6f2;--color-surface:#fbfaf7;--color-surface-2:#ffffff;--color-surface-offset:#f1eee8;--color-surface-offset-2:#e8e3db;--color-divider:#ddd8d0;--color-border:#d3cec6;
 --color-text:#23211d;--color-text-muted:#69655f;--color-text-faint:#9f9a92;--color-text-inverse:#f9f8f4;
---color-primary:#0e6b70;--color-primary-hover:#0b565a;--color-primary-active:#083f42;--color-primary-highlight:#d9e7e6;
+--color-primary:#00693E;--color-primary-hover:#005632;--color-primary-active:#004226;--color-primary-highlight:#d9e8de;
 --color-error:#ab4b59;--color-error-highlight:#f4e1e4;--color-success:#437a22;--color-success-highlight:#dce9d4;
 --radius-sm:.375rem;--radius-md:.625rem;--radius-lg:.95rem;--radius-xl:1.25rem;--radius-full:9999px;
 --shadow-sm:0 1px 2px oklch(0.2 0.01 80 / 0.05);--shadow-md:0 10px 30px oklch(0.2 0.01 80 / 0.08);--shadow-lg:0 24px 60px oklch(0.2 0.01 80 / 0.12);
@@ -23,7 +24,7 @@
 [data-theme="dark"]{
 --color-bg:#161512;--color-surface:#1c1b18;--color-surface-2:#22211e;--color-surface-offset:#25231f;--color-surface-offset-2:#2b2925;--color-divider:#2e2b26;--color-border:#3c3934;
 --color-text:#ece9e2;--color-text-muted:#aca59a;--color-text-faint:#736d63;--color-text-inverse:#201e19;
---color-primary:#59a8ad;--color-primary-hover:#448c91;--color-primary-active:#2f6d71;--color-primary-highlight:#263537;
+--color-primary:#4a9e6e;--color-primary-hover:#3a8a5c;--color-primary-active:#2b7249;--color-primary-highlight:#1c3324;
 --color-error:#d67c89;--color-error-highlight:#42282d;--color-success:#7eb45d;--color-success-highlight:#2d3925;
 --shadow-sm:0 1px 2px rgba(0,0,0,.22);--shadow-md:0 10px 30px rgba(0,0,0,.32);--shadow-lg:0 24px 60px rgba(0,0,0,.42);
 }
@@ -75,7 +76,7 @@ button,input{font:inherit}button{border:none;cursor:pointer}a{text-decoration:no
     <div>
       <div class="brand-top">
         <div class="brand-mark" aria-label="NEXUS logo">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 12 12 4l8 8M7 10v10h10V10"/><path d="M9 20v-6h6v6"/></svg>
+          <svg viewBox="0 0 28 28" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M4 24V4l10 16V4l10 16"/><path d="M24 20v4H4"/></svg>
           <span>NEXUS CRM</span>
         </div>
         <button class="theme-btn" data-theme-toggle aria-label="Switch theme">
@@ -226,6 +227,31 @@ button,input{font:inherit}button{border:none;cursor:pointer}a{text-decoration:no
             </div>
           </section>
 
+          <section class="page" data-page="mfa">
+            <div class="steps"><div class="step active"><span></span></div><div class="step"><span></span></div></div>
+            <form id="mfaForm">
+              <div class="form">
+                <div class="field" id="mfaCodeField">
+                  <label for="mfaCode">Verification code</label>
+                  <div class="input-wrap">
+                    <input class="input" id="mfaCode" type="text" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" placeholder="000000" autocomplete="one-time-code" required>
+                  </div>
+                  <span class="error">Enter the 6-digit code from your email.</span>
+                </div>
+                <div id="mfaNotice" class="notice"></div>
+                <div class="field">
+                  <label class="check" style="font-size:var(--text-sm)">
+                    <input type="checkbox" id="trustDevice">
+                    Trust this device for 30 days — no OTP needed
+                  </label>
+                </div>
+                <button class="btn btn-primary" type="submit" id="mfaSubmit"><span class="btn-label">Verify &amp; sign in</span></button>
+                <button class="btn btn-secondary" type="button" id="mfaResend"><span class="btn-label">Resend code</span></button>
+                <div class="switcher" style="text-align:center;margin-top:12px"><a href="#login" data-nav="login">Back to login</a></div>
+              </div>
+            </form>
+          </section>
+
           <p class="legal">By continuing, you acknowledge the workspace security rules and team access model for this CRM portal.</p>
         </div>
       </section>
@@ -238,7 +264,8 @@ const titles = {
   'signup': ['Create your account','Set up a workspace with Google or local credentials.'],
   'forgot': ['Reset your password','We will email you a secure link to create a new password.'],
   'reset-sent': ['Check your inbox','Use the reset link, then return here to sign in.'],
-  'welcome': ['Workspace created','Your account is ready and the onboarding loop is complete.']
+  'welcome': ['Workspace created','Your account is ready and the onboarding loop is complete.'],
+  'mfa': ['Check your email','We sent a verification code to your inbox.']
 };
 const pages = [...document.querySelectorAll('.page')];
 const titleEl = document.getElementById('pageTitle');
@@ -250,7 +277,7 @@ function showPage(name){
 }
 function navFromHash(){
   const key = (location.hash || '#login').replace('#','');
-  const allowed = ['login','signup','forgot','reset-sent','welcome'];
+  const allowed = ['login','signup','forgot','reset-sent','welcome','mfa'];
   showPage(allowed.includes(key) ? key : 'login');
 }
 window.addEventListener('hashchange', navFromHash);
@@ -281,62 +308,113 @@ document.querySelectorAll('[data-toggle-password]').forEach(btn=>{
   });
 });
 
-// SHA-256 hash of password "102834" (pre-computed for secure comparison)
-const STORED_HASH = '31151b7325d780b4e40c884ebf2c64f370147734a6b28b4c0ad3602096f1ae69';
-const VALID_USERNAME = 'Terrence.lam';
+// ===== NEXUS CRM Auth API Client =====
+const API_BASE = '/api/v1/auth';
+let currentEmail = '';
 
-async function sha256(message) {
-  const encoder = new TextEncoder();
-  const data = encoder.encode(message);
-  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
-  const hashArray = Array.from(new Uint8Array(hashBuffer));
-  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+async function apiCall(path, body) {
+  const res = await fetch(API_BASE + path, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body)
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.detail || 'Request failed');
+  return data;
 }
 
-function generateSessionToken() {
-  const arr = new Uint8Array(32);
-  crypto.getRandomValues(arr);
-  return Array.from(arr, b => b.toString(16).padStart(2, '0')).join('');
+function getDeviceToken() {
+  return localStorage.getItem('nexus_device_token') || null;
+}
+
+function storeSession(token, email, device_token) {
+  const auth = {
+    access_token: token,
+    email: email,
+    expires: Date.now() + 15 * 60 * 1000,
+    loginTime: new Date().toISOString()
+  };
+  localStorage.setItem('nexus_auth', JSON.stringify(auth));
+  if (device_token) {
+    localStorage.setItem('nexus_device_token', device_token);
+  }
 }
 
 function isAuthenticated() {
   const auth = JSON.parse(localStorage.getItem('nexus_auth') || '{}');
-  if (!auth.token || !auth.expires) return false;
+  if (!auth.access_token || !auth.expires) return false;
   return Date.now() < auth.expires;
 }
 
+// Login form
 document.getElementById('loginForm').addEventListener('submit', async e=>{
   e.preventDefault(); clearNotice('loginNotice');
   const email = document.getElementById('loginEmail').value.trim();
   const pw = document.getElementById('loginPassword').value;
-  const emailBad = !validateEmail(email) && email !== VALID_USERNAME;
+  const emailBad = !email.trim();
   const pwBad = !pw.trim();
   setInvalid('loginEmailField', emailBad); setInvalid('loginPasswordField', pwBad);
-  if(emailBad || pwBad){ setNotice('loginNotice','error','Please correct the highlighted fields and try again.'); return; }
-  
-  if (email !== VALID_USERNAME) {
-    setNotice('loginNotice','error','Invalid credentials. Please try again.');
+  if(emailBad || pwBad){ setNotice('loginNotice','error','Please enter your email and password.'); return; }
+
+  withLoading(document.getElementById('loginSubmit'), async done=>{
+    try {
+      const body = { email, password: pw };
+      const dt = getDeviceToken();
+      if (dt) body.device_token = dt;
+      const result = await apiCall('/login', body);
+      if (result.mfa_required) {
+        currentEmail = email;
+        done();
+        location.hash = 'mfa';
+      } else {
+        storeSession(result.access_token, email, result.device_token);
+        setNotice('loginNotice','success','Signed in successfully. Redirecting...');
+        done();
+        setTimeout(()=>{ window.location.href = '/portal/'; }, 600);
+      }
+    } catch (err) {
+      setNotice('loginNotice','error', err.message);
+      done();
+    }
+  });
+});
+
+// MFA form
+document.getElementById('mfaForm').addEventListener('submit', async e=>{
+  e.preventDefault(); clearNotice('mfaNotice');
+  const code = document.getElementById('mfaCode').value.trim();
+  if (code.length !== 6) {
+    setInvalid('mfaCodeField', true);
+    setNotice('mfaNotice','error','Please enter the full 6-digit code.');
     return;
   }
-  
-  withLoading(document.getElementById('loginSubmit'), async done=>{
-    const pwHash = await sha256(pw);
-    if (pwHash !== STORED_HASH) {
-      setNotice('loginNotice','error','Invalid credentials. Please try again.');
+  setInvalid('mfaCodeField', false);
+
+  withLoading(document.getElementById('mfaSubmit'), async done=>{
+    try {
+      const trustDevice = document.getElementById('trustDevice').checked;
+      const result = await apiCall('/verify-mfa', { email: currentEmail, otp_code: code, trust_device: trustDevice });
+      storeSession(result.access_token, currentEmail, result.device_token);
+      setNotice('mfaNotice','success','Verified! Redirecting to dashboard...');
       done();
-      return;
+      setTimeout(()=>{ window.location.href = '/portal/'; }, 600);
+    } catch (err) {
+      setNotice('mfaNotice','error', err.message);
+      done();
     }
-    // Authentication successful — store session
-    const auth = {
-      username: VALID_USERNAME,
-      token: generateSessionToken(),
-      expires: Date.now() + 24 * 60 * 60 * 1000, // 24 hours
-      loginTime: new Date().toISOString()
-    };
-    localStorage.setItem('nexus_auth', JSON.stringify(auth));
-    setNotice('loginNotice','success','Signed in successfully. Redirecting to dashboard...');
+  });
+});
+
+// Resend MFA code
+document.getElementById('mfaResend').addEventListener('click', async ()=>{
+  withLoading(document.getElementById('mfaResend'), async done=>{
+    try {
+      await apiCall('/send-mfa', { email: currentEmail });
+      setNotice('mfaNotice','success','New code sent to your email.');
+    } catch (err) {
+      setNotice('mfaNotice','error', err.message);
+    }
     done();
-    setTimeout(()=>{ window.location.href = '/portal/'; }, 600);
   });
 });
 
