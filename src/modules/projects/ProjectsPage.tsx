@@ -1,8 +1,9 @@
-import { useState } from 'react'
+import { lazy, useState } from 'react'
 import { CalendarDays, Table2 } from 'lucide-react'
 import GenericListPage from '../GenericListPage'
-import ProjectCalendarView from './ProjectCalendarView'
 import projectConfig from './config'
+
+const ProjectCalendarView = lazy(() => import('./ProjectCalendarView'))
 
 export default function ProjectsPage() {
   const [showCalendar, setShowCalendar] = useState(false)

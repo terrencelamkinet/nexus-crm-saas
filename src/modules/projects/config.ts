@@ -3,7 +3,9 @@
 //  ═══════════════════════════════════════════
 
 import type { ResourceConfig } from '../module-types'
-import ProjectDetailCalendar from './ProjectDetailCalendar'
+import { lazy } from 'react'
+
+const ProjectDetailCalendar = lazy(() => import('./ProjectDetailCalendar'))
 
 const projectConfig: ResourceConfig = {
   name: 'project',
