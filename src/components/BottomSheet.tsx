@@ -17,7 +17,7 @@ export default function BottomSheet({ open, onClose, title, children }: Props) {
     return () => { document.body.style.overflow = ''; };
   }, [open]);
 
-  // iOS keyboard: visualViewport + scroll lock
+  // iOS keyboard: visualViewport keeps sheet above keyboard
   useEffect(() => {
     if (!open) return;
     const el = sheetRef.current;
@@ -36,18 +36,8 @@ export default function BottomSheet({ open, onClose, title, children }: Props) {
       }
     };
 
-    // iOS scrolls page when input focused inside fixed element — undo it
-    const lockScroll = () => window.scrollTo(0, 0);
-
-    adjust();
     window.visualViewport?.addEventListener('resize', adjust);
-    document.addEventListener('focusin', lockScroll);
-    window.addEventListener('scroll', lockScroll);
-    return () => {
-      window.visualViewport?.removeEventListener('resize', adjust);
-      document.removeEventListener('focusin', lockScroll);
-      window.removeEventListener('scroll', lockScroll);
-    };
+    return () => window.visualViewport?.removeEventListener('resize', adjust);
   }, [open]);
 
   if (!open) return null;
