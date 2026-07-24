@@ -1054,7 +1054,8 @@ textarea.input-field{resize:vertical;min-height:60px}
 /* ── Quick-add form fields ── */
 .quick-field{margin-bottom:12px}
 .quick-field label{display:block;font-size:12px;font-weight:600;color:var(--color-text-muted);margin-bottom:4px}
-.quick-field input,.quick-field select,.quick-field textarea{width:100%;padding:8px 10px;border:1px solid var(--color-border);border-radius:var(--radius-md);font-size:13px;outline:none;background:var(--color-surface);color:var(--color-text);transition:border-color var(--transition-interactive)}
+.quick-field input,.quick-field select,.quick-field textarea{width:100%;padding:8px 10px;border:1px solid var(--color-border);border-radius:var(--radius-md);font-size:16px;outline:none;background:var(--color-surface);color:var(--color-text);transition:border-color var(--transition-interactive)}
+@media(min-width:768px){.quick-field input,.quick-field select,.quick-field textarea{font-size:13px}}
 .quick-field input:focus,.quick-field select:focus,.quick-field textarea:focus{border-color:var(--color-primary);box-shadow:0 0 0 3px var(--color-primary-highlight)}
 .quick-submit{width:100%;padding:10px;border:none;border-radius:var(--radius-md);font-size:14px;font-weight:600;background:var(--color-primary);color:#fff;cursor:pointer;transition:background .2s,opacity .15s;margin-top:4px}
 .quick-submit:active{transform:scale(.97)}

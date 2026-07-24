@@ -17,15 +17,16 @@ export default function BottomSheet({ open, onClose, title, children }: Props) {
     return () => { document.body.style.overflow = ''; };
   }, [open]);
 
-  // Fix iOS keyboard pushing fixed-position sheet out of view
+  // iOS keyboard: visualViewport + scroll lock
   useEffect(() => {
     if (!open) return;
     const el = sheetRef.current;
     if (!el) return;
-    const update = () => {
+
+    const adjust = () => {
       const vv = window.visualViewport;
       if (!vv) return;
-      const kh = window.innerHeight - vv.height; // keyboard height
+      const kh = window.innerHeight - vv.height;
       if (kh > 80) {
         el.style.bottom = kh + 'px';
         el.style.maxHeight = Math.min(vv.height * 0.8, window.innerHeight - kh) + 'px';
@@ -34,9 +35,19 @@ export default function BottomSheet({ open, onClose, title, children }: Props) {
         el.style.maxHeight = '';
       }
     };
-    update();
-    window.visualViewport?.addEventListener('resize', update);
-    return () => window.visualViewport?.removeEventListener('resize', update);
+
+    // iOS scrolls page when input focused inside fixed element — undo it
+    const lockScroll = () => window.scrollTo(0, 0);
+
+    adjust();
+    window.visualViewport?.addEventListener('resize', adjust);
+    document.addEventListener('focusin', lockScroll);
+    window.addEventListener('scroll', lockScroll);
+    return () => {
+      window.visualViewport?.removeEventListener('resize', adjust);
+      document.removeEventListener('focusin', lockScroll);
+      window.removeEventListener('scroll', lockScroll);
+    };
   }, [open]);
 
   if (!open) return null;
