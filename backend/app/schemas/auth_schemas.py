@@ -32,6 +32,13 @@ class RegisterRequest(BaseModel):
 class RefreshRequest(BaseModel):
     refresh_token: str
 
+class ForgotPasswordRequest(BaseModel):
+    email: str
+
+class ResetPasswordRequest(BaseModel):
+    token: str
+    password: str
+
 class UserOut(BaseModel):
     id: UUID
     email: str

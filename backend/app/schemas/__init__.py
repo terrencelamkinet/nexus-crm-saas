@@ -31,6 +31,8 @@ from app.schemas.auth_schemas import (
     MFASendRequest,
     TokenResponse,
     RefreshRequest,
+    ForgotPasswordRequest,
+    ResetPasswordRequest,
     UserOut,
 )
 
@@ -65,5 +67,7 @@ __all__ = [
     "MFASendRequest",
     "TokenResponse",
     "RefreshRequest",
+    "ForgotPasswordRequest",
+    "ResetPasswordRequest",
     "UserOut",
 ]

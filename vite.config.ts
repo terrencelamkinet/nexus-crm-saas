@@ -33,9 +33,11 @@ export default defineConfig({
             return
           }
 
-          // Handle design02 and design01 paths (backward compat)
+          // Handle design paths (static demo pages)
           if (url === '/design02' || url.startsWith('/design02/') ||
-              url === '/design01' || url.startsWith('/design01/')) {
+              url === '/design01' || url.startsWith('/design01/') ||
+              url === '/design03' || url.startsWith('/design03/') ||
+              url === '/design04' || url.startsWith('/design04/')) {
             const cleanPath = url.split('?')[0].replace(/\/+$/, '') || '/'
             let filePath = path.resolve(__dirname, 'public', cleanPath.slice(1))
             try {

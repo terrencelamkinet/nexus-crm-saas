@@ -3,6 +3,7 @@ import { Plus, Search, X, Trash2, Edit3, Filter, ArrowUpDown, LayoutGrid, Slider
 import { useNavigate } from 'react-router-dom';
 import { useApi, useSearch, useCreateModal, TableSkeleton, ErrorBox } from '../lib/useApi';
 import { apiClient } from '../lib/api';
+import EntitySearch from '../modules/shared/EntitySearch';
 
 interface Contact {
   id: string;
@@ -26,11 +27,6 @@ interface Contact {
   address?: string | null;
   notes?: string | null;
   tags?: string[];
-}
-
-interface Company {
-  id: string;
-  name: string;
 }
 
 interface ContactListResponse {
@@ -69,7 +65,6 @@ function formatDate(dateStr: string | null | undefined): string {
 interface FormFieldsProps {
   form: typeof defaultForm;
   setForm: React.Dispatch<React.SetStateAction<typeof defaultForm>>;
-  companies: Company[];
   inputCls: string;
 }
 
@@ -97,7 +92,7 @@ const CheckboxGroup = ({ label, options, selected, onChange }: {
   </div>
 );
 
-function ContactFormFields({ form, setForm, companies }: FormFieldsProps) {
+function ContactFormFields({ form, setForm, inputCls }: FormFieldsProps) {
   return (
     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
       {/* Name, Chinese Name */}
@@ -206,14 +201,17 @@ function ContactFormFields({ form, setForm, companies }: FormFieldsProps) {
           onChange={e => setForm(f => ({ ...f, address: e.target.value }))}
           className={inputCls} placeholder="Address" />
       </div>
+      {/* Company search */}
       <div className="form-field">
-        <label className="field-label">Company</label>
-        <select value={form.company_id}
-          onChange={e => setForm(f => ({ ...f, company_id: e.target.value }))}
-          className={inputCls}>
-          <option value="">— No company —</option>
-          {companies.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-        </select>
+        <EntitySearch
+          searchUrl="/api/v1/crm/companies"
+          value={form.company_id}
+          onChange={(id) => setForm(f => ({ ...f, company_id: id }))}
+          placeholder="Search companies..."
+          label="Company"
+          createLabel="Company"
+          createTitleField="name"
+        />
       </div>
 
       {/* Notes (full width) */}
@@ -232,13 +230,6 @@ export default function ContactsPage() {
   const { query, setQuery, debounced } = useSearch();
   const searchQs = debounced ? `?search=${encodeURIComponent(debounced)}&page_size=50` : '?page_size=50';
   const { data, loading, error, refresh } = useApi<ContactListResponse>(`/api/v1/crm/contacts${searchQs}`);
-
-  const [companies, setCompanies] = useState<Company[]>([]);
-  useEffect(() => {
-    apiClient.get<{ items: Company[] }>('/api/v1/crm/companies?page_size=100')
-      .then(r => setCompanies(r.items || []))
-      .catch(() => {});
-  }, []);
 
   const create = useCreateModal();
   const [editTarget, setEditTarget] = useState<Contact | null>(null);
@@ -505,8 +496,8 @@ export default function ContactsPage() {
               <h2>New Contact</h2>
               <button onClick={create.closeModal} className="modal-x"><X className="icon-16" /></button>
             </div>
-            <div className="modal-body form-body">
-              <ContactFormFields form={form} setForm={setForm} companies={companies} inputCls={inputCls} />
+            <div className="modal-body form-body" style={{ paddingBottom: 100 }}>
+              <ContactFormFields form={form} setForm={setForm} inputCls={inputCls} />
             </div>
             <div className="modal-foot">
               <button onClick={create.closeModal} className="btn-secondary">Cancel</button>
@@ -528,8 +519,8 @@ export default function ContactsPage() {
               <h2>Edit Contact</h2>
               <button onClick={() => setEditTarget(null)} className="modal-x"><X className="icon-16" /></button>
             </div>
-            <div className="modal-body form-body">
-              <ContactFormFields form={form} setForm={setForm} companies={companies} inputCls={inputCls} />
+            <div className="modal-body form-body" style={{ paddingBottom: 100 }}>
+              <ContactFormFields form={form} setForm={setForm} inputCls={inputCls} />
             </div>
             <div className="modal-foot">
               <button onClick={() => setEditTarget(null)} className="btn-secondary">Cancel</button>

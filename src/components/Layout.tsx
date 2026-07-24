@@ -6,6 +6,7 @@ export default function Layout() {
   const closeMobile = () => {
     const shell = document.getElementById('appShell');
     if (shell) shell.classList.remove('mobile-open');
+    window.dispatchEvent(new CustomEvent('close-mobile-menu'));
   };
 
   return (

@@ -711,7 +711,7 @@ export default function ContactDetailPage() {
                 {/* Right: Sales Summary */}
                 {salesOn && (
                 <div>
-                  <div className="panel" style={{ padding: '24px', background: 'var(--color-surface-offset)' }}>
+                  <div className="panel panel-detail" style={{ background: 'var(--color-surface-offset)' }}>
                     <h3 style={{ fontSize: '16px', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '8px' }}>
                       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg> Sales Summary
                     </h3>
@@ -761,7 +761,7 @@ export default function ContactDetailPage() {
               {timelineItems.length === 0 ? (
                 <div className="empty-state">No activity recorded yet</div>
               ) : (
-                <div className="timeline" style={{ padding: '16px' }}>
+                <div className="timeline timeline-panel">
                   {timelineItems.map(item => (
                     <div key={item.id} className="tl-item">
                       <div className="tl-dot">{item.emoji}</div>

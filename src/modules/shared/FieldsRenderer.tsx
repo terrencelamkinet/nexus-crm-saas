@@ -1,6 +1,7 @@
 import type { FieldConfig } from '../module-types'
 import { optionColorToClass } from '../module-types'
 import { formatDate, formatRelativeDate, formatAmount } from './field-utils'
+import EntitySearch from './EntitySearch'
 
 interface Props {
   field: FieldConfig
@@ -96,14 +97,14 @@ export function FieldsRenderer({ field, entity, form, onChange, editOpen, relati
   // Editable form inputs
   if (['select', 'status'].includes(field.type)) {
     return (
-      <div className="form-field">
-        {label}
-        <select value={value ?? ''} onChange={e => onChange?.(field.key, e.target.value)} className="input-field">
-          <option value="">— Select —</option>
+      <div className="floating-field">
+        <select value={value ?? ''} onChange={e => onChange?.(field.key, e.target.value)} className="input-field floating-select">
+          <option value=""></option>
           {field.options?.map(o => (
             <option key={o.value} value={o.value}>{o.label}</option>
           ))}
         </select>
+        <label className="floating-label">{field.label}{field.required ? ' *' : ''}</label>
       </div>
     )
   }
@@ -136,19 +137,19 @@ export function FieldsRenderer({ field, entity, form, onChange, editOpen, relati
   if (field.type === 'date') {
     const dateVal = value ? String(value).slice(0, 10) : ''
     return (
-      <div className="form-field">
-        {label}
-        <input type="date" value={dateVal} onChange={e => onChange?.(field.key, e.target.value)} className="input-field" />
+      <div className="floating-field">
+        <input type="date" value={dateVal} onChange={e => onChange?.(field.key, e.target.value)} className="input-field floating-input" placeholder={field.label} />
+        <label className="floating-label">{field.label}</label>
       </div>
     )
   }
 
   if (field.type === 'person') {
     return (
-      <div className="form-field">
-        {label}
+      <div className="floating-field">
         <input type="text" value={value ?? ''} onChange={e => onChange?.(field.key, e.target.value)}
-          className="input-field" placeholder="Person name or email" />
+          className="input-field floating-input" placeholder={field.label} />
+        <label className="floating-label">{field.label}</label>
       </div>
     )
   }
@@ -164,67 +165,78 @@ export function FieldsRenderer({ field, entity, form, onChange, editOpen, relati
   }
 
   if (field.type === 'relation') {
-    const relData = relationData?.[field.relation?.resource || ''] || []
+    const resource = field.relation?.resource || ''
+    const searchUrl = `/api/v1/crm/${resource}`
+    const currentVal = (typeof value === 'object' ? value?.id : value) ?? ''
+    const titleFields = ['tasks', 'touchpoints', 'notes', 'projects']
+    const createTitleField = titleFields.includes(resource) ? 'title' : 'name'
+    const createLabelMap: Record<string, string> = {
+      companies: 'Company', contacts: 'Contact', tasks: 'Task',
+      touchpoints: 'Touchpoint', notes: 'Note', projects: 'Project',
+    }
     return (
       <div className="form-field" style={field.gridColumn === 'full' ? { gridColumn: '1 / -1' } : {}}>
-        {label}
-        <select value={(typeof value === 'object' ? value?.id : value) ?? ''}
-          onChange={e => onChange?.(field.key, e.target.value)} className="input-field">
-          <option value="">— Select —</option>
-          {relData.map(r => (
-            <option key={r.id} value={r.id}>{r.name}</option>
-          ))}
-        </select>
+        <EntitySearch
+          searchUrl={searchUrl}
+          value={currentVal}
+          onChange={(id) => onChange?.(field.key, id)}
+          placeholder={`Search ${resource}...`}
+          label={field.label}
+          required={field.required}
+          displayField={field.relation?.displayField || 'name'}
+          createLabel={createLabelMap[resource] || 'Company'}
+          createTitleField={createTitleField}
+        />
       </div>
     )
   }
 
   if (field.type === 'email') {
     return (
-      <div className="form-field">
-        {label}
+      <div className="floating-field">
         <input type="email" value={value ?? ''} onChange={e => onChange?.(field.key, e.target.value)}
-          className="input-field" placeholder="email@example.com" />
+          className="input-field floating-input" placeholder={field.label} />
+        <label className="floating-label">{field.label}</label>
       </div>
     )
   }
 
   if (field.type === 'url') {
     return (
-      <div className="form-field">
-        {label}
+      <div className="floating-field">
         <input type="text" value={value ?? ''} onChange={e => onChange?.(field.key, e.target.value)}
-          className="input-field" placeholder="https://..." />
+          className="input-field floating-input" placeholder={field.label} />
+        <label className="floating-label">{field.label}</label>
       </div>
     )
   }
 
   if (field.type === 'number') {
     return (
-      <div className="form-field">
-        {label}
+      <div className="floating-field">
         <input type="number" value={value ?? ''} onChange={e => onChange?.(field.key, e.target.valueAsNumber ?? '')}
-          className="input-field" placeholder="0" />
+          className="input-field floating-input" placeholder={field.label} />
+        <label className="floating-label">{field.label}</label>
       </div>
     )
   }
 
   if (field.type === 'rich_text') {
     return (
-      <div className="form-field" style={field.gridColumn === 'full' ? { gridColumn: '1 / -1' } : {}}>
-        {label}
+      <div className="floating-field" style={field.gridColumn === 'full' ? { gridColumn: '1 / -1' } : {}}>
         <textarea value={value ?? ''} onChange={e => onChange?.(field.key, e.target.value)}
-          className="input-field" rows={3} />
+          className="input-field floating-input" rows={3} placeholder={field.label} />
+        <label className="floating-label">{field.label}</label>
       </div>
     )
   }
 
   // Default text input
   return (
-    <div className="form-field" style={field.gridColumn === 'full' ? { gridColumn: '1 / -1' } : {}}>
-      {label}
+    <div className="floating-field" style={field.gridColumn === 'full' ? { gridColumn: '1 / -1' } : {}}>
       <input type="text" value={value ?? ''} onChange={e => onChange?.(field.key, e.target.value)}
-        className="input-field" placeholder={field.label} />
+        className="input-field floating-input" placeholder={field.label} />
+      <label className="floating-label">{field.label}{field.required ? ' *' : ''}</label>
     </div>
   )
 }

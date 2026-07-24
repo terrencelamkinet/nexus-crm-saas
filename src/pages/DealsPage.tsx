@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Plus, X } from 'lucide-react';
 import { apiClient } from '../lib/api';
 import { useCreateModal, ErrorBox } from '../lib/useApi';
+import EntitySearch from '../modules/shared/EntitySearch';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -44,7 +45,6 @@ export default function DealsPage() {
   const create = useCreateModal();
   const [form, setForm] = useState({ name: '', amount: '', company_id: '', contact_id: '', stage_id: '' });
   const [saving, setSaving] = useState(false);
-  const [companies, setCompanies] = useState<{ id: string; name: string }[]>([]);
 
   const fetchData = async () => {
     setLoading(true);
@@ -73,10 +73,6 @@ export default function DealsPage() {
       // 3. Fetch deals
       const dealRes = await apiClient.get<{ items: Deal[]; total: number }>('/api/v1/crm/deals?page=1&page_size=100');
       setDeals(dealRes.items || []);
-
-      // 4. Fetch companies for dropdown
-      const compRes = await apiClient.get<{ items: { id: string; name: string }[]; total: number }>('/api/v1/crm/companies?page=1&page_size=50');
-      setCompanies(compRes.items || []);
     } catch (e: any) {
       setError(e.detail || e.message);
     } finally {
@@ -228,7 +224,7 @@ export default function DealsPage() {
               <h2>New Deal</h2>
               <button onClick={create.closeModal} className="modal-x"><X className="w-5 h-5" /></button>
             </div>
-            <div className="modal-body">
+            <div className="modal-body" style={{ paddingBottom: 100 }}>
               <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1">Name *</label>
@@ -245,13 +241,15 @@ export default function DealsPage() {
                     placeholder="e.g. 500000" />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Company</label>
-                  <select value={form.company_id}
-                    onChange={e => setForm(f => ({ ...f, company_id: e.target.value }))}
-                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm">
-                    <option value="">— None —</option>
-                    {companies.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                  </select>
+                  <EntitySearch
+                    searchUrl="/api/v1/crm/companies"
+                    value={form.company_id}
+                    onChange={(id) => setForm(f => ({ ...f, company_id: id }))}
+                    placeholder="Search companies..."
+                    label="Company"
+                    createLabel="Company"
+                    createTitleField="name"
+                  />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1">Stage</label>

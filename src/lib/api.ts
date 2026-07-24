@@ -215,6 +215,39 @@ export async function login(email: string, password: string): Promise<LoginRespo
   return body;
 }
 
+export async function signup(email: string, password: string, display_name: string): Promise<LoginResponse> {
+  const res = await fetch(`${API_BASE}/api/v1/auth/register`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, password, display_name }),
+  });
+  const body = await res.json();
+  if (!res.ok) throw new ApiError(res.status, body);
+  return body;
+}
+
+export async function forgotPassword(email: string): Promise<{ message: string }> {
+  const res = await fetch(`${API_BASE}/api/v1/auth/forgot-password`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email }),
+  });
+  const body = await res.json();
+  if (!res.ok) throw new ApiError(res.status, body);
+  return body;
+}
+
+export async function resetPassword(token: string, password: string): Promise<{ message: string }> {
+  const res = await fetch(`${API_BASE}/api/v1/auth/reset-password`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ token, password }),
+  });
+  const body = await res.json();
+  if (!res.ok) throw new ApiError(res.status, body);
+  return body;
+}
+
 export async function sendMfa(email: string): Promise<void> {
   await api('/api/v1/auth/send-mfa', {
     method: 'POST',

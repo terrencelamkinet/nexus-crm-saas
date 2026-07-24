@@ -16,6 +16,7 @@ import TouchpointsPage from './modules/touchpoints/TouchpointsPage';
 import TouchpointDetailPage from './modules/touchpoints/TouchpointDetailPage';
 import NameCardsPage from './pages/NameCardsPage';
 import SettingsPage from './pages/SettingsPage';
+import NotificationsPage from './pages/NotificationsPage';
 import SalesGate from './components/SalesGate';
 import ProjectGate from './components/ProjectGate';
 
@@ -68,6 +69,7 @@ function App() {
             </div>
           } />
           <Route path="settings" element={<SettingsPage />} />
+          <Route path="notifications" element={<NotificationsPage />} />
         </Route>
 
         {/* Catch-all → redirect to dashboard */}

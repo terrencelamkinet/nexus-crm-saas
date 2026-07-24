@@ -65,6 +65,17 @@ def create_refresh_token(subject: str) -> tuple[str, datetime]:
     token = jwt.encode(payload, _load_private_key(), algorithm=settings.jwt_algorithm)
     return token, expire
 
+def create_reset_token(email: str) -> tuple[str, datetime]:
+    expire = datetime.now(timezone.utc) + timedelta(minutes=15)
+    payload = {
+        "sub": email,
+        "exp": expire,
+        "iat": datetime.now(timezone.utc),
+        "type": "reset"
+    }
+    token = jwt.encode(payload, _load_private_key(), algorithm=settings.jwt_algorithm)
+    return token, expire
+
 def decode_token(token: str) -> dict | None:
     try:
         payload = jwt.decode(token, _load_public_key(), algorithms=[settings.jwt_algorithm])

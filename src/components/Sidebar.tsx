@@ -1,9 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { NavLink } from 'react-router-dom';
-import {
-  LayoutDashboard, Users, Building2, TrendingUp,
+import { LayoutDashboard, Users, Building2, TrendingUp,
   CheckSquare, Activity, ScanLine, Settings, BarChart3,
-  Sparkles, UserCog, FolderKanban,
+  Sparkles, UserCog, FolderKanban, Bell,
 } from 'lucide-react';
 import { apiClient } from '../lib/api';
 
@@ -11,6 +10,12 @@ export interface ModuleSetting {
   module_key: string;
   enabled: boolean;
 }
+
+const closeMobileMenu = () => {
+  const shell = document.getElementById('appShell');
+  if (shell) shell.classList.remove('mobile-open');
+  window.dispatchEvent(new CustomEvent('close-mobile-menu'));
+};
 
 const workspaceItems = [
   { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -68,26 +73,30 @@ export default function Sidebar() {
       <nav className="sidebar-nav">
         <p className="nav-section-label">Workspace</p>
         {workspaceItems.map(item => isVisible(item) && (
-          <NavLink key={item.to} to={item.to} className={({ isActive }) => `nav-item${isActive ? ' active' : ''}`}>
+          <NavLink key={item.to} to={item.to} onClick={closeMobileMenu} className={({ isActive }) => `nav-item${isActive ? ' active' : ''}`}>
             <item.icon />
             <span>{item.label}</span>
           </NavLink>
         ))}
         <p className="nav-section-label" style={{ marginTop: 'var(--space-4)' }}>Records</p>
         {secondaryItems.map(item => (
-          <NavLink key={item.to} to={item.to} className={({ isActive }) => `nav-item${isActive ? ' active' : ''}`}>
+          <NavLink key={item.to} to={item.to} onClick={closeMobileMenu} className={({ isActive }) => `nav-item${isActive ? ' active' : ''}`}>
             <item.icon />
             <span>{item.label}</span>
           </NavLink>
         ))}
         <p className="nav-section-label" style={{ marginTop: 'var(--space-4)' }}>Organization</p>
         {orgItems.map(item => (
-          <NavLink key={item.to} to={item.to} className={({ isActive }) => `nav-item${isActive ? ' active' : ''}`}>
+          <NavLink key={item.to} to={item.to} onClick={closeMobileMenu} className={({ isActive }) => `nav-item${isActive ? ' active' : ''}`}>
             <item.icon />
             <span>{item.label}</span>
           </NavLink>
         ))}
-        <NavLink to="/settings" className={({ isActive }) => `nav-item${isActive ? ' active' : ''}`}
+        <NavLink to="/notifications" onClick={closeMobileMenu} className={({ isActive }) => `nav-item${isActive ? ' active' : ''}`}>
+          <Bell />
+          <span>Notifications</span>
+        </NavLink>
+        <NavLink to="/settings" onClick={closeMobileMenu} className={({ isActive }) => `nav-item${isActive ? ' active' : ''}`}
           style={{ marginTop: 'var(--space-4)' }}>
           <Settings />
           <span>Settings</span>

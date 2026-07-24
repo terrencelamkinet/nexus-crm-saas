@@ -1,20 +1,32 @@
 import { useState, useRef, useEffect, type FormEvent } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../lib/AuthContext';
+import { signup, forgotPassword, resetPassword, storeAuth } from '../lib/api';
 
 export default function LoginPage() {
   const { login, verifyMfa, sendMfaCode, mfaEmail } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
 
-  const [step, setStep] = useState<'login' | 'mfa'>('login');
+  const [step, setStep] = useState<'login' | 'mfa' | 'register' | 'forgot' | 'reset'>('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [displayName, setDisplayName] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [otp, setOtp] = useState(['', '', '', '', '', '']);
   const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
-  const [resendMsg, setResendMsg] = useState('');
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
   const otpRefs = useRef<(HTMLInputElement | null)[]>([]);
+
+  // Detect reset_token from URL
+  const resetToken = searchParams.get('reset_token');
+  useEffect(() => {
+    if (resetToken) {
+      setStep('reset');
+    }
+  }, [resetToken]);
 
   useEffect(() => {
     const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
@@ -46,6 +58,83 @@ export default function LoginPage() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleRegister = async (e: FormEvent) => {
+    e.preventDefault();
+    setError('');
+    if (password !== confirmPassword) {
+      setError('Passwords do not match');
+      return;
+    }
+    if (password.length < 6) {
+      setError('Password must be at least 6 characters');
+      return;
+    }
+    setLoading(true);
+    try {
+      const res = await signup(email, password, displayName);
+      storeAuth(res.access_token, email, res.refresh_token);
+      navigate('/dashboard', { replace: true });
+    } catch (err: any) {
+      setError(err?.detail || err?.message || 'Registration failed');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleForgotPassword = async (e: FormEvent) => {
+    e.preventDefault();
+    setError('');
+    setSuccess('');
+    setLoading(true);
+    try {
+      const res = await forgotPassword(email);
+      setSuccess(res.message || 'Reset link sent! Check your email.');
+    } catch (err: any) {
+      setError(err?.detail || err?.message || 'Failed to send reset email');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleResetPassword = async (e: FormEvent) => {
+    e.preventDefault();
+    setError('');
+    if (password !== confirmPassword) {
+      setError('Passwords do not match');
+      return;
+    }
+    if (password.length < 6) {
+      setError('Password must be at least 6 characters');
+      return;
+    }
+    if (!resetToken) {
+      setError('Invalid reset token');
+      return;
+    }
+    setLoading(true);
+    try {
+      await resetPassword(resetToken, password);
+      setSuccess('Password reset successfully! Redirecting to login...');
+      setTimeout(() => {
+        setStep('login');
+        setSuccess('');
+      }, 2000);
+    } catch (err: any) {
+      setError(err?.detail || err?.message || 'Failed to reset password');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const goTo = (s: typeof step) => {
+    setStep(s);
+    setError('');
+    setSuccess('');
+    setPassword('');
+    setConfirmPassword('');
+    setDisplayName('');
   };
 
   const handleOtpChange = (index: number, value: string) => {
@@ -82,11 +171,10 @@ export default function LoginPage() {
   };
 
   const handleResend = async () => {
-    setResendMsg('');
     try {
       await sendMfaCode();
-      setResendMsg('Code resent!');
-      setTimeout(() => setResendMsg(''), 3000);
+      setSuccess('Code resent!');
+      setTimeout(() => setSuccess(''), 3000);
     } catch (err: any) {
       setError(err?.detail || 'Failed to resend');
     }
@@ -155,13 +243,18 @@ export default function LoginPage() {
             <section className="auth-card" aria-live="polite">
               <div className="auth-head">
                 <h2 id="pageTitle">
-                  {step === 'login' ? 'Welcome back' : 'Check your email'}
+                  {step === 'login' && 'Welcome back'}
+                  {step === 'register' && 'Create account'}
+                  {step === 'forgot' && 'Reset password'}
+                  {step === 'reset' && 'Set new password'}
+                  {step === 'mfa' && 'Check your email'}
                 </h2>
                 <p id="pageSubtitle">
-                  {step === 'login'
-                    ? 'Sign in to continue to your team workspace.'
-                    : <>We sent a verification code to <strong>{mfaEmail}</strong>.</>
-                  }
+                  {step === 'login' && 'Sign in to continue to your team workspace.'}
+                  {step === 'register' && 'Enter your details to get started.'}
+                  {step === 'forgot' && "Enter your email and we'll send you a reset link."}
+                  {step === 'reset' && 'Choose a new password for your account.'}
+                  {step === 'mfa' && <>We sent a verification code to <strong>{mfaEmail}</strong>.</>}
                 </p>
               </div>
               <div className="auth-body">
@@ -170,6 +263,7 @@ export default function LoginPage() {
                 {step === 'login' && (
                   <section className="page active" data-page="login">
                     <div className={`notice error ${error ? 'show' : ''}`}>{error}</div>
+                    <div className={`notice success ${success ? 'show' : ''}`}>{success}</div>
                     <button className="btn btn-secondary google-btn" type="button">
                       <span className="gmark" aria-hidden="true"></span>
                       <span className="btn-label">Continue with Google</span>
@@ -222,8 +316,171 @@ export default function LoginPage() {
                         </span>
                       </button>
                     </form>
+                    <div className="switcher">
+                      <a href="#register" onClick={e => { e.preventDefault(); goTo('register'); }}>
+                        Don't have an account? Sign up
+                      </a>
+                      <span style={{ margin: '0 8px', color: 'var(--color-text-faint)' }}>·</span>
+                      <a href="#forgot" onClick={e => { e.preventDefault(); goTo('forgot'); }}>
+                        Forgot password?
+                      </a>
+                    </div>
                     <div className="panel-note">
                       Use Google when your workspace email matches your Google account. Use email login when your team manages local credentials.
+                    </div>
+                  </section>
+                )}
+
+                {/* ──── REGISTER ──── */}
+                {step === 'register' && (
+                  <section className="page active" data-page="register">
+                    <div className={`notice error ${error ? 'show' : ''}`}>{error}</div>
+                    <form className="form" onSubmit={handleRegister} noValidate>
+                      <div className="field">
+                        <label htmlFor="regName">Full name</label>
+                        <input
+                          className="input"
+                          id="regName"
+                          type="text"
+                          autoComplete="name"
+                          placeholder="Your name"
+                          value={displayName}
+                          onChange={e => setDisplayName(e.target.value)}
+                          autoFocus
+                        />
+                      </div>
+                      <div className="field">
+                        <label htmlFor="regEmail">Work email</label>
+                        <input
+                          className="input"
+                          id="regEmail"
+                          type="email"
+                          inputMode="email"
+                          autoComplete="email"
+                          placeholder="name@company.com"
+                          value={email}
+                          onChange={e => setEmail(e.target.value)}
+                          required
+                        />
+                      </div>
+                      <div className="field">
+                        <label htmlFor="regPassword">Password</label>
+                        <input
+                          className="input"
+                          id="regPassword"
+                          type="password"
+                          autoComplete="new-password"
+                          placeholder="At least 6 characters"
+                          value={password}
+                          onChange={e => setPassword(e.target.value)}
+                          required
+                        />
+                      </div>
+                      <div className="field">
+                        <label htmlFor="regConfirm">Confirm password</label>
+                        <input
+                          className="input"
+                          id="regConfirm"
+                          type="password"
+                          autoComplete="new-password"
+                          placeholder="Repeat your password"
+                          value={confirmPassword}
+                          onChange={e => setConfirmPassword(e.target.value)}
+                          required
+                        />
+                      </div>
+                      <button className="btn btn-primary" type="submit" disabled={loading}>
+                        <span className="btn-label">
+                          {loading ? <><span className="spinner"></span> Creating account...</> : 'Create account'}
+                        </span>
+                      </button>
+                    </form>
+                    <div className="switcher">
+                      <a href="#login" onClick={e => { e.preventDefault(); goTo('login'); }}>
+                        Already have an account? Sign in
+                      </a>
+                    </div>
+                  </section>
+                )}
+
+                {/* ──── FORGOT PASSWORD ──── */}
+                {step === 'forgot' && (
+                  <section className="page active" data-page="forgot">
+                    <div className={`notice error ${error ? 'show' : ''}`}>{error}</div>
+                    <div className={`notice success ${success ? 'show' : ''}`}>{success}</div>
+                    <form className="form" onSubmit={handleForgotPassword} noValidate>
+                      <div className="field">
+                        <label htmlFor="forgotEmail">Work email</label>
+                        <input
+                          className="input"
+                          id="forgotEmail"
+                          type="email"
+                          inputMode="email"
+                          autoComplete="email"
+                          placeholder="name@company.com"
+                          value={email}
+                          onChange={e => setEmail(e.target.value)}
+                          required
+                          autoFocus
+                        />
+                      </div>
+                      <button className="btn btn-primary" type="submit" disabled={loading}>
+                        <span className="btn-label">
+                          {loading ? <><span className="spinner"></span> Sending...</> : 'Send reset link'}
+                        </span>
+                      </button>
+                    </form>
+                    <div className="switcher">
+                      <a href="#login" onClick={e => { e.preventDefault(); goTo('login'); }}>
+                        Back to login
+                      </a>
+                    </div>
+                  </section>
+                )}
+
+                {/* ──── RESET PASSWORD ──── */}
+                {step === 'reset' && (
+                  <section className="page active" data-page="reset">
+                    <div className={`notice error ${error ? 'show' : ''}`}>{error}</div>
+                    <div className={`notice success ${success ? 'show' : ''}`}>{success}</div>
+                    <form className="form" onSubmit={handleResetPassword} noValidate>
+                      <div className="field">
+                        <label htmlFor="resetPassword">New password</label>
+                        <input
+                          className="input"
+                          id="resetPassword"
+                          type="password"
+                          autoComplete="new-password"
+                          placeholder="At least 6 characters"
+                          value={password}
+                          onChange={e => setPassword(e.target.value)}
+                          required
+                          autoFocus
+                        />
+                      </div>
+                      <div className="field">
+                        <label htmlFor="resetConfirm">Confirm new password</label>
+                        <input
+                          className="input"
+                          id="resetConfirm"
+                          type="password"
+                          autoComplete="new-password"
+                          placeholder="Repeat your new password"
+                          value={confirmPassword}
+                          onChange={e => setConfirmPassword(e.target.value)}
+                          required
+                        />
+                      </div>
+                      <button className="btn btn-primary" type="submit" disabled={loading}>
+                        <span className="btn-label">
+                          {loading ? <><span className="spinner"></span> Resetting...</> : 'Reset password'}
+                        </span>
+                      </button>
+                    </form>
+                    <div className="switcher">
+                      <a href="#login" onClick={e => { e.preventDefault(); goTo('login'); }}>
+                        Back to login
+                      </a>
                     </div>
                   </section>
                 )}
@@ -236,7 +493,7 @@ export default function LoginPage() {
                       <div className="step"><span></span></div>
                     </div>
                     <div className={`notice error ${error ? 'show' : ''}`}>{error}</div>
-                    <div className={`notice success ${resendMsg ? 'show' : ''}`}>{resendMsg}</div>
+                    <div className={`notice success ${success ? 'show' : ''}`}>{success}</div>
                     <form id="mfaForm" onSubmit={e => { e.preventDefault(); handleVerifyMfa(); }}>
                       <div className="form">
                         <div className="field">

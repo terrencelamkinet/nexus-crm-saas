@@ -30,12 +30,12 @@ const touchpointConfig: ResourceConfig = {
     { key: 'location',       label: 'Location',     type: 'text',     visibleByDefault: false },
     { key: 'contact_id',     label: 'Contact',      type: 'relation', sortable: false, filterable: true,
       relation: { resource: 'contacts', multiple: false, displayField: 'name' } },
-    { key: 'company_id',     label: 'Company',      type: 'relation', sortable: false, filterable: true,
+    { key: 'company',        label: 'Company',      type: 'relation', sortable: false, filterable: true,
       relation: { resource: 'companies', multiple: false, displayField: 'name' } },
     { key: 'created_at',     label: 'Created',      type: 'created_time', sortable: true, visibleByDefault: true },
   ],
 
-  listColumns: ['title', 'type', 'date', 'contact_id', 'company_id', 'created_at'],
+  listColumns: ['title', 'type', 'date', 'contact_id', 'company', 'created_at'],
   defaultSort: [{ field: 'date', direction: 'desc' }],
   defaultView: 'table',
   allowedBulkActions: ['update', 'archive', 'export'],
@@ -47,7 +47,7 @@ const touchpointConfig: ResourceConfig = {
   detailTabs: [
     { id: 'details', label: 'Details', fields: [
       'title', 'type', 'description', 'date', 'duration_minutes',
-      'location', 'contact_id', 'company_id', 'created_at',
+      'location', 'contact_id', 'company', 'created_at',
     ]},
     { id: 'timeline', label: 'Timeline' },
   ],

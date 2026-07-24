@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, Suspense } from 'react'
 import { useParams, useNavigate, useLocation, Link } from 'react-router-dom'
 import { ArrowLeft, Phone, Mail, Building2, Edit3, Trash2, User, Clock } from 'lucide-react'
 import { apiClient } from '../lib/api'
@@ -258,7 +258,11 @@ export default function GenericDetailPage({ config, tabRenderers, extraData }: P
                 }
                 const CustomRenderer = t.render || tabRenderers?.[t.id]
                 if (CustomRenderer) {
-                  return <CustomRenderer key={t.id} entity={entity} moduleConfig={config} refresh={fetchEntity} />
+                  return (
+                    <Suspense key={t.id} fallback={<div className="panel"><div className="panel-head"><h3>{t.label}</h3></div><div className="empty-state">Loading {t.label.toLowerCase()}...</div></div>}>
+                      <CustomRenderer entity={entity} moduleConfig={config} refresh={fetchEntity} />
+                    </Suspense>
+                  )
                 }
                 return (
                   <div className="panel" key={t.id}>
@@ -298,7 +302,11 @@ export default function GenericDetailPage({ config, tabRenderers, extraData }: P
                 if (tab === t.id) {
                   const CustomRenderer = t.render || tabRenderers?.[t.id]
                   if (CustomRenderer) {
-                    return <CustomRenderer key={t.id} entity={entity} moduleConfig={config} refresh={fetchEntity} />
+                    return (
+                      <Suspense key={t.id} fallback={<div className="panel"><div className="panel-head"><h3>{t.label}</h3></div><div className="empty-state">Loading {t.label.toLowerCase()}...</div></div>}>
+                        <CustomRenderer entity={entity} moduleConfig={config} refresh={fetchEntity} />
+                      </Suspense>
+                    )
                   }
                   return (
                     <div className="panel" key={t.id}>
@@ -338,7 +346,9 @@ export default function GenericDetailPage({ config, tabRenderers, extraData }: P
               return (
                 <MobileSection key={t.id} label={t.label.toLowerCase()} total={0}
                   onViewAll={() => setShowFullTab(t.id)}>
-                  <CustomRenderer entity={entity} moduleConfig={config} refresh={fetchEntity} />
+                  <Suspense fallback={<div className="empty-state">Loading {t.label.toLowerCase()}...</div>}>
+                    <CustomRenderer entity={entity} moduleConfig={config} refresh={fetchEntity} />
+                  </Suspense>
                 </MobileSection>
               )
             }

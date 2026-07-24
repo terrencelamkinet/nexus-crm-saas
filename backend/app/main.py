@@ -6,6 +6,8 @@ from app.db import engine, Base
 from app.models import User, Session, Tenant, TenantMember  # Register all models
 from app.models.crm import Company, Contact, Touchpoint, Task, NameCard, Note, ActivityLog, Tag  # Register CRM models
 from app.models.crm_module_b import DealPipeline, DealStage, Deal, Product, DealLineItem, Quote, QuoteItem, SalesReport, ModuleSetting  # Register Module B models
+from app.models.notification import Notification, NotificationPreference  # Register Notification models
+from app.models.dashboard_layout import DashboardLayout  # Register Dashboard layout model
 from app.middleware.tenant import TenantMiddleware
 
 @asynccontextmanager
@@ -38,10 +40,14 @@ from app.routers import crm
 from app.routers import crm_module_b
 from app.routers import crm_module_settings
 from app.routers import crm_module_c
+from app.routers import crm_notifications
+from app.routers import dashboard_layout
 app.include_router(auth.router)
 app.include_router(crm.router)
 app.include_router(crm_module_b.router)
 app.include_router(crm_module_settings.router)
+app.include_router(crm_notifications.router)
+app.include_router(dashboard_layout.router)
 app.include_router(crm_module_c.router)
 
 @app.get("/health")

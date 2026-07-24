@@ -19,7 +19,7 @@ from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy import func, select, or_
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import ColumnProperty
+from sqlalchemy.orm import ColumnProperty, selectinload
 
 from app.db import get_tenant_session
 from app.models.crm import (
@@ -310,10 +310,17 @@ async def list_contacts(
     if sort_col is None or not isinstance(sort_col.property, ColumnProperty):
         sort_col = Contact.created_at
     order = sort_col.asc() if sort_order == "asc" else sort_col.desc()
-    items_q = base.order_by(order).offset(offset).limit(limit)
+    items_q = base.options(selectinload(Contact.company)).order_by(order).offset(offset).limit(limit)
     rows = (await db.execute(items_q)).scalars().all()
 
-    return ListResponse(items=list(rows), total=total)
+    # Build response with resolved company names
+    items = []
+    for c in rows:
+        d = {col.name: getattr(c, col.name) for col in c.__table__.columns}
+        d['company'] = {"id": str(c.company.id), "name": c.company.name} if c.company else None
+        items.append(d)
+
+    return ListResponse(items=items, total=total)
 
 
 @router.post("/contacts", response_model=ContactResponse, status_code=201)
@@ -354,12 +361,15 @@ async def get_contact(
 ):
     tenant_id = _get_tenant_id(request)
     result = await db.execute(
-        select(Contact).where(Contact.id == contact_id, Contact.tenant_id == tenant_id)
+        select(Contact).options(selectinload(Contact.company)).where(Contact.id == contact_id, Contact.tenant_id == tenant_id)
     )
     contact = result.scalar_one_or_none()
     if not contact:
         raise HTTPException(status_code=404, detail="Contact not found")
-    return contact
+    # Build response with resolved company name
+    d = {col.name: getattr(contact, col.name) for col in contact.__table__.columns}
+    d['company'] = {"id": str(contact.company.id), "name": contact.company.name} if contact.company else None
+    return d
 
 
 @router.patch("/contacts/{contact_id}", response_model=ContactResponse)
@@ -649,10 +659,17 @@ async def list_touchpoints(
     count_q = select(func.count()).select_from(base.subquery())
     total = (await db.execute(count_q)).scalar() or 0
 
-    items_q = base.order_by(Touchpoint.created_at.desc()).offset(offset).limit(limit)
+    items_q = base.options(selectinload(Touchpoint.company)).order_by(Touchpoint.created_at.desc()).offset(offset).limit(limit)
     rows = (await db.execute(items_q)).scalars().all()
 
-    return ListResponse(items=list(rows), total=total)
+    # Build response with resolved company names
+    items = []
+    for t in rows:
+        d = {col.name: getattr(t, col.name) for col in t.__table__.columns}
+        d['company'] = {'id': str(t.company.id), 'name': t.company.name} if t.company else None
+        items.append(d)
+
+    return ListResponse(items=items, total=total)
 
 
 @router.post("/touchpoints", response_model=TouchpointResponse, status_code=201)
@@ -694,14 +711,17 @@ async def get_touchpoint(
 ):
     tenant_id = _get_tenant_id(request)
     result = await db.execute(
-        select(Touchpoint).where(
+        select(Touchpoint).options(selectinload(Touchpoint.company)).where(
             Touchpoint.id == touchpoint_id, Touchpoint.tenant_id == tenant_id
         )
     )
     touchpoint = result.scalar_one_or_none()
     if not touchpoint:
         raise HTTPException(status_code=404, detail="Touchpoint not found")
-    return touchpoint
+    # Build response with resolved company name
+    d = {col.name: getattr(touchpoint, col.name) for col in touchpoint.__table__.columns}
+    d['company'] = {'id': str(touchpoint.company.id), 'name': touchpoint.company.name} if touchpoint.company else None
+    return d
 
 
 @router.patch("/touchpoints/{touchpoint_id}", response_model=TouchpointResponse)
@@ -808,10 +828,17 @@ async def list_tasks(
     count_q = select(func.count()).select_from(base.subquery())
     total = (await db.execute(count_q)).scalar() or 0
 
-    items_q = base.order_by(Task.created_at.desc()).offset(offset).limit(limit)
+    items_q = base.options(selectinload(Task.company)).order_by(Task.created_at.desc()).offset(offset).limit(limit)
     rows = (await db.execute(items_q)).scalars().all()
 
-    return ListResponse(items=list(rows), total=total)
+    # Build response with resolved company names
+    items = []
+    for t in rows:
+        d = {col.name: getattr(t, col.name) for col in t.__table__.columns}
+        d['company'] = {'id': str(t.company.id), 'name': t.company.name} if t.company else None
+        items.append(d)
+
+    return ListResponse(items=items, total=total)
 
 
 @router.post("/tasks", response_model=TaskResponse, status_code=201)
@@ -853,12 +880,15 @@ async def get_task(
 ):
     tenant_id = _get_tenant_id(request)
     result = await db.execute(
-        select(Task).where(Task.id == task_id, Task.tenant_id == tenant_id)
+        select(Task).options(selectinload(Task.company)).where(Task.id == task_id, Task.tenant_id == tenant_id)
     )
     task = result.scalar_one_or_none()
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
-    return task
+    # Build response with resolved company name
+    d = {col.name: getattr(task, col.name) for col in task.__table__.columns}
+    d['company'] = {'id': str(task.company.id), 'name': task.company.name} if task.company else None
+    return d
 
 
 @router.patch("/tasks/{task_id}", response_model=TaskResponse)
@@ -1111,10 +1141,17 @@ async def list_notes(
     count_q = select(func.count()).select_from(base.subquery())
     total = (await db.execute(count_q)).scalar() or 0
 
-    items_q = base.order_by(Note.created_at.desc()).offset(offset).limit(limit)
+    items_q = base.options(selectinload(Note.company)).order_by(Note.created_at.desc()).offset(offset).limit(limit)
     rows = (await db.execute(items_q)).scalars().all()
 
-    return ListResponse(items=list(rows), total=total)
+    # Build response with resolved company names
+    items = []
+    for n in rows:
+        d = {col.name: getattr(n, col.name) for col in n.__table__.columns}
+        d['company'] = {'id': str(n.company.id), 'name': n.company.name} if n.company else None
+        items.append(d)
+
+    return ListResponse(items=items, total=total)
 
 
 @router.post("/notes", response_model=NoteResponse, status_code=201)
@@ -1156,12 +1193,15 @@ async def get_note(
 ):
     tenant_id = _get_tenant_id(request)
     result = await db.execute(
-        select(Note).where(Note.id == note_id, Note.tenant_id == tenant_id)
+        select(Note).options(selectinload(Note.company)).where(Note.id == note_id, Note.tenant_id == tenant_id)
     )
     note = result.scalar_one_or_none()
     if not note:
         raise HTTPException(status_code=404, detail="Note not found")
-    return note
+    # Build response with resolved company name
+    d = {col.name: getattr(note, col.name) for col in note.__table__.columns}
+    d['company'] = {'id': str(note.company.id), 'name': note.company.name} if note.company else None
+    return d
 
 
 @router.patch("/notes/{note_id}", response_model=NoteResponse)
@@ -1612,6 +1652,25 @@ async def delete_project(
 # ===========================================================================
 # Project Calendar Event CRUD
 # ===========================================================================
+
+
+@router.get("/calendar-events", response_model=list[ProjectCalendarEventResponse])
+async def list_all_calendar_events(
+    request: Request,
+    limit: int = 50,
+    offset: int = 0,
+    db: AsyncSession = Depends(get_tenant_session),
+):
+    tenant_id = _get_tenant_id(request)
+    base = (
+        select(ProjectCalendarEvent)
+        .where(ProjectCalendarEvent.tenant_id == tenant_id)
+        .order_by(ProjectCalendarEvent.start.desc())
+        .offset(offset)
+        .limit(limit)
+    )
+    result = await db.execute(base)
+    return result.scalars().all()
 
 
 @router.get("/projects/{project_id}/calendar-events", response_model=list[ProjectCalendarEventResponse])

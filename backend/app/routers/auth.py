@@ -3,14 +3,17 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from app.db import get_db
 from app.models import User, Session, Tenant, TenantMember
-from app.schemas import LoginRequest, RegisterRequest, MFAVerifyRequest, TokenResponse, RefreshRequest, UserOut
+from app.schemas import LoginRequest, RegisterRequest, MFAVerifyRequest, TokenResponse, RefreshRequest, ForgotPasswordRequest, ResetPasswordRequest, UserOut
 from app.services.auth_service import (
     hash_password, verify_password, create_access_token, create_refresh_token,
-    decode_token, generate_otp, generate_session_token
+    create_reset_token, decode_token, generate_otp, generate_session_token
 )
 from app.services.email_service import send_otp_email
 from app.services.redis_service import store_otp, verify_otp, store_refresh_blacklist, check_device_trust, store_device_trust, get_redis
+from app.config import settings
 import uuid
+import smtplib
+from email.mime.text import MIMEText
 from datetime import datetime, timezone
 
 router = APIRouter(prefix="/api/v1/auth", tags=["auth"])
@@ -77,6 +80,29 @@ async def login(req: LoginRequest, request: Request, db: AsyncSession = Depends(
     if not user or not verify_password(req.password, user.password_hash):
         raise HTTPException(status_code=401, detail="Invalid email or password")
 
+    # If MFA not enabled for this user — skip OTP, issue tokens directly
+    if not user.mfa_enabled:
+        tm = await db.execute(
+            select(TenantMember).where(TenantMember.user_id == user.id).limit(1)
+        )
+        tm_row = tm.scalar_one_or_none()
+        tenant_id = str(tm_row.tenant_id) if tm_row else ""
+
+        access_token = create_access_token(str(user.id), user.email, user.role, tenant_id)
+        refresh_token_str, expires_at = create_refresh_token(str(user.id))
+        db_session = Session(
+            user_id=user.id, refresh_token=refresh_token_str,
+            user_agent=request.headers.get("user-agent", ""),
+            ip_address=request.client.host if request.client else "unknown",
+            expires_at=expires_at
+        )
+        db.add(db_session)
+        await db.flush()
+        return TokenResponse(
+            access_token=access_token, mfa_required=False,
+            email=user.email, refresh_token=refresh_token_str,
+        )
+
     # Check device trust — skip MFA if device token is valid
     if req.device_token:
         trusted = await check_device_trust(str(user.id), req.device_token)
@@ -114,6 +140,29 @@ async def login(req: LoginRequest, request: Request, db: AsyncSession = Depends(
         mfa_required=True,
         email=req.email
     )
+
+@router.post("/dev-login", response_model=TokenResponse, include_in_schema=False)
+async def dev_login(req: LoginRequest, request: Request, db: AsyncSession = Depends(get_db)):
+    if not settings.debug:
+        raise HTTPException(status_code=404, detail="Not found")
+    result = await db.execute(select(User).where(User.email == req.email))
+    user = result.scalar_one_or_none()
+    if not user or not verify_password(req.password, user.password_hash):
+        raise HTTPException(status_code=401, detail="Invalid email or password")
+    tm = await db.execute(select(TenantMember).where(TenantMember.user_id == user.id).limit(1))
+    tm_row = tm.scalar_one_or_none()
+    tenant_id = str(tm_row.tenant_id) if tm_row else ""
+    access_token = create_access_token(str(user.id), user.email, user.role, tenant_id)
+    refresh_token_str, expires_at = create_refresh_token(str(user.id))
+    db_session = Session(
+        user_id=user.id, refresh_token=refresh_token_str,
+        user_agent=request.headers.get("user-agent", ""),
+        ip_address=request.client.host if request.client else "unknown",
+        expires_at=expires_at,
+    )
+    db.add(db_session)
+    await db.flush()
+    return TokenResponse(access_token=access_token, mfa_required=False, email=user.email, refresh_token=refresh_token_str)
 
 @router.post("/send-mfa", response_model=dict)
 async def send_mfa(req: dict, db: AsyncSession = Depends(get_db)):
@@ -252,6 +301,55 @@ async def logout(req: RefreshRequest, db: AsyncSession = Depends(get_db)):
         await db.flush()
 
     return {"message": "Logged out"}
+
+@router.post("/forgot-password")
+async def forgot_password(req: ForgotPasswordRequest, db: AsyncSession = Depends(get_db)):
+    # Don't reveal whether email exists — always return success
+    result = await db.execute(select(User).where(User.email == req.email))
+    user = result.scalar_one_or_none()
+    if not user:
+        return {"message": "If that email is registered, a reset link has been sent."}
+
+    reset_token, expires = create_reset_token(req.email)
+    reset_url = f"{settings.allowed_origins.split(',')[0].strip()}/sign-in?reset_token={reset_token}"
+
+    # Dev mode: print to console
+    print(f"[DEV RESET] Reset link for {req.email}: {reset_url}")
+
+    # Try sending email (silently fail if SMTP not configured)
+    if settings.smtp_user and settings.smtp_pass:
+        msg = MIMEText(
+            f"Click the link below to reset your NEXUS CRM password:\n\n{reset_url}\n\n"
+            f"This link expires in 15 minutes.\n\nIf you didn't request this, ignore this email."
+        )
+        msg["Subject"] = "NEXUS CRM — Password Reset"
+        msg["From"] = settings.mfa_from_email
+        msg["To"] = req.email
+        try:
+            with smtplib.SMTP(settings.smtp_host, settings.smtp_port) as server:
+                server.starttls()
+                server.login(settings.smtp_user, settings.smtp_pass)
+                server.send_message(msg)
+        except Exception:
+            pass  # Dev mode: ignore email errors
+
+    return {"message": "If that email is registered, a reset link has been sent."}
+
+@router.post("/reset-password")
+async def reset_password(req: ResetPasswordRequest, db: AsyncSession = Depends(get_db)):
+    payload = decode_token(req.token)
+    if not payload or payload.get("type") != "reset":
+        raise HTTPException(status_code=400, detail="Invalid or expired reset token")
+
+    email = payload.get("sub", "")
+    result = await db.execute(select(User).where(User.email == email))
+    user = result.scalar_one_or_none()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    user.password_hash = hash_password(req.password)
+    await db.flush()
+    return {"message": "Password has been reset successfully."}
 
 @router.get("/me", response_model=UserOut)
 async def get_me(request: Request, db: AsyncSession = Depends(get_db)):

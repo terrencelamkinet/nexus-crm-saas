@@ -142,6 +142,7 @@ class ContactResponse(BaseModel):
     email: Optional[str] = None
     phone: Optional[str] = None
     company_id: Optional[UUID] = None
+    company: Any = None
     job_title: Optional[str] = None
     chinese_name: Optional[str] = None
     nick_name: Optional[str] = None
@@ -164,10 +165,6 @@ class ContactResponse(BaseModel):
     updated_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
-
-
-# ===========================================================================
-# ===========================================================================
 
 
 # ===========================================================================
@@ -203,6 +200,7 @@ class TouchpointResponse(BaseModel):
     date: datetime
     contact_id: Optional[UUID] = None
     company_id: Optional[UUID] = None
+    company: Any = None
     duration_minutes: Optional[int] = None
     created_at: datetime
     updated_at: datetime
@@ -251,6 +249,7 @@ class TaskResponse(BaseModel):
     assignee_id: Optional[UUID] = None
     contact_id: Optional[UUID] = None
     company_id: Optional[UUID] = None
+    company: Any = None
     created_at: datetime
     updated_at: datetime
 
@@ -330,6 +329,7 @@ class NoteResponse(BaseModel):
     tags: Optional[list[str]] = None
     contact_id: Optional[UUID] = None
     company_id: Optional[UUID] = None
+    company: Any = None
     created_at: datetime
     updated_at: datetime
 
