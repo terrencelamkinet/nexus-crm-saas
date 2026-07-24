@@ -1040,7 +1040,9 @@ textarea.input-field{resize:vertical;min-height:60px}
 
 /* ── Bottom Sheet Modal ── */
 .bs-scrim{position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:60;animation:fadeIn .2s ease}
+.bs-scrim--closing{animation:fadeOut .2s ease forwards}
 .bs-sheet{position:fixed;left:0;right:0;bottom:0;background:var(--color-surface);border-radius:var(--radius-xl) var(--radius-xl) 0 0;z-index:61;max-height:80dvh;display:flex;flex-direction:column;animation:slideUp .25s cubic-bezier(.4,0,.2,1);box-shadow:0 -4px 24px rgba(0,0,0,.1);max-width:480px;margin:0 auto}
+.bs-sheet--closing{animation:slideDown .22s ease forwards}
 @media(max-width:520px){.bs-sheet{max-width:none;margin:0}}
 .bs-header{display:flex;align-items:center;justify-content:space-between;padding:8px 16px 0;flex-shrink:0;position:relative}
 .bs-handle{display:block;width:36px;height:4px;border-radius:2px;background:var(--color-divider);margin:0 auto 8px;position:absolute;left:50%;transform:translateX(-50%);top:4px}
@@ -1049,7 +1051,9 @@ textarea.input-field{resize:vertical;min-height:60px}
 .bs-close:hover{background:var(--color-surface-offset);color:var(--color-text)}
 .bs-body{padding:16px;overflow-y:auto;flex:1}
 @keyframes fadeIn{from{opacity:0}to{opacity:1}}
+@keyframes fadeOut{from{opacity:1}to{opacity:0}}
 @keyframes slideUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
+@keyframes slideDown{from{transform:translateY(0)}to{transform:translateY(100%)}}
 
 /* ── Quick-add form fields ── */
 .quick-field{margin-bottom:12px}

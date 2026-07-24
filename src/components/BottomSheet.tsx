@@ -1,4 +1,4 @@
-import { useEffect, useRef, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { X } from 'lucide-react';
 
 interface Props {
@@ -9,20 +9,37 @@ interface Props {
 }
 
 export default function BottomSheet({ open, onClose, title, children }: Props) {
+  const [render, setRender] = useState(false);
+  const animRef = useRef(false);
   const sheetRef = useRef<HTMLDivElement>(null);
 
+  // Sync open prop → render state with closing animation
   useEffect(() => {
-    if (open) document.body.style.overflow = 'hidden';
+    if (open) {
+      setRender(true);
+      animRef.current = false;
+    } else if (render && !animRef.current) {
+      animRef.current = true;
+      const el = sheetRef.current;
+      const scrim = document.querySelector('.bs-scrim') as HTMLElement;
+      if (el) el.classList.add('bs-sheet--closing');
+      if (scrim) scrim.classList.add('bs-scrim--closing');
+      setTimeout(() => { setRender(false); animRef.current = false; }, 220);
+    }
+  }, [open, render]);
+
+  // Body scroll lock
+  useEffect(() => {
+    if (render) document.body.style.overflow = 'hidden';
     else document.body.style.overflow = '';
     return () => { document.body.style.overflow = ''; };
-  }, [open]);
+  }, [render]);
 
   // iOS keyboard: visualViewport keeps sheet above keyboard
   useEffect(() => {
-    if (!open) return;
+    if (!render) return;
     const el = sheetRef.current;
     if (!el) return;
-
     const adjust = () => {
       const vv = window.visualViewport;
       if (!vv) return;
@@ -35,21 +52,25 @@ export default function BottomSheet({ open, onClose, title, children }: Props) {
         el.style.maxHeight = '';
       }
     };
-
     window.visualViewport?.addEventListener('resize', adjust);
     return () => window.visualViewport?.removeEventListener('resize', adjust);
-  }, [open]);
+  }, [render]);
 
-  if (!open) return null;
+  const handleClose = () => {
+    if (animRef.current) return;
+    onClose(); // triggers parent to set open=false → triggers closing animation
+  };
+
+  if (!render) return null;
 
   return (
     <>
-      <div className="bs-scrim" onClick={onClose} />
+      <div className="bs-scrim" onClick={handleClose} />
       <div className="bs-sheet" ref={sheetRef}>
         <div className="bs-header">
           <span className="bs-handle" />
           <h3 className="bs-title">{title}</h3>
-          <button className="bs-close" onClick={onClose}><X size={18} /></button>
+          <button className="bs-close" onClick={handleClose}><X size={18} /></button>
         </div>
         <div className="bs-body">
           {children}
