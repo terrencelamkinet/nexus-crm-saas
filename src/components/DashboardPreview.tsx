@@ -6,6 +6,8 @@ import CalendarViews from '../modules/projects/CalendarViews/CalendarViews'
 import type { CalendarEventFormatted } from '../modules/projects/CalendarViews/types'
 import { formatEvents } from '../modules/projects/CalendarViews/types'
 import DnDSortableGroup from './DnDSortableGroup'
+import QuickAddTouchpoint from './QuickAddTouchpoint'
+import QuickAddTask from './QuickAddTask'
 
 interface Task { id: string; title: string; priority: string; status: string; due_date: string | null }
 interface Touchpoint {
@@ -29,6 +31,8 @@ export default function DashboardPreview() {
   const [error, setError] = useState<string | null>(null)
   const [calEvents, setCalEvents] = useState<CalendarEventFormatted[]>([])
   const [calLoading, setCalLoading] = useState(true)
+  const [showNewTp, setShowNewTp] = useState(false)
+  const [showNewTask, setShowNewTask] = useState(false)
 
   // Drag-and-drop order for dashboard cards
   const [topOrder, setTopOrder] = useState<string[]>(['focus', 'tasks', 'touchpoints'])
@@ -227,7 +231,7 @@ export default function DashboardPreview() {
               case 'tasks':
                 return (
                   <div className="panel">
-                    <div className="panel-head"><h3>Today's tasks{stats.tasks !== '—' ? <span className="count-chip">{stats.tasks}</span> : null}</h3><span className="link" style={{ fontSize: 12, color: 'var(--color-primary)', fontWeight: 600, cursor: 'pointer' }} onClick={() => navigate('/tasks')}>Manage →</span></div>
+                    <div className="panel-head"><h3>Today's tasks{stats.tasks !== '—' ? <span className="count-chip">{stats.tasks}</span> : null}</h3><span className="link" style={{ fontSize: 12, color: 'var(--color-primary)', fontWeight: 600, cursor: 'pointer' }} onClick={() => setShowNewTask(true)}>+ Add Task</span></div>
                     <div>
                       {tasks.length === 0 ? (
                         <div style={{ padding: '16px 18px', fontSize: 12, color: 'var(--color-text-faint)' }}>No tasks</div>
@@ -257,7 +261,7 @@ export default function DashboardPreview() {
                           </div>
                         </div>
                       ))}
-                      <div className="schedule-cta" style={{ margin: '0 18px 12px' }} onClick={() => navigate('/touchpoints')}>+ Schedule meeting</div>
+                      <div className="schedule-cta" style={{ margin: '0 18px 12px' }} onClick={() => setShowNewTp(true)}>+ Schedule meeting</div>
                     </div>
                   </div>
                 )
@@ -342,6 +346,9 @@ export default function DashboardPreview() {
           }}
         </DnDSortableGroup>
       </div>
+
+      <QuickAddTouchpoint open={showNewTp} onClose={() => setShowNewTp(false)} onCreated={fetchDashboard} />
+      <QuickAddTask open={showNewTask} onClose={() => setShowNewTask(false)} onCreated={fetchDashboard} />
     </div>
   )
 }

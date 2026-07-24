@@ -52,7 +52,7 @@ function getStoredShowWeekends(): boolean {
 }
 
 export default function CalendarViews({ events, loading, onRefresh }: CalendarViewsProps) {
-  const [viewType, setViewType] = useState<CalendarViewType>('month');
+  const [viewType, setViewType] = useState<CalendarViewType>('deadline');
   const [date, setDate] = useState<Date>(new Date());
   const [showWeekends, setShowWeekends] = useState<boolean>(getStoredShowWeekends);
 
