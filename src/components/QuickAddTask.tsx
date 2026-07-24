@@ -46,7 +46,7 @@ export default function QuickAddTask({ open, onClose, onCreated }: Props) {
     <BottomSheet open={open} onClose={onClose} title="New Task">
       <div className="quick-field">
         <label>Title *</label>
-        <input value={title} onChange={e => setTitle(e.target.value)} placeholder="What needs to be done?" autoFocus />
+        <input value={title} onChange={e => setTitle(e.target.value)} placeholder="What needs to be done?" />
       </div>
       <div className="quick-field">
         <label>Priority</label>

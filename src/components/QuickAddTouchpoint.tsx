@@ -51,7 +51,7 @@ export default function QuickAddTouchpoint({ open, onClose, onCreated }: Props) 
       </div>
       <div className="quick-field">
         <label>Title *</label>
-        <input value={title} onChange={e => setTitle(e.target.value)} placeholder="e.g. Discovery call" autoFocus />
+        <input value={title} onChange={e => setTitle(e.target.value)} placeholder="e.g. Discovery call" />
       </div>
       <div className="quick-field">
         <label>Notes</label>
