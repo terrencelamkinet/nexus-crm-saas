@@ -231,7 +231,7 @@ export default function DashboardPreview() {
               case 'tasks':
                 return (
                   <div className="panel">
-                    <div className="panel-head"><h3>Today's tasks{stats.tasks !== '—' ? <span className="count-chip">{stats.tasks}</span> : null}</h3><span className="link" style={{ fontSize: 12, color: 'var(--color-primary)', fontWeight: 600, cursor: 'pointer' }} onClick={() => setShowNewTask(true)}>+ Add Task</span></div>
+                    <div className="panel-head"><h3>Today's tasks{stats.tasks !== '—' ? <span className="count-chip">{stats.tasks}</span> : null}</h3><span className="link" style={{ fontSize: 12, color: 'var(--color-primary)', fontWeight: 600, cursor: 'pointer' }} onClick={() => navigate('/tasks')}>View all →</span></div>
                     <div>
                       {tasks.length === 0 ? (
                         <div style={{ padding: '16px 18px', fontSize: 12, color: 'var(--color-text-faint)' }}>No tasks</div>
@@ -242,6 +242,7 @@ export default function DashboardPreview() {
                         </div>
                       ))}
                       {tasks.length > 5 && <div style={{ padding: '10px 18px', fontSize: 11.5, color: 'var(--color-primary)', fontWeight: 600, cursor: 'pointer' }}>+{tasks.length - 5} more</div>}
+                      <div className="schedule-cta" style={{ margin: '0 18px 12px' }} onClick={() => setShowNewTask(true)}>+ Add Task</div>
                     </div>
                   </div>
                 )
