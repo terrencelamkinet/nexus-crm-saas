@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { apiClient } from '../lib/api'
 import FocusTimer from './FocusTimer'
 import CalendarViews from '../modules/projects/CalendarViews/CalendarViews'
@@ -19,6 +20,7 @@ interface Deal {
 }
 
 export default function DashboardPreview() {
+  const navigate = useNavigate()
   const [stats, setStats] = useState({ contacts: '—', deals: '—', dealValue: '', tasks: '—', companies: '—' })
   const [tasks, setTasks] = useState<Task[]>([])
   const [touchpoints, setTouchpoints] = useState<Touchpoint[]>([])
@@ -225,12 +227,12 @@ export default function DashboardPreview() {
               case 'tasks':
                 return (
                   <div className="panel">
-                    <div className="panel-head"><h3>Today's tasks{stats.tasks !== '—' ? <span className="count-chip">{stats.tasks}</span> : null}</h3><span className="link" style={{ fontSize: 12, color: 'var(--color-primary)', fontWeight: 600, cursor: 'pointer' }}>Manage →</span></div>
+                    <div className="panel-head"><h3>Today's tasks{stats.tasks !== '—' ? <span className="count-chip">{stats.tasks}</span> : null}</h3><span className="link" style={{ fontSize: 12, color: 'var(--color-primary)', fontWeight: 600, cursor: 'pointer' }} onClick={() => navigate('/tasks')}>Manage →</span></div>
                     <div>
                       {tasks.length === 0 ? (
                         <div style={{ padding: '16px 18px', fontSize: 12, color: 'var(--color-text-faint)' }}>No tasks</div>
                       ) : tasks.slice(0, 5).map(t => (
-                        <div key={t.id} className="task-row">
+                        <div key={t.id} className="task-row" onClick={() => navigate(`/tasks/${t.id}`)} style={{cursor:'pointer'}}>
                           <div className="play-mini"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M5 3l14 9-14 9V3z"/></svg></div>
                           <div className="info"><div className="t">{t.title}</div><div className="s">{t.priority} · {t.status}</div></div>
                         </div>
@@ -242,12 +244,12 @@ export default function DashboardPreview() {
               case 'touchpoints':
                 return (
                   <div className="panel">
-                    <div className="panel-head"><h3>Touchpoints</h3><span className="link" style={{ fontSize: 12, color: 'var(--color-primary)', fontWeight: 600, cursor: 'pointer' }}>View all →</span></div>
+                    <div className="panel-head"><h3>Touchpoints</h3><span className="link" style={{ fontSize: 12, color: 'var(--color-primary)', fontWeight: 600, cursor: 'pointer' }} onClick={() => navigate('/touchpoints')}>View all →</span></div>
                     <div>
                       {touchpoints.length === 0 ? (
                         <div style={{ padding: '16px 18px', fontSize: 12, color: 'var(--color-text-faint)' }}>No recent activity</div>
                       ) : touchpoints.map(tp => (
-                        <div key={tp.id} className="meeting-slot">
+                        <div key={tp.id} className="meeting-slot" onClick={() => navigate(`/touchpoints/${tp.id}`)} style={{cursor:'pointer'}}>
                           <div className="time"><b>{timeAgo(tp.created_at)}</b>ago</div>
                           <div className="meeting-card">
                             <div className="m-title">{tp.title}</div>
@@ -255,7 +257,7 @@ export default function DashboardPreview() {
                           </div>
                         </div>
                       ))}
-                      <div className="schedule-cta" style={{ margin: '0 18px 12px' }}>+ Schedule meeting</div>
+                      <div className="schedule-cta" style={{ margin: '0 18px 12px' }} onClick={() => navigate('/touchpoints')}>+ Schedule meeting</div>
                     </div>
                   </div>
                 )

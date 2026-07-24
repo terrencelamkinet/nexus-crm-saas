@@ -1022,13 +1022,19 @@ textarea.input-field{resize:vertical;min-height:60px}
 .dnd-item.dragging{opacity:.5}
 .dnd-item.drop-target{position:relative}
 .dnd-item.drop-target::after{content:'';position:absolute;inset:0;border:2px dashed var(--color-primary);border-radius:var(--radius-lg);pointer-events:none;z-index:5}
-.dnd-handle{display:flex;align-items:center;justify-content:center;width:24px;flex-shrink:0;cursor:grab;color:var(--color-text-faint);opacity:0;transition:opacity .15s;border-radius:var(--radius-sm) 0 0 var(--radius-sm);user-select:none}
+.dnd-handle{position:absolute;left:0;top:0;bottom:0;display:flex;align-items:center;justify-content:center;width:28px;flex-shrink:0;cursor:grab;color:var(--color-text-faint);opacity:0;transition:opacity .15s;border-radius:var(--radius-sm) 0 0 var(--radius-sm);user-select:none;z-index:2;background:linear-gradient(to right, var(--color-surface) 50%, transparent)}
 .dnd-item:hover .dnd-handle,
 .dnd-item.dragging .dnd-handle{opacity:1}
 .dnd-handle:active{cursor:grabbing;color:var(--color-primary)}
-.dnd-body{flex:1;min-width:0}
+.dnd-body{flex:1;min-width:0;width:100%}
 @media(max-width:768px){
-  .dnd-handle{opacity:.5;width:20px}
+  .dnd-handle{opacity:.5;width:24px}
   .dnd-body{flex:1;min-width:0}
 }
+
+/* ── Press-scale feedback (design04 button click effect) ── */
+.btn-press{transition:transform .1s ease;cursor:pointer}
+.btn-press:active{transform:scale(.96)}
+.schedule-cta,.link,.btn-primary,.btn-secondary,.btn-ghost,.icon-btn,.nav-item,.tab{cursor:pointer;transition:transform .1s ease}
+.schedule-cta:active,.link:active,.btn-primary:active,.btn-secondary:active,.btn-ghost:active,.icon-btn:active,.nav-item:active,.tab:active{transform:scale(.96)}
 .board-card-field{font-size:11px;color:var(--color-text-muted);margin-top:2px}
