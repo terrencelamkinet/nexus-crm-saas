@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react';
-import { Plus, Search, X, Trash2, Edit3, Filter, ArrowUpDown, LayoutGrid, SlidersHorizontal, Download, ChevronRight, MoreHorizontal } from 'lucide-react';
+import { Plus, Search, X, Trash2, Edit3, Filter, ArrowUpDown, LayoutGrid, SlidersHorizontal, Download, ChevronRight, MoreHorizontal, GripVertical } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useApi, useSearch, useCreateModal, TableSkeleton, ErrorBox } from '../lib/useApi';
 import { apiClient } from '../lib/api';
 import EntitySearch from '../modules/shared/EntitySearch';
+import useColumnConfig from '../lib/useColumnConfig';
+import BottomSheet from '../components/BottomSheet';
 
 interface Contact {
   id: string;
@@ -253,6 +255,25 @@ export default function ContactsPage() {
     });
   };
 
+  const col = useColumnConfig();
+  const visibleCols = col.getVisible();
+  // Map column keys to render functions
+  const colRender: Record<string, (c: Contact) => React.ReactNode> = {
+    name: c => (
+      <button onClick={() => navigate(`/contacts/${c.id}`)}
+        className="row-name row-name-btn">
+        <div className="avatar-sm">
+          {c.name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}
+        </div>
+        <span className="row-name-text">{c.name}</span>
+      </button>
+    ),
+    company: c => <span>{c.company?.name || '—'}</span>,
+    email: c => <span className="row-email">{c.email || '—'}</span>,
+    status: c => <span className={`select-tag ${statusColors[c.status] || 'tag-default'}`}>{c.status || 'Active'}</span>,
+    last_touch: c => <span className="last-touch">{formatDate(c.last_touch || c.created_at)}</span>,
+  };
+
   const toggleSelectAll = () => {
     if (selectedIds.size === items.length && items.length > 0) {
       setSelectedIds(new Set());
@@ -389,7 +410,7 @@ export default function ContactsPage() {
             <button className="toolbar-btn"><ArrowUpDown className="w-4 h-4" /> Sort</button>
             <button className="toolbar-btn"><LayoutGrid className="w-4 h-4" /> Group</button>
             <span className="toolbar-sep" />
-            <button className="toolbar-btn"><SlidersHorizontal className="w-4 h-4" /> Properties</button>
+            <button className="toolbar-btn" onClick={col.openMobile}><SlidersHorizontal className="w-4 h-4" /> Properties</button>
           </div>
         </div>
 
@@ -402,19 +423,30 @@ export default function ContactsPage() {
         ) : (
           <>
             <table>
+              <colgroup>
+                <col style={{ width: 40 }} />
+                {visibleCols.map(v => <col key={v.key} style={{ width: v.width }} />)}
+                <col style={{ width: 44 }} />
+              </colgroup>
               <thead>
                 <tr>
-                  <th className="th-checkbox">
+                  <th className="th-checkbox" style={{ width: 40 }}>
                     <input type="checkbox" className="row-checkbox"
                       checked={items.length > 0 && selectedIds.size === items.length}
                       onChange={toggleSelectAll} />
                   </th>
-                  <th>Name</th>
-                  <th>Company</th>
-                  <th>Email</th>
-                  <th>Status</th>
-                  <th>Last Touch</th>
-                  <th className="col-menu"></th>
+                  {visibleCols.map(v => (
+                    <th key={v.key}
+                      draggable
+                      onDragStart={e => col.onDragStart(e, v.key)}
+                      onDragOver={e => col.onDragOver(e, v.key)}
+                      onDragEnd={col.onDragEnd}
+                      className="col-draggable">
+                      <span className="col-label">{v.label}</span>
+                      <span className="col-resize-handle" onMouseDown={e => col.onResizeStart(e, v.key)} />
+                    </th>
+                  ))}
+                  <th className="col-menu" style={{ width: 44 }}></th>
                 </tr>
               </thead>
               <tbody>
@@ -425,29 +457,9 @@ export default function ContactsPage() {
                         checked={selectedIds.has(c.id)}
                         onChange={() => toggleSelect(c.id)} />
                     </td>
-                    <td>
-                      <button onClick={() => navigate(`/contacts/${c.id}`)}
-                        className="row-name row-name-btn">
-                        <div className="avatar-sm">
-                          {c.name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}
-                        </div>
-                        <span className="row-name-text">{c.name}</span>
-                      </button>
-                    </td>
-                    <td>
-                      <span>{c.company?.name || '—'}</span>
-                    </td>
-                    <td>
-                      <span className="row-email">{c.email || '—'}</span>
-                    </td>
-                    <td>
-                      <span className={`select-tag ${statusColors[c.status] || 'tag-default'}`}>
-                        {c.status || 'Active'}
-                      </span>
-                    </td>
-                    <td>
-                      <span className="last-touch">{formatDate(c.last_touch || c.created_at)}</span>
-                    </td>
+                    {visibleCols.map(v => (
+                      <td key={v.key}>{colRender[v.key]?.(c) ?? '—'}</td>
+                    ))}
                     <td className="col-menu" onClick={e => e.stopPropagation()}>
                       <div className="menu-wrap">
                         <button className="menu-dots" title="More actions">
@@ -558,6 +570,28 @@ export default function ContactsPage() {
           </div>
         </div>
       )}
+
+      {/* ─── Mobile Column Settings ─── */}
+      <BottomSheet open={col.mobileOpen} onClose={col.closeMobile} title="Columns">
+        <div className="col-settings">
+          {visibleCols.map((v, i) => (
+            <div key={v.key} className="col-settings-row">
+              <GripVertical className="w-4 h-4 col-grip" />
+              <span className="col-settings-label">{v.label}</span>
+              <div className="col-settings-arrows">
+                <button className="col-arrow" disabled={i === 0}
+                  onClick={() => col.moveMobile(i, -1)}>↑</button>
+                <button className="col-arrow" disabled={i === visibleCols.length - 1}
+                  onClick={() => col.moveMobile(i, 1)}>↓</button>
+              </div>
+            </div>
+          ))}
+          <button className="quick-submit" onClick={() => { col.resetColumns(); col.closeMobile(); }}
+            style={{ marginTop: 16, background: 'var(--color-surface-offset)', color: 'var(--color-text)', border: '1px solid var(--color-border)' }}>
+            Reset Columns
+          </button>
+        </div>
+      </BottomSheet>
     </div>
   );
 }
