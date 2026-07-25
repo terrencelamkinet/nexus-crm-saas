@@ -29,6 +29,13 @@ export default function DetailDrawerContent({ config, id, onClose, tabRenderers,
   const [saving, setSaving] = useState(false)
   const [deleteModalOpen, setDeleteModalOpen] = useState(false)
   const [deleteLoading, setDeleteLoading] = useState(false)
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768)
+
+  useEffect(() => {
+    const onResize = () => setIsMobile(window.innerWidth < 768)
+    window.addEventListener('resize', onResize)
+    return () => window.removeEventListener('resize', onResize)
+  }, [])
 
   const fetchEntity = async () => {
     setLoading(true)
@@ -210,54 +217,93 @@ export default function DetailDrawerContent({ config, id, onClose, tabRenderers,
         )}
       </div>
 
-      {/* Tabs (non-details) */}
-      {visibleTabs.length > 0 && (
-        <div className="drawer-tab-bar">
-          {visibleTabs.map(t => (
-            <div key={t.id}
-              className={`drawer-tab ${tab === t.id ? 'active' : ''}`}
-              onClick={() => setTab(t.id)}
-            >
-              {t.label}
+      {/* Mobile: all sections stacked */}
+      {isMobile ? (
+        <>
+          {/* Details fields */}
+          <div className="drawer-section">
+            <div className="drawer-section-title">{config.label} Information</div>
+            <div className="drawer-fields-grid">
+              {detailFields.map(f => (
+                <FieldsRenderer key={f.key} field={f} entity={entity} form={form}
+                  onChange={handleChange} editOpen={editOpen}
+                  relationData={{ companies: extraData?.companies }}
+                />
+              ))}
             </div>
-          ))}
-        </div>
-      )}
-
-      {/* Details fields */}
-      {tab === 'details' && (
-        <div className="drawer-section">
-          <div className="drawer-section-title">{config.label} Information</div>
-          <div className="drawer-fields-grid">
-            {detailFields.map(f => (
-              <FieldsRenderer key={f.key} field={f} entity={entity} form={form}
-                onChange={handleChange} editOpen={editOpen}
-                relationData={{ companies: extraData?.companies }}
-              />
-            ))}
           </div>
-        </div>
-      )}
 
-      {/* Tab content */}
-      {visibleTabs.map(t => {
-        if (tab !== t.id) return null
-        const CustomRenderer = t.render || tabRenderers?.[t.id]
-        if (CustomRenderer) {
-          return (
-            <Suspense key={t.id}
-              fallback={<div className="drawer-section"><div className="empty-state">Loading {t.label.toLowerCase()}...</div></div>}
-            >
-              <CustomRenderer entity={entity} moduleConfig={config} refresh={fetchEntity} />
-            </Suspense>
-          )
-        }
-        return (
-          <div className="drawer-section" key={t.id}>
-            <div className="empty-state">No {t.label.toLowerCase()} yet</div>
-          </div>
-        )
-      })}
+          {/* All tabs as stacked sections */}
+          {visibleTabs.map(t => {
+            const CustomRenderer = t.render || tabRenderers?.[t.id]
+            return (
+              <div className="drawer-section" key={t.id}>
+                {CustomRenderer ? (
+                  <Suspense fallback={<div className="empty-state">Loading {t.label.toLowerCase()}...</div>}>
+                    <CustomRenderer entity={entity} moduleConfig={config} refresh={fetchEntity} />
+                  </Suspense>
+                ) : (
+                  <div className="panel">
+                    <div className="panel-head"><h3>{t.label}</h3></div>
+                    <div className="empty-state">No {t.label.toLowerCase()} yet</div>
+                  </div>
+                )}
+              </div>
+            )
+          })}
+        </>
+      ) : (
+        <>
+          {/* Desktop: tab bar */}
+          {visibleTabs.length > 0 && (
+            <div className="drawer-tab-bar">
+              {visibleTabs.map(t => (
+                <div key={t.id}
+                  className={`drawer-tab ${tab === t.id ? 'active' : ''}`}
+                  onClick={() => setTab(t.id)}
+                >
+                  {t.label}
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Details fields */}
+          {tab === 'details' && (
+            <div className="drawer-section">
+              <div className="drawer-section-title">{config.label} Information</div>
+              <div className="drawer-fields-grid">
+                {detailFields.map(f => (
+                  <FieldsRenderer key={f.key} field={f} entity={entity} form={form}
+                    onChange={handleChange} editOpen={editOpen}
+                    relationData={{ companies: extraData?.companies }}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Tab content */}
+          {visibleTabs.map(t => {
+            if (tab !== t.id) return null
+            const CustomRenderer = t.render || tabRenderers?.[t.id]
+            if (CustomRenderer) {
+              return (
+                <Suspense key={t.id}
+                  fallback={<div className="drawer-section"><div className="empty-state">Loading {t.label.toLowerCase()}...</div></div>}
+                >
+                  <CustomRenderer entity={entity} moduleConfig={config} refresh={fetchEntity} />
+                </Suspense>
+              )
+            }
+            return (
+              <div className="drawer-section" key={t.id}>
+                <div className="empty-state">No {t.label.toLowerCase()} yet</div>
+              </div>
+            )
+          })}
+        </>
+      )}
 
       {/* Delete modal */}
       {deleteModalOpen && (
