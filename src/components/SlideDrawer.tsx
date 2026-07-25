@@ -34,7 +34,7 @@ export default function SlideDrawer({ open, onClose, title, children, width }: S
   if (!open) return null
 
   return createPortal(
-    <div className={`slide-drawer-wrap ${open ? 'open' : ''}`}>
+    <div className={`slide-drawer-wrap ${open ? 'open' : ''}`} onClick={onClose}>
       <div className="slide-drawer-scrim" onClick={onClose} />
       <div
         ref={ref}
