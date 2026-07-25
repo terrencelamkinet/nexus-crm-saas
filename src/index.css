@@ -1155,6 +1155,22 @@ textarea.input-field{resize:vertical;min-height:60px}
 @media(max-width:768px){
   .slide-drawer{width:85vw!important;max-width:85vw}
   .slide-drawer-scrim{left:15vw}
+  /* Inside drawer: force grid/full-width layout for tab content */
+  .slide-drawer-body .flex-col{display:grid;grid-template-columns:1fr;gap:8px}
+  .slide-drawer-body .list-row{display:grid;grid-template-columns:1fr auto;padding:12px;border:1px solid var(--color-divider);border-radius:var(--radius-md);background:var(--color-surface-offset)}
+  .slide-drawer-body .list-main{min-width:0;overflow:hidden}
+  .slide-drawer-body .list-title{font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .slide-drawer-body .list-sub{font-size:11px}
+  .slide-drawer-body .panel{border:1px solid var(--color-divider);border-radius:var(--radius-lg);overflow:hidden}
+  .slide-drawer-body .panel-head{padding:10px 12px}
+  .slide-drawer-body .panel-head h3{font-size:13px}
+  .slide-drawer-body .timeline{padding-left:28px}
+  .slide-drawer-body .tl-card{padding:7px 9px}
+  .slide-drawer-body .tl-head{font-size:11px}
+  .slide-drawer-body .tl-meta{font-size:10px}
+  .slide-drawer-body .tl-item{padding-bottom:12px}
+  .slide-drawer-body .tl-dot{width:22px;height:22px;font-size:10px}
+  .slide-drawer-body .empty-state{padding:16px;font-size:12px}
 }
 .slide-drawer-header{
   display:flex;align-items:center;justify-content:space-between;
