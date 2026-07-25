@@ -1206,3 +1206,13 @@ textarea.input-field{resize:vertical;min-height:60px}
 .drawer-fields-grid .field-label{font-size:11px}
 .drawer-fields-grid .input-field{font-size:13px}
 
+/* ── Mobile accordion sections ── */
+.mobile-accordion{border:1px solid var(--color-divider);border-radius:var(--radius-lg);margin-bottom:10px;overflow:hidden;background:var(--color-surface)}
+.mobile-accordion-head{display:flex;align-items:center;justify-content:space-between;width:100%;padding:12px 14px;border:none;background:var(--color-surface-offset);font-size:13px;font-weight:700;color:var(--color-text);cursor:pointer;text-align:left;transition:background .15s}
+.mobile-accordion-head:active{background:var(--color-surface-offset-2)}
+.mobile-accordion-body{background:var(--color-surface)}
+.mobile-accordion-inner{padding:12px 14px}
+.mobile-accordion .detail-form-grid{display:flex;flex-direction:column;gap:12px}
+.mobile-accordion .field-label{font-size:11px}
+.mobile-accordion .input-field{font-size:14px}
+

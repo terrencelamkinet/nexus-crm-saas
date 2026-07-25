@@ -1,5 +1,5 @@
 import { useState, useEffect, Suspense } from 'react'
-import { Phone, Mail, Building2, User, Clock, Edit3, Trash2 } from 'lucide-react'
+import { Phone, Mail, Building2, User, Clock, Edit3, Trash2, ChevronDown } from 'lucide-react'
 import { apiClient } from '../../lib/api'
 import { FieldsRenderer } from './FieldsRenderer'
 import { buildPayload, formatDate, apiErrorToString } from './field-utils'
@@ -29,6 +29,8 @@ export default function DetailDrawerContent({ config, id, onClose, tabRenderers,
   const [saving, setSaving] = useState(false)
   const [deleteModalOpen, setDeleteModalOpen] = useState(false)
   const [deleteLoading, setDeleteLoading] = useState(false)
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768)
+  const [openSections, setOpenSections] = useState<Set<string>>(new Set(['details']))
 
   const fetchEntity = async () => {
     setLoading(true)
@@ -53,6 +55,21 @@ export default function DetailDrawerContent({ config, id, onClose, tabRenderers,
   }
 
   useEffect(() => { fetchEntity() }, [config.apiPath, id])
+
+  useEffect(() => {
+    const onResize = () => setIsMobile(window.innerWidth < 768)
+    window.addEventListener('resize', onResize)
+    return () => window.removeEventListener('resize', onResize)
+  }, [])
+
+  const toggleSection = (sectionId: string) => {
+    setOpenSections(prev => {
+      const next = new Set(prev)
+      if (next.has(sectionId)) next.delete(sectionId)
+      else next.add(sectionId)
+      return next
+    })
+  }
 
   const handleChange = (key: string, value: any) => setForm(f => ({ ...f, [key]: value }))
 
@@ -210,54 +227,89 @@ export default function DetailDrawerContent({ config, id, onClose, tabRenderers,
         )}
       </div>
 
-      {/* Tabs (non-details) */}
-      {visibleTabs.length > 0 && (
-        <div className="drawer-tab-bar">
-          {visibleTabs.map(t => (
-            <div key={t.id}
-              className={`drawer-tab ${tab === t.id ? 'active' : ''}`}
-              onClick={() => setTab(t.id)}
-            >
-              {t.label}
+      {/* ── On mobile: accordion sections ── */}
+      {isMobile ? (
+        <>
+          {/* Details info as accordion */}
+          <AccordionSection title={`${config.label} Information`} sectionId="details" openSections={openSections} toggle={toggleSection}>
+            <div className="drawer-fields-grid">
+              {detailFields.map(f => (
+                <FieldsRenderer key={f.key} field={f} entity={entity} form={form}
+                  onChange={handleChange} editOpen={editOpen}
+                  relationData={{ companies: extraData?.companies }}
+                />
+              ))}
             </div>
-          ))}
-        </div>
-      )}
+          </AccordionSection>
 
-      {/* Details fields */}
-      {tab === 'details' && (
-        <div className="drawer-section">
-          <div className="drawer-section-title">{config.label} Information</div>
-          <div className="drawer-fields-grid">
-            {detailFields.map(f => (
-              <FieldsRenderer key={f.key} field={f} entity={entity} form={form}
-                onChange={handleChange} editOpen={editOpen}
-                relationData={{ companies: extraData?.companies }}
-              />
-            ))}
-          </div>
-        </div>
-      )}
+          {/* Non-details tabs as accordion cards */}
+          {visibleTabs.map(t => {
+            const CustomRenderer = t.render || tabRenderers?.[t.id]
+            return (
+              <AccordionSection key={t.id} title={t.label} sectionId={t.id} openSections={openSections} toggle={toggleSection}>
+                {CustomRenderer ? (
+                  <Suspense fallback={<div className="empty-state">Loading {t.label.toLowerCase()}...</div>}>
+                    <CustomRenderer entity={entity} moduleConfig={config} refresh={fetchEntity} />
+                  </Suspense>
+                ) : (
+                  <div className="empty-state">No {t.label.toLowerCase()} yet</div>
+                )}
+              </AccordionSection>
+            )
+          })}
+        </>
+      ) : (
+        <>
+          {/* Desktop: tab bar */}
+          {visibleTabs.length > 0 && (
+            <div className="drawer-tab-bar">
+              {visibleTabs.map(t => (
+                <div key={t.id}
+                  className={`drawer-tab ${tab === t.id ? 'active' : ''}`}
+                  onClick={() => setTab(t.id)}
+                >
+                  {t.label}
+                </div>
+              ))}
+            </div>
+          )}
 
-      {/* Tab content */}
-      {visibleTabs.map(t => {
-        if (tab !== t.id) return null
-        const CustomRenderer = t.render || tabRenderers?.[t.id]
-        if (CustomRenderer) {
-          return (
-            <Suspense key={t.id}
-              fallback={<div className="drawer-section"><div className="empty-state">Loading {t.label.toLowerCase()}...</div></div>}
-            >
-              <CustomRenderer entity={entity} moduleConfig={config} refresh={fetchEntity} />
-            </Suspense>
-          )
-        }
-        return (
-          <div className="drawer-section" key={t.id}>
-            <div className="empty-state">No {t.label.toLowerCase()} yet</div>
-          </div>
-        )
-      })}
+          {/* Details fields */}
+          {tab === 'details' && (
+            <div className="drawer-section">
+              <div className="drawer-section-title">{config.label} Information</div>
+              <div className="drawer-fields-grid">
+                {detailFields.map(f => (
+                  <FieldsRenderer key={f.key} field={f} entity={entity} form={form}
+                    onChange={handleChange} editOpen={editOpen}
+                    relationData={{ companies: extraData?.companies }}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Tab content */}
+          {visibleTabs.map(t => {
+            if (tab !== t.id) return null
+            const CustomRenderer = t.render || tabRenderers?.[t.id]
+            if (CustomRenderer) {
+              return (
+                <Suspense key={t.id}
+                  fallback={<div className="drawer-section"><div className="empty-state">Loading {t.label.toLowerCase()}...</div></div>}
+                >
+                  <CustomRenderer entity={entity} moduleConfig={config} refresh={fetchEntity} />
+                </Suspense>
+              )
+            }
+            return (
+              <div className="drawer-section" key={t.id}>
+                <div className="empty-state">No {t.label.toLowerCase()} yet</div>
+              </div>
+            )
+          })}
+        </>
+      )}
 
       {/* Delete modal */}
       {deleteModalOpen && (
@@ -276,6 +328,30 @@ export default function DetailDrawerContent({ config, id, onClose, tabRenderers,
           </div>
         </div>
       )}
+    </div>
+  )
+}
+
+/* ── Mobile accordion section ── */
+function AccordionSection({ title, sectionId, openSections, toggle, children }: {
+  title: string
+  sectionId: string
+  openSections: Set<string>
+  toggle: (id: string) => void
+  children: React.ReactNode
+}) {
+  const isOpen = openSections.has(sectionId)
+  return (
+    <div className="mobile-accordion">
+      <button className="mobile-accordion-head" onClick={() => toggle(sectionId)}>
+        <span>{title}</span>
+        <ChevronDown className="icon-14" style={{ transform: isOpen ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform .2s' }} />
+      </button>
+      <div className="mobile-accordion-body" style={{ maxHeight: isOpen ? '2000px' : '0', overflow: 'hidden', transition: 'max-height .3s ease' }}>
+        <div className="mobile-accordion-inner">
+          {children}
+        </div>
+      </div>
     </div>
   )
 }
