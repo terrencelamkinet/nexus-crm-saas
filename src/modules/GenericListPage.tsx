@@ -7,6 +7,8 @@ import { buildPayload, defaultForm, apiErrorToString } from './shared/field-util
 import { statusColors } from './module-types'
 import type { ModuleConfig, EntityRecord, ListResponse } from './module-types'
 import { isModuleEnabled } from './enabled-modules'
+import SlideDrawer from '../components/SlideDrawer'
+import DetailDrawerContent from './shared/DetailDrawerContent'
 
 interface Props {
   config: ModuleConfig
@@ -63,6 +65,7 @@ export default function GenericListPage({ config, extraData }: Props) {
 
   const [groupBy, setGroupBy] = useState('')
   const [condColor, setCondColor] = useState(true)
+  const [selectedId, setSelectedId] = useState<string | null>(null)
 
   const fetchRef = useRef(0)
   const fetchQueued = useRef(false)
@@ -250,7 +253,7 @@ export default function GenericListPage({ config, extraData }: Props) {
     if (fieldKey === 'name' || fieldKey === config.titleField || (!config.titleField && fieldKey === config.fields[0]?.key)) {
       const val = item[fieldKey] || item['name'] || ''
       return (
-        <button onClick={() => navigate(`/${config.routePrefix || config.name + 's'}/${item.id}`)}
+        <button onClick={() => setSelectedId(item.id)}
           className="row-name row-name-btn">
           <div className="avatar-sm">
             {String(val).split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase()}
@@ -570,7 +573,7 @@ export default function GenericListPage({ config, extraData }: Props) {
               const tags = Array.isArray(item['tags']) ? item['tags'] : []
               const company = item['company']?.name || item['company'] || ''
               return (
-                <div key={item.id} className="contact-card" onClick={() => navigate(`/${config.name}s/${item.id}`)}>
+                <div key={item.id} className="contact-card" onClick={() => setSelectedId(item.id)}>
                   <div className="contact-card-avatar">{initials}</div>
                   <div className="contact-card-name">{item['name'] || '—'}</div>
                   {company && <div className="contact-card-company">{company}</div>}
@@ -587,7 +590,7 @@ export default function GenericListPage({ config, extraData }: Props) {
             })}
           </div>
         ) : view === 'board' || view === 'kanban' ? (
-          <BoardView items={items} config={config} navigate={navigate} groupBy={view === 'board' ? 'status' : 'contact_type'} />
+          <BoardView items={items} config={config} onSelect={setSelectedId} groupBy={view === 'board' ? 'status' : 'contact_type'} />
         ) : (
           <>
             <div className="table-scroll">
@@ -778,6 +781,18 @@ export default function GenericListPage({ config, extraData }: Props) {
           </div>
         </div>
       )}
+
+      {/* ─── Right-side Detail Drawer ─── */}
+      <SlideDrawer open={!!selectedId} onClose={() => setSelectedId(null)} title={`${config.label} Details`}>
+        {selectedId && (
+          <DetailDrawerContent
+            config={config}
+            id={selectedId}
+            onClose={() => setSelectedId(null)}
+            extraData={extraData}
+          />
+        )}
+      </SlideDrawer>
     </div>
   )
 }
@@ -785,8 +800,8 @@ export default function GenericListPage({ config, extraData }: Props) {
 /* ═══════════════════════════════════════════
    Board / Kanban View Component
    ═══════════════════════════════════════════ */
-function BoardView({ items, config, navigate, groupBy }: {
-  items: any[]; config: ModuleConfig; navigate: (path: string) => void; groupBy: string
+function BoardView({ items, config, onSelect, groupBy }: {
+  items: any[]; config: ModuleConfig; onSelect: (id: string) => void; groupBy: string
 }) {
   const groups: Record<string, any[]> = {}
   for (const item of items) {
@@ -808,7 +823,7 @@ function BoardView({ items, config, navigate, groupBy }: {
             {groups[key].map(item => {
               const initials = (item['name'] || '').split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase()
               return (
-                <div key={item.id} className="board-card" onClick={() => navigate(`/${config.name}s/${item.id}`)}>
+                <div key={item.id} className="board-card" onClick={() => onSelect(item.id)}>
                   <div className="board-card-avatar">{initials}</div>
                   <div className="board-card-body">
                     <div className="board-card-name">{item['name'] || '—'}</div>

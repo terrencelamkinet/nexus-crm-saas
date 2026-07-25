@@ -6,6 +6,9 @@ import { apiClient } from '../lib/api';
 import EntitySearch from '../modules/shared/EntitySearch';
 import useColumnConfig from '../lib/useColumnConfig';
 import BottomSheet from '../components/BottomSheet';
+import SlideDrawer from '../components/SlideDrawer';
+import DetailDrawerContent from '../modules/shared/DetailDrawerContent';
+import contactConfig from '../modules/contacts/config';
 
 interface Contact {
   id: string;
@@ -240,6 +243,8 @@ export default function ContactsPage() {
   const [form, setForm] = useState(defaultForm);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [selectedContactId, setSelectedContactId] = useState<string | null>(null);
+
 
   const items = data?.items ?? [];
   const total = data?.total ?? 0;
@@ -261,7 +266,7 @@ export default function ContactsPage() {
   // Map column keys to render functions
   const colRender: Record<string, (c: Contact) => React.ReactNode> = {
     name: c => (
-      <button onClick={() => navigate(`/contacts/${c.id}`)}
+      <button onClick={() => setSelectedContactId(c.id)}
         className="row-name row-name-btn">
         <div className="avatar-sm">
           {c.name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}
@@ -594,6 +599,17 @@ export default function ContactsPage() {
           </button>
         </div>
       </BottomSheet>
+
+      {/* ─── Right-side Detail Drawer ─── */}
+      <SlideDrawer open={!!selectedContactId} onClose={() => setSelectedContactId(null)} title="Contact Details">
+        {selectedContactId && (
+          <DetailDrawerContent
+            config={contactConfig}
+            id={selectedContactId}
+            onClose={() => setSelectedContactId(null)}
+          />
+        )}
+      </SlideDrawer>
     </div>
   );
 }
