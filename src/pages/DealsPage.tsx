@@ -224,7 +224,7 @@ export default function DealsPage() {
               <h2>New Deal</h2>
               <button onClick={create.closeModal} className="modal-x"><X className="w-5 h-5" /></button>
             </div>
-            <div className="modal-body" style={{ paddingBottom: 100 }}>
+            <div className="modal-body pb-100">
               <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1">Name *</label>

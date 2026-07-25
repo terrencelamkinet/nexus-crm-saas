@@ -37,14 +37,14 @@ export default function NameCardsPage() {
       ) : error ? (
         <ErrorBox message={error} onRetry={refresh} />
       ) : items.length === 0 ? (
-        <div className="p-8 text-center text-sm" style={{color:'var(--color-text-faint)'}}>No name cards yet</div>
+        <div className="p-8 text-center text-sm c-text-faint">No name cards yet</div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {items.map((card) => (
             <div key={card.id} className="panel">
               <div className="h-36 flex items-center justify-center"
                    style={{background:'var(--color-surface-dynamic)'}}>
-                <ScanLine className="w-12 h-12" style={{color:'var(--color-text-faint)'}} />
+                <ScanLine className="w-12 h-12 c-text-faint" />
               </div>
               <div className="p-4 space-y-1.5">
                 <div className="flex items-center justify-between">

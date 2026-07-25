@@ -81,14 +81,14 @@ export default function Sidebar() {
             <span>{item.label}</span>
           </NavLink>
         ))}
-        <p className="nav-section-label" style={{ marginTop: 'var(--space-4)' }}>Records</p>
+        <p className="nav-section-label mt-space-4">Records</p>
         {secondaryItems.map(item => (
           <NavLink key={item.to} to={item.to} onClick={closeMobileMenu} className={({ isActive }) => `nav-item${isActive ? ' active' : ''}`}>
             <item.icon />
             <span>{item.label}</span>
           </NavLink>
         ))}
-        <p className="nav-section-label" style={{ marginTop: 'var(--space-4)' }}>Organization</p>
+        <p className="nav-section-label mt-space-4">Organization</p>
         {orgItems.map(item => (
           <NavLink key={item.to} to={item.to} onClick={closeMobileMenu} className={({ isActive }) => `nav-item${isActive ? ' active' : ''}`}>
             <item.icon />

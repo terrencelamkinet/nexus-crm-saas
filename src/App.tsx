@@ -58,14 +58,14 @@ function App() {
           } />
           <Route path="team" element={
             <div className="p-8">
-              <h1 className="text-2xl font-bold" style={{color:'var(--color-text)'}}>Team</h1>
-              <p style={{color:'var(--color-text-muted)'}}>Team management coming soon</p>
+              <h1 className="text-2xl font-bold c-text">Team</h1>
+              <p className="c-text-muted">Team management coming soon</p>
             </div>
           } />
           <Route path="ai-apps" element={
             <div className="p-8">
-              <h1 className="text-2xl font-bold" style={{color:'var(--color-text)'}}>AI Apps</h1>
-              <p style={{color:'var(--color-text-muted)'}}>AI-powered applications coming soon</p>
+              <h1 className="text-2xl font-bold c-text">AI Apps</h1>
+              <p className="c-text-muted">AI-powered applications coming soon</p>
             </div>
           } />
           <Route path="settings" element={<SettingsPage />} />

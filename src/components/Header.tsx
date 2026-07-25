@@ -140,16 +140,16 @@ export default function Header() {
             className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-surface-offset transition-colors">
             <div className="avatar-sm !w-8 !h-8 !text-sm">{initials}</div>
             <div className="hidden sm:block text-left">
-              <p className="text-sm font-medium leading-tight capitalize" style={{color:'var(--color-text)'}}>{displayName}</p>
-              <p className="text-xs leading-tight" style={{color:'var(--color-text-muted)'}}>{user?.email || ''}</p>
+              <p className="text-sm font-medium leading-tight capitalize c-text">{displayName}</p>
+              <p className="text-xs leading-tight c-text-muted">{user?.email || ''}</p>
             </div>
-            <ChevronDown className="w-4 h-4" style={{color:'var(--color-text-faint)'}} />
+            <ChevronDown className="w-4 h-4 c-text-faint" />
           </button>
           {menuOpen && (
             <div className="absolute right-0 mt-1 w-56 bg-surface border border-border rounded-lg shadow-lg py-1 z-50" style={{boxShadow:'var(--shadow-lg)'}}>
               <div className="px-4 py-2 border-b border-divider">
-                <p className="text-sm font-medium capitalize" style={{color:'var(--color-text)'}}>{displayName}</p>
-                <p className="text-xs" style={{color:'var(--color-text-muted)'}}>{user?.email}</p>
+                <p className="text-sm font-medium capitalize c-text">{displayName}</p>
+                <p className="text-xs c-text-muted">{user?.email}</p>
               </div>
               <button onClick={() => { logout(); window.location.href = '/sign-in'; }}
                 className="w-full flex items-center gap-2 px-4 py-2 text-sm transition-colors"

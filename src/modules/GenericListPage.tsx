@@ -690,7 +690,7 @@ export default function GenericListPage({ config, extraData }: Props) {
               <button onClick={() => setCreateOpen(false)} className="modal-x"><X className="icon-16" /></button>
             </div>
             <div className="modal-body form-body">
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+              <div className="grid-2col">
                 {config.fields.filter(f => f.editable !== false && !['rollup', 'formula', 'created_time', 'last_edited_time', 'created_by', 'last_edited_by', 'unique_id'].includes(f.type) && f.key !== 'created_at' && f.key !== 'updated_at').map(f => (
                   <FieldsRenderer key={f.key} field={f} form={form} onChange={handleChange}
                     editOpen={true} relationData={{ companies: extraData?.companies }} />
@@ -714,7 +714,7 @@ export default function GenericListPage({ config, extraData }: Props) {
               <button onClick={() => setEditTarget(null)} className="modal-x"><X className="icon-16" /></button>
             </div>
             <div className="modal-body form-body">
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+              <div className="grid-2col">
                 {config.fields.filter(f => f.editable !== false && !['rollup', 'formula', 'created_time', 'last_edited_time', 'created_by', 'last_edited_by'].includes(f.type)).map(f => (
                   <FieldsRenderer key={f.key} field={f} form={form} onChange={handleChange}
                     editOpen={true} relationData={{ companies: extraData?.companies }} />
@@ -760,7 +760,7 @@ export default function GenericListPage({ config, extraData }: Props) {
               <p style={{ fontSize: 13, color: 'var(--color-text-muted)', marginBottom: 16 }}>
                 Updating <strong>{selectedIds.size}</strong> {config.labelPlural.toLowerCase()}. Only fields with <strong>bulk editable</strong> permission are shown. Empty fields = unchanged.
               </p>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+              <div className="grid-2col-16">
                 {config.fields.filter(f => f.editable !== false && f.bulkEditable && !['rollup', 'formula', 'created_time', 'last_edited_time', 'created_by', 'last_edited_by', 'unique_id'].includes(f.type)).map(f => (
                   <FieldsRenderer key={f.key} field={f} form={bulkForm} onChange={(k, v) => setBulkForm(f => ({ ...f, [k]: v }))}
                     editOpen={true} relationData={{ companies: extraData?.companies }} />

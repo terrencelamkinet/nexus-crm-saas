@@ -96,7 +96,7 @@ const CheckboxGroup = ({ label, options, selected, onChange }: {
 
 function ContactFormFields({ form, setForm, inputCls }: FormFieldsProps) {
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+    <div className="grid-2col">
       {/* Name, Chinese Name */}
       <div className="form-field">
         <label className="field-label">Name *</label>
@@ -510,7 +510,7 @@ export default function ContactsPage() {
               <h2>New Contact</h2>
               <button onClick={create.closeModal} className="modal-x"><X className="icon-16" /></button>
             </div>
-            <div className="modal-body form-body" style={{ paddingBottom: 100 }}>
+            <div className="modal-body form-body pb-100">
               <ContactFormFields form={form} setForm={setForm} inputCls={inputCls} />
             </div>
             <div className="modal-foot">
@@ -533,7 +533,7 @@ export default function ContactsPage() {
               <h2>Edit Contact</h2>
               <button onClick={() => setEditTarget(null)} className="modal-x"><X className="icon-16" /></button>
             </div>
-            <div className="modal-body form-body" style={{ paddingBottom: 100 }}>
+            <div className="modal-body form-body pb-100">
               <ContactFormFields form={form} setForm={setForm} inputCls={inputCls} />
             </div>
             <div className="modal-foot">

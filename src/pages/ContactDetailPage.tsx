@@ -713,22 +713,22 @@ export default function ContactDetailPage() {
                     <h3 style={{ fontSize: '16px', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '8px' }}>
                       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg> Sales Summary
                     </h3>
-                    <div className="summary-item" style={{ padding: '10px 0', borderBottom: '1px solid var(--color-divider)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <span className="lbl" style={{ color: 'var(--color-text-muted)', fontSize: '13px' }}>Pipeline Value</span>
+                    <div className="summary-item">
+                      <span className="lbl text-13-muted">Pipeline Value</span>
                       <span className="val" style={{ fontWeight: 600, color: 'var(--color-primary)', fontSize: '16px' }}>
                         {deals.length > 0 ? `$${deals.reduce((s, d) => s + (d.amount || 0), 0).toLocaleString()}` : '$0'}
                       </span>
                     </div>
-                    <div className="summary-item" style={{ padding: '10px 0', borderBottom: '1px solid var(--color-divider)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <span className="lbl" style={{ color: 'var(--color-text-muted)', fontSize: '13px' }}>Open Deals</span>
+                    <div className="summary-item">
+                      <span className="lbl text-13-muted">Open Deals</span>
 <span className="fw-600 val">{deals.length} active</span>
                     </div>
-                    <div className="summary-item" style={{ padding: '10px 0', borderBottom: '1px solid var(--color-divider)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <span className="lbl" style={{ color: 'var(--color-text-muted)', fontSize: '13px' }}>Last Touch</span>
+                    <div className="summary-item">
+                      <span className="lbl text-13-muted">Last Touch</span>
 <span className="fw-600 val">{lastTouchDate}</span>
                     </div>
-                    <div className="summary-item" style={{ padding: '10px 0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <span className="lbl" style={{ color: 'var(--color-text-muted)', fontSize: '13px' }}>Owner</span>
+                    <div className="summary-item">
+                      <span className="lbl text-13-muted">Owner</span>
 <span className="fw-600 val">{contact.contact_type || 'Unas
                     </div>
                     {deals.length > 0 && (
