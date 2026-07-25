@@ -220,18 +220,16 @@ export default function DetailDrawerContent({ config, id, onClose, tabRenderers,
       {/* Mobile: all sections stacked */}
       {isMobile ? (
         <>
-          {/* Details fields */}
-          <div className="drawer-section">
-            <div className="drawer-section-title">{config.label} Information</div>
-            <div className="drawer-fields-grid">
-              {detailFields.map(f => (
-                <FieldsRenderer key={f.key} field={f} entity={entity} form={form}
-                  onChange={handleChange} editOpen={editOpen}
-                  relationData={{ companies: extraData?.companies }}
-                />
-              ))}
-            </div>
-          </div>
+          {/* Details fields — grid, top 10 with show more */}
+          <DetailFieldsSection
+            detailFields={detailFields}
+            config={config}
+            entity={entity}
+            form={form}
+            handleChange={handleChange}
+            editOpen={editOpen}
+            extraData={extraData}
+          />
 
           {/* All tabs as stacked sections */}
           {visibleTabs.map(t => {
@@ -321,6 +319,38 @@ export default function DetailDrawerContent({ config, id, onClose, tabRenderers,
             </div>
           </div>
         </div>
+      )}
+    </div>
+  )
+}
+
+/* ── Mobile detail fields: grid, top 10 with show more ── */
+function DetailFieldsSection({ detailFields, config, entity, form, handleChange, editOpen, extraData }: {
+  detailFields: any[]
+  config: any
+  entity: any
+  form: any
+  handleChange: (k: string, v: any) => void
+  editOpen: boolean
+  extraData?: any
+}) {
+  const [showAll, setShowAll] = useState(false)
+  const visible = showAll ? detailFields : detailFields.slice(0, 10)
+  return (
+    <div className="drawer-section">
+      <div className="drawer-section-title">{config.label} Information</div>
+      <div className="drawer-fields-grid grid-2col">
+        {visible.map(f => (
+          <FieldsRenderer key={f.key} field={f} entity={entity} form={form}
+            onChange={handleChange} editOpen={editOpen}
+            relationData={{ companies: extraData?.companies }}
+          />
+        ))}
+      </div>
+      {detailFields.length > 10 && (
+        <button className="btn-ghost drawer-more-btn" onClick={() => setShowAll(!showAll)}>
+          {showAll ? 'Show less' : `Show all ${detailFields.length} fields`}
+        </button>
       )}
     </div>
   )
