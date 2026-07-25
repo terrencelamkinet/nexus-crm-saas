@@ -8,6 +8,7 @@ import { statusColors } from './module-types'
 import MobileSection from './shared/MobileSection'
 import { useMobile } from './shared/useMobile'
 import type { ModuleConfig, EntityRecord } from './module-types'
+import { isModuleEnabled } from './enabled-modules'
 
 interface Props {
   config: ModuleConfig
@@ -135,13 +136,16 @@ export default function GenericDetailPage({ config, tabRenderers, extraData }: P
 
   const initials = (entity['name'] || '').split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2)
   const lastTouchDate = entity['updated_at'] ? formatDate(entity['updated_at']) : entity['created_at'] ? formatDate(entity['created_at']) : '—'
+  const nameField = config.fields.find(f => f.type === 'title')?.key || config.titleField || 'name'
+  const entityName = String(entity[nameField] || entity.id || '')
 
   const visibleTabs = config.detailTabs?.filter(t => !t.condition || t.condition(entity)) || []
 
   const detailsTab = config.detailTabs?.find(t => t.id === 'details')
-  const detailFields = detailsTab?.fields
+  const detailFields = (detailsTab?.fields
     ? config.fields.filter(f => detailsTab.fields!.includes(f.key))
     : config.fields
+  ).filter(f => !f.dependsOnModule || isModuleEnabled(f.dependsOnModule))
 
   return (
     <div className="contact-detail-page">
@@ -151,7 +155,7 @@ export default function GenericDetailPage({ config, tabRenderers, extraData }: P
           const label = part === 'dashboard' ? 'Home' : part.charAt(0).toUpperCase() + part.slice(1)
           const to = '/' + pathParts.slice(0, i + 1).join('/')
           return isLast ? (
-            <span key={part} className="cur">{entity?.['name'] || part}</span>
+            <span key={part} className="cur">{entityName || part}</span>
           ) : (
             <span key={part}><Link to={to}>{label}</Link><span className="bc-sep">/</span></span>
           )
@@ -163,7 +167,7 @@ export default function GenericDetailPage({ config, tabRenderers, extraData }: P
           <button onClick={() => navigate(`/${config.routePrefix || config.name + 's'}`)} className="back-btn">
             <ArrowLeft className="w-4 h-4" />
           </button>
-          <h1>{entity['name'] || entity.id}</h1>
+          <h1>{entityName}</h1>
         </div>
         <div className="header-actions">
           {editOpen ? (
@@ -196,9 +200,9 @@ export default function GenericDetailPage({ config, tabRenderers, extraData }: P
       )}
 
       <div className="detail-grid">
-        <div className="profile-card">
+        {!config.hideProfileCard && <div className="profile-card">
           <div className="profile-avatar">{initials}</div>
-          <h3>{entity['name']}</h3>
+          <h3>{entityName}</h3>
           <div className="role">{entity['company']?.name || entity['job_title'] || '—'}</div>
 
           <div style={{ textAlign: 'left' }}>
@@ -233,7 +237,7 @@ export default function GenericDetailPage({ config, tabRenderers, extraData }: P
             {Array.isArray(entity['tags']) && entity['tags'].map((t: string) => <span key={t} className="tag">{t}</span>)}
             {entity['contact_type'] && entity['contact_type'] !== 'Unassigned' && <span className="tag">{entity['contact_type']}</span>}
           </div>
-        </div>
+        </div>}
 
         <div className={isMobile ? 'mobile-stacked-sections' : ''}>
           {/* Mobile: single full tab view */}
@@ -367,7 +371,7 @@ export default function GenericDetailPage({ config, tabRenderers, extraData }: P
           <div className="modal modal-sm">
             <div className="delete-body">
               <div className="delete-icon-wrap"><Trash2 /></div>
-              <h3 className="delete-heading">Delete {entity['name']}?</h3>
+              <h3 className="delete-heading">Delete {entityName}?</h3>
               <p className="delete-text">This action cannot be undone.</p>
             </div>
             <div className="modal-foot">

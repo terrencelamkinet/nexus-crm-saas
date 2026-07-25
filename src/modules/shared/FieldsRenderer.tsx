@@ -2,6 +2,7 @@ import type { FieldConfig } from '../module-types'
 import { optionColorToClass } from '../module-types'
 import { formatDate, formatRelativeDate, formatAmount } from './field-utils'
 import EntitySearch from './EntitySearch'
+import { isModuleEnabled } from '../enabled-modules'
 
 interface Props {
   field: FieldConfig
@@ -15,6 +16,7 @@ interface Props {
 
 // ═══ TABLE CELL RENDERER ═══
 export function CellRenderer({ value, field }: { value: any; field: FieldConfig }) {
+  if (field.dependsOnModule && !isModuleEnabled(field.dependsOnModule)) return null
   if (value == null) return <span className="text-faint">—</span>
 
   switch (field.type) {

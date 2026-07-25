@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, Link } from 'react-router-dom'
 import { apiClient } from '../lib/api'
 import FocusTimer from './FocusTimer'
 import CalendarViews from '../modules/projects/CalendarViews/CalendarViews'
@@ -212,7 +212,7 @@ export default function DashboardPreview() {
 
   return (
     <div className="main-content">
-      <div className="breadcrumb"><span>Workspace</span><span className="sep" style={{ margin: '0 6px', color: 'var(--color-text-faint)' }}>/</span><span className="current" style={{ color: 'var(--color-text-muted)', fontWeight: 600 }}>Dashboard</span></div>
+      <div className="breadcrumb"><Link to="/dashboard" style={{ color: 'inherit', textDecoration: 'none' }}>Workspace</Link><span className="sep" style={{ margin: '0 6px', color: 'var(--color-text-faint)' }}>/</span><span className="current" style={{ color: 'var(--color-text-muted)', fontWeight: 600 }}>Dashboard</span></div>
       <div className="page-header" style={{ marginBottom: 18 }}>
         <div><h1>Dashboard</h1><p>Daily &amp; weekly review of meetings, tasks, and pipeline. <span style={{ color: 'var(--color-text-muted)' }}>{stats.contacts} contacts · {stats.deals} deals · {stats.tasks} tasks</span></p></div>
       </div>

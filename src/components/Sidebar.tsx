@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { NavLink } from 'react-router-dom';
+import { NavLink, Link } from 'react-router-dom';
 import { LayoutDashboard, Users, Building2, TrendingUp,
   CheckSquare, Activity, ScanLine, Settings, BarChart3,
   Sparkles, UserCog, FolderKanban, Bell,
@@ -56,8 +56,11 @@ export default function Sidebar() {
     return () => window.removeEventListener('modules-changed', handler);
   }, [fetchModules]);
 
+  // Default to visible when module settings not loaded yet
+  const hasSettings = Object.keys(modules).length > 0
   const isVisible = (item: typeof workspaceItems[0]) => {
     if (!item.module) return true;
+    if (!hasSettings) return true;
     return modules[item.module] === true;
   };
 

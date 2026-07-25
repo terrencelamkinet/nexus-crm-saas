@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { Plus, Search, X, Trash2, Edit3, ChevronRight, MoreHorizontal, Download, ArrowUpDown } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { apiClient } from '../lib/api'
@@ -6,6 +6,7 @@ import { CellRenderer, FieldsRenderer } from './shared/FieldsRenderer'
 import { buildPayload, defaultForm, apiErrorToString } from './shared/field-utils'
 import { statusColors } from './module-types'
 import type { ModuleConfig, EntityRecord, ListResponse } from './module-types'
+import { isModuleEnabled } from './enabled-modules'
 
 interface Props {
   config: ModuleConfig
@@ -52,6 +53,11 @@ export default function GenericListPage({ config, extraData }: Props) {
 
   const [propsOpen, setPropsOpen] = useState(false)
   const [visibleCols, setVisibleCols] = useState<string[]>(config.listColumns)
+  const filteredCols = useMemo(() =>
+    visibleCols.filter(col => {
+      const f = config.fields.find(x => x.key === col)
+      return !f?.dependsOnModule || isModuleEnabled(f.dependsOnModule)
+    }), [visibleCols, config.fields])
 
   const [settingsOpen, setSettingsOpen] = useState(false)
 
@@ -593,7 +599,7 @@ export default function GenericListPage({ config, extraData }: Props) {
                       checked={items.length > 0 && selectedIds.size === items.length}
                       onChange={toggleSelectAll} />
                   </th>
-                  {visibleCols.map(col => {
+                  {filteredCols.map(col => {
                     const field = config.fields.find(f => f.key === col)
                     const canSort = field?.sortable !== false
                     return (

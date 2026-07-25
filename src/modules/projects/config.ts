@@ -52,6 +52,8 @@ const projectConfig: ResourceConfig = {
   ],
   allowedBulkActions: ['update', 'archive', 'export'],
 
+  hideProfileCard: true,
+
   savedViews: [
     { id: 'all', name: 'All Projects', layout: 'table' },
   ],

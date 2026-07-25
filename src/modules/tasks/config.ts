@@ -34,7 +34,7 @@ const taskConfig: ResourceConfig = {
       relation: { resource: 'contacts', multiple: false, displayField: 'name' } },
     { key: 'company_id',     label: 'Company',      type: 'relation', sortable: false, filterable: true,
       relation: { resource: 'companies', multiple: false, displayField: 'name' } },
-    { key: 'assignee_id',    label: 'Assignee',     type: 'text',     sortable: false, filterable: false, visibleByDefault: false },
+ { key: 'assignee_id',     label: 'Assignee',     type: 'text',     sortable: false, filterable: false, visibleByDefault: false, dependsOnModule: 'team' },
     { key: 'created_at',     label: 'Created',      type: 'created_time', sortable: true, visibleByDefault: true },
   ],
 
@@ -54,6 +54,7 @@ const taskConfig: ResourceConfig = {
     ]},
     { id: 'timeline', label: 'Timeline' },
   ],
+  hideProfileCard: true,
 }
 
 export default taskConfig

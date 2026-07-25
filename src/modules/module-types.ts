@@ -41,6 +41,7 @@ export interface FieldConfig {
   formula?: string             // documentation only; server computes
   permissions?: { read?: string[]; write?: string[] }
   gridColumn?: 'full'          // span full width in form
+  dependsOnModule?: string     // hide field unless this module is enabled
 }
 
 export interface SortRule {
@@ -108,6 +109,7 @@ export interface ResourceConfig {
   views?: ModuleView[]
   detailTabs?: TabConfig[]
   savedViews?: SavedView[]
+  hideProfileCard?: boolean   // hide left sidebar preview card on detail page
 }
 
 export type ModuleConfig = ResourceConfig

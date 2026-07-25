@@ -40,6 +40,8 @@ const touchpointConfig: ResourceConfig = {
   defaultView: 'table',
   allowedBulkActions: ['update', 'archive', 'export'],
 
+  hideProfileCard: true,
+
   savedViews: [
     { id: 'all', name: 'All Touchpoints', layout: 'table' },
   ],
