@@ -163,7 +163,7 @@ function ContactFormFields({ form, setForm, inputCls }: FormFieldsProps) {
       </div>
 
       {/* No. (full width) */}
-      <div className="form-field" style={{ gridColumn: '1 / -1' }}>
+      <div className="form-field gcol-1-1">
         <CheckboxGroup label="No." options={['1','2','3','4','5','6','7','8']}
           selected={form.numbers} onChange={v => setForm(f => ({ ...f, numbers: v }))} />
       </div>
@@ -217,7 +217,7 @@ function ContactFormFields({ form, setForm, inputCls }: FormFieldsProps) {
       </div>
 
       {/* Notes (full width) */}
-      <div className="form-field" style={{ gridColumn: '1 / -1' }}>
+      <div className="form-field gcol-1-1">
         <label className="field-label">Notes</label>
         <textarea value={form.notes}
           onChange={e => setForm(f => ({ ...f, notes: e.target.value }))}

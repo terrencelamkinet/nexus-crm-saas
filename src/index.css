@@ -97,6 +97,31 @@ table{border-collapse:collapse;width:100%}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
 @media (prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;transition-duration:.01ms!important}}
 
+/* ═══ Layout Utilities (replace inline style={{...}}) ═══ */
+.pos-relative{position:relative}
+.p-16{padding:16px}
+.p-20{padding:20px}
+.pb-100{padding-bottom:100px}
+.fw-600{font-weight:600}
+.tal{text-align:left}
+.gcol-1-1{grid-column:1/-1}
+.text-13-muted{font-size:13px;color:var(--color-text-muted)}
+.flex-space{display:flex;justify-content:space-between;align-items:center}
+.grid-2col{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+.gap-6-flex{display:flex;flex-wrap:wrap;gap:6px}
+.flex-center-gap-6{display:flex;align-items:center;gap:6px}
+.flex-gap-8{display:flex;align-items:center;gap:8px}
+.fn-12{font-size:12px}
+.fn-10{font-size:10px}
+.text-primary-link{font-size:12px;color:var(--color-primary);font-weight:600;cursor:pointer}
+.w-44{width:44px}
+.w-40{width:40px}
+.p-16-18-faint{padding:16px 18px;font-size:12px;color:var(--color-text-faint)}
+.fn-16-mb-20{font-size:16px;margin-bottom:20px;display:flex;align-items:center;gap:8px}
+.fn-12-p4-10{font-size:12px;padding:4px 10px}
+.flex-1-h30{flex:1;height:30px;font-size:12px;padding:0 8px}
+.cursor-pointer{cursor:pointer}
+
 /* ═══════════════════════════════════════════
    LOGIN PAGE — Sample login style (scoped)
    Primary: #0e6b70  |  Font: Cabinet Grotesk + General Sans

@@ -30,7 +30,7 @@ export default function MobileSection({ label, total, onViewAll, children }: Pro
   if (expanded) return <>{children}</>
 
   return (
-    <div style={{ position: 'relative' }}>
+    <div className="pos-relative">
       <div ref={contentRef} className="mobile-section-truncated">
         {children}
       </div>

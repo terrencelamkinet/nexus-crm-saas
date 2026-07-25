@@ -205,7 +205,7 @@ export default function GenericDetailPage({ config, tabRenderers, extraData }: P
           <h3>{entityName}</h3>
           <div className="role">{entity['company']?.name || entity['job_title'] || '—'}</div>
 
-          <div style={{ textAlign: 'left' }}>
+            <div className="tal">
             {entity['email'] && (
               <div className="profile-field">
                 <Mail className="w-3.5 h-3.5" />
@@ -251,7 +251,7 @@ export default function GenericDetailPage({ config, tabRenderers, extraData }: P
                   return (
                     <div className="panel" key="details">
                       <div className="panel-head"><h3>{config.label} Information</h3></div>
-                      <div className="detail-form-grid" style={{ padding: '16px' }}>
+                      <div className="detail-form-grid p-16">
                         {detailFields.map(f => (
                           <FieldsRenderer key={f.key} field={f} entity={entity} form={form}
                             onChange={handleChange} editOpen={editOpen} relationData={{ companies: extraData?.companies }} />
@@ -293,7 +293,7 @@ export default function GenericDetailPage({ config, tabRenderers, extraData }: P
                   <div className="panel-head">
                     <h3>{config.label} Information</h3>
                   </div>
-                  <div className="detail-form-grid" style={{ padding: '16px' }}>
+                  <div className="detail-form-grid p-16">
                     {detailFields.map(f => (
                       <FieldsRenderer key={f.key} field={f} entity={entity} form={form}
                         onChange={handleChange} editOpen={editOpen} relationData={{ companies: extraData?.companies }} />
@@ -335,7 +335,7 @@ export default function GenericDetailPage({ config, tabRenderers, extraData }: P
                   onViewAll={() => setShowFullTab('details')}>
                   <div className="panel">
                     <div className="panel-head"><h3>{config.label} Information</h3></div>
-                    <div className="detail-form-grid" style={{ padding: '16px' }}>
+                    <div className="detail-form-grid p-16">
                       {detailFields.map(f => (
                         <FieldsRenderer key={f.key} field={f} entity={entity} form={form}
                           onChange={handleChange} editOpen={editOpen} relationData={{ companies: extraData?.companies }} />

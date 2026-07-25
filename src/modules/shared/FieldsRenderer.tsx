@@ -52,7 +52,7 @@ export function CellRenderer({ value, field }: { value: any; field: FieldConfig 
       return <span style={isOverdue ? { color: 'var(--color-notification)', fontWeight: 600 } : {}} title={rel}>{d}</span>
     }
     case 'number': {
-      if (field.format === 'hkd') return <span style={{ fontWeight: 600 }}>{formatAmount(value)}</span>
+      if (field.format === 'hkd') return <span className="fw-600">{formatAmount(value)}</span>
       if (field.format === 'percent') return <span>{value}%</span>
       return <span>{value}</span>
     }

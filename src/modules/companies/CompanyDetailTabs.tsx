@@ -484,7 +484,7 @@ export function TimelineTab({ entity: company, refresh }: { entity: EntityRecord
         {timelineItems.length === 0 ? (
           <div className="empty-state">No activity recorded yet</div>
         ) : (
-          <div className="timeline" style={{ padding: '16px' }}>
+          <div className="timeline p-16">
             {timelineItems.map(item => (
               <div key={item.id} className="tl-item">
                 <div className="tl-dot">{item.emoji}</div>

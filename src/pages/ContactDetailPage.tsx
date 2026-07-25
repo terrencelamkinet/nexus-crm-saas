@@ -444,7 +444,7 @@ export default function ContactDetailPage() {
 
           <div className="role">{contact.company?.name || contact.job_title || '—'}</div>
 
-          <div style={{ textAlign: 'left' }}>
+            <div className="tal">
             {/* Email */}
             <div className="profile-field">
               <Mail className="w-3.5 h-3.5" />
@@ -665,7 +665,7 @@ export default function ContactDetailPage() {
                       >{contact.address || '—'}</div>
                     </div>
                     {/* 15. Notes (full width) */}
-                    <div className="form-field" style={{ gridColumn: '1 / -1' }}>
+                    <div className="form-field gcol-1-1">
                       <div className="field-label">Notes</div>
                       <div className={"field-value" + (editOpen ? ' editable' : '')}
                         contentEditable={editOpen || undefined}
@@ -675,7 +675,7 @@ export default function ContactDetailPage() {
                       >{contact.notes || '—'}</div>
                     </div>
                     {/* 16. Name Card */}
-                    <div className="form-field" style={{ gridColumn: '1 / -1' }}>
+                    <div className="form-field gcol-1-1">
                       <div className="field-label">Name Card</div>
                       <div className={"field-value" + (editOpen ? ' editable' : '')}
                         contentEditable={editOpen || undefined}
@@ -684,7 +684,7 @@ export default function ContactDetailPage() {
                       >{contact.namecard_path || '—'}</div>
                     </div>
                     {/* 17. Company (full width) */}
-                    <div className="form-field" style={{ gridColumn: '1 / -1' }}>
+                    <div className="form-field gcol-1-1">
                       <div className="field-label">Companies</div>
                       <div className="field-value">{contact.company?.name || '—'}</div>
                     </div>
@@ -721,15 +721,15 @@ export default function ContactDetailPage() {
                     </div>
                     <div className="summary-item" style={{ padding: '10px 0', borderBottom: '1px solid var(--color-divider)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <span className="lbl" style={{ color: 'var(--color-text-muted)', fontSize: '13px' }}>Open Deals</span>
-                      <span className="val" style={{ fontWeight: 600 }}>{deals.length} active</span>
+<span className="fw-600 val">{deals.length} active</span>
                     </div>
                     <div className="summary-item" style={{ padding: '10px 0', borderBottom: '1px solid var(--color-divider)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <span className="lbl" style={{ color: 'var(--color-text-muted)', fontSize: '13px' }}>Last Touch</span>
-                      <span className="val" style={{ fontWeight: 600 }}>{lastTouchDate}</span>
+<span className="fw-600 val">{lastTouchDate}</span>
                     </div>
                     <div className="summary-item" style={{ padding: '10px 0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <span className="lbl" style={{ color: 'var(--color-text-muted)', fontSize: '13px' }}>Owner</span>
-                      <span className="val" style={{ fontWeight: 600 }}>{contact.contact_type || 'Unassigned'}</span>
+<span className="fw-600 val">{contact.contact_type || 'Unas
                     </div>
                     {deals.length > 0 && (
                       <div className="next-action" style={{ background: 'var(--color-primary-highlight)', padding: '12px', borderRadius: '8px', marginTop: '16px', border: '1px solid rgba(15,111,111,0.2)' }}>

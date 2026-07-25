@@ -86,7 +86,7 @@ export default function QuickAddTouchpoint({ open, onClose, onCreated }: Props) 
         <label>Title *</label>
         <input value={title} onChange={e => setTitle(e.target.value)} placeholder="e.g. Discovery call" />
       </div>
-      <div className="quick-field" style={{ position: 'relative' }}>
+      <div className="quick-field pos-relative">
         <label>Participants</label>
         <div className="tp-chips">
           {contacts.map(c => (

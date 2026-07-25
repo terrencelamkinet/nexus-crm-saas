@@ -311,20 +311,20 @@ export default function GenericListPage({ config, extraData }: Props) {
               <ArrowUpDown className="w-4 h-4" />{sortBy ? ` ${sortOrder === 'asc' ? '↑' : '↓'}` : ''}
             </button>
             <div className="toolbar-sep" />
-            <div style={{ position: 'relative' }}>
+            <div className="pos-relative">
               <button className={`toolbar-btn ${view !== 'table' ? 'active' : ''}`} title="View"
                 onClick={() => setViewOpen(!viewOpen)}>
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="12" y1="3" x2="12" y2="21"/><line x1="3" y1="12" x2="21" y2="12"/></svg>
               </button>
             </div>
             <div className="toolbar-sep" />
-            <div style={{ position: 'relative' }}>
+            <div className="pos-relative">
               <button className={`toolbar-btn ${propsOpen ? 'active' : ''}`} title="Properties" onClick={() => setPropsOpen(!propsOpen)}>
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="9"/><path d="M12 8v4l3 2"/></svg>
               </button>
             </div>
             <div className="toolbar-sep" />
-            <div style={{ position: 'relative' }}>
+            <div className="pos-relative">
               <button className={`toolbar-btn ${settingsOpen ? 'active' : ''}`} title="Settings"
                 onClick={() => setSettingsOpen(!settingsOpen)}>
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
@@ -556,7 +556,7 @@ export default function GenericListPage({ config, extraData }: Props) {
         {loading ? (
           <div style={{ padding: '32px', textAlign: 'center', color: 'var(--color-text-faint)' }}>Loading...</div>
         ) : error ? (
-          <div className="error-box" style={{ padding: '20px' }}>
+          <div className="error-box p-20">
             <span className="error-text">{error}</span>
             <button onClick={() => fetchDataRef.current()} className="error-retry-btn">Retry</button>
           </div>

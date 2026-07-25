@@ -249,7 +249,7 @@ export default function EntitySearch({
   // --- Selected state: show tag ---
   if (value && selectedLabel) {
     return (
-      <div className="form-field" ref={wrapperRef} style={{ position: 'relative' }}>
+      <div className="form-field pos-relative" ref={wrapperRef}>
         {label && <div className="field-label">{label}{required ? ' *' : ''}</div>}
         <div className="entity-search-tag" style={{
           display: 'flex', alignItems: 'center', gap: 6,
@@ -328,7 +328,7 @@ export default function EntitySearch({
 
   // --- Empty / search state ---
   return (
-    <div className="form-field" ref={wrapperRef} style={{ position: 'relative' }}>
+    <div className="form-field pos-relative" ref={wrapperRef}>
       {label && <div className="field-label">{label}{required ? ' *' : ''}</div>}
       <div className={`entity-search-wrap ${focused ? 'entity-search-focused' : ''}`}
         style={{
@@ -387,7 +387,7 @@ export default function EntitySearch({
               <X className="icon-16" />
             </button>
           </div>
-          <div className="modal-body" style={{ padding: '20px' }}>
+          <div className="modal-body p-20">
             <div className="form-field">
               <label className="field-label">{createLabel} Name *</label>
               <input type="text" value={createName}
