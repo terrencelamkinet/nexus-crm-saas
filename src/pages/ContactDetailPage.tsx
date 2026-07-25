@@ -153,9 +153,7 @@ export default function ContactDetailPage() {
       const      [c, tpRes, dRes, nRes, aRes, pRes] = await Promise.all(promises);
       setContact(c);
       const tpItems = tpRes.items || [];
-      setTouchpoints(tpItems.length > 0 && 'contact_id' in tpItems[0]
-        ? tpItems.filter((tp: any) => tp.contact_id === id)
-        : tpItems);
+      setTouchpoints(tpItems);
       const dItems = dRes.items || [];
       setDeals(dItems.length > 0 && 'contact_id' in dItems[0]
         ? dItems.filter((d: any) => d.contact_id === id)

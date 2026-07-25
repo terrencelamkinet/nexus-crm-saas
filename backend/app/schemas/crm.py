@@ -176,7 +176,7 @@ class TouchpointCreate(BaseModel):
     title: str
     description: Optional[str] = None
     date: Optional[datetime] = None  # will be set server-side if omitted
-    contact_id: Optional[UUID] = None
+    contact_ids: list[UUID] = []
     company_id: Optional[UUID] = None
     duration_minutes: Optional[int] = None
 
@@ -186,7 +186,7 @@ class TouchpointUpdate(BaseModel):
     title: Optional[str] = None
     description: Optional[str] = None
     date: Optional[datetime] = None
-    contact_id: Optional[UUID] = None
+    contact_ids: Optional[list[UUID]] = None
     company_id: Optional[UUID] = None
     duration_minutes: Optional[int] = None
 
@@ -201,6 +201,7 @@ class TouchpointResponse(BaseModel):
     contact_id: Optional[UUID] = None
     company_id: Optional[UUID] = None
     company: Any = None
+    participants: list[dict] = []
     duration_minutes: Optional[int] = None
     created_at: datetime
     updated_at: datetime

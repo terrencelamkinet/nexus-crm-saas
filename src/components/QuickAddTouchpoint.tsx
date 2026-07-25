@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { apiClient } from '../lib/api';
 import BottomSheet from './BottomSheet';
 
@@ -10,27 +10,60 @@ interface Props {
 
 const TYPES = ['meeting', 'call', 'email', 'demo', 'follow-up', 'quote', 'other'];
 
+interface ContactRef { id: string; name: string }
+
 export default function QuickAddTouchpoint({ open, onClose, onCreated }: Props) {
   const [type, setType] = useState('meeting');
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
+  const [contacts, setContacts] = useState<ContactRef[]>([]);
+  const [search, setSearch] = useState('');
+  const [results, setResults] = useState<ContactRef[]>([]);
   const [saving, setSaving] = useState(false);
   const [done, setDone] = useState(false);
+  const searchRef = useRef<ReturnType<typeof setTimeout>>();
+  const [focused, setFocused] = useState(false);
+
+  useEffect(() => {
+    if (!search.trim()) { setResults([]); return; }
+    clearTimeout(searchRef.current);
+    searchRef.current = setTimeout(async () => {
+      try {
+        const res = await apiClient.get<{ items: ContactRef[]; total: number }>(
+          `/api/v1/crm/contacts?search=${encodeURIComponent(search)}&page_size=10`
+        );
+        const existing = new Set(contacts.map(c => c.id));
+        setResults((res.items || []).filter(c => !existing.has(c.id)));
+      } catch { setResults([]); }
+    }, 250);
+    return () => clearTimeout(searchRef.current);
+  }, [search, contacts]);
+
+  const addContact = (c: ContactRef) => {
+    setContacts(prev => [...prev, c]);
+    setSearch('');
+    setResults([]);
+  };
+
+  const removeContact = (id: string) => {
+    setContacts(prev => prev.filter(c => c.id !== id));
+  };
 
   const handleSubmit = async () => {
     if (!title.trim()) return;
     setSaving(true);
     try {
       await apiClient.post('/api/v1/crm/touchpoints', {
-        type,
-        title: title.trim(),
+        type, title: title.trim(),
         description: description.trim() || undefined,
+        contact_ids: contacts.map(c => c.id),
       });
       setSaving(false);
       setDone(true);
       setTimeout(() => {
         setDone(false);
         setTitle(''); setDescription(''); setType('meeting');
+        setContacts([]); setSearch('');
         onClose(); onCreated();
       }, 1200);
     } catch {
@@ -52,6 +85,27 @@ export default function QuickAddTouchpoint({ open, onClose, onCreated }: Props) 
       <div className="quick-field">
         <label>Title *</label>
         <input value={title} onChange={e => setTitle(e.target.value)} placeholder="e.g. Discovery call" />
+      </div>
+      <div className="quick-field" style={{ position: 'relative' }}>
+        <label>Participants</label>
+        <div className="tp-chips">
+          {contacts.map(c => (
+            <span key={c.id} className="tp-chip">{c.name}<button className="tp-chip-x" onClick={() => removeContact(c.id)}>✕</button></span>
+          ))}
+          <input value={search} onChange={e => setSearch(e.target.value)}
+            onFocus={() => setFocused(true)} onBlur={() => setTimeout(() => setFocused(false), 200)}
+            placeholder="Search contacts…" style={{ flex: 1, minWidth: 120, border: 'none', outline: 'none', fontSize: 13, padding: '4px 0', background: 'transparent' }} />
+        </div>
+        {focused && results.length > 0 && (
+          <div className="tp-dropdown">
+            {results.map(c => (
+              <div key={c.id} className="tp-dropdown-item" onMouseDown={() => addContact(c)}>
+                <span className="avatar-xs">{c.name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}</span>
+                {c.name}
+              </div>
+            ))}
+          </div>
+        )}
       </div>
       <div className="quick-field">
         <label>Notes</label>

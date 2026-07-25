@@ -17,7 +17,7 @@ from uuid import UUID
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Request
-from sqlalchemy import func, select, or_
+from sqlalchemy import func, select, or_, text
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import ColumnProperty, selectinload
 
@@ -34,6 +34,7 @@ from app.models.crm import (
     Tag,
     Task,
     Touchpoint,
+    TouchpointParticipant,
 )
 from app.models.crm_module_b import Deal, DealStage
 from app.schemas.crm import (
@@ -648,10 +649,21 @@ async def list_touchpoints(
     limit: int = 50,
     offset: int = 0,
     search: str | None = None,
+    contact_id: UUID | None = None,
     db: AsyncSession = Depends(get_tenant_session),
 ):
     tenant_id = _get_tenant_id(request)
     base = select(Touchpoint).where(Touchpoint.tenant_id == tenant_id)
+
+    if contact_id:
+        base = base.where(
+            Touchpoint.id.in_(
+                select(TouchpointParticipant.touchpoint_id).where(
+                    TouchpointParticipant.contact_id == contact_id,
+                    TouchpointParticipant.tenant_id == tenant_id,
+                )
+            )
+        )
 
     if search:
         base = base.where(Touchpoint.title.ilike(f"%{search}%"))
@@ -659,14 +671,14 @@ async def list_touchpoints(
     count_q = select(func.count()).select_from(base.subquery())
     total = (await db.execute(count_q)).scalar() or 0
 
-    items_q = base.options(selectinload(Touchpoint.company)).order_by(Touchpoint.created_at.desc()).offset(offset).limit(limit)
+    items_q = base.options(selectinload(Touchpoint.company), selectinload(Touchpoint.participants)).order_by(Touchpoint.created_at.desc()).offset(offset).limit(limit)
     rows = (await db.execute(items_q)).scalars().all()
 
-    # Build response with resolved company names
     items = []
     for t in rows:
         d = {col.name: getattr(t, col.name) for col in t.__table__.columns}
         d['company'] = {'id': str(t.company.id), 'name': t.company.name} if t.company else None
+        d['participants'] = [{'id': str(p.id), 'name': p.name} for p in t.participants]
         items.append(d)
 
     return ListResponse(items=items, total=total)
@@ -681,12 +693,24 @@ async def create_touchpoint(
     tenant_id = _get_tenant_id(request)
     user_id = _get_user_id(request)
 
+    data = body.model_dump(exclude={"contact_ids"})
     touchpoint = Touchpoint(
         tenant_id=tenant_id,
         created_by=user_id,
-        **body.model_dump(),
+        **data,
     )
     db.add(touchpoint)
+    await db.flush()
+
+    # Create participant records
+    for cid in body.contact_ids:
+        participant = TouchpointParticipant(
+            tenant_id=tenant_id,
+            touchpoint_id=touchpoint.id,
+            contact_id=cid,
+        )
+        db.add(participant)
+
     await db.flush()
 
     await _log_activity(
@@ -700,7 +724,15 @@ async def create_touchpoint(
     )
 
     await db.refresh(touchpoint)
-    return touchpoint
+    # Re-query with participants loaded
+    result = await db.execute(
+        select(Touchpoint).options(selectinload(Touchpoint.company), selectinload(Touchpoint.participants)).where(Touchpoint.id == touchpoint.id)
+    )
+    t = result.scalar_one()
+    d = {col.name: getattr(t, col.name) for col in t.__table__.columns}
+    d['company'] = {'id': str(t.company.id), 'name': t.company.name} if t.company else None
+    d['participants'] = [{'id': str(p.id), 'name': p.name} for p in t.participants]
+    return d
 
 
 @router.get("/touchpoints/{touchpoint_id}", response_model=TouchpointResponse)
@@ -711,16 +743,16 @@ async def get_touchpoint(
 ):
     tenant_id = _get_tenant_id(request)
     result = await db.execute(
-        select(Touchpoint).options(selectinload(Touchpoint.company)).where(
+        select(Touchpoint).options(selectinload(Touchpoint.company), selectinload(Touchpoint.participants)).where(
             Touchpoint.id == touchpoint_id, Touchpoint.tenant_id == tenant_id
         )
     )
     touchpoint = result.scalar_one_or_none()
     if not touchpoint:
         raise HTTPException(status_code=404, detail="Touchpoint not found")
-    # Build response with resolved company name
     d = {col.name: getattr(touchpoint, col.name) for col in touchpoint.__table__.columns}
     d['company'] = {'id': str(touchpoint.company.id), 'name': touchpoint.company.name} if touchpoint.company else None
+    d['participants'] = [{'id': str(p.id), 'name': p.name} for p in touchpoint.participants]
     return d
 
 
@@ -744,9 +776,27 @@ async def update_touchpoint(
         raise HTTPException(status_code=404, detail="Touchpoint not found")
 
     changes = {}
-    for field, value in body.model_dump(exclude_unset=True).items():
+    data = body.model_dump(exclude_unset=True)
+    contact_ids = data.pop("contact_ids", None)
+    for field, value in data.items():
         setattr(touchpoint, field, value)
         changes[field] = str(value)
+
+    # Sync participants if contact_ids provided
+    if contact_ids is not None:
+        # Remove existing participants
+        await db.execute(
+            text("DELETE FROM nexus_crm.touchpoint_participants WHERE touchpoint_id = :tp_id AND tenant_id = :t_id"),
+            {"tp_id": touchpoint_id, "t_id": tenant_id},
+        )
+        # Add new participants
+        for cid in contact_ids:
+            participant = TouchpointParticipant(
+                tenant_id=tenant_id,
+                touchpoint_id=touchpoint.id,
+                contact_id=cid,
+            )
+            db.add(participant)
 
     touchpoint.updated_at = datetime.now(timezone.utc)
 
@@ -762,8 +812,15 @@ async def update_touchpoint(
     )
 
     await db.flush()
-    await db.refresh(touchpoint)
-    return touchpoint
+    # Re-query with participants loaded
+    result = await db.execute(
+        select(Touchpoint).options(selectinload(Touchpoint.company), selectinload(Touchpoint.participants)).where(Touchpoint.id == touchpoint.id)
+    )
+    t = result.scalar_one()
+    d = {col.name: getattr(t, col.name) for col in t.__table__.columns}
+    d['company'] = {'id': str(t.company.id), 'name': t.company.name} if t.company else None
+    d['participants'] = [{'id': str(p.id), 'name': p.name} for p in t.participants]
+    return d
 
 
 @router.delete("/touchpoints/{touchpoint_id}", status_code=204)

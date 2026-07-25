@@ -69,10 +69,21 @@ class Contact(Base):
 
     company = relationship("Company", back_populates="contacts")
     touchpoints = relationship("Touchpoint", back_populates="contact")
+    touchpoints_as_participant = relationship("Touchpoint", secondary="nexus_crm.touchpoint_participants", back_populates="participants", lazy="selectin", viewonly=True)
     tasks = relationship("Task", back_populates="contact")
     notes_rel = relationship("Note", back_populates="contact")
     name_cards = relationship("NameCard", back_populates="contact")
     contact_projects = relationship("ContactProject", back_populates="contact", cascade="all, delete-orphan")
+
+
+class TouchpointParticipant(Base):
+    __tablename__ = "touchpoint_participants"
+    __table_args__ = {"schema": "nexus_crm"}
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id = Column(UUID(as_uuid=True), ForeignKey("nexus_auth.nexus_auth_tenants.id", ondelete="CASCADE"), nullable=False)
+    touchpoint_id = Column(UUID(as_uuid=True), ForeignKey("nexus_crm.touchpoints.id", ondelete="CASCADE"), nullable=False)
+    contact_id = Column(UUID(as_uuid=True), ForeignKey("nexus_crm.contacts.id", ondelete="CASCADE"), nullable=False)
 
 
 class Touchpoint(Base):
@@ -94,6 +105,7 @@ class Touchpoint(Base):
     updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
     contact = relationship("Contact", back_populates="touchpoints")
+    participants = relationship("Contact", secondary="nexus_crm.touchpoint_participants", back_populates="touchpoints", lazy="selectin")
     company = relationship("Company", back_populates="touchpoints")
 
 
