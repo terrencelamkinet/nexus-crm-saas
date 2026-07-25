@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Plus, Search, X, Trash2, Edit3, Filter, ArrowUpDown, LayoutGrid, SlidersHorizontal, Download, ChevronRight, MoreHorizontal, GripVertical } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useApi, useSearch, useCreateModal, TableSkeleton, ErrorBox } from '../lib/useApi';
@@ -229,6 +229,7 @@ function ContactFormFields({ form, setForm, inputCls }: FormFieldsProps) {
 
 export default function ContactsPage() {
   const navigate = useNavigate();
+  const tableRef = useRef<HTMLTableElement>(null);
   const { query, setQuery, debounced } = useSearch();
   const searchQs = debounced ? `?search=${encodeURIComponent(debounced)}&page_size=50` : '?page_size=50';
   const { data, loading, error, refresh } = useApi<ContactListResponse>(`/api/v1/crm/contacts${searchQs}`);
@@ -255,7 +256,7 @@ export default function ContactsPage() {
     });
   };
 
-  const col = useColumnConfig();
+  const col = useColumnConfig(tableRef);
   const visibleCols = col.getVisible();
   // Map column keys to render functions
   const colRender: Record<string, (c: Contact) => React.ReactNode> = {
@@ -422,7 +423,7 @@ export default function ContactsPage() {
           <div className="empty-state">No contacts found</div>
         ) : (
           <>
-            <table>
+            <table ref={tableRef}>
               <colgroup>
                 <col style={{ width: 40 }} />
                 {visibleCols.map(v => <col key={v.key} style={{ width: v.width }} />)}
@@ -438,10 +439,14 @@ export default function ContactsPage() {
                   {visibleCols.map(v => (
                     <th key={v.key}
                       draggable
+                      data-col-key={v.key}
                       onDragStart={e => col.onDragStart(e, v.key)}
                       onDragOver={e => col.onDragOver(e, v.key)}
                       onDragEnd={col.onDragEnd}
-                      className="col-draggable">
+                      onTouchStart={e => col.onTouchStart(e, v.key)}
+                      onTouchMove={e => col.onTouchMove(e, v.key)}
+                      onTouchEnd={col.onTouchEnd}
+                      className={'col-draggable' + (col.touchDragKey === v.key ? ' col-dragging' : '')}>
                       <span className="col-label">{v.label}</span>
                       <span className="col-resize-handle" onMouseDown={e => col.onResizeStart(e, v.key)} />
                     </th>

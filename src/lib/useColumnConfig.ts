@@ -27,13 +27,10 @@ function load(): ColConfig {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return defaultConfig();
     const parsed = JSON.parse(raw);
-    // Validate: ensure all DEFAULTS keys present
     const allKeys = new Set(DEFAULTS.map(d => d.key));
     const missing = [...allKeys].filter(k => !parsed.order?.includes(k));
     if (missing.length > 0) {
-      // Merge missing columns at end in default order
       parsed.order = [...(parsed.order || []), ...missing];
-      // Fill missing widths
       for (const d of DEFAULTS) {
         if (!parsed.widths[d.key]) parsed.widths[d.key] = d.defaultWidth!;
       }
@@ -55,13 +52,19 @@ function save(config: ColConfig) {
   try { localStorage.setItem(STORAGE_KEY, JSON.stringify(config)); } catch {}
 }
 
-export default function useColumnConfig() {
+export default function useColumnConfig(tableRef: React.RefObject<HTMLTableElement | null>) {
   const [config, setConfig] = useState<ColConfig>(load);
   const dragCol = useRef<string | null>(null);
   const resizeCol = useRef<string | null>(null);
   const resizeStart = useRef({ x: 0, w: 0 });
 
-  // Persist on change
+  // Touch drag state
+  const [touchDragKey, setTouchDragKey] = useState<string | null>(null);
+  const touchTimer = useRef<ReturnType<typeof setTimeout>>();
+  const touchCol = useRef<string | null>(null);
+  const touchStartX = useRef(0);
+  const touchActive = useRef(false);
+
   useEffect(() => { save(config); }, [config]);
 
   const getColDef = useCallback((key: string) =>
@@ -99,7 +102,7 @@ export default function useColumnConfig() {
     const to = config.order.indexOf(key);
     if (from === to) return;
     moveColumn(from, to);
-    dragCol.current = key; // update so subsequent overs don't re-trigger
+    dragCol.current = key;
   }, [config.order, moveColumn]);
 
   const onDragEnd = useCallback((e: React.DragEvent) => {
@@ -131,6 +134,66 @@ export default function useColumnConfig() {
     window.addEventListener('mouseup', cleanup);
   }, [config.widths]);
 
+  // ---- Touch long-press drag reorder (mobile) ----
+  const findTargetCol = useCallback((x: number): string | null => {
+    const tbl = tableRef.current;
+    if (!tbl) return null;
+    const ths = tbl.querySelectorAll<HTMLElement>('th.col-draggable');
+    for (const th of ths) {
+      const r = th.getBoundingClientRect();
+      if (x >= r.left && x < r.right) return th.dataset.colKey || null;
+    }
+    return null;
+  }, [tableRef]);
+
+  const clearTouch = useCallback(() => {
+    clearTimeout(touchTimer.current);
+    touchTimer.current = undefined;
+    touchActive.current = false;
+    touchCol.current = null;
+    setTouchDragKey(null);
+  }, []);
+
+  const onTouchStart = useCallback((e: React.TouchEvent, key: string) => {
+    if (touchActive.current) return;
+    touchCol.current = key;
+    touchStartX.current = e.touches[0].clientX;
+    touchActive.current = false;
+    touchTimer.current = setTimeout(() => {
+      // Long-press activated
+      touchActive.current = true;
+      setTouchDragKey(key);
+      // Vibrate to confirm activation
+      if (navigator.vibrate) navigator.vibrate(10);
+    }, 800);
+  }, []);
+
+  const onTouchMove = useCallback((e: React.TouchEvent, key: string) => {
+    if (!touchActive.current) {
+      // Moved before long-press — cancel
+      clearTouch();
+      return;
+    }
+    e.preventDefault(); // prevent scroll while dragging
+    const x = e.touches[0].clientX;
+    const target = findTargetCol(x);
+    if (!target || target === touchCol.current) return;
+    const from = config.order.indexOf(touchCol.current!);
+    const to = config.order.indexOf(target);
+    if (from === -1 || to === -1 || from === to) return;
+    moveColumn(from, to);
+    touchCol.current = target;
+    setTouchDragKey(target);
+  }, [config.order, moveColumn, findTargetCol, clearTouch]);
+
+  const onTouchEnd = useCallback(() => {
+    if (!touchActive.current) {
+      clearTouch();
+      return;
+    }
+    clearTouch();
+  }, [clearTouch]);
+
   // ---- Mobile bottom sheet ----
   const [mobileOpen, setMobileOpen] = useState(false);
   const openMobile = useCallback(() => setMobileOpen(true), []);
@@ -150,6 +213,8 @@ export default function useColumnConfig() {
     resetColumns,
     onDragStart, onDragOver, onDragEnd,
     onResizeStart,
+    onTouchStart, onTouchMove, onTouchEnd,
+    touchDragKey,
     isResizing: !!resizeCol.current,
     mobileOpen, openMobile, closeMobile, moveMobile,
   };
