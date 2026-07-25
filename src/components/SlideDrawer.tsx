@@ -45,6 +45,7 @@ export default function SlideDrawer({ open, onClose, title, children, width }: S
         {/* ── Mobile drag handle ── */}
         <div className="slide-drawer-handle" onClick={onClose}>
           <div className="slide-drawer-handle-bar" />
+          <div className="slide-drawer-handle-bar" />
         </div>
         <div className="slide-drawer-header">
           <h3 className="slide-drawer-title">{title || ''}</h3>
