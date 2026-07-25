@@ -381,7 +381,8 @@ tbody tr:hover .menu-dots{opacity:1}
 .data-table{background:var(--color-surface);border:1px solid var(--color-divider);border-radius:var(--radius-lg);overflow:hidden}
 .data-table table{width:100%}
 .data-table th{text-align:left;font-size:11.5px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--color-text-faint);padding:12px 18px;border-bottom:1px solid var(--color-divider);background:var(--color-surface-offset);position:relative;user-select:none}
-.col-draggable{cursor:grab;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;touch-action:none}
+.col-draggable{cursor:grab;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;touch-action:none;transition:opacity .15s}
+.col-draggable:active{opacity:.7}
 .col-draggable:hover{background:color-mix(in oklch, var(--color-primary) 6%, transparent)}
 .col-label{pointer-events:none}
 .col-resize-handle{position:absolute;right:-1px;top:0;bottom:0;width:5px;cursor:col-resize;z-index:2}
@@ -519,6 +520,7 @@ tbody tr:hover .menu-dots{opacity:1}
   .table-scroll::after{content:'';position:absolute;top:0;right:0;bottom:0;width:24px;background:linear-gradient(to right,transparent,var(--color-surface));pointer-events:none}
   .data-table table{min-width:640px}
   .data-table th,.data-table td{padding:11px 12px;font-size:12.5px}
+  .data-table .avatar-sm{display:none}
   .kanban-board{grid-auto-columns:84vw;gap:10px;scroll-snap-type:x mandatory}
   .kanban-col{scroll-snap-align:start}
   .nav-item,.icon-btn,.btn-primary,.btn-secondary,.list-row{min-height:44px}

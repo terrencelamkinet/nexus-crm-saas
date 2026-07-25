@@ -54,6 +54,7 @@ function save(config: ColConfig) {
 
 export default function useColumnConfig() {
   const [config, setConfig] = useState<ColConfig>(load);
+  const dragCol = useRef<string | null>(null);
   const resizeCol = useRef<string | null>(null);
   const resizeStart = useRef({ x: 0, w: 0 });
 
@@ -77,6 +78,28 @@ export default function useColumnConfig() {
 
   const resetColumns = useCallback(() => {
     setConfig(defaultConfig());
+  }, []);
+
+  // ---- Desktop drag reorder ----
+  const onDragStart = useCallback((e: React.DragEvent, key: string) => {
+    dragCol.current = key;
+    e.dataTransfer.effectAllowed = 'move';
+    (e.currentTarget as HTMLElement).style.opacity = '.5';
+  }, []);
+
+  const onDragOver = useCallback((e: React.DragEvent, key: string) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    if (!dragCol.current || dragCol.current === key) return;
+    const from = config.order.indexOf(dragCol.current);
+    const to = config.order.indexOf(key);
+    if (from === -1 || to === -1 || from === to) return;
+    moveColumn(from, to);
+    dragCol.current = key;
+  }, [config.order, moveColumn]);
+
+  const onDragEnd = useCallback(() => {
+    dragCol.current = null;
   }, []);
 
   // ---- Desktop resize ----
@@ -120,6 +143,7 @@ export default function useColumnConfig() {
     getVisible,
     moveColumn,
     resetColumns,
+    onDragStart, onDragOver, onDragEnd,
     onResizeStart,
     mobileOpen, openMobile, closeMobile, moveMobile,
   };

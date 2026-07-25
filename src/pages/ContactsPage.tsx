@@ -6,7 +6,6 @@ import { apiClient } from '../lib/api';
 import EntitySearch from '../modules/shared/EntitySearch';
 import useColumnConfig from '../lib/useColumnConfig';
 import BottomSheet from '../components/BottomSheet';
-import Sortable from 'sortablejs';
 
 interface Contact {
   id: string;
@@ -373,27 +372,6 @@ export default function ContactsPage() {
     }
   };
 
-  // SortableJS for column reorder (desktop + mobile)
-  useEffect(() => {
-    if (!loading && items.length > 0 && tableRef.current) {
-      const thead = tableRef.current.querySelector('thead tr');
-      if (!thead) return;
-      const sortable = new Sortable(thead as HTMLElement, {
-        draggable: '.col-draggable',
-        animation: 200,
-        delay: 150,
-        delayOnTouchOnly: true,
-        direction: 'horizontal',
-        onEnd: (evt) => {
-          const from = evt.oldIndex! - 1;
-          const to = evt.newIndex! - 1;
-          if (from !== to && from >= 0 && to >= 0) col.moveColumn(from, to);
-        },
-      });
-      return () => sortable.destroy();
-    }
-  }, [loading, items.length]);
-
   return (
     <div>
       {/* Breadcrumb */}
@@ -460,7 +438,11 @@ export default function ContactsPage() {
                   </th>
                   {visibleCols.map(v => (
                     <th key={v.key}
+                      draggable
                       data-col-key={v.key}
+                      onDragStart={e => col.onDragStart(e, v.key)}
+                      onDragOver={e => col.onDragOver(e, v.key)}
+                      onDragEnd={col.onDragEnd}
                       className="col-draggable">
                       <span className="col-label">{v.label}</span>
                       <span className="col-resize-handle" onMouseDown={e => col.onResizeStart(e, v.key)} />
