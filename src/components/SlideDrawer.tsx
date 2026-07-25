@@ -42,6 +42,10 @@ export default function SlideDrawer({ open, onClose, title, children, width }: S
         style={{ '--drawer-width': width || '25vw' } as React.CSSProperties}
         onClick={e => e.stopPropagation()}
       >
+        {/* ── Mobile drag handle ── */}
+        <div className="slide-drawer-handle" onClick={onClose}>
+          <div className="slide-drawer-handle-bar" />
+        </div>
         <div className="slide-drawer-header">
           <h3 className="slide-drawer-title">{title || ''}</h3>
           <button className="slide-drawer-close" onClick={onClose} aria-label="Close">
