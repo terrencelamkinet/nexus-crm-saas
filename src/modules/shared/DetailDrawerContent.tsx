@@ -1,5 +1,6 @@
 import { useState, useEffect, Suspense } from 'react'
 import { Phone, Mail, Building2, User, Clock, Edit3, Trash2 } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
 import { apiClient } from '../../lib/api'
 import { FieldsRenderer } from './FieldsRenderer'
 import { buildPayload, formatDate, apiErrorToString } from './field-utils'
@@ -20,6 +21,7 @@ interface Props {
 }
 
 export default function DetailDrawerContent({ config, id, onClose, tabRenderers, extraData }: Props) {
+  const navigate = useNavigate()
   const [entity, setEntity] = useState<EntityRecord | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -139,7 +141,7 @@ export default function DetailDrawerContent({ config, id, onClose, tabRenderers,
     <div className="drawer-detail">
       {/* Breadcrumb */}
       <nav className="breadcrumb drawer-bc">
-        <span>Home</span>
+        <span className="breadcrumb-link" onClick={() => { onClose(); navigate('/dashboard') }}>Home</span>
         <span className="bc-sep">/</span>
         <span className="breadcrumb-link" onClick={onClose}>{config.labelPlural}</span>
         <span className="bc-sep">/</span>
