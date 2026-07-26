@@ -137,6 +137,15 @@ export default function DetailDrawerContent({ config, id, onClose, tabRenderers,
 
   return (
     <div className="drawer-detail">
+      {/* Breadcrumb */}
+      <nav className="breadcrumb drawer-bc">
+        <span>Home</span>
+        <span className="bc-sep">/</span>
+        <span className="breadcrumb-link" onClick={onClose}>{config.labelPlural}</span>
+        <span className="bc-sep">/</span>
+        <span className="cur">{entityName}</span>
+      </nav>
+
       {/* Profile card */}
       <div className="drawer-profile">
         <div className="drawer-profile-avatar">{initials}</div>

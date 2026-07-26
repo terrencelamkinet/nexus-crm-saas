@@ -1229,4 +1229,8 @@ textarea.input-field{resize:vertical;min-height:60px}
 .drawer-fields-grid .input-field{font-size:13px}
 .drawer-fields-grid.grid-2col{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .drawer-more-btn{width:100%;margin-top:8px;font-size:12px;padding:8px;border-radius:var(--radius-md)}
+.drawer-bc{margin-bottom:12px;flex-wrap:wrap}
+.drawer-bc span.cur{color:var(--color-text);font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.breadcrumb-link{cursor:pointer;color:var(--color-primary);font-weight:500}
+.breadcrumb-link:hover{text-decoration:underline}
 
