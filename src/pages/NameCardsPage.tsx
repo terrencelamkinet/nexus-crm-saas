@@ -1,4 +1,5 @@
-import { ScanLine, CheckCircle } from 'lucide-react';
+import { ScanLine, CheckCircle, ChevronRight } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { useApi, CardSkeleton, ErrorBox } from '../lib/useApi';
 
 interface NameCard {
@@ -18,6 +19,7 @@ interface NameCardListResponse {
 }
 
 export default function NameCardsPage() {
+  const navigate = useNavigate();
   const { data, loading, error, refresh } = useApi<NameCardListResponse>('/api/v1/crm/name-cards?page=1&page_size=50');
 
   const items = data?.items ?? [];
@@ -25,6 +27,12 @@ export default function NameCardsPage() {
 
   return (
     <div className="main-content">
+      {/* Breadcrumb */}
+      <div className="breadcrumb">
+        <span className="breadcrumb-link" onClick={() => navigate('/dashboard')}>Home</span>
+        <ChevronRight />
+        <span className="breadcrumb-current">Name Cards</span>
+      </div>
       <div className="page-header">
         <div>
           <h1>NameCard Scanner</h1>

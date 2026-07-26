@@ -381,7 +381,7 @@ export default function ContactsPage() {
     <div>
       {/* Breadcrumb */}
       <div className="breadcrumb">
-        <span>Home</span>
+        <span className="breadcrumb-link" onClick={() => navigate('/dashboard')}>Home</span>
         <ChevronRight />
         <span className="breadcrumb-current">Contacts</span>
       </div>

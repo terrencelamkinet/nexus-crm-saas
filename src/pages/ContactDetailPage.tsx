@@ -729,7 +729,7 @@ export default function ContactDetailPage() {
                     </div>
                     <div className="summary-item">
                       <span className="lbl text-13-muted">Owner</span>
-<span className="fw-600 val">{contact.contact_type || 'Unas
+<span className="fw-600 val">{contact.contact_type || 'Unassigned'}</span>
                     </div>
                     {deals.length > 0 && (
                       <div className="next-action" style={{ background: 'var(--color-primary-highlight)', padding: '12px', borderRadius: '8px', marginTop: '16px', border: '1px solid rgba(15,111,111,0.2)' }}>

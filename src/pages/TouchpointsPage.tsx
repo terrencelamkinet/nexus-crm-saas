@@ -1,4 +1,5 @@
-import { Phone, Users, Mail, ScanLine } from 'lucide-react';
+import { Phone, Users, Mail, ScanLine, ChevronRight } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { useApi, ErrorBox } from '../lib/useApi';
 import { useSearch } from '../lib/useApi';
 
@@ -25,6 +26,7 @@ const typeConfig: Record<string, { icon: any; color: string }> = {
 };
 
 export default function TouchpointsPage() {
+  const navigate = useNavigate();
   const { query, setQuery, debounced } = useSearch();
   const { data, loading, error, refresh } = useApi<TouchpointListResponse>(
     `/api/v1/crm/touchpoints?page=1&page_size=50${debounced ? `&search=${encodeURIComponent(debounced)}` : ''}`
@@ -49,6 +51,12 @@ export default function TouchpointsPage() {
 
   return (
     <div className="p-6">
+      {/* Breadcrumb */}
+      <div className="breadcrumb">
+        <span className="breadcrumb-link" onClick={() => navigate('/dashboard')}>Home</span>
+        <ChevronRight />
+        <span className="breadcrumb-current">Touchpoints</span>
+      </div>
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-slate-900">Touchpoints</h1>
         <p className="text-sm text-slate-500 mt-1">Activity timeline · {total} entries</p>

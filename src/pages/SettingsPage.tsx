@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { Users, Settings, CreditCard, Puzzle, Monitor, X, ChevronRight, ArrowUpDown, Plus, Download, Search, Trash2, Edit3, MoreHorizontal } from 'lucide-react'
 import { apiClient } from '../lib/api'
 
@@ -12,6 +13,7 @@ const tabs = [
 ]
 
 export default function SettingsPage() {
+  const navigate = useNavigate()
   const [active, setActive] = useState('profile')
   const [modules, setModules] = useState<Record<string, boolean>>({})
   const [loading, setLoading] = useState(true)
@@ -61,7 +63,7 @@ export default function SettingsPage() {
   return (
     <div>
       <div className="breadcrumb">
-        <span>Home</span>
+        <span className="breadcrumb-link" onClick={() => navigate('/dashboard')}>Home</span>
         <ChevronRight />
         <span className="breadcrumb-current">Settings</span>
       </div>

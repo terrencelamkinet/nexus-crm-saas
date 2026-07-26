@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { Plus, Search, Building2, X } from 'lucide-react';
+import { Plus, Search, Building2, X, ChevronRight } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { useApi, useSearch, useCreateModal, TableSkeleton, ErrorBox } from '../lib/useApi';
 import { apiClient } from '../lib/api';
 
@@ -27,6 +28,7 @@ const statusColors: Record<string, string> = {
 const defaultForm = { name: '', industry: '', domain: '', status: 'Active' };
 
 export default function CompaniesPage() {
+  const navigate = useNavigate();
   const { query, setQuery, searchParams } = useSearch();
   const { data, loading, error, refresh } = useApi<CompanyListResponse>(`/api/v1/crm/companies${searchParams}`);
   const create = useCreateModal();
@@ -58,6 +60,12 @@ export default function CompaniesPage() {
 
   return (
     <div className="main-content">
+      {/* Breadcrumb */}
+      <div className="breadcrumb">
+        <span className="breadcrumb-link" onClick={() => navigate('/dashboard')}>Home</span>
+        <ChevronRight />
+        <span className="breadcrumb-current">Companies</span>
+      </div>
       {/* Header */}
       <div className="page-header">
         <div>

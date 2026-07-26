@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { Plus, X } from 'lucide-react';
+import { Plus, X, ChevronRight } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { apiClient } from '../lib/api';
 import { useCreateModal, ErrorBox } from '../lib/useApi';
 import EntitySearch from '../modules/shared/EntitySearch';
@@ -36,6 +37,7 @@ interface Deal {
 // ---------------------------------------------------------------------------
 
 export default function DealsPage() {
+  const navigate = useNavigate();
   const [pipelines, setPipelines] = useState<Pipeline[]>([]);
   const [stages, setStages] = useState<Stage[]>([]);
   const [deals, setDeals] = useState<Deal[]>([]);
@@ -125,6 +127,11 @@ export default function DealsPage() {
   if (loading) {
     return (
       <div className="main-content">
+        <div className="breadcrumb">
+          <span className="breadcrumb-link" onClick={() => navigate('/dashboard')}>Home</span>
+          <ChevronRight />
+          <span className="breadcrumb-current">Deals</span>
+        </div>
         <div className="animate-pulse space-y-4">
           <div className="h-8 bg-slate-200 rounded w-48" />
           <div className="kanban-board">
@@ -139,6 +146,12 @@ export default function DealsPage() {
 
   return (
     <div className="main-content">
+      {/* Breadcrumb */}
+      <div className="breadcrumb">
+        <span className="breadcrumb-link" onClick={() => navigate('/dashboard')}>Home</span>
+        <ChevronRight />
+        <span className="breadcrumb-current">Deals</span>
+      </div>
       {/* Header */}
       <div className="page-header">
         <div>
