@@ -111,9 +111,8 @@ export default function DashboardPreview() {
     try { localStorage.setItem(ORDER_KEY, JSON.stringify(items)) } catch {}
   }
 
-  // Drag state
-  const dragPending = useRef(false)
-
+  // Drag state — dragKey used in handleDragStart/Over/End
+  
   // Data fetching
   const fetchData = useCallback(async () => {
     try {
