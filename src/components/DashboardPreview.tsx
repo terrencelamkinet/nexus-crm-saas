@@ -102,6 +102,9 @@ export default function DashboardPreview() {
   })
   const maxPipelineTotal = Math.max(1, ...pipeline.map(p => p.total))
 
+  // Ref for the grid container (DOM manipulation during drag, like design01)
+  const gridRef = useRef<HTMLDivElement>(null)
+
   // Widget actions
   const addWidget = (k: string) => {
     if (order.includes(k)) return
@@ -109,13 +112,35 @@ export default function DashboardPreview() {
     setShowPicker(false)
   }
   const removeW = (k: string) => saveOrder(order.filter(x => x !== k))
-  const moveW = (from: string, to: string) => {
-    const a = order.indexOf(from), b = order.indexOf(to)
-    if (a < 0 || b < 0) return
-    const next = [...order]
-    next.splice(a, 1)
-    next.splice(b, 0, from)
-    saveOrder(next)
+
+  // ── Drag: match design01 — DOM manipulation during drag, state sync only on dragEnd ──
+  const handleDragStart = (k: string) => {
+    dragKey.current = k
+  }
+  const handleDragOver = (e: React.DragEvent, k: string) => {
+    if (!editing || !dragKey.current || dragKey.current === k) return
+    e.preventDefault()
+    const grid = gridRef.current
+    if (!grid) return
+    const dragged = grid.querySelector(`[data-key="${dragKey.current}"]`) as HTMLElement
+    const target = e.currentTarget as HTMLElement
+    if (!dragged || dragged === target) return
+    // Insert before or after based on horizontal position (design01 pattern)
+    const rect = target.getBoundingClientRect()
+    const before = (e.clientX - rect.left) < rect.width / 2
+    grid.insertBefore(dragged, before ? target : target.nextSibling)
+  }
+  const handleDragEnd = () => {
+    dragKey.current = null
+    // Sync order from DOM once (like design01's syncLayoutFromDOM)
+    const grid = gridRef.current
+    if (!grid) return
+    const newOrder: string[] = []
+    grid.querySelectorAll('[data-key]').forEach(el => {
+      const key = el.getAttribute('data-key')
+      if (key) newOrder.push(key)
+    })
+    if (newOrder.length > 0) saveOrder(newOrder)
   }
 
   return (
@@ -175,20 +200,17 @@ export default function DashboardPreview() {
       )}
 
       {/* Widget Grid — 12-column CSS grid */}
-      <div className="dash-grid">
+      <div className="dash-grid" ref={gridRef}>
         {order.map(k => {
           const def = allWidgets[k]
           if (!def) return null
           return (
             <div key={k} className={`dash-widget span-${def.span}${editing && dragKey.current === k ? ' dragging' : ''}`}
+              data-key={k}
               draggable={editing}
-              onDragStart={() => { if (editing) dragKey.current = k }}
-              onDragOver={e => {
-                if (!editing || !dragKey.current || dragKey.current === k) return
-                e.preventDefault()
-                moveW(dragKey.current, k)
-              }}
-              onDragEnd={() => { dragKey.current = null }}>
+              onDragStart={() => handleDragStart(k)}
+              onDragOver={e => handleDragOver(e, k)}
+              onDragEnd={handleDragEnd}>
               <div className="w-head">
                 <h3>
                   {k.startsWith('kpi_') ? def.label :
