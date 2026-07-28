@@ -743,7 +743,7 @@ export default function DashboardNew() {
   }
 
   return (
-    <div className="dash01-shell" data-theme={dark ? 'dark' : 'light'}>
+    <div className={`dash01-shell${editing ? ' editing' : ''}`} data-theme={dark ? 'dark' : 'light'}>
       <div className="app">
         {/* SIDEBAR — design01 */}
         <aside className="sidebar">

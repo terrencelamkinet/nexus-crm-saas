@@ -2,25 +2,24 @@
    Dashboard Design01 — Full Style Port from design01 HTML
    ═════════════════════════════════════════════════════════ */
 
-/* ── iOS overflow fix ── */
+/* ── iOS overflow fix + full viewport override ── */
 .dash01-shell {
   overflow-x: hidden;
   max-width: 100vw;
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  background: var(--color-bg);
 }
 .dash01-shell .app {
   overflow-x: hidden;
   max-width: 100vw;
-}
-.dash01-shell .main {
-  min-width: 0;
-  overflow-x: hidden;
-}
-.dash01-shell .content {
-  -webkit-overflow-scrolling: touch;
+  min-height: 100dvh;
+  display: flex;
 }
 
 /* ── APP SHELL ── */
-.dash01-shell .app { display: flex; min-height: 100dvh; }
+
 .dash01-shell .sidebar {
   width: 246px; background: var(--color-surface);
   border-right: 1px solid var(--color-divider);
@@ -215,7 +214,7 @@
   opacity: 0; transition: opacity var(--transition-interactive);
 }
 .dash01-shell .widget:hover .widget-actions,
-.dash01-shell .editing .widget-actions { opacity: 1; }
+.dash01-shell.editing .widget-actions { opacity: 1; }
 .dash01-shell .widget-actions button {
   width: 24px; height: 24px; display: flex; align-items: center;
   justify-content: center; border-radius: var(--radius-sm);
@@ -225,9 +224,9 @@
 .dash01-shell .widget-actions button svg { width: 14px; height: 14px; }
 .dash01-shell .widget-body { flex: 1; min-height: 0; }
 
-.dash01-shell .editing .widget { border-style: dashed; cursor: grab; }
-.dash01-shell .editing .widget:active { cursor: grabbing; }
-.dash01-shell .editing .widget.dragging { opacity: 0.4; }
+.dash01-shell.editing .widget { border-style: dashed; cursor: grab; }
+.dash01-shell.editing .widget:active { cursor: grabbing; }
+.dash01-shell.editing .widget.dragging { opacity: 0.4; }
 
 /* ── Widget Internal Components ── */
 .dash01-shell .kpi-val {
@@ -274,7 +273,7 @@
   transition: border-color var(--transition-interactive), color var(--transition-interactive);
   cursor: pointer;
 }
-.dash01-shell .editing .add-widget-tile { display: flex; }
+.dash01-shell.editing .add-widget-tile { display: flex; }
 .dash01-shell .add-widget-tile:hover { border-color: var(--color-primary); color: var(--color-primary); }
 .dash01-shell .add-widget-tile svg { width: 24px; height: 24px; }
 .dash01-shell .add-widget-tile span { font-size: 13px; font-weight: 600; }
