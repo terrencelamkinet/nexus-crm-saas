@@ -213,6 +213,7 @@ export default function DashboardNew() {
   const [newOpen, setNewOpen] = useState(false)
   const newRef = useRef<HTMLDivElement>(null)
   const [drawerOpen, setDrawerOpen] = useState(false)
+  const [mobileSidebar, setMobileSidebar] = useState(false)
   const [widgetSearch, setWidgetSearch] = useState('')
   const chatBodyRef = useRef<HTMLDivElement>(null)
   const chatOpenedRef = useRef(false)
@@ -777,11 +778,45 @@ export default function DashboardNew() {
           </div>
         </aside>
 
+        {/* Mobile sidebar overlay */}
+        <div className={`dash-mobile-scrim${mobileSidebar ? ' open' : ''}`} onClick={() => setMobileSidebar(false)} />
+        <aside className={`dash-mobile-sidebar${mobileSidebar ? ' open' : ''}`}>
+          <div className="sidebar-logo">
+            <svg viewBox="0 0 32 32" fill="none"><path d="M16 3L27 9V23L16 29L5 23V9L16 3Z" stroke="currentColor" strokeWidth="2" strokeLinejoin="round"/><path d="M16 3V15M16 15L27 9M16 15L5 9M16 15V29" stroke="currentColor" strokeWidth="2"/></svg>
+            <span>Nexus CRM</span>
+            <button className="icon-btn" style={{marginLeft:'auto',width:28,height:28}} onClick={() => setMobileSidebar(false)}><X size={18} /></button>
+          </div>
+          <nav className="sidebar-nav">
+            {navSections.map(section => (
+              <div key={section.label}>
+                <p className="nav-section-label">{section.label}</p>
+                {section.items.map(item => (
+                  <button key={item.to} className={`nav-item${location.pathname === item.to ? ' active' : ''}`}
+                    onClick={() => { navigate(item.to); setMobileSidebar(false) }}>
+                    <item.icon size={18} /><span>{item.label}</span>
+                  </button>
+                ))}
+              </div>
+            ))}
+            <button className={`nav-item${location.pathname === '/notifications' ? ' active' : ''}`}
+              onClick={() => { navigate('/notifications'); setMobileSidebar(false) }}>
+              <Bell size={18} /><span>Notifications</span>
+            </button>
+          </nav>
+          <div className="sidebar-user">
+            <div className="avatar">{initials}</div>
+            <div className="info"><strong>{displayName}</strong><span>{user?.email || 'Terrence_PRO'}</span></div>
+          </div>
+        </aside>
+
         {/* MAIN */}
         <div className="main">
           {/* TOPBAR — design01 */}
           <header className="topbar">
             <div className="topbar-left">
+              <button className="dash-mobile-hamburger" aria-label="Menu" onClick={() => setMobileSidebar(true)}>
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
+              </button>
               <h1 className="page-title">Dashboard</h1>
               <div className="ai-toggle">
                 <Sparkles size={15} />
