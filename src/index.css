@@ -1490,6 +1490,10 @@ textarea.input-field{resize:vertical;min-height:60px}
 .dash-content .dash-add-tile span{font-size:12.5px;font-weight:600}
 .dash-content .dash-add-tile:hover{border-color:var(--color-primary);color:var(--color-primary)}
 .dash-content .dash-widget[draggable=true] ~ .dash-add-tile,.dash-content .dash-add-tile:hover{display:flex}
+.dash-content .resize-grip{position:absolute;right:2px;bottom:2px;width:18px;height:18px;cursor:nwse-resize;display:flex;align-items:center;justify-content:center;background:var(--color-surface);border:1px solid var(--color-border);border-radius:3px;opacity:0;transition:opacity .15s}
+.dash-content .dash-widget:hover .resize-grip,.dash-content .dash-widget[draggable=true] .resize-grip{opacity:1}
+.dash-content .resize-grip:hover{background:var(--color-surface-offset)}
+.dash-content .resize-grip svg{width:11px;height:11px;color:var(--color-text-muted)}
 .dash-content .kpi-center{display:flex;align-items:center;justify-content:center;flex-direction:column;gap:4px;height:100%}
 .dash-content .kpi-val{font-size:24px;font-weight:800;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
 .dash-content .kpi-lbl{font-size:11.5px;color:var(--color-text-muted);font-weight:500}

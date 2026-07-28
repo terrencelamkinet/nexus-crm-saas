@@ -55,14 +55,15 @@ export default function DashboardPreview() {
   const [aiOn, setAiOn] = useState(false)
   const [showPicker, setShowPicker] = useState(false)
 
-  // Widget order — persists to localStorage
-  const [order, setOrder] = useState<WidgetKey[]>(() => {
-    try { return JSON.parse(localStorage.getItem(ORDER_KEY) || 'null') || [...defaultOrder] }
-    catch { return [...defaultOrder] }
+  // Widget order with span — persists to localStorage
+  type WidgetItem = { key: string; span: number }
+  const [widgetItems, setWidgetItems] = useState<WidgetItem[]>(() => {
+    try { return JSON.parse(localStorage.getItem(ORDER_KEY) || 'null') || defaultOrder.map(k => ({key: k, span: allWidgets[k].span})) }
+    catch { return defaultOrder.map(k => ({key: k, span: allWidgets[k].span})) }
   })
-  const saveOrder = (o: WidgetKey[]) => {
-    setOrder(o)
-    try { localStorage.setItem(ORDER_KEY, JSON.stringify(o)) } catch {}
+  const saveItems = (items: WidgetItem[]) => {
+    setWidgetItems(items)
+    try { localStorage.setItem(ORDER_KEY, JSON.stringify(items)) } catch {}
   }
 
   // Drag state
@@ -107,11 +108,16 @@ export default function DashboardPreview() {
 
   // Widget actions
   const addWidget = (k: string) => {
-    if (order.includes(k)) return
-    saveOrder([...order, k])
+    if (widgetItems.some(w => w.key === k)) return
+    saveItems([...widgetItems, {key: k, span: allWidgets[k].span}])
     setShowPicker(false)
   }
-  const removeW = (k: string) => saveOrder(order.filter(x => x !== k))
+  const removeW = (k: string) => saveItems(widgetItems.filter(w => w.key !== k))
+  // Resize widget
+  const resizeW = (k: string, newSpan: number) => {
+    const clamped = Math.max(1, Math.min(12, newSpan))
+    saveItems(widgetItems.map(w => w.key === k ? {...w, span: clamped} : w))
+  }
 
   // ── Drag: match design01 — DOM manipulation during drag, state sync only on dragEnd ──
   const handleDragStart = (k: string) => {
@@ -135,12 +141,17 @@ export default function DashboardPreview() {
     // Sync order from DOM once (like design01's syncLayoutFromDOM)
     const grid = gridRef.current
     if (!grid) return
-    const newOrder: string[] = []
+    const domKeys: string[] = []
     grid.querySelectorAll('[data-key]').forEach(el => {
       const key = el.getAttribute('data-key')
-      if (key) newOrder.push(key)
+      if (key) domKeys.push(key)
     })
-    if (newOrder.length > 0) saveOrder(newOrder)
+    if (domKeys.length > 0) {
+      // Preserve existing spans, just reorder
+      const spanMap = new Map(widgetItems.map(w => [w.key, w.span]))
+      const newItems: WidgetItem[] = domKeys.map(k => ({key: k, span: spanMap.get(k) ?? allWidgets[k]?.span ?? 4}))
+      saveItems(newItems)
+    }
   }
 
   return (
@@ -201,11 +212,12 @@ export default function DashboardPreview() {
 
       {/* Widget Grid — 12-column CSS grid */}
       <div className="dash-grid" ref={gridRef}>
-        {order.map(k => {
+        {widgetItems.map(item => {
+          const k = item.key
           const def = allWidgets[k]
           if (!def) return null
           return (
-            <div key={k} className={`dash-widget span-${def.span}${editing && dragKey.current === k ? ' dragging' : ''}`}
+            <div key={k} className={`dash-widget span-${item.span}${editing && dragKey.current === k ? ' dragging' : ''}`}
               data-key={k}
               draggable={editing}
               onDragStart={() => handleDragStart(k)}
@@ -305,6 +317,31 @@ export default function DashboardPreview() {
                   </div>
                 )}
               </div>
+              {/* Resize handle — bottom-right */}
+              {editing && (
+                <div className="resize-grip" draggable={false} onMouseDown={(e) => {
+                  e.preventDefault()
+                  e.stopPropagation()
+                  const startX = e.clientX
+                  const startSpan = item.span
+                  const grid = gridRef.current
+                  if (!grid) return
+                  const colW = (grid.getBoundingClientRect().width - 13 * 14) / 12 // 14px gap, 12 cols
+                  const onMove = (ev: MouseEvent) => {
+                    const dx = ev.clientX - startX
+                    const newSpan = Math.max(1, Math.min(12, Math.round(startSpan + dx / (colW + 14))))
+                    if (newSpan !== item.span) resizeW(k, newSpan)
+                  }
+                  const onUp = () => {
+                    document.removeEventListener('mousemove', onMove)
+                    document.removeEventListener('mouseup', onUp)
+                  }
+                  document.addEventListener('mousemove', onMove)
+                  document.addEventListener('mouseup', onUp)
+                }}>
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M22 12L12 22M22 2L2 22"/></svg>
+                </div>
+              )}
             </div>
           )
         })}
@@ -320,10 +357,10 @@ export default function DashboardPreview() {
       {/* Widget picker */}
       {showPicker && (
         <div className="picker-bar">
-          {Object.entries(allWidgets).filter(([k]) => !order.includes(k)).map(([k, v]) => (
+          {Object.entries(allWidgets).filter(([k]) => !widgetItems.some(w => w.key === k)).map(([k, v]) => (
             <button key={k} className="picker-btn" onClick={() => addWidget(k)}>+ {v.label}</button>
           ))}
-          {Object.keys(allWidgets).length === order.length && <span className="picker-done">All widgets added</span>}
+          {Object.keys(allWidgets).length === widgetItems.length && <span className="picker-done">All widgets added</span>}
         </div>
       )}
     </div>
