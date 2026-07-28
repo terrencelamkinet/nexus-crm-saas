@@ -2,7 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import Layout from './components/Layout';
 import AuthGuard from './components/AuthGuard';
 import LoginPage from './pages/LoginPage';
-import DashboardPreview from './components/DashboardPreview';
+import DashboardNew from './pages/DashboardNew';
 import ContactsPage from './modules/contacts/ContactsPage';
 import ContactDetailPage from './modules/contacts/ContactDetailPage';
 import CompaniesPage from './modules/companies/CompaniesPage';
@@ -37,7 +37,7 @@ function App() {
           }
         >
           <Route index element={<Navigate to="/dashboard" replace />} />
-          <Route path="dashboard" element={<DashboardPreview />} />
+          <Route path="dashboard" element={<DashboardNew />} />
           <Route path="contacts" element={<ContactsPage />} />
           <Route path="contacts/:id" element={<ContactDetailPage />} />
           <Route path="companies" element={<CompaniesPage />} />

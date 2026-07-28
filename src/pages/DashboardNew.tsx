@@ -923,54 +923,6 @@ export default function DashboardNew() {
               )}
             </div>
 
-            {/* ── DRAWER (Widget Picker) — design01 style ── */}
-            <div className={`drawer-overlay${drawerOpen ? ' show' : ''}`} onClick={() => setDrawerOpen(false)} />
-            <aside className={`drawer${drawerOpen ? ' show' : ''}`}>
-              <div className="drawer-head">
-                <h3>新增小工具</h3>
-                <button className="icon-btn" onClick={() => setDrawerOpen(false)}><X size={19} /></button>
-              </div>
-              <div className="drawer-search">
-                <input type="text" placeholder="搜尋小工具..." value={widgetSearch}
-                  onChange={e => setWidgetSearch(e.target.value)} />
-              </div>
-              <div className="drawer-body">
-                {modulesData.filter(mod => {
-                  if (!widgetSearch) return true
-                  const q = widgetSearch.toLowerCase()
-                  return mod.widgets.some(w => w.name.includes(q) || w.desc.includes(q))
-                }).map(mod => {
-                  const visible = widgetSearch
-                    ? mod.widgets.filter(w => w.name.includes(widgetSearch.toLowerCase()) || w.desc.includes(widgetSearch.toLowerCase()))
-                    : mod.widgets
-                  if (widgetSearch && visible.length === 0) return null
-                  return (
-                    <div key={mod.id} className="module-group">
-                      <div className="module-group-head"><span>{mod.name}</span></div>
-                      {visible.filter(w => !order.includes(w.key)).map(w => {
-                        const IconComp = widgetIcon(w.key)
-                        return (
-                          <div key={w.key} className="widget-option" onClick={() => {
-                            addWidget(w.key)
-                            setWidgetSearch('')
-                          }}>
-                            <div className="wo-icon"><IconComp size={15} /></div>
-                            <div className="wo-text"><strong>{w.name}</strong><span>{w.desc}</span></div>
-                            <div className="wo-add"><Plus size={14} /></div>
-                          </div>
-                        )
-                      })}
-                      {visible.filter(w => order.includes(w.key)).length > 0 && (
-                        <div style={{padding:'4px 8px',fontSize:11.5,color:'var(--color-text-faint)'}}>
-                          {visible.filter(w => order.includes(w.key)).map(w => w.name).join('、')} — 已新增
-                        </div>
-                      )}
-                    </div>
-                  )
-                })}
-              </div>
-            </aside>
-
             {aiOn && (
               <div className="ai-tag" style={{display:'inline-flex',alignSelf:'flex-start',marginTop:10}}>
                 <Sparkles size={12} /> AI 分析已啟用
@@ -980,7 +932,53 @@ export default function DashboardNew() {
         </div>
       </div>
 
-      {/* Chat FAB */}
+      {/* ── DRAWER (Widget Picker) — outside .content to avoid overflow clip ── */}
+      <div className={`drawer-overlay${drawerOpen ? ' show' : ''}`} onClick={() => setDrawerOpen(false)} />
+      <aside className={`drawer${drawerOpen ? ' show' : ''}`}>
+        <div className="drawer-head">
+          <h3>新增小工具</h3>
+          <button className="icon-btn" onClick={() => setDrawerOpen(false)}><X size={19} /></button>
+        </div>
+        <div className="drawer-search">
+          <input type="text" placeholder="搜尋小工具..." value={widgetSearch}
+            onChange={e => setWidgetSearch(e.target.value)} />
+        </div>
+        <div className="drawer-body">
+          {modulesData.filter(mod => {
+            if (!widgetSearch) return true
+            const q = widgetSearch.toLowerCase()
+            return mod.widgets.some(w => w.name.includes(q) || w.desc.includes(q))
+          }).map(mod => {
+            const visible = widgetSearch
+              ? mod.widgets.filter(w => w.name.includes(widgetSearch.toLowerCase()) || w.desc.includes(widgetSearch.toLowerCase()))
+              : mod.widgets
+            if (widgetSearch && visible.length === 0) return null
+            return (
+              <div key={mod.id} className="module-group">
+                <div className="module-group-head"><span>{mod.name}</span></div>
+                {visible.filter(w => !order.includes(w.key)).map(w => {
+                  const IconComp = widgetIcon(w.key)
+                  return (
+                    <div key={w.key} className="widget-option" onClick={() => {
+                      addWidget(w.key)
+                      setWidgetSearch('')
+                    }}>
+                      <div className="wo-icon"><IconComp size={15} /></div>
+                      <div className="wo-text"><strong>{w.name}</strong><span>{w.desc}</span></div>
+                      <div className="wo-add"><Plus size={14} /></div>
+                    </div>
+                  )
+                })}
+                {visible.filter(w => order.includes(w.key)).length > 0 && (
+                  <div style={{padding:'4px 8px',fontSize:11.5,color:'var(--color-text-faint)'}}>
+                    {visible.filter(w => order.includes(w.key)).map(w => w.name).join('、')} — 已新增
+                  </div>
+                )}
+              </div>
+            )
+          })}
+        </div>
+      </aside>
       <button className="chat-fab" aria-label="Open AI assistant" onClick={() => {
         setChatOpen(!chatOpen)
         if (!chatOpen && !chatOpenedRef.current) {
