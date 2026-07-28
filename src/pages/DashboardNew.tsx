@@ -237,6 +237,8 @@ export default function DashboardNew() {
   const [touchpoints, setTouchpoints] = useState<Touchpoint[]>([])
   const [deals, setDeals] = useState<Deal[]>([])
   const [companyList, setCompanyList] = useState<Company[]>([])
+  const [projectsTotal, setProjectsTotal] = useState(0)
+  const [projects, setProjects] = useState<any[]>([])
 
   useEffect(() => {
     const h = (e: MouseEvent) => { if (newRef.current && !newRef.current.contains(e.target as Node)) setNewOpen(false) }
@@ -246,13 +248,14 @@ export default function DashboardNew() {
 
   const fetchData = useCallback(async () => {
     try {
-      const [cRes, coRes, dRes, tRes, tpRes, coListRes] = await Promise.all([
+      const [cRes, coRes, dRes, tRes, tpRes, coListRes, pRes] = await Promise.all([
         apiClient.get<{ total: number }>('/api/v1/crm/contacts?page=1&page_size=1'),
         apiClient.get<{ total: number }>('/api/v1/crm/companies?page=1&page_size=1'),
         apiClient.get<{ items: Deal[]; total: number }>('/api/v1/crm/deals?page=1&page_size=100'),
         apiClient.get<{ items: Task[]; total: number }>('/api/v1/crm/tasks?limit=5'),
         apiClient.get<{ items: Touchpoint[]; total: number }>('/api/v1/crm/touchpoints?page=1&page_size=10'),
         apiClient.get<{ items: Company[]; total: number }>('/api/v1/crm/companies?limit=50'),
+        apiClient.get<{ items: any[]; total: number }>('/api/v1/crm/projects?limit=50').catch(() => ({ items: [], total: 0 })),
       ])
       const dealsList = dRes.items || []
       const totalVal = dealsList.reduce((s: number, d: Deal) => s + (d.amount || 0), 0)
@@ -265,6 +268,8 @@ export default function DashboardNew() {
       setTouchpoints((tpRes.items || []).slice(0, 5))
       setDeals(dealsList)
       setCompanyList(coListRes.items || [])
+      setProjectsTotal(pRes.total || 0)
+      setProjects(pRes.items || [])
     } catch { /* silent */ }
   }, [])
   useEffect(() => { fetchData() }, [fetchData])
@@ -526,7 +531,7 @@ export default function DashboardNew() {
     // ── Companies (demo data) ──
     co1: () => (
       <div style={{display:'flex',alignItems:'center',justifyContent:'center',flexDirection:'column',gap:4,height:'100%'}}>
-        <span className="kpi-val" style={{color:'var(--color-purple)'}}>48</span>
+        <span className="kpi-val" style={{color:'var(--color-purple)'}}>{stats.companies}</span>
         <span style={{fontSize:12,color:'var(--color-text-muted)',fontWeight:500}}>累計客戶公司</span>
       </div>
     ),
@@ -559,18 +564,37 @@ export default function DashboardNew() {
     // ── Deals (demo data) ──
     d1: () => (
       <div style={{display:'flex',alignItems:'center',justifyContent:'center',flexDirection:'column',gap:4,height:'100%'}}>
-        <span className="kpi-val" style={{color:'var(--color-primary)'}}>$3.2M</span>
+        <span className="kpi-val" style={{color:'var(--color-primary)'}}>{stats.dealValue || '—'}</span>
         <span style={{fontSize:12,color:'var(--color-text-muted)',fontWeight:500}}>進行中Deal總額</span>
       </div>
     ),
-    d2: () => (
-      <div style={{display:'flex',flexDirection:'column',gap:10}}>
-        <div className="stage-row"><div className="stage-label"><span>洽談中</span><span>$420k</span></div><div className="bar-track"><div className="bar-fill" style={{width:'70%'}} /></div></div>
-        <div className="stage-row"><div className="stage-label"><span>報價</span><span>$310k</span></div><div className="bar-track"><div className="bar-fill" style={{width:'52%',background:'var(--color-blue)'}} /></div></div>
-        <div className="stage-row"><div className="stage-label"><span>Negotiation</span><span>$240k</span></div><div className="bar-track"><div className="bar-fill" style={{width:'40%',background:'var(--color-purple)'}} /></div></div>
-        <div className="stage-row"><div className="stage-label"><span>成交</span><span>$186k</span></div><div className="bar-track"><div className="bar-fill" style={{width:'30%',background:'var(--color-success)'}} /></div></div>
-      </div>
-    ),
+    d2: () => {
+      const allStageKeys = ['qualification', 'proposal', 'negotiation', 'closed_won', 'closed_lost']
+      const stageData = allStageKeys.map(k => {
+        const items = deals.filter(d => d.stage_id === k)
+        return {
+          key: k, label: stages[k]?.label || k, count: items.length,
+          total: items.reduce((s, d) => s + (d.amount || 0), 0),
+          color: stages[k]?.color || 'var(--color-primary)',
+        }
+      })
+      const maxTotal = Math.max(1, ...stageData.map(s => s.total))
+      return (
+        <div style={{display:'flex',flexDirection:'column',gap:10}}>
+          {stageData.map(s => (
+            <div key={s.key} className="stage-row">
+              <div className="stage-label">
+                <span>{s.label}</span>
+                <span>${s.total.toLocaleString()}</span>
+              </div>
+              <div className="bar-track">
+                <div className="bar-fill" style={{width:`${(s.total/maxTotal)*100}%`,background:s.color}} />
+              </div>
+            </div>
+          ))}
+        </div>
+      )
+    },
     d3: () => (
       <><div className="list-row"><span className="name">深圳快豹跨境物流</span><span className="meta">18日無更新</span></div>
       <div className="list-row"><span className="name">深圳一站物流</span><span className="meta">21日無更新</span></div>
@@ -593,7 +617,7 @@ export default function DashboardNew() {
     // ── Projects (demo data) ──
     p1: () => (
       <div style={{display:'flex',alignItems:'center',justifyContent:'center',flexDirection:'column',gap:4,height:'100%'}}>
-        <span className="kpi-val" style={{color:'var(--color-primary)'}}>6</span>
+        <span className="kpi-val" style={{color:'var(--color-primary)'}}>{projectsTotal}</span>
         <span style={{fontSize:12,color:'var(--color-text-muted)',fontWeight:500}}>活躍項目</span>
       </div>
     ),
@@ -602,13 +626,32 @@ export default function DashboardNew() {
       <div className="list-row"><span className="name">物流整合模組</span><span className="badge info">7天後</span></div>
       <div className="list-row"><span className="name">數據分析平台</span><span className="badge info">14天後</span></div></>
     ),
-    p3: () => (
-      <div style={{display:'flex',flexDirection:'column',gap:12}}>
-        <div className="stage-row"><div className="stage-label"><span>CRM 2.0 UI Redesign</span><span>72%</span></div><div className="bar-track"><div className="bar-fill" style={{width:'72%'}} /></div></div>
-        <div className="stage-row"><div className="stage-label"><span>物流整合模組</span><span>45%</span></div><div className="bar-track"><div className="bar-fill" style={{width:'45%',background:'var(--color-blue)'}} /></div></div>
-        <div className="stage-row"><div className="stage-label"><span>數據分析平台</span><span>28%</span></div><div className="bar-track"><div className="bar-fill" style={{width:'28%',background:'var(--color-purple)'}} /></div></div>
-      </div>
-    ),
+    p3: () => {
+      const statusColor = (s: string) => {
+        if (s === 'done' || s === 'completed') return 'var(--color-success)'
+        if (s === 'in_progress' || s === 'active') return 'var(--color-blue)'
+        if (s === 'planning' || s === 'new') return 'var(--color-text-faint)'
+        return 'var(--color-warning)'
+      }
+      const statusLabel = (s: string) => {
+        if (s === 'done' || s === 'completed') return '✅ 已完成'
+        if (s === 'in_progress' || s === 'active') return '▶ 進行中'
+        if (s === 'planning' || s === 'new') return '📋 規劃'
+        if (s === 'on_hold') return '⏸ 暫停'
+        return s || '—'
+      }
+      const items = (projects || []).slice(0, 5)
+      return items.length === 0
+        ? <div style={{padding:'16px 0',fontSize:12,color:'var(--color-text-faint)'}}>暫無項目</div>
+        : <div style={{display:'flex',flexDirection:'column',gap:10}}>{items.map((p: any) => (
+            <div key={p.id} className="stage-row" style={{cursor:'pointer'}} onClick={() => navigate(`/projects/${p.id}`)}>
+              <div className="stage-label">
+                <span>{p.name}</span>
+                <span style={{color:statusColor(p.status),fontSize:12}}>{statusLabel(p.status)}</span>
+              </div>
+            </div>
+          ))}</div>
+    },
     p4: () => (
       <div style={{display:'flex',flexDirection:'column',gap:10}}>
         <div className="list-row"><span className="name">林海珊</span><span className="meta">3項目</span></div>
@@ -618,21 +661,64 @@ export default function DashboardNew() {
       </div>
     ),
     // ── Tasks (demo data) ──
-    t1: () => (
-      <><div className="list-row"><CheckSquare size={14} style={{color:'var(--color-text-muted)',flexShrink:0}} /><span className="name">跟進旭輝空運續約</span><span className="badge warn">今日</span></div>
-      <div className="list-row"><CheckSquare size={14} style={{color:'var(--color-text-muted)',flexShrink:0}} /><span className="name">準備客戶簡報</span><span className="badge info">今日</span></div>
-      <div className="list-row"><CheckSquare size={14} style={{color:'var(--color-text-muted)',flexShrink:0}} /><span className="name">審核物流報價</span><span className="badge ok">已完成</span></div></>
-    ),
-    t2: () => (
-      <><div className="list-row"><span className="name">深圳絆強物流報價</span><span className="badge warn">逾期3天</span></div>
-      <div className="list-row"><span className="name">旭輝空運合約審閱</span><span className="badge warn">逾期1天</span></div>
-      <div className="list-row"><span className="name">月度報告提交</span><span className="badge warn">逾期5天</span></div></>
-    ),
-    t3: () => (
-      <><div className="list-row"><span className="name">回覆客戶詢價</span><span className="badge warn">高</span></div>
-      <div className="list-row"><span className="name">更新CRM資料</span><span className="badge info">中</span></div>
-      <div className="list-row"><span className="name">團隊會議記錄</span><span className="badge ok">低</span></div></>
-    ),
+    t1: () => {
+      const todayTasks = tasks.filter(t => {
+        if (t.status === 'done') return false
+        if (t.area?.includes('Work') || t.area?.includes('💼')) return true
+        return t.priority === 'P0'
+      }).slice(0, 5)
+      return todayTasks.length === 0
+        ? <div style={{padding:'16px 0',fontSize:12,color:'var(--color-text-faint)'}}>暫無待辦事項</div>
+        : <>{todayTasks.map(t => (
+            <div key={t.id} className="list-row" style={{cursor:'pointer'}} onClick={() => navigate(`/tasks/${t.id}`)}>
+              <CheckSquare size={14} style={{color:t.status==='done'?'var(--color-success)':'var(--color-text-muted)',flexShrink:0}} />
+              <span className="name">{t.title}</span>
+              <span className="badge" style={{
+                background: t.priority==='P0'?'color-mix(in oklch,var(--color-notification)18%,var(--color-surface))':t.priority==='P1'?'color-mix(in oklch,var(--color-warning)18%,var(--color-surface))':'color-mix(in oklch,var(--color-success)18%,var(--color-surface))',
+                color: t.priority==='P0'?'var(--color-notification)':t.priority==='P1'?'var(--color-warning)':'var(--color-success)'
+              }}>{t.custom_fields?.notion_priority || t.priority || 'P3'}</span>
+            </div>
+          ))}</>
+    },
+    t2: () => {
+      const overdueTasks = tasks.filter(t => t.due_date && new Date(t.due_date) < new Date() && t.status !== 'done').slice(0, 5)
+      const daysOverdue = (due: string) => Math.floor((Date.now() - new Date(due).getTime()) / (86400000))
+      return overdueTasks.length === 0
+        ? <div style={{padding:'16px 0',fontSize:12,color:'var(--color-text-faint)'}}>暫無逾期任務</div>
+        : <>{overdueTasks.map(t => (
+            <div key={t.id} className="list-row" style={{cursor:'pointer'}} onClick={() => navigate(`/tasks/${t.id}`)}>
+              <span className="name">{t.title}</span>
+              <span className="badge warn">逾期{daysOverdue(t.due_date!)}天</span>
+            </div>
+          ))}</>
+    },
+    t3: () => {
+      const priorityOrder: Record<string, number> = { 'P0': 0, 'P1': 1, 'P2': 2, 'P3': 3, 'P4': 4 }
+      const sortedTasks = [...tasks].sort((a, b) => {
+        const pa = priorityOrder[a.priority] ?? 99
+        const pb = priorityOrder[b.priority] ?? 99
+        return pa - pb
+      }).slice(0, 5)
+      const priorityLabel = (p: string) => {
+        if (p === 'P0') return '緊急'
+        if (p === 'P1') return '高'
+        if (p === 'P2') return '中'
+        return '低'
+      }
+      const priorityBadgeClass = (p: string) => {
+        if (p === 'P0' || p === 'P1') return 'warn'
+        if (p === 'P2') return 'info'
+        return 'ok'
+      }
+      return sortedTasks.length === 0
+        ? <div style={{padding:'16px 0',fontSize:12,color:'var(--color-text-faint)'}}>暫無任務</div>
+        : <>{sortedTasks.map(t => (
+            <div key={t.id} className="list-row" style={{cursor:'pointer'}} onClick={() => navigate(`/tasks/${t.id}`)}>
+              <span className="name">{t.title}</span>
+              <span className={`badge ${priorityBadgeClass(t.priority)}`}>{priorityLabel(t.priority)}</span>
+            </div>
+          ))}</>
+    },
     t4: () => (
       <div style={{display:'flex',flexDirection:'column',gap:10,alignItems:'center',justifyContent:'center',height:'100%'}}>
         <span className="kpi-val" style={{color:'var(--color-success)'}}>78%</span>
