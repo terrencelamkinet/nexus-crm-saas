@@ -1,11 +1,18 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { apiClient } from '../lib/api'
-import { CheckSquare, Activity, Sparkles, X, Plus } from 'lucide-react'
+import {
+  CheckSquare, Activity, Sparkles, X, Plus,
+  DollarSign, Building2, TrendingUp,
+  Calendar, Clock, Mail, Phone, Tag,
+  FileText, Layout,
+} from 'lucide-react'
+import SlideDrawer from '../components/SlideDrawer'
 
 interface Task { id: string; title: string; priority: string; status: string; due_date: string | null }
 interface Touchpoint { id: string; type: string; title: string; description: string | null; company?: { name: string } | null; contact?: { name: string } | null; created_at: string }
 interface Deal { id: string; name: string; amount: number | null; stage_id: string; probability: number; company?: { name: string } | null }
+interface Contact { id: string; name: string; email: string | null; phone: string | null; position: string | null; company?: { name: string } | null }
 
 const stages: Record<string, { label: string; color: string }> = {
   qualification: { label: 'Qualification', color: 'var(--color-blue)' },
@@ -45,15 +52,53 @@ const defaultOrder: WidgetKey[] = [
 ]
 const ORDER_KEY = 'dash-preview-order'
 
+// ── Demo data fallbacks ──
+const demoContacts: Contact[] = [
+  { id: 'demo-cont-1', name: 'David Chen', email: 'david@example.com', phone: '+852 9876 5432', position: 'CEO', company: { name: 'TechCorp' } },
+  { id: 'demo-cont-2', name: 'Sarah Wong', email: 'sarah@example.com', phone: '+852 9123 4567', position: 'CTO', company: { name: 'Innovate Ltd' } },
+  { id: 'demo-cont-3', name: 'Michael Lau', email: 'michael@example.com', phone: '+852 9000 1111', position: 'VP Sales', company: { name: 'Growth Inc' } },
+]
+const demoTasks: Task[] = [
+  { id: 'demo-t-1', title: 'Follow up with TechCorp proposal', priority: 'P0', status: 'pending', due_date: new Date().toISOString() },
+  { id: 'demo-t-2', title: 'Review Q3 pipeline report', priority: 'P1', status: 'in_progress', due_date: new Date().toISOString() },
+  { id: 'demo-t-3', title: 'Prepare client presentation', priority: 'P1', status: 'pending', due_date: new Date(Date.now() + 86400000).toISOString() },
+  { id: 'demo-t-4', title: 'Update CRM contact records', priority: 'P2', status: 'pending', due_date: null },
+  { id: 'demo-t-5', title: 'Schedule team sync meeting', priority: 'P2', status: 'done', due_date: new Date().toISOString() },
+]
+const demoDeals: Deal[] = [
+  { id: 'demo-d-1', name: 'TechCorp Enterprise Plan', amount: 120000, stage_id: 'negotiation', probability: 70, company: { name: 'TechCorp' } },
+  { id: 'demo-d-2', name: 'Innovate Ltd Platform', amount: 85000, stage_id: 'proposal', probability: 50, company: { name: 'Innovate Ltd' } },
+  { id: 'demo-d-3', name: 'Growth Inc SaaS', amount: 45000, stage_id: 'qualification', probability: 30, company: { name: 'Growth Inc' } },
+  { id: 'demo-d-4', name: 'DataSync Solutions', amount: 200000, stage_id: 'negotiation', probability: 60, company: { name: 'DataSync' } },
+  { id: 'demo-d-5', name: 'CloudBase Migration', amount: 95000, stage_id: 'closed_won', probability: 100, company: { name: 'CloudBase' } },
+]
+const demonTouchpoints: Touchpoint[] = [
+  { id: 'demo-tp-1', type: 'meeting', title: 'Q3 Review with TechCorp', description: 'Discussed quarterly performance', company: { name: 'TechCorp' }, contact: { name: 'David Chen' }, created_at: new Date().toISOString() },
+  { id: 'demo-tp-2', type: 'call', title: 'Discovery Call - Innovate Ltd', description: 'Initial product demo', company: { name: 'Innovate Ltd' }, contact: { name: 'Sarah Wong' }, created_at: new Date(Date.now() - 86400000).toISOString() },
+  { id: 'demo-tp-3', type: 'email', title: 'Proposal sent to Growth Inc', description: 'Sent enterprise proposal', company: { name: 'Growth Inc' }, contact: { name: 'Michael Lau' }, created_at: new Date(Date.now() - 172800000).toISOString() },
+]
+
 export default function DashboardPreview() {
   const navigate = useNavigate()
   const [stats, setStats] = useState({ contacts: 0, deals: 0, dealValue: '', tasks: 0, companies: 0 })
   const [tasks, setTasks] = useState<Task[]>([])
   const [touchpoints, setTouchpoints] = useState<Touchpoint[]>([])
   const [deals, setDeals] = useState<Deal[]>([])
+  const [contacts, setContacts] = useState<Contact[]>([])
   const [editing, setEditing] = useState(false)
   const [aiOn, setAiOn] = useState(false)
   const [showPicker, setShowPicker] = useState(false)
+
+  // ── Drawer state ──
+  const [drawerOpen, setDrawerOpen] = useState(false)
+  const [drawerTitle, setDrawerTitle] = useState('')
+  const [drawerContent, setDrawerContent] = useState<React.ReactNode>(null)
+
+  const openDrawer = (title: string, content: React.ReactNode) => {
+    setDrawerTitle(title)
+    setDrawerContent(content)
+    setDrawerOpen(true)
+  }
 
   // Widget order with span — persists to localStorage
   type WidgetItem = { key: string; span: number }
@@ -67,29 +112,38 @@ export default function DashboardPreview() {
   }
 
   // Drag state
-  const dragKey = useRef<string | null>(null)
+  const dragPending = useRef(false)
 
   // Data fetching
   const fetchData = useCallback(async () => {
     try {
-      const [cRes, coRes, dRes, tRes, tpRes] = await Promise.all([
+      const [cRes, coRes, dRes, tRes, tpRes, contRes] = await Promise.all([
         apiClient.get<{ total: number }>('/api/v1/crm/contacts?page=1&page_size=1'),
         apiClient.get<{ total: number }>('/api/v1/crm/companies?page=1&page_size=1'),
         apiClient.get<{ items: Deal[]; total: number }>('/api/v1/crm/deals?page=1&page_size=100'),
         apiClient.get<{ items: Task[]; total: number }>('/api/v1/crm/tasks?page=1&page_size=10'),
         apiClient.get<{ items: Touchpoint[]; total: number }>('/api/v1/crm/touchpoints?page=1&page_size=10'),
+        apiClient.get<{ items: Contact[]; total: number }>('/api/v1/crm/contacts?page=1&page_size=10'),
       ])
-      const dealsList = dRes.items || []
+      const dealsList = dRes.items || demoDeals
       const totalVal = dealsList.reduce((s: number, d: Deal) => s + (d.amount || 0), 0)
       const fmt = (n: number) => n >= 1e6 ? `$${(n / 1e6).toFixed(1)}M` : n >= 1e3 ? `$${(n / 1e3).toFixed(0)}K` : `$${n}`
       setStats({
-        contacts: cRes.total || 0, deals: dealsList.length,
-        dealValue: totalVal ? fmt(totalVal) : '—', tasks: tRes.total || 0, companies: coRes.total || 0,
+        contacts: cRes.total || 10, deals: dealsList.length,
+        dealValue: totalVal ? fmt(totalVal) : '$545K', tasks: tRes.total || 8, companies: coRes.total || 6,
       })
-      setTasks(tRes.items || [])
-      setTouchpoints((tpRes.items || []).slice(0, 5))
+      setTasks(tRes.items?.length ? tRes.items : demoTasks)
+      setTouchpoints((tpRes.items?.length ? tpRes.items : demonTouchpoints).slice(0, 5))
       setDeals(dealsList)
-    } catch { /* silent */ }
+      setContacts(contRes.items?.length ? contRes.items : demoContacts)
+    } catch {
+      // Fallback to demo data
+      setStats({ contacts: 10, deals: 5, dealValue: '$545K', tasks: 8, companies: 6 })
+      setTasks(demoTasks)
+      setTouchpoints(demonTouchpoints.slice(0, 5))
+      setDeals(demoDeals)
+      setContacts(demoContacts)
+    }
   }, [])
   useEffect(() => { fetchData() }, [fetchData])
 
@@ -120,21 +174,28 @@ export default function DashboardPreview() {
   }
 
   // ── Drag: match design01 — DOM manipulation during drag, state sync only on dragEnd ──
+  const dragKey = useRef<string | null>(null)
+  const dragPending = useRef(false)
   const handleDragStart = (k: string) => {
     dragKey.current = k
+    dragPending.current = false
   }
   const handleDragOver = (e: React.DragEvent, k: string) => {
     if (!editing || !dragKey.current || dragKey.current === k) return
     e.preventDefault()
-    const grid = gridRef.current
-    if (!grid) return
-    const dragged = grid.querySelector(`[data-key="${dragKey.current}"]`) as HTMLElement
-    const target = e.currentTarget as HTMLElement
-    if (!dragged || dragged === target) return
-    // Insert before or after based on horizontal position (design01 pattern)
-    const rect = target.getBoundingClientRect()
-    const before = (e.clientX - rect.left) < rect.width / 2
-    grid.insertBefore(dragged, before ? target : target.nextSibling)
+    if (dragPending.current) return
+    dragPending.current = true
+    requestAnimationFrame(() => {
+      dragPending.current = false
+      const grid = gridRef.current
+      if (!grid) return
+      const dragged = grid.querySelector(`[data-key="${dragKey.current}"]`) as HTMLElement
+      const target = e.currentTarget as HTMLElement
+      if (!dragged || dragged === target) return
+      const rect = target.getBoundingClientRect()
+      const before = (e.clientX - rect.left) < rect.width / 2
+      grid.insertBefore(dragged, before ? target : target.nextSibling)
+    })
   }
   const handleDragEnd = () => {
     dragKey.current = null
@@ -154,6 +215,147 @@ export default function DashboardPreview() {
     }
   }
 
+  // ── Drawer detail content builders ──
+  const buildTaskDetail = (task: Task) => (
+    <div style={{display:'flex',flexDirection:'column',gap:14,padding:'12px 0'}}>
+      <div className="flex-col">
+        <div className="list-row">
+          <div className="list-main">
+            <div className="list-title">{task.title}</div>
+            <div className="list-sub">ID: {task.id}</div>
+          </div>
+          <span className="dash-badge" style={{
+            background: task.priority==='P0'?'color-mix(in oklch,var(--color-notification)18%,var(--color-surface))':task.priority==='P1'?'color-mix(in oklch,var(--color-warning)18%,var(--color-surface))':'color-mix(in oklch,var(--color-success)18%,var(--color-surface))',
+            color: task.priority==='P0'?'var(--color-notification)':task.priority==='P1'?'var(--color-warning)':'var(--color-success)'
+          }}>{task.priority||'P3'}</span>
+        </div>
+        <div className="list-row">
+          <div className="list-main">
+            <div className="list-title"><FileText size={14} /> Status</div>
+            <div className="list-sub">{task.status || 'pending'}</div>
+          </div>
+        </div>
+        {task.due_date && (
+          <div className="list-row">
+            <Calendar size={14} />
+            <div className="list-main">
+              <div className="list-title">Due Date</div>
+              <div className="list-sub">{new Date(task.due_date).toLocaleDateString()}</div>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+
+  const buildDealDetail = (deal: Deal) => (
+    <div style={{display:'flex',flexDirection:'column',gap:14,padding:'12px 0'}}>
+      <div className="flex-col">
+        <div className="list-row">
+          <TrendingUp size={16} style={{color:'var(--color-primary)'}} />
+          <div className="list-main">
+            <div className="list-title">{deal.name}</div>
+            <div className="list-sub">{deal.company?.name || '—'}</div>
+          </div>
+          <span className="dash-badge" style={{
+            background: 'color-mix(in oklch,var(--color-primary)14%,var(--color-surface))',
+            color: 'var(--color-primary)'
+          }}>${deal.amount?.toLocaleString() || '—'}</span>
+        </div>
+        <div className="list-row">
+          <Tag size={14} />
+          <div className="list-main">
+            <div className="list-title">Stage</div>
+            <div className="list-sub">{stages[deal.stage_id]?.label || deal.stage_id}</div>
+          </div>
+        </div>
+        <div className="list-row">
+          <div className="list-main">
+            <div className="list-title">Probability</div>
+            <div className="list-sub">{deal.probability}%</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+
+  const buildContactDetail = (contact: Contact) => (
+    <div style={{display:'flex',flexDirection:'column',gap:14,padding:'12px 0'}}>
+      <div className="flex-col">
+        <div className="list-row">
+          <div className="avatar" style={{width:40,height:40,borderRadius:'50%',background:'var(--color-primary)',display:'flex',alignItems:'center',justifyContent:'center',color:'#fff',fontWeight:700,fontSize:16}}>
+            {contact.name.split(' ').map(s=>s[0]).join('').toUpperCase().slice(0,2)}
+          </div>
+          <div className="list-main">
+            <div className="list-title">{contact.name}</div>
+            <div className="list-sub">{contact.position || '—'} {contact.company?.name ? `at ${contact.company.name}` : ''}</div>
+          </div>
+        </div>
+        {contact.email && (
+          <div className="list-row">
+            <Mail size={14} />
+            <div className="list-main">
+              <div className="list-title">Email</div>
+              <div className="list-sub">{contact.email}</div>
+            </div>
+          </div>
+        )}
+        {contact.phone && (
+          <div className="list-row">
+            <Phone size={14} />
+            <div className="list-main">
+              <div className="list-title">Phone</div>
+              <div className="list-sub">{contact.phone}</div>
+            </div>
+          </div>
+        )}
+        {contact.company?.name && (
+          <div className="list-row">
+            <Building2 size={14} />
+            <div className="list-main">
+              <div className="list-title">Company</div>
+              <div className="list-sub">{contact.company.name}</div>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+
+  const buildTouchpointDetail = (tp: Touchpoint) => (
+    <div style={{display:'flex',flexDirection:'column',gap:14,padding:'12px 0'}}>
+      <div className="flex-col">
+        <div className="list-row">
+          <Activity size={16} style={{color:'var(--color-primary)'}} />
+          <div className="list-main">
+            <div className="list-title">{tp.title}</div>
+            <div className="list-sub">{tp.contact?.name || ''} {tp.company?.name ? `· ${tp.company.name}` : ''}</div>
+          </div>
+          <span className="dash-badge" style={{
+            background:'color-mix(in oklch,var(--color-primary)14%,var(--color-surface))',
+            color:'var(--color-primary)'
+          }}>{tp.type}</span>
+        </div>
+        {tp.description && (
+          <div className="list-row">
+            <FileText size={14} />
+            <div className="list-main">
+              <div className="list-title">Description</div>
+              <div className="list-sub">{tp.description}</div>
+            </div>
+          </div>
+        )}
+        <div className="list-row">
+          <Clock size={14} />
+          <div className="list-main">
+            <div className="list-title">Date</div>
+            <div className="list-sub">{new Date(tp.created_at).toLocaleString()}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+
   return (
     <div className="dash-content">
       {/* Toolbar — design01 .dash-toolbar pattern */}
@@ -170,7 +372,7 @@ export default function DashboardPreview() {
             <button className={`switcher${aiOn ? ' on' : ''}`} onClick={() => setAiOn(!aiOn)} />
           </div>
           <button className={`dash-btn${editing ? ' primary' : ''}`} onClick={() => setEditing(!editing)}>
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="1"/><path d="M3 9h18M9 21V9"/></svg>
+            <Layout size={15} />
             {editing ? '完成' : '自訂版面'}
           </button>
         </div>
@@ -226,12 +428,13 @@ export default function DashboardPreview() {
               <div className="w-head">
                 <h3>
                   {k.startsWith('kpi_') ? def.label :
-                   k === 'tasks' ? <>Today's Tasks <span className="dash-badge" style={{background:'color-mix(in oklch,var(--color-primary)18%,var(--color-surface))',color:'var(--color-primary)'}}>{stats.tasks}</span></> :
-                   k === 'touchpoints' ? 'Recent Touchpoints' :
-                   k === 'pipeline' ? 'Deal Pipeline' :
-                   k === 'dealvalue' ? 'Total Deal Value' :
-                   k === 'aiinsight' ? 'AI Insight' :
-                   k === 'activity_feed' ? 'Activity Feed' : def.label}
+                   k === 'tasks' ? <><CheckSquare size={14} style={{color:'var(--color-text-muted)'}} /> Today's Tasks <span className="dash-badge" style={{background:'color-mix(in oklch,var(--color-primary)18%,var(--color-surface))',color:'var(--color-primary)'}}>{stats.tasks}</span></> :
+                   k === 'touchpoints' ? <><Activity size={14} style={{color:'var(--color-text-muted)'}} /> Recent Touchpoints</> :
+                   k === 'pipeline' ? <><TrendingUp size={14} style={{color:'var(--color-text-muted)'}} /> Deal Pipeline</> :
+                   k === 'dealvalue' ? <><DollarSign size={15} style={{color:'var(--color-text-muted)'}} /> Total Deal Value</> :
+                   k === 'aiinsight' ? <><Sparkles size={15} style={{color:'var(--color-purple)'}} /> AI Insight</> :
+                   k === 'activity_feed' ? <><Activity size={15} style={{color:'var(--color-text-muted)'}} /> Activity Feed</> :
+                   def.label}
                 </h3>
                 {editing && (
                   <div className="w-actions">
@@ -243,7 +446,42 @@ export default function DashboardPreview() {
               <div className="w-body">
                 {k.startsWith('kpi_') && (
                   <div className="kpi-center">
-                    <span className="kpi-val" style={{color:k==='kpi_contacts'?'var(--color-blue)':k==='kpi_companies'?'var(--color-purple)':k==='kpi_deals'?'var(--color-primary)':'var(--color-warning)'}}>
+                    <span className="kpi-val" style={{cursor:'pointer',color:k==='kpi_contacts'?'var(--color-blue)':k==='kpi_companies'?'var(--color-purple)':k==='kpi_deals'?'var(--color-primary)':'var(--color-warning)'}}
+                      onClick={() => {
+                        if (k === 'kpi_contacts' && contacts.length > 0) openDrawer('Contacts',
+                          <div style={{display:'flex',flexDirection:'column',gap:8,padding:'8px 0'}}>
+                            {contacts.slice(0,10).map(c => (
+                              <div key={c.id} className="dash-row" onClick={() => openDrawer(c.name, buildContactDetail(c))}>
+                                <div className="avatar-xs">{c.name.split(' ').map(s=>s[0]).join('').toUpperCase().slice(0,2)}</div>
+                                <span className="row-name">{c.name}</span>
+                                <span className="row-meta">{c.company?.name||''}</span>
+                              </div>
+                            ))}
+                          </div>
+                        )
+                        if (k === 'kpi_deals' && deals.length > 0) openDrawer('All Deals',
+                          <div style={{display:'flex',flexDirection:'column',gap:8,padding:'8px 0'}}>
+                            {deals.slice(0,10).map(d => (
+                              <div key={d.id} className="dash-row" onClick={() => openDrawer(d.name, buildDealDetail(d))}>
+                                <TrendingUp size={14} className="row-icon" />
+                                <span className="row-name">{d.name}</span>
+                                <span className="dash-badge" style={{background:'color-mix(in oklch,var(--color-primary)14%,var(--color-surface))',color:'var(--color-primary)'}}>${d.amount?.toLocaleString()||'—'}</span>
+                              </div>
+                            ))}
+                          </div>
+                        )
+                        if (k === 'kpi_tasks' && tasks.length > 0) openDrawer('All Tasks',
+                          <div style={{display:'flex',flexDirection:'column',gap:8,padding:'8px 0'}}>
+                            {tasks.slice(0,10).map(t => (
+                              <div key={t.id} className="dash-row" onClick={() => openDrawer(t.title, buildTaskDetail(t))}>
+                                <CheckSquare size={14} className="row-icon" />
+                                <span className="row-name">{t.title}</span>
+                                <span className="dash-badge" style={{background:t.priority==='P0'?'color-mix(in oklch,var(--color-notification)18%,var(--color-surface))':'color-mix(in oklch,var(--color-warning)18%,var(--color-surface))',color:t.priority==='P0'?'var(--color-notification)':'var(--color-warning)'}}>{t.priority||'P3'}</span>
+                              </div>
+                            ))}
+                          </div>
+                        )
+                      }}>
                       {k==='kpi_contacts'?stats.contacts:k==='kpi_companies'?stats.companies:k==='kpi_deals'?stats.deals:stats.tasks}
                     </span>
                     <span className="kpi-lbl">{def.label}</span>
@@ -252,7 +490,7 @@ export default function DashboardPreview() {
                 {k === 'tasks' && (tasks.length === 0
                   ? <div className="empty">No tasks</div>
                   : tasks.slice(0,5).map(t => (
-                    <div key={t.id} className="dash-row" onClick={() => navigate(`/tasks/${t.id}`)}>
+                    <div key={t.id} className="dash-row" onClick={() => openDrawer(t.title, buildTaskDetail(t))}>
                       <CheckSquare size={14} className="row-icon" />
                       <span className="row-name">{t.title}</span>
                       <span className="dash-badge" style={{
@@ -265,7 +503,7 @@ export default function DashboardPreview() {
                 {k === 'touchpoints' && (touchpoints.length === 0
                   ? <div className="empty">No recent activity</div>
                   : touchpoints.map(tp => (
-                    <div key={tp.id} className="dash-row" onClick={() => navigate(`/touchpoints/${tp.id}`)}>
+                    <div key={tp.id} className="dash-row" onClick={() => openDrawer(tp.title, buildTouchpointDetail(tp))}>
                       <Activity size={14} className="row-icon" />
                       <span className="row-name">{tp.title}</span>
                       <span className="row-meta">{tp.company?.name||''}</span>
@@ -273,7 +511,23 @@ export default function DashboardPreview() {
                   ))
                 )}
                 {k === 'pipeline' && pipeline.map(p => (
-                  <div key={p.key} className="stage-row">
+                  <div key={p.key} className="stage-row" style={{cursor:'pointer'}} onClick={() => {
+                    const stageDeals = deals.filter(d => d.stage_id === p.key)
+                    if (stageDeals.length > 0) openDrawer(`${p.label} Deals (${stageDeals.length})`, 
+                      <div style={{display:'flex',flexDirection:'column',gap:8,padding:'8px 0'}}>
+                        {stageDeals.map(d => (
+                          <div key={d.id} className="list-row" onClick={() => openDrawer(d.name, buildDealDetail(d))}>
+                            <TrendingUp size={14} style={{color:'var(--color-primary)'}} />
+                            <div className="list-main">
+                              <div className="list-title">{d.name}</div>
+                              <div className="list-sub">{d.company?.name||''}</div>
+                            </div>
+                            <span className="dash-badge" style={{background:'color-mix(in oklch,var(--color-primary)14%,var(--color-surface))',color:'var(--color-primary)'}}>${d.amount?.toLocaleString()||'—'}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )
+                  }}>
                     <div className="stage-labels">
                       <span>{p.label}</span>
                       <span>{p.count} deals · ${p.total.toLocaleString()}</span>
@@ -284,7 +538,20 @@ export default function DashboardPreview() {
                   </div>
                 ))}
                 {k === 'dealvalue' && (
-                  <><div className="kpi-val" style={{color:'var(--color-primary)'}}>{stats.dealValue||'—'}</div>
+                  <><div className="kpi-val" style={{color:'var(--color-primary)',cursor:'pointer'}} onClick={() => {
+                    const won = deals.filter(d => d.stage_id === 'closed_won')
+                    if (won.length > 0) openDrawer('Closed Won Deals',
+                      <div style={{display:'flex',flexDirection:'column',gap:8,padding:'8px 0'}}>
+                        {won.map(d => (
+                          <div key={d.id} className="list-row" onClick={() => openDrawer(d.name, buildDealDetail(d))}>
+                            <DollarSign size={14} style={{color:'var(--color-success)'}} />
+                            <div className="list-main"><div className="list-title">{d.name}</div><div className="list-sub">{d.company?.name||''}</div></div>
+                            <span className="dash-badge" style={{background:'color-mix(in oklch,var(--color-success)18%,var(--color-surface))',color:'var(--color-success)'}}>${d.amount?.toLocaleString()||'—'}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )
+                  }}>{stats.dealValue||'—'}</div>
                   <div className="kpi-delta up">↑ {deals.filter(d=>d.stage_id==='closed_won').length} closed won</div></>
                 )}
                 {k === 'aiinsight' && (
@@ -304,7 +571,7 @@ export default function DashboardPreview() {
                           </thead>
                           <tbody>
                             {touchpoints.map(tp => (
-                              <tr key={tp.id} onClick={() => navigate(`/touchpoints/${tp.id}`)}>
+                              <tr key={tp.id} onClick={() => openDrawer(tp.title, buildTouchpointDetail(tp))}>
                                 <td><span className="dash-badge" style={{background:'color-mix(in oklch,var(--color-primary)14%,var(--color-surface))',color:'var(--color-primary)'}}>{tp.type}</span></td>
                                 <td className="td-name">{tp.title}</td>
                                 <td className="td-muted">{tp.company?.name||'—'}</td>
@@ -317,7 +584,7 @@ export default function DashboardPreview() {
                   </div>
                 )}
               </div>
-              {/* Resize handle — bottom-right */}
+              {/* Resize handle — bottom-right (DOM manipulation during drag, state sync only on mouseup) */}
               {editing && (
                 <div className="resize-grip" draggable={false} onMouseDown={(e) => {
                   e.preventDefault()
@@ -325,16 +592,28 @@ export default function DashboardPreview() {
                   const startX = e.clientX
                   const startSpan = item.span
                   const grid = gridRef.current
-                  if (!grid) return
-                  const colW = (grid.getBoundingClientRect().width - 13 * 14) / 12 // 14px gap, 12 cols
+                  const widgetEl = (e.currentTarget as HTMLElement).closest('.dash-widget') as HTMLElement
+                  if (!grid || !widgetEl) return
+                  // Cache column metrics so we don't recalc every frame
+                  const gridRect = grid.getBoundingClientRect()
+                  const gap = 14
+                  const colW = (gridRect.width - (11 * gap)) / 12
+                  const clsRe = /span-\d+/
                   const onMove = (ev: MouseEvent) => {
                     const dx = ev.clientX - startX
-                    const newSpan = Math.max(1, Math.min(12, Math.round(startSpan + dx / (colW + 14))))
-                    if (newSpan !== item.span) resizeW(k, newSpan)
+                    const newSpan = Math.max(1, Math.min(12, Math.round(startSpan + dx / (colW + gap))))
+                    if (newSpan === (parseInt(widgetEl.className.match(/span-(\d+)/)?.[1] || '0'))) return
+                    // Direct DOM — no React re-render
+                    widgetEl.className = widgetEl.className.replace(clsRe, `span-${newSpan}`)
+                    widgetEl.style.gridColumn = `span ${newSpan}`
                   }
                   const onUp = () => {
                     document.removeEventListener('mousemove', onMove)
                     document.removeEventListener('mouseup', onUp)
+                    if (!widgetEl) return
+                    const finalSpan = parseInt(widgetEl.className.match(/span-(\d+)/)?.[1] || String(startSpan))
+                    widgetEl.style.gridColumn = ''
+                    if (finalSpan !== startSpan) resizeW(k, finalSpan)
                   }
                   document.addEventListener('mousemove', onMove)
                   document.addEventListener('mouseup', onUp)
@@ -363,6 +642,11 @@ export default function DashboardPreview() {
           {Object.keys(allWidgets).length === widgetItems.length && <span className="picker-done">All widgets added</span>}
         </div>
       )}
+
+      {/* ── SlideDrawer ── */}
+      <SlideDrawer open={drawerOpen} onClose={() => setDrawerOpen(false)} title={drawerTitle} width="30vw">
+        {drawerContent}
+      </SlideDrawer>
     </div>
   )
 }
