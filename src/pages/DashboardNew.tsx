@@ -1,3 +1,4 @@
+import '../styles/dashboard.css'
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { apiClient } from '../lib/api'
@@ -6,7 +7,7 @@ import {
   LayoutDashboard, Users, Building2, TrendingUp, FolderKanban,
   CheckSquare, Truck, UsersRound, Moon, Sun, Bell,
   Search, Plus, Sparkles, X, Minus, Send,
-  Activity, DollarSign, Layout, ScanLine,
+  Activity, DollarSign, Layout, ScanLine, Calendar,
 } from 'lucide-react'
 
 interface Task { id: string; title: string; priority: string; status: string; due_date: string | null }
@@ -43,7 +44,7 @@ const newItems = [
 const todayStr = () => {
   const d = new Date()
   const days = ['日', '一', '二', '三', '四', '五', '六']
-  return `${d.getFullYear()}年${d.getMonth() + 1}月${d.getDate()}日 · 星期${days[d.getDay()]}`
+  return `${d.getFullYear()}年${d.getMonth() + 1}月${d.getMonth() + 1}日${d.getDate()}日 · 星期${days[d.getDay()]}`
 }
 
 const stages: Record<string, { label: string; color: string }> = {
@@ -55,10 +56,11 @@ const stages: Record<string, { label: string; color: string }> = {
 }
 const stageKeys = ['qualification', 'proposal', 'negotiation', 'closed_won']
 
-// Widget defs — matching design01 span-based grid
+// ── ALL 37 design01 WIDGETS + 10 legacy widgets ──
 type WidgetKey = string
 interface WidgetDef { label: string; span: number }
 const allWidgets: Record<string, WidgetDef> = {
+  // Legacy (real data) widgets — keep for backward compat
   kpi_contacts: { label: 'Contacts', span: 3 },
   kpi_companies: { label: 'Companies', span: 3 },
   kpi_deals: { label: 'Deal Count', span: 3 },
@@ -69,14 +71,131 @@ const allWidgets: Record<string, WidgetDef> = {
   dealvalue: { label: 'Total Deal Value', span: 4 },
   aiinsight: { label: 'AI Insight', span: 4 },
   activity_feed: { label: 'Activity Feed', span: 12 },
+  // ── Contacts (icon: Users) ──
+  c1: { label: '新增聯絡人', span: 4 },
+  c2: { label: '待跟進聯絡人', span: 4 },
+  c3: { label: '資料完整度', span: 3 },
+  c4: { label: '最近互動', span: 4 },
+  c5: { label: '來源分布', span: 3 },
+  // ── Companies (icon: Building2) ──
+  co1: { label: '公司總數', span: 3 },
+  co2: { label: '客戶分級', span: 4 },
+  co3: { label: '續約提醒', span: 4 },
+  co4: { label: '健康分數', span: 4 },
+  co5: { label: '行業分布', span: 3 },
+  // ── Deals (icon: TrendingUp) ──
+  d1: { label: 'Pipeline 總值', span: 3 },
+  d2: { label: '階段分布', span: 6 },
+  d3: { label: '停滯提醒', span: 4 },
+  d4: { label: '預測達成率', span: 4 },
+  d5: { label: '最近成交', span: 4 },
+  // ── Projects (icon: FolderKanban) ──
+  p1: { label: '進行中數量', span: 3 },
+  p2: { label: '里程碑追蹤', span: 4 },
+  p3: { label: '進度總覽', span: 6 },
+  p4: { label: '資源分配', span: 4 },
+  // ── Tasks (icon: CheckSquare) ──
+  t1: { label: '今日待辦', span: 4 },
+  t2: { label: '逾期任務', span: 4 },
+  t3: { label: '優先清單', span: 4 },
+  t4: { label: '完成率', span: 3 },
+  // ── Calendar (icon: Calendar) ──
+  cal1: { label: '未來會議', span: 4 },
+  cal2: { label: '會議密度', span: 4 },
+  cal3: { label: '拜訪安排', span: 4 },
+  // ── Shipping (icon: Truck) ──
+  s1: { label: '待處理訂單', span: 4 },
+  s2: { label: '延誤警示', span: 4 },
+  s3: { label: '狀態分布', span: 4 },
+  s4: { label: '路線表現', span: 4 },
+  s5: { label: '運費總覽', span: 4 },
+  // ── Team (icon: UsersRound) ──
+  te1: { label: '工作量分布', span: 4 },
+  te2: { label: '在線狀態', span: 3 },
+  te3: { label: '目標達成率', span: 4 },
+  te4: { label: '排行榜', span: 4 },
+  // ── Business (icon: Activity) ──
+  b1: { label: '訂閱狀態', span: 4 },
+  b2: { label: '系統用量', span: 4 },
 }
+
 const defaultOrder: WidgetKey[] = [
   'kpi_contacts', 'kpi_companies', 'kpi_deals', 'kpi_tasks',
-  'pipeline', 'tasks',
-  'touchpoints', 'dealvalue', 'aiinsight',
-  'activity_feed',
+  'd2', 't1', 'c2', 'co3', 's1', 'te2', 'cal1', 'activity_feed',
 ]
 const ORDER_KEY = 'dash01-order'
+
+interface ModuleWidget { key: string; name: string; desc: string }
+interface ModuleData { id: string; name: string; widgets: ModuleWidget[] }
+const modulesData: ModuleData[] = [
+  { id: 'contacts', name: 'Contacts', widgets: [
+    { key: 'c1', name: '新增聯絡人', desc: '本週新增數量趨勢' },
+    { key: 'c2', name: '待跟進聯絡人', desc: '需要行動的清單' },
+    { key: 'c3', name: '資料完整度', desc: '聯絡人資料缺漏比率' },
+    { key: 'c4', name: '最近互動', desc: '最新5筆互動記錄' },
+    { key: 'c5', name: '來源分布', desc: '聯絡人獲取渠道佔比' },
+  ]},
+  { id: 'companies', name: 'Companies', widgets: [
+    { key: 'co1', name: '公司總數', desc: '累計客戶公司數量' },
+    { key: 'co2', name: '客戶分級', desc: 'A/B/C級客戶分布' },
+    { key: 'co3', name: '續約提醒', desc: '30日內到期合約' },
+    { key: 'co4', name: '健康分數', desc: '客戶健康評分排名' },
+    { key: 'co5', name: '行業分布', desc: '客戶所屬行業佔比' },
+  ]},
+  { id: 'deals', name: 'Deals', widgets: [
+    { key: 'd1', name: 'Pipeline總值', desc: '進行中Deal總金額' },
+    { key: 'd2', name: '階段分布', desc: '各銷售階段Deal數量' },
+    { key: 'd3', name: '停滯提醒', desc: '超過14日無更新的Deal' },
+    { key: 'd4', name: '預測達成率', desc: '本季目標完成進度' },
+    { key: 'd5', name: '最近成交', desc: '本週已成交Deal清單' },
+  ]},
+  { id: 'projects', name: 'Projects', widgets: [
+    { key: 'p1', name: '進行中數量', desc: '目前活躍項目總數' },
+    { key: 'p2', name: '里程碑追蹤', desc: '即將到期的里程碑' },
+    { key: 'p3', name: '進度總覽', desc: '各項目完成百分比' },
+    { key: 'p4', name: '資源分配', desc: '各項目人力分配狀況' },
+  ]},
+  { id: 'tasks', name: 'Tasks', widgets: [
+    { key: 't1', name: '今日待辦', desc: '今天需完成的任務' },
+    { key: 't2', name: '逾期任務', desc: '已超過期限未完成' },
+    { key: 't3', name: '優先清單', desc: '按重要性排序的任務' },
+    { key: 't4', name: '完成率', desc: '本週任務完成百分比' },
+  ]},
+  { id: 'calendar', name: 'Calendar', widgets: [
+    { key: 'cal1', name: '未來會議', desc: '今日及明日會議清單' },
+    { key: 'cal2', name: '會議密度', desc: '本週會議時數分布' },
+    { key: 'cal3', name: '拜訪安排', desc: '客戶拜訪行程' },
+  ]},
+  { id: 'shipping', name: 'Shipping', widgets: [
+    { key: 's1', name: '待處理訂單', desc: '尚未派單的貨運單' },
+    { key: 's2', name: '延誤警示', desc: '超過SLA時限的訂單' },
+    { key: 's3', name: '狀態分布', desc: '各運輸狀態訂單佔比' },
+    { key: 's4', name: '路線表現', desc: '各航線準時率排名' },
+    { key: 's5', name: '運費總覽', desc: '本月運費支出趨勢' },
+  ]},
+  { id: 'team', name: 'Team', widgets: [
+    { key: 'te1', name: '工作量分布', desc: '團隊成員任務負荷' },
+    { key: 'te2', name: '在線狀態', desc: '即時團隊在線情況' },
+    { key: 'te3', name: '目標達成率', desc: '個人與團隊KPI進度' },
+    { key: 'te4', name: '排行榜', desc: '本月表現排名' },
+  ]},
+  { id: 'business', name: 'Business', widgets: [
+    { key: 'b1', name: '訂閱狀態', desc: '帳戶方案與用量' },
+    { key: 'b2', name: '系統用量', desc: 'API與儲存使用率' },
+  ]},
+  { id: 'legacy', name: 'Core Stats', widgets: [
+    { key: 'kpi_contacts', name: 'Contacts Count', desc: '總聯絡人數' },
+    { key: 'kpi_companies', name: 'Companies Count', desc: '總公司數' },
+    { key: 'kpi_deals', name: 'Deal Count', desc: '進行中Deal數量' },
+    { key: 'kpi_tasks', name: 'Task Count', desc: '任務總數' },
+    { key: 'pipeline', name: 'Deal Pipeline', desc: '各階段Deal分布' },
+    { key: 'tasks', name: "Today's Tasks", desc: '今日待辦任務' },
+    { key: 'touchpoints', name: 'Recent Touchpoints', desc: '最新互動記錄' },
+    { key: 'dealvalue', name: 'Total Deal Value', desc: 'Deal總金額' },
+    { key: 'aiinsight', name: 'AI Insight', desc: '智能分析摘要' },
+    { key: 'activity_feed', name: 'Activity Feed', desc: '完整活動日誌' },
+  ]},
+]
 
 export default function DashboardNew() {
   const navigate = useNavigate()
@@ -93,7 +212,8 @@ export default function DashboardNew() {
   const [chatMsg, setChatMsg] = useState('')
   const [newOpen, setNewOpen] = useState(false)
   const newRef = useRef<HTMLDivElement>(null)
-  const [showPicker, setShowPicker] = useState(false)
+  const [drawerOpen, setDrawerOpen] = useState(false)
+  const [widgetSearch, setWidgetSearch] = useState('')
   const chatBodyRef = useRef<HTMLDivElement>(null)
   const chatOpenedRef = useRef(false)
   const [suggestions, setSuggestions] = useState<string[]>([])
@@ -160,7 +280,7 @@ export default function DashboardNew() {
   const addWidget = (k: string) => {
     if (order.includes(k)) return
     saveOrder([...order, k])
-    setShowPicker(false)
+    setDrawerOpen(false)
   }
   const removeW = (k: string) => {
     saveOrder(order.filter(x => x !== k))
@@ -232,6 +352,395 @@ export default function DashboardNew() {
       setSuggestions(['顯示相關記錄', '安排跟進任務'])
     }, 900)
   }, [appendMsg, showTyping])
+
+  // ── WIDGET BODIES MAP ──
+  const widgetBodies: Record<string, () => React.ReactElement> = {
+    // ── Legacy widgets (real data) ──
+    kpi_contacts: () => (
+      <div style={{display:'flex',alignItems:'center',justifyContent:'center',flexDirection:'column',gap:4,height:'100%'}}>
+        <span className="kpi-val" style={{fontSize:26,color:'var(--color-blue)'}}>{stats.contacts}</span>
+        <span style={{fontSize:12,color:'var(--color-text-muted)',fontWeight:500}}>{allWidgets.kpi_contacts.label}</span>
+      </div>
+    ),
+    kpi_companies: () => (
+      <div style={{display:'flex',alignItems:'center',justifyContent:'center',flexDirection:'column',gap:4,height:'100%'}}>
+        <span className="kpi-val" style={{fontSize:26,color:'var(--color-purple)'}}>{stats.companies}</span>
+        <span style={{fontSize:12,color:'var(--color-text-muted)',fontWeight:500}}>{allWidgets.kpi_companies.label}</span>
+      </div>
+    ),
+    kpi_deals: () => (
+      <div style={{display:'flex',alignItems:'center',justifyContent:'center',flexDirection:'column',gap:4,height:'100%'}}>
+        <span className="kpi-val" style={{fontSize:26,color:'var(--color-primary)'}}>{stats.deals}</span>
+        <span style={{fontSize:12,color:'var(--color-text-muted)',fontWeight:500}}>{allWidgets.kpi_deals.label}</span>
+      </div>
+    ),
+    kpi_tasks: () => (
+      <div style={{display:'flex',alignItems:'center',justifyContent:'center',flexDirection:'column',gap:4,height:'100%'}}>
+        <span className="kpi-val" style={{fontSize:26,color:'var(--color-warning)'}}>{stats.tasks}</span>
+        <span style={{fontSize:12,color:'var(--color-text-muted)',fontWeight:500}}>{allWidgets.kpi_tasks.label}</span>
+      </div>
+    ),
+    tasks: () => (
+      tasks.length === 0
+        ? <div style={{padding:'16px 0',fontSize:12,color:'var(--color-text-faint)'}}>No tasks</div>
+        : <>{tasks.slice(0,5).map(t => (
+            <div key={t.id} className="list-row" onClick={() => navigate(`/tasks/${t.id}`)} style={{cursor:'pointer'}}>
+              <CheckSquare size={14} style={{color:'var(--color-text-muted)',flexShrink:0}} />
+              <span className="name">{t.title}</span>
+              <span className="badge" style={{
+                background: t.priority==='P0'?'color-mix(in oklch,var(--color-notification)18%,var(--color-surface))':t.priority==='P1'?'color-mix(in oklch,var(--color-warning)18%,var(--color-surface))':'color-mix(in oklch,var(--color-success)18%,var(--color-surface))',
+                color: t.priority==='P0'?'var(--color-notification)':t.priority==='P1'?'var(--color-warning)':'var(--color-success)'
+              }}>{t.priority||'P3'}</span>
+            </div>
+          ))}</>
+    ),
+    touchpoints: () => (
+      touchpoints.length === 0
+        ? <div style={{padding:'16px 0',fontSize:12,color:'var(--color-text-faint)'}}>No recent activity</div>
+        : <>{touchpoints.map(tp => (
+            <div key={tp.id} className="list-row" onClick={() => navigate(`/touchpoints/${tp.id}`)} style={{cursor:'pointer'}}>
+              <Activity size={14} style={{color:'var(--color-text-muted)',flexShrink:0}} />
+              <span className="name">{tp.title}</span>
+              <span className="meta">{tp.company?.name||''}</span>
+            </div>
+          ))}</>
+    ),
+    pipeline: () => (
+      <>{pipeline.map(p => (
+        <div key={p.key} className="stage-row">
+          <div className="stage-label">
+            <span>{p.label}</span>
+            <span>{p.count} deals · ${p.total.toLocaleString()}</span>
+          </div>
+          <div className="bar-track">
+            <div className="bar-fill" style={{width:`${(p.total/maxPipelineTotal)*100}%`,background:p.color}} />
+          </div>
+        </div>
+      ))}</>
+    ),
+    dealvalue: () => (
+      <><div className="kpi-val" style={{fontSize:26,color:'var(--color-primary)'}}>{stats.dealValue||'—'}</div>
+      <div className="kpi-delta" style={{color:'var(--color-success)'}}>↑ {deals.filter(d=>d.stage_id==='closed_won').length} closed won</div></>
+    ),
+    aiinsight: () => (
+      <div style={{fontSize:13,lineHeight:1.5,color:'var(--color-text-muted)'}}>
+        <p>• {stats.contacts} contacts active</p>
+        <p>• {stats.tasks} tasks pending</p>
+        <p>• Pipeline velocity: {deals.length>0?Math.round(deals.filter(d=>d.stage_id==='closed_won').length/Math.max(1,deals.length)*100):0}%</p>
+      </div>
+    ),
+    activity_feed: () => (
+      <div style={{fontSize:13}}>
+        {touchpoints.length === 0
+          ? <div style={{padding:'16px 0',textAlign:'center',fontSize:12,color:'var(--color-text-faint)'}}>No recent activity</div>
+          : <table style={{width:'100%',borderCollapse:'collapse',fontSize:12.5}}>
+              <thead>
+                <tr style={{color:'var(--color-text-faint)',fontWeight:600,borderBottom:'1px solid var(--color-divider)'}}>
+                  <th style={{textAlign:'left',padding:'6px 4px'}}>Type</th>
+                  <th style={{textAlign:'left',padding:'6px 4px'}}>Title</th>
+                  <th style={{textAlign:'left',padding:'6px 4px'}}>Company</th>
+                  <th style={{textAlign:'right',padding:'6px 4px'}}>Date</th>
+                </tr>
+              </thead>
+              <tbody>
+                {touchpoints.map(tp => (
+                  <tr key={tp.id} style={{borderBottom:'1px solid var(--color-divider)',cursor:'pointer'}} onClick={() => navigate(`/touchpoints/${tp.id}`)}>
+                    <td style={{padding:'8px 4px'}}><span className="badge" style={{background:'color-mix(in oklch,var(--color-primary)14%,var(--color-surface))',color:'var(--color-primary)'}}>{tp.type}</span></td>
+                    <td style={{padding:'8px 4px',fontWeight:500}}>{tp.title}</td>
+                    <td style={{padding:'8px 4px',color:'var(--color-text-muted)'}}>{tp.company?.name||'—'}</td>
+                    <td style={{padding:'8px 4px',textAlign:'right',color:'var(--color-text-faint)'}}>{new Date(tp.created_at).toLocaleDateString()}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+        }
+      </div>
+    ),
+    // ── Contacts (demo data) ──
+    c1: () => (
+      <div style={{display:'flex',flexDirection:'column',gap:12}}>
+        <div className="kpi-row">
+          <span className="kpi-val" style={{color:'var(--color-blue)'}}>12</span>
+          <span className="kpi-delta up" style={{marginLeft:8}}>↑ 23% vs 上週</span>
+        </div>
+        <div className="list-row"><span className="name">本週新增趨勢</span></div>
+        <div className="bar-track" style={{marginTop:4}}><div className="bar-fill" style={{width:'65%',background:'var(--color-blue)'}} /></div>
+      </div>
+    ),
+    c2: () => (
+      <><div className="list-row"><CheckSquare size={14} style={{color:'var(--color-warning)',flexShrink:0}} /><span className="name">旭輝空運 — 跟進續約</span><span className="badge warn">重要</span></div>
+      <div className="list-row"><CheckSquare size={14} style={{color:'var(--color-text-muted)',flexShrink:0}} /><span className="name">深圳華良物流 — 報價回覆</span></div>
+      <div className="list-row"><CheckSquare size={14} style={{color:'var(--color-text-muted)',flexShrink:0}} /><span className="name">林海珊 — 會議跟進</span></div></>
+    ),
+    c3: () => (
+      <div style={{display:'flex',flexDirection:'column',gap:10}}>
+        <div className="stage-row"><div className="stage-label"><span>完整度</span><span>78%</span></div><div className="bar-track"><div className="bar-fill" style={{width:'78%',background:'var(--color-blue)'}} /></div></div>
+        <div className="stage-row"><div className="stage-label"><span>缺漏比率</span><span>22%</span></div><div className="bar-track"><div className="bar-fill" style={{width:'22%',background:'var(--color-warning)'}} /></div></div>
+      </div>
+    ),
+    c4: () => (
+      <><div className="list-row"><span className="name">10:30 Deal Review — 林海珊</span><span className="meta">30分前</span></div>
+      <div className="list-row"><span className="name">旭輝空運續約會議</span><span className="meta">2小時前</span></div>
+      <div className="list-row"><span className="name">物流報價審核</span><span className="meta">昨日</span></div></>
+    ),
+    c5: () => (
+      <div style={{display:'flex',flexDirection:'column',gap:10}}>
+        <div className="stage-row"><div className="stage-label"><span>展會</span><span>42%</span></div><div className="bar-track"><div className="bar-fill" style={{width:'42%',background:'var(--color-blue)'}} /></div></div>
+        <div className="stage-row"><div className="stage-label"><span>網絡搜尋</span><span>28%</span></div><div className="bar-track"><div className="bar-fill" style={{width:'28%',background:'var(--color-purple)'}} /></div></div>
+        <div className="stage-row"><div className="stage-label"><span>轉介紹</span><span>18%</span></div><div className="bar-track"><div className="bar-fill" style={{width:'18%',background:'var(--color-success)'}} /></div></div>
+        <div className="stage-row"><div className="stage-label"><span>社交媒體</span><span>12%</span></div><div className="bar-track"><div className="bar-fill" style={{width:'12%',background:'var(--color-warning)'}} /></div></div>
+      </div>
+    ),
+    // ── Companies (demo data) ──
+    co1: () => (
+      <div style={{display:'flex',alignItems:'center',justifyContent:'center',flexDirection:'column',gap:4,height:'100%'}}>
+        <span className="kpi-val" style={{color:'var(--color-purple)'}}>48</span>
+        <span style={{fontSize:12,color:'var(--color-text-muted)',fontWeight:500}}>累計客戶公司</span>
+      </div>
+    ),
+    co2: () => (
+      <div style={{display:'flex',flexDirection:'column',gap:10}}>
+        <div className="stage-row"><div className="stage-label"><span>A級</span><span>12</span></div><div className="bar-track"><div className="bar-fill" style={{width:'25%',background:'var(--color-success)'}} /></div></div>
+        <div className="stage-row"><div className="stage-label"><span>B級</span><span>22</span></div><div className="bar-track"><div className="bar-fill" style={{width:'46%',background:'var(--color-blue)'}} /></div></div>
+        <div className="stage-row"><div className="stage-label"><span>C級</span><span>14</span></div><div className="bar-track"><div className="bar-fill" style={{width:'29%',background:'var(--color-text-faint)'}} /></div></div>
+      </div>
+    ),
+    co3: () => (
+      <><div className="list-row"><span className="name">旭輝空運有限公司</span><span className="badge warn">7日後</span></div>
+      <div className="list-row"><span className="name">深圳華良物流集團</span><span className="badge info">21日後</span></div>
+      <div className="list-row"><span className="name">深圳一站物流</span><span className="badge info">28日後</span></div></>
+    ),
+    co4: () => (
+      <><div className="list-row"><span className="name">旭輝空運</span><span className="meta">92分</span></div>
+      <div className="list-row"><span className="name">深圳華良物流</span><span className="meta">85分</span></div>
+      <div className="list-row"><span className="name">深圳絆強物流</span><span className="meta">76分</span></div>
+      <div className="list-row"><span className="name">深圳弘安國際</span><span className="meta">63分</span></div></>
+    ),
+    co5: () => (
+      <div style={{display:'flex',flexDirection:'column',gap:10}}>
+        <div className="stage-row"><div className="stage-label"><span>空運物流</span><span>38%</span></div><div className="bar-track"><div className="bar-fill" style={{width:'38%',background:'var(--color-purple)'}} /></div></div>
+        <div className="stage-row"><div className="stage-label"><span>海運</span><span>27%</span></div><div className="bar-track"><div className="bar-fill" style={{width:'27%',background:'var(--color-blue)'}} /></div></div>
+        <div className="stage-row"><div className="stage-label"><span>陸運</span><span>20%</span></div><div className="bar-track"><div className="bar-fill" style={{width:'20%',background:'var(--color-success)'}} /></div></div>
+        <div className="stage-row"><div className="stage-label"><span>倉儲</span><span>15%</span></div><div className="bar-track"><div className="bar-fill" style={{width:'15%',background:'var(--color-warning)'}} /></div></div>
+      </div>
+    ),
+    // ── Deals (demo data) ──
+    d1: () => (
+      <div style={{display:'flex',alignItems:'center',justifyContent:'center',flexDirection:'column',gap:4,height:'100%'}}>
+        <span className="kpi-val" style={{color:'var(--color-primary)'}}>$3.2M</span>
+        <span style={{fontSize:12,color:'var(--color-text-muted)',fontWeight:500}}>進行中Deal總額</span>
+      </div>
+    ),
+    d2: () => (
+      <div style={{display:'flex',flexDirection:'column',gap:10}}>
+        <div className="stage-row"><div className="stage-label"><span>洽談中</span><span>$420k</span></div><div className="bar-track"><div className="bar-fill" style={{width:'70%'}} /></div></div>
+        <div className="stage-row"><div className="stage-label"><span>報價</span><span>$310k</span></div><div className="bar-track"><div className="bar-fill" style={{width:'52%',background:'var(--color-blue)'}} /></div></div>
+        <div className="stage-row"><div className="stage-label"><span>Negotiation</span><span>$240k</span></div><div className="bar-track"><div className="bar-fill" style={{width:'40%',background:'var(--color-purple)'}} /></div></div>
+        <div className="stage-row"><div className="stage-label"><span>成交</span><span>$186k</span></div><div className="bar-track"><div className="bar-fill" style={{width:'30%',background:'var(--color-success)'}} /></div></div>
+      </div>
+    ),
+    d3: () => (
+      <><div className="list-row"><span className="name">深圳快豹跨境物流</span><span className="meta">18日無更新</span></div>
+      <div className="list-row"><span className="name">深圳一站物流</span><span className="meta">21日無更新</span></div>
+      <div className="list-row"><span className="name">深圳華良物流集團</span><span className="meta">16日無更新</span></div></>
+    ),
+    d4: () => (
+      <div style={{display:'flex',flexDirection:'column',gap:10}}>
+        <div className="kpi-row" style={{justifyContent:'center',marginTop:8}}>
+          <span className="kpi-val" style={{color:'var(--color-primary)'}}>68%</span>
+        </div>
+        <div className="bar-track" style={{height:12}}><div className="bar-fill" style={{width:'68%',background:'var(--color-primary)'}} /></div>
+        <div className="kpi-delta down" style={{textAlign:'center'}}>目標 $4.7M · 已達成 $3.2M</div>
+      </div>
+    ),
+    d5: () => (
+      <><div className="list-row"><span className="name">深圳絆強物流 — 首年合約</span><span className="badge ok">$86k</span></div>
+      <div className="list-row"><span className="name">旭輝空運 — 擴充服務</span><span className="badge ok">$52k</span></div>
+      <div className="list-row"><span className="name">深圳弘安國際 — 續約</span><span className="badge ok">$38k</span></div></>
+    ),
+    // ── Projects (demo data) ──
+    p1: () => (
+      <div style={{display:'flex',alignItems:'center',justifyContent:'center',flexDirection:'column',gap:4,height:'100%'}}>
+        <span className="kpi-val" style={{color:'var(--color-primary)'}}>6</span>
+        <span style={{fontSize:12,color:'var(--color-text-muted)',fontWeight:500}}>活躍項目</span>
+      </div>
+    ),
+    p2: () => (
+      <><div className="list-row"><span className="name">CRM 2.0 — UI Redesign</span><span className="badge warn">3天後</span></div>
+      <div className="list-row"><span className="name">物流整合模組</span><span className="badge info">7天後</span></div>
+      <div className="list-row"><span className="name">數據分析平台</span><span className="badge info">14天後</span></div></>
+    ),
+    p3: () => (
+      <div style={{display:'flex',flexDirection:'column',gap:12}}>
+        <div className="stage-row"><div className="stage-label"><span>CRM 2.0 UI Redesign</span><span>72%</span></div><div className="bar-track"><div className="bar-fill" style={{width:'72%'}} /></div></div>
+        <div className="stage-row"><div className="stage-label"><span>物流整合模組</span><span>45%</span></div><div className="bar-track"><div className="bar-fill" style={{width:'45%',background:'var(--color-blue)'}} /></div></div>
+        <div className="stage-row"><div className="stage-label"><span>數據分析平台</span><span>28%</span></div><div className="bar-track"><div className="bar-fill" style={{width:'28%',background:'var(--color-purple)'}} /></div></div>
+      </div>
+    ),
+    p4: () => (
+      <div style={{display:'flex',flexDirection:'column',gap:10}}>
+        <div className="list-row"><span className="name">林海珊</span><span className="meta">3項目</span></div>
+        <div className="list-row"><span className="name">陳偉明</span><span className="meta">2項目</span></div>
+        <div className="list-row"><span className="name">張志強</span><span className="meta">2項目</span></div>
+        <div className="list-row"><span className="name">李美玲</span><span className="meta">1項目</span></div>
+      </div>
+    ),
+    // ── Tasks (demo data) ──
+    t1: () => (
+      <><div className="list-row"><CheckSquare size={14} style={{color:'var(--color-text-muted)',flexShrink:0}} /><span className="name">跟進旭輝空運續約</span><span className="badge warn">今日</span></div>
+      <div className="list-row"><CheckSquare size={14} style={{color:'var(--color-text-muted)',flexShrink:0}} /><span className="name">準備客戶簡報</span><span className="badge info">今日</span></div>
+      <div className="list-row"><CheckSquare size={14} style={{color:'var(--color-text-muted)',flexShrink:0}} /><span className="name">審核物流報價</span><span className="badge ok">已完成</span></div></>
+    ),
+    t2: () => (
+      <><div className="list-row"><span className="name">深圳絆強物流報價</span><span className="badge warn">逾期3天</span></div>
+      <div className="list-row"><span className="name">旭輝空運合約審閱</span><span className="badge warn">逾期1天</span></div>
+      <div className="list-row"><span className="name">月度報告提交</span><span className="badge warn">逾期5天</span></div></>
+    ),
+    t3: () => (
+      <><div className="list-row"><span className="name">回覆客戶詢價</span><span className="badge warn">高</span></div>
+      <div className="list-row"><span className="name">更新CRM資料</span><span className="badge info">中</span></div>
+      <div className="list-row"><span className="name">團隊會議記錄</span><span className="badge ok">低</span></div></>
+    ),
+    t4: () => (
+      <div style={{display:'flex',flexDirection:'column',gap:10,alignItems:'center',justifyContent:'center',height:'100%'}}>
+        <span className="kpi-val" style={{color:'var(--color-success)'}}>78%</span>
+        <div className="bar-track" style={{width:'100%'}}><div className="bar-fill" style={{width:'78%',background:'var(--color-success)'}} /></div>
+        <span style={{fontSize:12,color:'var(--color-text-muted)'}}>目標 90% · 落後 12%</span>
+      </div>
+    ),
+    // ── Calendar (demo data) ──
+    cal1: () => (
+      <><div className="list-row"><Calendar size={14} style={{color:'var(--color-text-muted)',flexShrink:0}} /><span className="name">10:30 Deal Review</span><span className="meta">30分</span></div>
+      <div className="list-row"><Calendar size={14} style={{color:'var(--color-text-muted)',flexShrink:0}} /><span className="name">14:00 客戶續約會議</span><span className="meta">1時</span></div>
+      <div className="list-row"><Calendar size={14} style={{color:'var(--color-text-muted)',flexShrink:0}} /><span className="name">16:00 團隊週會</span><span className="meta">45分</span></div></>
+    ),
+    cal2: () => (
+      <div style={{display:'flex',flexDirection:'column',gap:10}}>
+        <div className="stage-row"><div className="stage-label"><span>週一</span><span>3h</span></div><div className="bar-track"><div className="bar-fill" style={{width:'60%',background:'var(--color-blue)'}} /></div></div>
+        <div className="stage-row"><div className="stage-label"><span>週二</span><span>4.5h</span></div><div className="bar-track"><div className="bar-fill" style={{width:'90%',background:'var(--color-purple)'}} /></div></div>
+        <div className="stage-row"><div className="stage-label"><span>週三</span><span>2h</span></div><div className="bar-track"><div className="bar-fill" style={{width:'40%',background:'var(--color-success)'}} /></div></div>
+        <div className="stage-row"><div className="stage-label"><span>週四</span><span>1.5h</span></div><div className="bar-track"><div className="bar-fill" style={{width:'30%'}} /></div></div>
+        <div className="stage-row"><div className="stage-label"><span>週五</span><span>3h</span></div><div className="bar-track"><div className="bar-fill" style={{width:'60%',background:'var(--color-warning)'}} /></div></div>
+      </div>
+    ),
+    cal3: () => (
+      <><div className="list-row"><span className="name">09:00-12:00 旭輝空運拜訪</span><span className="meta">週四</span></div>
+      <div className="list-row"><span className="name">14:00-16:00 深圳華良</span><span className="meta">週五</span></div>
+      <div className="list-row"><span className="name">10:00-12:00 弘安國際</span><span className="meta">下週一</span></div></>
+    ),
+    // ── Shipping (demo data) ──
+    s1: () => (
+      <><div className="list-row"><Truck size={14} style={{color:'var(--color-text-muted)',flexShrink:0}} /><span className="name">深圳絆強物流</span><span className="meta">待派單</span></div>
+      <div className="list-row"><Truck size={14} style={{color:'var(--color-text-muted)',flexShrink:0}} /><span className="name">深圳弘安國際</span><span className="badge warn">延誤</span></div>
+      <div className="list-row"><Truck size={14} style={{color:'var(--color-text-muted)',flexShrink:0}} /><span className="name">深圳兴安通达</span><span className="meta">待派單</span></div></>
+    ),
+    s2: () => (
+      <><div className="list-row"><span className="name">深圳弘安國際 — HKG-SZX</span><span className="badge warn">超48h</span></div>
+      <div className="list-row"><span className="name">深圳絆強物流 — HKG-NGB</span><span className="badge warn">超24h</span></div>
+      <div className="list-row"><span className="name" style={{color:'var(--color-text-faint)'}}>其他訂單正常</span></div></>
+    ),
+    s3: () => (
+      <div style={{display:'flex',flexDirection:'column',gap:10}}>
+        <div className="stage-row"><div className="stage-label"><span>運送中</span><span>62%</span></div><div className="bar-track"><div className="bar-fill" style={{width:'62%'}} /></div></div>
+        <div className="stage-row"><div className="stage-label"><span>已完成</span><span>28%</span></div><div className="bar-track"><div className="bar-fill" style={{width:'28%',background:'var(--color-success)'}} /></div></div>
+        <div className="stage-row"><div className="stage-label"><span>待處理</span><span>10%</span></div><div className="bar-track"><div className="bar-fill" style={{width:'10%',background:'var(--color-warning)'}} /></div></div>
+      </div>
+    ),
+    s4: () => (
+      <><div className="list-row"><span className="name">HKG-SZX</span><span className="badge ok">98%</span></div>
+      <div className="list-row"><span className="name">HKG-NGB</span><span className="badge ok">92%</span></div>
+      <div className="list-row"><span className="name">HKG-PVG</span><span className="badge info">85%</span></div>
+      <div className="list-row"><span className="name">HKG-PEK</span><span className="badge warn">74%</span></div></>
+    ),
+    s5: () => (
+      <div style={{display:'flex',flexDirection:'column',gap:10}}>
+        <div className="kpi-row" style={{justifyContent:'center'}}>
+          <span className="kpi-val" style={{color:'var(--color-primary)',fontSize:22}}>$124.5K</span>
+        </div>
+        <div className="stage-row"><div className="stage-label"><span>本月預算</span><span>$180K</span></div><div className="bar-track"><div className="bar-fill" style={{width:'69%',background:'var(--color-blue)'}} /></div></div>
+        <div className="kpi-delta up">↑ 8% vs 上月</div>
+      </div>
+    ),
+    // ── Team (demo data) ──
+    te1: () => (
+      <div style={{display:'flex',flexDirection:'column',gap:10}}>
+        <div className="stage-row"><div className="stage-label"><span>林海珊</span><span>120%</span></div><div className="bar-track"><div className="bar-fill" style={{width:'100%',background:'var(--color-warning)'}} /></div></div>
+        <div className="stage-row"><div className="stage-label"><span>陳偉明</span><span>85%</span></div><div className="bar-track"><div className="bar-fill" style={{width:'85%',background:'var(--color-blue)'}} /></div></div>
+        <div className="stage-row"><div className="stage-label"><span>張志強</span><span>70%</span></div><div className="bar-track"><div className="bar-fill" style={{width:'70%'}} /></div></div>
+        <div className="stage-row"><div className="stage-label"><span>李美玲</span><span>55%</span></div><div className="bar-track"><div className="bar-fill" style={{width:'55%',background:'var(--color-success)'}} /></div></div>
+      </div>
+    ),
+    te2: () => (
+      <div style={{display:'flex',flexDirection:'column',gap:8}}>
+        <div className="kpi-row"><span className="kpi-val" style={{fontSize:22}}>4/6</span><span className="kpi-delta up" style={{marginLeft:6}}>在線</span></div>
+        <div className="list-row" style={{marginTop:4}}><span className="name">林海珊</span><span className="badge ok">在線</span></div>
+        <div className="list-row"><span className="name">陳偉明</span><span className="badge ok">在線</span></div>
+        <div className="list-row"><span className="name">張志強</span><span className="meta">離開</span></div>
+        <div className="list-row"><span className="name">李美玲</span><span className="badge ok">在線</span></div>
+      </div>
+    ),
+    te3: () => (
+      <div style={{display:'flex',flexDirection:'column',gap:10}}>
+        <div className="stage-row"><div className="stage-label"><span>團隊平均</span><span>78%</span></div><div className="bar-track"><div className="bar-fill" style={{width:'78%',background:'var(--color-blue)'}} /></div></div>
+        <div className="stage-row"><div className="stage-label"><span>林海珊</span><span>92%</span></div><div className="bar-track"><div className="bar-fill" style={{width:'92%',background:'var(--color-success)'}} /></div></div>
+        <div className="stage-row"><div className="stage-label"><span>陳偉明</span><span>76%</span></div><div className="bar-track"><div className="bar-fill" style={{width:'76%'}} /></div></div>
+        <div className="stage-row"><div className="stage-label"><span>張志強</span><span>65%</span></div><div className="bar-track"><div className="bar-fill" style={{width:'65%',background:'var(--color-warning)'}} /></div></div>
+      </div>
+    ),
+    te4: () => (
+      <><div className="list-row"><span className="name">🥇 林海珊</span><span className="meta">$186K</span></div>
+      <div className="list-row"><span className="name">🥈 陳偉明</span><span className="meta">$142K</span></div>
+      <div className="list-row"><span className="name">🥉 張志強</span><span className="meta">$98K</span></div>
+      <div className="list-row"><span className="name">李美玲</span><span className="meta">$67K</span></div></>
+    ),
+    // ── Business (demo data) ──
+    b1: () => (
+      <div style={{display:'flex',flexDirection:'column',gap:10}}>
+        <div className="list-row"><span className="name">方案</span><span className="badge info">Professional</span></div>
+        <div className="list-row"><span className="name">狀態</span><span className="badge ok">活躍中</span></div>
+        <div className="list-row"><span className="name">到期日</span><span className="meta">2026-12-31</span></div>
+        <div className="list-row"><span className="name">用量</span><span className="meta">67%</span></div>
+      </div>
+    ),
+    b2: () => (
+      <div style={{display:'flex',flexDirection:'column',gap:10}}>
+        <div className="stage-row"><div className="stage-label"><span>API 使用率</span><span>45%</span></div><div className="bar-track"><div className="bar-fill" style={{width:'45%',background:'var(--color-blue)'}} /></div></div>
+        <div className="stage-row"><div className="stage-label"><span>儲存使用率</span><span>32%</span></div><div className="bar-track"><div className="bar-fill" style={{width:'32%',background:'var(--color-success)'}} /></div></div>
+        <div className="stage-row"><div className="stage-label"><span>用戶數</span><span>12/20</span></div><div className="bar-track"><div className="bar-fill" style={{width:'60%'}} /></div></div>
+      </div>
+    ),
+  }
+
+  // Widget icon helper
+  const widgetIcon = (k: string) => {
+    if (k.startsWith('kpi_') || k === 'pipeline' || k.startsWith('d')) return TrendingUp
+    if (k.startsWith('c')) return Users
+    if (k.startsWith('co')) return Building2
+    if (k.startsWith('p')) return FolderKanban
+    if (k === 'tasks' || k.startsWith('t')) return CheckSquare
+    if (k.startsWith('cal')) return Calendar
+    if (k.startsWith('s')) return Truck
+    if (k.startsWith('te')) return UsersRound
+    if (k.startsWith('b')) return Activity
+    if (k === 'touchpoints') return Activity
+    if (k === 'dealvalue') return DollarSign
+    if (k === 'aiinsight') return Sparkles
+    if (k === 'activity_feed') return Activity
+    return LayoutDashboard
+  }
+
+  const iconColor = (k: string) => {
+    if (k.startsWith('c')) return 'var(--color-blue)'
+    if (k.startsWith('co')) return 'var(--color-purple)'
+    if (k.startsWith('d')) return 'var(--color-primary)'
+    if (k.startsWith('p')) return 'var(--color-warning)'
+    if (k === 'tasks' || k.startsWith('t')) return 'var(--color-success)'
+    if (k.startsWith('cal')) return 'var(--color-blue)'
+    if (k.startsWith('s')) return 'var(--color-primary)'
+    if (k.startsWith('te')) return 'var(--color-purple)'
+    if (k.startsWith('b')) return 'var(--color-warning)'
+    return 'var(--color-text-muted)'
+  }
 
   return (
     <div className="dash01-shell" data-theme={dark ? 'dark' : 'light'}>
@@ -355,6 +864,7 @@ export default function DashboardNew() {
               {order.map((k) => {
                 const def = allWidgets[k]
                 if (!def) return null
+                const IconComp = widgetIcon(k)
                 return (
                   <div key={k} className={`widget span-${def.span}${dragKey.current === k ? ' dragging' : ''}`}
                     draggable={editing}
@@ -367,6 +877,7 @@ export default function DashboardNew() {
                     onDragEnd={() => { dragKey.current = null }}>
                     <div className="widget-head">
                       <h3>
+                        <IconComp size={15} style={{color: iconColor(k)}} />
                         {k.startsWith('kpi_') ? def.label :
                          k === 'tasks' ? <>Today's Tasks <span className="badge" style={{background:'color-mix(in oklch,var(--color-primary)18%,var(--color-surface))',color:'var(--color-primary)'}}>{stats.tasks}</span></> :
                          k === 'touchpoints' ? 'Recent Touchpoints' :
@@ -384,118 +895,84 @@ export default function DashboardNew() {
                       )}
                     </div>
                     <div className="widget-body">
-                      {k.startsWith('kpi_') && (
-                        <div style={{display:'flex',alignItems:'center',justifyContent:'center',flexDirection:'column',gap:4,height:'100%'}}>
-                          <span className="kpi-val" style={{fontSize:26,color:k==='kpi_contacts'?'var(--color-blue)':k==='kpi_companies'?'var(--color-purple)':k==='kpi_deals'?'var(--color-primary)':'var(--color-warning)'}}>
-                            {k==='kpi_contacts'?stats.contacts:k==='kpi_companies'?stats.companies:k==='kpi_deals'?stats.deals:stats.tasks}
-                          </span>
-                          <span style={{fontSize:12,color:'var(--color-text-muted)',fontWeight:500}}>{def.label}</span>
-                        </div>
-                      )}
-                      {k === 'tasks' && (
-                        tasks.length === 0
-                          ? <div style={{padding:'16px 0',fontSize:12,color:'var(--color-text-faint)'}}>No tasks</div>
-                          : tasks.slice(0,5).map(t => (
-                            <div key={t.id} className="list-row" onClick={() => navigate(`/tasks/${t.id}`)} style={{cursor:'pointer'}}>
-                              <CheckSquare size={14} style={{color:'var(--color-text-muted)',flexShrink:0}} />
-                              <span className="name">{t.title}</span>
-                              <span className="badge" style={{
-                                background: t.priority==='P0'?'color-mix(in oklch,var(--color-notification)18%,var(--color-surface))':t.priority==='P1'?'color-mix(in oklch,var(--color-warning)18%,var(--color-surface))':'color-mix(in oklch,var(--color-success)18%,var(--color-surface))',
-                                color: t.priority==='P0'?'var(--color-notification)':t.priority==='P1'?'var(--color-warning)':'var(--color-success)'
-                              }}>{t.priority||'P3'}</span>
-                            </div>
-                          ))
-                      )}
-                      {k === 'touchpoints' && (
-                        touchpoints.length === 0
-                          ? <div style={{padding:'16px 0',fontSize:12,color:'var(--color-text-faint)'}}>No recent activity</div>
-                          : touchpoints.map(tp => (
-                            <div key={tp.id} className="list-row" onClick={() => navigate(`/touchpoints/${tp.id}`)} style={{cursor:'pointer'}}>
-                              <Activity size={14} style={{color:'var(--color-text-muted)',flexShrink:0}} />
-                              <span className="name">{tp.title}</span>
-                              <span className="meta">{tp.company?.name||''}</span>
-                            </div>
-                          ))
-                      )}
-                      {k === 'pipeline' && pipeline.map(p => (
-                        <div key={p.key} className="stage-row">
-                          <div className="stage-label">
-                            <span>{p.label}</span>
-                            <span>{p.count} deals · ${p.total.toLocaleString()}</span>
-                          </div>
-                          <div className="bar-track">
-                            <div className="bar-fill" style={{width:`${(p.total/maxPipelineTotal)*100}%`,background:p.color}} />
-                          </div>
-                        </div>
-                      ))}
-                      {k === 'dealvalue' && (
-                        <><div className="kpi-val" style={{fontSize:26,color:'var(--color-primary)'}}>{stats.dealValue||'—'}</div>
-                        <div className="kpi-delta" style={{color:'var(--color-success)'}}>↑ {deals.filter(d=>d.stage_id==='closed_won').length} closed won</div></>
-                      )}
-                      {k === 'aiinsight' && (
-                        <div style={{fontSize:13,lineHeight:1.5,color:'var(--color-text-muted)'}}>
-                          <p>• {stats.contacts} contacts active</p>
-                          <p>• {stats.tasks} tasks pending</p>
-                          <p>• Pipeline velocity: {deals.length>0?Math.round(deals.filter(d=>d.stage_id==='closed_won').length/Math.max(1,deals.length)*100):0}%</p>
-                        </div>
-                      )}
-                      {k === 'activity_feed' && (
-                        <div style={{fontSize:13}}>
-                          {touchpoints.length === 0
-                            ? <div style={{padding:'16px 0',textAlign:'center',fontSize:12,color:'var(--color-text-faint)'}}>No recent activity</div>
-                            : <table style={{width:'100%',borderCollapse:'collapse',fontSize:12.5}}>
-                                <thead>
-                                  <tr style={{color:'var(--color-text-faint)',fontWeight:600,borderBottom:'1px solid var(--color-divider)'}}>
-                                    <th style={{textAlign:'left',padding:'6px 4px'}}>Type</th>
-                                    <th style={{textAlign:'left',padding:'6px 4px'}}>Title</th>
-                                    <th style={{textAlign:'left',padding:'6px 4px'}}>Company</th>
-                                    <th style={{textAlign:'right',padding:'6px 4px'}}>Date</th>
-                                  </tr>
-                                </thead>
-                                <tbody>
-                                  {touchpoints.map(tp => (
-                                    <tr key={tp.id} style={{borderBottom:'1px solid var(--color-divider)',cursor:'pointer'}} onClick={() => navigate(`/touchpoints/${tp.id}`)}>
-                                      <td style={{padding:'8px 4px'}}><span className="badge" style={{background:'color-mix(in oklch,var(--color-primary)14%,var(--color-surface))',color:'var(--color-primary)'}}>{tp.type}</span></td>
-                                      <td style={{padding:'8px 4px',fontWeight:500}}>{tp.title}</td>
-                                      <td style={{padding:'8px 4px',color:'var(--color-text-muted)'}}>{tp.company?.name||'—'}</td>
-                                      <td style={{padding:'8px 4px',textAlign:'right',color:'var(--color-text-faint)'}}>{new Date(tp.created_at).toLocaleDateString()}</td>
-                                    </tr>
-                                  ))}
-                                </tbody>
-                              </table>
-                          }
-                        </div>
+                      {widgetBodies[k] ? widgetBodies[k]() : (
+                        <div style={{padding:'16px 0',fontSize:12,color:'var(--color-text-faint)'}}>No content</div>
                       )}
                     </div>
+                    {(k === 'c1' || k === 'co3' || k === 'd3' || k === 't2' || k === 's2' || k === 'te1') && aiOn && (
+                      <button className="ai-tag" style={{display:'inline-flex',marginTop:8}}
+                        onClick={() => {
+                          setChatOpen(true)
+                          if (!chatOpenedRef.current) {
+                            chatOpenedRef.current = true
+                            setTimeout(() => sendInitialReport(), 400)
+                          }
+                        }}>
+                        <Sparkles size={12} />AI advise
+                      </button>
+                    )}
                   </div>
                 )
               })}
-              {/* Add Widget Tile — design01 pattern */}
+              {/* Add Widget Tile — opens drawer */}
               {editing && (
-                <div className="add-widget-tile" onClick={() => setShowPicker(!showPicker)}>
+                <div className="add-widget-tile" onClick={() => setDrawerOpen(true)}>
                   <Plus size={24} />
                   <span>新增小工具</span>
                 </div>
               )}
             </div>
 
-            {/* Widget Picker */}
-            {showPicker && (
-              <div style={{display:'flex',gap:8,flexWrap:'wrap',padding:'12px 0'}}>
-                {Object.entries(allWidgets).filter(([k]) => !order.includes(k)).map(([k, v]) => (
-                  <button key={k} onClick={() => addWidget(k)}
-                    style={{padding:'8px 14px',borderRadius:'var(--radius-md)',border:'1px solid var(--color-border)',background:'var(--color-surface-offset)',cursor:'pointer',fontSize:13,fontWeight:500,color:'var(--color-text)'}}>
-                    + {v.label}
-                  </button>
-                ))}
-                {Object.keys(allWidgets).length === order.length && (
-                  <span style={{fontSize:12,color:'var(--color-text-faint)',padding:8}}>All widgets added</span>
-                )}
+            {/* ── DRAWER (Widget Picker) — design01 style ── */}
+            <div className={`drawer-overlay${drawerOpen ? ' show' : ''}`} onClick={() => setDrawerOpen(false)} />
+            <aside className={`drawer${drawerOpen ? ' show' : ''}`}>
+              <div className="drawer-head">
+                <h3>新增小工具</h3>
+                <button className="icon-btn" onClick={() => setDrawerOpen(false)}><X size={19} /></button>
               </div>
-            )}
+              <div className="drawer-search">
+                <input type="text" placeholder="搜尋小工具..." value={widgetSearch}
+                  onChange={e => setWidgetSearch(e.target.value)} />
+              </div>
+              <div className="drawer-body">
+                {modulesData.filter(mod => {
+                  if (!widgetSearch) return true
+                  const q = widgetSearch.toLowerCase()
+                  return mod.widgets.some(w => w.name.includes(q) || w.desc.includes(q))
+                }).map(mod => {
+                  const visible = widgetSearch
+                    ? mod.widgets.filter(w => w.name.includes(widgetSearch.toLowerCase()) || w.desc.includes(widgetSearch.toLowerCase()))
+                    : mod.widgets
+                  if (widgetSearch && visible.length === 0) return null
+                  return (
+                    <div key={mod.id} className="module-group">
+                      <div className="module-group-head"><span>{mod.name}</span></div>
+                      {visible.filter(w => !order.includes(w.key)).map(w => {
+                        const IconComp = widgetIcon(w.key)
+                        return (
+                          <div key={w.key} className="widget-option" onClick={() => {
+                            addWidget(w.key)
+                            setWidgetSearch('')
+                          }}>
+                            <div className="wo-icon"><IconComp size={15} /></div>
+                            <div className="wo-text"><strong>{w.name}</strong><span>{w.desc}</span></div>
+                            <div className="wo-add"><Plus size={14} /></div>
+                          </div>
+                        )
+                      })}
+                      {visible.filter(w => order.includes(w.key)).length > 0 && (
+                        <div style={{padding:'4px 8px',fontSize:11.5,color:'var(--color-text-faint)'}}>
+                          {visible.filter(w => order.includes(w.key)).map(w => w.name).join('、')} — 已新增
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            </aside>
 
             {aiOn && (
-              <div style={{display:'inline-flex',alignItems:'center',gap:5,padding:'5px 10px',borderRadius:'999px',background:'var(--color-purple-highlight)',color:'var(--color-purple)',fontSize:11.5,fontWeight:700,marginTop:10}}>
+              <div className="ai-tag" style={{display:'inline-flex',alignSelf:'flex-start',marginTop:10}}>
                 <Sparkles size={12} /> AI 分析已啟用
               </div>
             )}
