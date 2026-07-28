@@ -17,10 +17,10 @@ const taskConfig: ResourceConfig = {
     { key: 'description',    label: 'Description',  type: 'rich_text', gridColumn: 'full', visibleByDefault: false },
     { key: 'priority',       label: 'Priority',     type: 'select',   filterable: true, bulkEditable: true, visibleByDefault: true,
       options: [
-        { value: 'urgent',   label: 'Urgent',    color: 'red' },
-        { value: 'high',     label: 'High',      color: 'orange' },
-        { value: 'medium',   label: 'Medium',    color: 'blue' },
-        { value: 'low',      label: 'Low',       color: 'gray' },
+        { value: 'P0',   label: 'Urgent',    color: 'red' },
+        { value: 'P1',     label: 'High',      color: 'orange' },
+        { value: 'P2',   label: 'Medium',    color: 'blue' },
+        { value: 'P3',      label: 'Low',       color: 'gray' },
       ]},
     { key: 'status',         label: 'Status',       type: 'status',   sortable: true, filterable: true, bulkEditable: true, visibleByDefault: true,
       options: [

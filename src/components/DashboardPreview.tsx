@@ -21,6 +21,9 @@ interface Deal {
   company?: { name: string } | null
 }
 
+const priorityLabel: Record<string,string> = { P0:'Urgent', P1:'High', P2:'Medium', P3:'Low' }
+const statusPriorityColors: Record<string,string> = { P0:'badge-p0', P1:'badge-p1', P2:'badge-p2', P3:'badge-p3', Pending:'badge-warm', 'In Progress':'badge-cold', Completed:'badge-active' }
+
 export default function DashboardPreview() {
   const navigate = useNavigate()
   const [stats, setStats] = useState({ contacts: '—', deals: '—', dealValue: '', tasks: '—', companies: '—' })
@@ -238,7 +241,7 @@ export default function DashboardPreview() {
                       ) : tasks.slice(0, 5).map(t => (
                         <div key={t.id} className="task-row" onClick={() => navigate(`/tasks/${t.id}`)} style={{cursor:'pointer'}}>
                           <div className="play-mini"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M5 3l14 9-14 9V3z"/></svg></div>
-                          <div className="info"><div className="t">{t.title}</div><div className="s">{t.priority} · {t.status}</div></div>
+                          <div className="info"><div className="t">{t.title}</div><div className="s"><span className={`badge ${statusPriorityColors[t.priority] || ''}`}>{priorityLabel[t.priority] || t.priority}</span> <span className={`badge ${statusPriorityColors[t.status] || ''}`}>{t.status}</span></div></div>
                         </div>
                       ))}
                       {tasks.length > 5 && <div style={{ padding: '10px 18px', fontSize: 11.5, color: 'var(--color-primary)', fontWeight: 600, cursor: 'pointer' }}>+{tasks.length - 5} more</div>}

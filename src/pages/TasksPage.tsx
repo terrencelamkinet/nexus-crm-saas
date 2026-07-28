@@ -22,6 +22,7 @@ interface TaskListResponse {
   page_size: number;
 }
 
+const priorityLabel: Record<string, string> = { P0: 'Urgent', P1: 'High', P2: 'Medium', P3: 'Low' };
 const priorityColors: Record<string, string> = {
   P0: 'badge-p0',
   P1: 'badge-p1',
@@ -30,8 +31,8 @@ const priorityColors: Record<string, string> = {
 };
 
 const statusColors: Record<string, string> = {
-  Pending: 'badge-cold',
-  'In Progress': 'badge-warm',
+  Pending: 'badge-warm',
+  'In Progress': 'badge-cold',
   Completed: 'badge-active',
 };
 
@@ -126,7 +127,7 @@ export default function TasksPage() {
                   <tr key={t.id}>
                     <td className="font-medium">{t.title}</td>
                     <td>
-                      <span className={`badge ${priorityColors[t.priority] || ''}`}>{t.priority}</span>
+                      <span className={`badge ${priorityColors[t.priority] || ''}`}>{priorityLabel[t.priority] || t.priority}</span>
                     </td>
                     <td className="hidden md:table-cell">
                       <span className={`badge ${statusColors[t.status] || ''}`}>{t.status}</span>
@@ -168,9 +169,9 @@ export default function TasksPage() {
                     onChange={e => setForm(f => ({ ...f, priority: e.target.value }))}
                     className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-highlight focus:border-primary"
                   >
-                    <option value="P0">P0 - Critical</option>
+                    <option value="P0">P0 - Urgent</option>
                     <option value="P1">P1 - High</option>
-                    <option value="P2">P2 - Normal</option>
+                    <option value="P2">P2 - Medium</option>
                     <option value="P3">P3 - Low</option>
                   </select>
                 </div>

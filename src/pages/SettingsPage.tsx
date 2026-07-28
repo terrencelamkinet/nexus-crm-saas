@@ -1,6 +1,6 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Users, Settings, CreditCard, Puzzle, Monitor, X, ChevronRight, ArrowUpDown, Plus, Download, Search, Trash2, Edit3, MoreHorizontal } from 'lucide-react'
+import { Users, CreditCard, Puzzle, Monitor, ChevronRight } from 'lucide-react'
 import { apiClient } from '../lib/api'
 
 const tabs = [
@@ -18,7 +18,7 @@ export default function SettingsPage() {
   const [modules, setModules] = useState<Record<string, boolean>>({})
   const [loading, setLoading] = useState(true)
   const [draft, setDraft] = useState<Record<string, boolean>>({})
-  const [saving, setSaving] = useState(false)
+  const [saveState, setSaveState] = useState<'idle' | 'saving' | 'done'>('idle')
 
   const moduleDefs = [
     { key: 'foundation', label: 'Foundation CRM', icon: '🧱', desc: 'Companies, Contacts, Touchpoints, Tasks, Notes, NameCards — core CRM (Module A).', alwaysOn: true },
@@ -39,14 +39,14 @@ export default function SettingsPage() {
     finally { setLoading(false) }
   }
 
-  useState(() => { loadModules() })
+  useEffect(() => { loadModules() }, [])
 
   const toggleDraft = (key: string) => {
     setDraft(p => ({ ...p, [key]: !p[key] }))
   }
 
   const saveModules = async () => {
-    setSaving(true)
+    setSaveState('saving')
     try {
       for (const key of Object.keys(draft)) {
         if (modules[key] !== draft[key]) {
@@ -54,14 +54,19 @@ export default function SettingsPage() {
         }
       }
       setModules({ ...draft })
-    } catch (e: any) { alert(e.detail || e.message) }
-    finally { setSaving(false) }
+      window.dispatchEvent(new CustomEvent('modules-changed'))
+      setSaveState('done')
+      setTimeout(() => setSaveState('idle'), 2000)
+    } catch (e: any) {
+      alert(e.detail || e.message)
+      setSaveState('idle')
+    }
   }
 
   const cancelChanges = () => setDraft({ ...modules })
 
   return (
-    <div>
+    <div className="stg-page">
       <div className="breadcrumb">
         <span className="breadcrumb-link" onClick={() => navigate('/dashboard')}>Home</span>
         <ChevronRight />
@@ -71,11 +76,11 @@ export default function SettingsPage() {
         <h1>Settings</h1>
       </div>
 
-      <div className="settings-layout">
-        <div className="settings-tabs">
+      <div className="stg-layout">
+        <div className="stg-tabs">
           {tabs.map(tab => (
             <button key={tab.id}
-              className={`settings-tab${active === tab.id ? ' active' : ''}`}
+              className={`stg-tab${active === tab.id ? ' active' : ''}`}
               onClick={() => setActive(tab.id)}>
               <tab.icon className="w-4 h-4" />
               {tab.label}
@@ -83,28 +88,28 @@ export default function SettingsPage() {
           ))}
         </div>
 
-        <div className="settings-content">
+        <div className="stg-content">
           {active === 'profile' && (
-            <div className="settings-panel">
+            <div className="stg-panel">
               <h2>Profile</h2>
-              <div className="profile-avatar-section">
+              <div className="stg-avatar-section">
                 <div className="avatar-lg">TL</div>
                 <button className="btn-ghost">Change avatar</button>
               </div>
-              <div className="profile-fields">
-                <div className="field-row">
+              <div className="stg-fields">
+                <div className="stg-field-row">
                   <label>Name</label>
                   <input type="text" value="Terrence Lam" readOnly className="input-field" />
                 </div>
-                <div className="field-row">
+                <div className="stg-field-row">
                   <label>Email</label>
                   <input type="email" value="terrence@kinetix.com" readOnly className="input-field" />
                 </div>
-                <div className="field-row">
+                <div className="stg-field-row">
                   <label>Phone</label>
                   <input type="text" value="+852 9553 5371" readOnly className="input-field" />
                 </div>
-                <div className="field-row">
+                <div className="stg-field-row">
                   <label>Timezone</label>
                   <select className="input-field">
                     <option>Asia/Hong_Kong (UTC+8)</option>
@@ -116,20 +121,20 @@ export default function SettingsPage() {
           )}
 
           {active === 'team' && (
-            <div className="settings-panel">
+            <div className="stg-panel">
               <h2>Team Members</h2>
-              <div className="team-list">
+              <div className="stg-team-list">
                 {[
                   { name: 'Terrence Lam', email: 'terrence@k.com', role: 'Admin' },
                   { name: 'Mary Chan', email: 'mary@k.com', role: 'Member' },
                 ].map((m, i) => (
-                  <div key={i} className="team-row">
-                    <div className="team-avatar">{m.name.split(' ').map(n => n[0]).join('')}</div>
-                    <div className="team-info">
-                      <p className="team-name">{m.name}</p>
-                      <p className="team-email">{m.email}</p>
+                  <div key={i} className="stg-team-row">
+                    <div className="stg-team-avatar">{m.name.split(' ').map(n => n[0]).join('')}</div>
+                    <div className="stg-team-info">
+                      <p className="stg-team-name">{m.name}</p>
+                      <p className="stg-team-email">{m.email}</p>
                     </div>
-                    <span className="role-badge">{m.role}</span>
+                    <span className="stg-role-badge">{m.role}</span>
                   </div>
                 ))}
               </div>
@@ -138,60 +143,63 @@ export default function SettingsPage() {
           )}
 
           {active === 'modules' && (
-            <div className="settings-panel">
+            <div className="stg-panel">
               <h2>Module Settings</h2>
-              <p className="settings-subtitle">Enable or disable CRM modules. Disabling a module hides its navigation and pages.</p>
+              <p className="stg-subtitle">Enable or disable CRM modules. Disabling a module hides its navigation and pages.</p>
               {loading ? (
-                <div className="loading-text">Loading module settings...</div>
+                <div className="stg-loading">Loading module settings...</div>
               ) : (
-                <div className="module-list">
+                <div className="stg-module-list">
                   {moduleDefs.map(def => (
-                    <div key={def.key} className={`module-row${def.alwaysOn ? ' always-on' : ''}`}
+                    <div key={def.key} className={`stg-module-row${def.alwaysOn ? ' always-on' : ''}`}
                       onClick={() => !def.alwaysOn && toggleDraft(def.key)}>
-                      <div className="module-icon">{def.icon}</div>
-                      <div className="module-info">
-                        <p className="module-name">{def.label}</p>
-                        <p className="module-desc">{def.desc}</p>
+                      <div className="stg-module-icon">{def.icon}</div>
+                      <div className="stg-module-info">
+                        <p className="stg-module-name">{def.label}</p>
+                        <p className="stg-module-desc">{def.desc}</p>
                       </div>
                       {def.alwaysOn ? (
-                        <span className="always-on-badge">Always on</span>
+                        <span className="stg-always-badge">Always on</span>
                       ) : (
-                        <div className={`toggle-switch${draft[def.key] !== false ? ' on' : ''}`}
-                          onClick={() => toggleDraft(def.key)}>
-                          <div className="toggle-knob" />
+                      <div className={`stg-toggle${draft[def.key] !== false ? ' on' : ''}`}
+                        onClick={(e) => { e.stopPropagation(); toggleDraft(def.key); }}>
+                          <div className="stg-toggle-knob" />
                         </div>
                       )}
                     </div>
                   ))}
                 </div>
               )}
-              <div className="settings-actions">
+              <div className="stg-actions">
                 <button className="btn-secondary" onClick={cancelChanges}>Cancel</button>
-                <button className="btn-primary" onClick={saveModules} disabled={saving}>
-                  {saving ? 'Saving...' : 'Save Changes'}
+                <button className={`btn-primary${saveState === 'saving' ? ' btn-saving' : ''}${saveState === 'done' ? ' btn-done' : ''}`}
+                  onClick={saveModules} disabled={saveState !== 'idle'}>
+                  {saveState === 'idle' && 'Save Changes'}
+                  {saveState === 'saving' && <span className="btn-spinner" />}
+                  {saveState === 'done' && <span className="btn-check">✓</span>}
                 </button>
               </div>
             </div>
           )}
 
           {active === 'integrations' && (
-            <div className="settings-panel">
+            <div className="stg-panel">
               <h2>Integrations</h2>
-              <p className="settings-subtitle coming-soon">Coming soon</p>
+              <p className="stg-subtitle stg-coming">Coming soon</p>
             </div>
           )}
 
           {active === 'billing' && (
-            <div className="settings-panel">
+            <div className="stg-panel">
               <h2>Billing</h2>
-              <p className="settings-subtitle coming-soon">Coming soon</p>
+              <p className="stg-subtitle stg-coming">Coming soon</p>
             </div>
           )}
 
           {active === 'preferences' && (
-            <div className="settings-panel">
+            <div className="stg-panel">
               <h2>Preferences</h2>
-              <p className="settings-subtitle coming-soon">Coming soon</p>
+              <p className="stg-subtitle stg-coming">Coming soon</p>
             </div>
           )}
         </div>

@@ -133,16 +133,16 @@ export interface EntityRecord {
 }
 
 export const statusColors: Record<string, string> = {
-  Active: 'tag-active', Warm: 'tag-warm', Cold: 'tag-cold',
-  VIP: 'tag-vip', Inactive: 'tag-default',
-  Done: 'tag-active', 'To Do': 'tag-default',
-  'In Progress': 'tag-warm', Review: 'tag-vip', Blocked: 'tag-cold',
+  Active: 'badge-active', Warm: 'badge-warm', Cold: 'badge-cold',
+  VIP: 'badge-p1', Inactive: 'badge-p3',
+  Done: 'badge-active', 'To Do': 'badge-p3',
+  'In Progress': 'badge-warm', Review: 'badge-p1', Blocked: 'badge-cold',
 }
 
 export const optionColorToClass: Record<string, string> = {
-  green: 'tag-active', yellow: 'tag-warm', orange: 'tag-warm',
-  blue: 'tag-cold', purple: 'tag-vip', gray: 'tag-default',
-  red: 'tag-cold',
+  green: 'badge-active', yellow: 'badge-warm', orange: 'badge-warm',
+  blue: 'badge-cold', purple: 'badge-p1', gray: 'badge-p3',
+  red: 'badge-p0',
 }
 
 export const fieldTypeOperators: Record<string, string[]> = {
