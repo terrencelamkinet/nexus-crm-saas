@@ -1,358 +1,309 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { useNavigate, Link } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import { apiClient } from '../lib/api'
-import FocusTimer from './FocusTimer'
-import CalendarViews from '../modules/projects/CalendarViews/CalendarViews'
-import type { CalendarEventFormatted } from '../modules/projects/CalendarViews/types'
-import { formatEvents } from '../modules/projects/CalendarViews/types'
-import DnDSortableGroup from './DnDSortableGroup'
-import QuickAddTouchpoint from './QuickAddTouchpoint'
-import QuickAddTask from './QuickAddTask'
+import { CheckSquare, Activity, Sparkles, X, Plus } from 'lucide-react'
 
 interface Task { id: string; title: string; priority: string; status: string; due_date: string | null }
-interface Touchpoint {
-  id: string; type: string; title: string; description: string | null
-  company?: { name: string } | null; contact?: { name: string } | null
-  created_at: string
+interface Touchpoint { id: string; type: string; title: string; description: string | null; company?: { name: string } | null; contact?: { name: string } | null; created_at: string }
+interface Deal { id: string; name: string; amount: number | null; stage_id: string; probability: number; company?: { name: string } | null }
+
+const stages: Record<string, { label: string; color: string }> = {
+  qualification: { label: 'Qualification', color: 'var(--color-blue)' },
+  proposal: { label: 'Proposal', color: 'var(--color-warning)' },
+  negotiation: { label: 'Negotiation', color: 'var(--color-purple)' },
+  closed_won: { label: 'Closed Won', color: 'var(--color-success)' },
+  closed_lost: { label: 'Closed Lost', color: 'var(--color-text-faint)' },
 }
-interface Deal {
-  id: string; name: string; amount: number | null
-  stage_id: string; probability: number
-  company?: { name: string } | null
+const stageKeys = ['qualification', 'proposal', 'negotiation', 'closed_won']
+
+const todayStr = () => {
+  const d = new Date()
+  const days = ['日', '一', '二', '三', '四', '五', '六']
+  return `${d.getFullYear()}年${d.getMonth() + 1}月${d.getDate()}日 · 星期${days[d.getDay()]}`
 }
 
-const priorityLabel: Record<string,string> = { P0:'Urgent', P1:'High', P2:'Medium', P3:'Low' }
-const statusPriorityColors: Record<string,string> = { P0:'badge-p0', P1:'badge-p1', P2:'badge-p2', P3:'badge-p3', Pending:'badge-warm', 'In Progress':'badge-cold', Completed:'badge-active' }
+// Widget definitions — span-based CSS grid (design01)
+type WidgetKey = string
+interface WidgetDef { label: string; span: number }
+const allWidgets: Record<string, WidgetDef> = {
+  kpi_contacts: { label: 'Contacts', span: 3 },
+  kpi_companies: { label: 'Companies', span: 3 },
+  kpi_deals: { label: 'Deal Count', span: 3 },
+  kpi_tasks: { label: 'Tasks', span: 3 },
+  pipeline: { label: 'Deal Pipeline', span: 8 },
+  tasks: { label: "Today's Tasks", span: 4 },
+  touchpoints: { label: 'Recent Touchpoints', span: 4 },
+  dealvalue: { label: 'Total Deal Value', span: 4 },
+  aiinsight: { label: 'AI Insight', span: 4 },
+  activity_feed: { label: 'Activity Feed', span: 12 },
+}
+const defaultOrder: WidgetKey[] = [
+  'kpi_contacts', 'kpi_companies', 'kpi_deals', 'kpi_tasks',
+  'pipeline', 'tasks',
+  'touchpoints', 'dealvalue', 'aiinsight',
+  'activity_feed',
+]
+const ORDER_KEY = 'dash-preview-order'
 
 export default function DashboardPreview() {
   const navigate = useNavigate()
-  const [stats, setStats] = useState({ contacts: '—', deals: '—', dealValue: '', tasks: '—', companies: '—' })
+  const [stats, setStats] = useState({ contacts: 0, deals: 0, dealValue: '', tasks: 0, companies: 0 })
   const [tasks, setTasks] = useState<Task[]>([])
   const [touchpoints, setTouchpoints] = useState<Touchpoint[]>([])
   const [deals, setDeals] = useState<Deal[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-  const [calEvents, setCalEvents] = useState<CalendarEventFormatted[]>([])
-  const [calLoading, setCalLoading] = useState(true)
-  const [showNewTp, setShowNewTp] = useState(false)
-  const [showNewTask, setShowNewTask] = useState(false)
+  const [editing, setEditing] = useState(false)
+  const [aiOn, setAiOn] = useState(false)
+  const [showPicker, setShowPicker] = useState(false)
 
-  // Drag-and-drop order for dashboard cards
-  const [topOrder, setTopOrder] = useState<string[]>(['focus', 'tasks', 'touchpoints'])
-  const [botOrder, setBotOrder] = useState<string[]>(['activity', 'deals', 'stats'])
+  // Widget order — persists to localStorage
+  const [order, setOrder] = useState<WidgetKey[]>(() => {
+    try { return JSON.parse(localStorage.getItem(ORDER_KEY) || 'null') || [...defaultOrder] }
+    catch { return [...defaultOrder] }
+  })
+  const saveOrder = (o: WidgetKey[]) => {
+    setOrder(o)
+    try { localStorage.setItem(ORDER_KEY, JSON.stringify(o)) } catch {}
+  }
 
-  // Load layout from localStorage (fast) then fetch from server
-  useEffect(() => {
+  // Drag state
+  const dragKey = useRef<string | null>(null)
+
+  // Data fetching
+  const fetchData = useCallback(async () => {
     try {
-      const saved = JSON.parse(localStorage.getItem('dash-order-top') || 'null')
-      if (saved?.length === 3) setTopOrder(saved)
-    } catch {}
-    try {
-      const saved = JSON.parse(localStorage.getItem('dash-order-bot') || 'null')
-      if (saved?.length === 3) setBotOrder(saved)
-    } catch {}
-
-    // Fetch from server as authoritative source
-    apiClient.get<{ layout: Record<string, string[]> }>('/api/v1/dashboard/layout')
-      .then(res => {
-        if (res.layout) {
-          if (res.layout.top?.length === 3) { setTopOrder(res.layout.top); localStorage.setItem('dash-order-top', JSON.stringify(res.layout.top)) }
-          if (res.layout.bot?.length === 3) { setBotOrder(res.layout.bot); localStorage.setItem('dash-order-bot', JSON.stringify(res.layout.bot)) }
-        }
-      })
-      .catch(() => {})
-  }, [])
-
-  // Debounced server sync
-  const syncLayout = useCallback(async (top: string[], bot: string[]) => {
-    try {
-      await apiClient.put('/api/v1/dashboard/layout', { layout: { top, bot } })
-    } catch {}
-  }, [])
-
-  const syncTimeoutRef = useRef<ReturnType<typeof setTimeout>>()
-  const handleTopOrder = useCallback((next: string[]) => {
-    setTopOrder(next)
-    localStorage.setItem('dash-order-top', JSON.stringify(next))
-    clearTimeout(syncTimeoutRef.current)
-    syncTimeoutRef.current = setTimeout(() => { syncLayout(next, botOrder) }, 500)
-  }, [botOrder, syncLayout])
-
-  const handleBotOrder = useCallback((next: string[]) => {
-    setBotOrder(next)
-    localStorage.setItem('dash-order-bot', JSON.stringify(next))
-    clearTimeout(syncTimeoutRef.current)
-    syncTimeoutRef.current = setTimeout(() => { syncLayout(topOrder, next) }, 500)
-  }, [topOrder, syncLayout])
-
-  const fetchDashboard = async () => {
-    setLoading(true)
-    setError(null)
-    try {
-      const [cRes, dRes, tRes, coRes, tpRes] = await Promise.all([
+      const [cRes, coRes, dRes, tRes, tpRes] = await Promise.all([
         apiClient.get<{ total: number }>('/api/v1/crm/contacts?page=1&page_size=1'),
+        apiClient.get<{ total: number }>('/api/v1/crm/companies?page=1&page_size=1'),
         apiClient.get<{ items: Deal[]; total: number }>('/api/v1/crm/deals?page=1&page_size=100'),
         apiClient.get<{ items: Task[]; total: number }>('/api/v1/crm/tasks?page=1&page_size=10'),
-        apiClient.get<{ total: number }>('/api/v1/crm/companies?page=1&page_size=1'),
         apiClient.get<{ items: Touchpoint[]; total: number }>('/api/v1/crm/touchpoints?page=1&page_size=10'),
       ])
       const dealsList = dRes.items || []
       const totalVal = dealsList.reduce((s: number, d: Deal) => s + (d.amount || 0), 0)
       const fmt = (n: number) => n >= 1e6 ? `$${(n / 1e6).toFixed(1)}M` : n >= 1e3 ? `$${(n / 1e3).toFixed(0)}K` : `$${n}`
       setStats({
-        contacts: String(cRes.total || 0),
-        deals: String(dealsList.length),
-        dealValue: totalVal ? fmt(totalVal) : '',
-        tasks: String(tRes.total || 0),
-        companies: String(coRes.total || 0),
+        contacts: cRes.total || 0, deals: dealsList.length,
+        dealValue: totalVal ? fmt(totalVal) : '—', tasks: tRes.total || 0, companies: coRes.total || 0,
       })
       setTasks(tRes.items || [])
       setTouchpoints((tpRes.items || []).slice(0, 5))
       setDeals(dealsList)
-    } catch (e: any) {
-      setError(e.detail || e.message)
-    } finally {
-      setLoading(false)
+    } catch { /* silent */ }
+  }, [])
+  useEffect(() => { fetchData() }, [fetchData])
+
+  const pipeline = stageKeys.map(k => {
+    const items = deals.filter(d => d.stage_id === k)
+    return {
+      key: k, label: stages[k]?.label || k, count: items.length,
+      total: items.reduce((s, d) => s + (d.amount || 0), 0),
+      color: stages[k]?.color || 'var(--color-primary)',
     }
+  })
+  const maxPipelineTotal = Math.max(1, ...pipeline.map(p => p.total))
+
+  // Widget actions
+  const addWidget = (k: string) => {
+    if (order.includes(k)) return
+    saveOrder([...order, k])
+    setShowPicker(false)
   }
-
-  const fetchCalendarEvents = async () => {
-    setCalLoading(true)
-    try {
-      const projRes = await apiClient.get<{ items: { id: string }[] }>('/api/v1/crm/projects?page=1&page_size=20')
-      const projects = projRes.items || []
-      const allEvents: CalendarEventFormatted[] = []
-      for (const p of projects) {
-        const evRes = await apiClient.get<any[]>(`/api/v1/crm/projects/${p.id}/calendar-events`)
-        if (evRes && Array.isArray(evRes)) {
-          allEvents.push(...formatEvents(evRes.map((ev: any) => ({ ...ev, project_name: ev.project_name || '' }))))
-        }
-      }
-      setCalEvents(allEvents)
-    } catch {
-      // No events — empty state is fine
-    } finally {
-      setCalLoading(false)
-    }
-  }
-
-  useEffect(() => { fetchDashboard(); fetchCalendarEvents() }, [])
-
-  // Activity data: count touchpoints per day for last 7 days
-  const activityData = (() => {
-    const days: { label: string; pct: number; active: boolean }[] = []
-    const now = new Date()
-    for (let i = 6; i >= 0; i--) {
-      const d = new Date(now)
-      d.setDate(now.getDate() - i)
-      const dayStr = d.toISOString().slice(0, 10)
-      const count = touchpoints.filter(tp => tp.created_at?.startsWith(dayStr)).length
-      const maxCount = Math.max(1, ...touchpoints.map(tp => {
-        const tpDay = tp.created_at?.slice(0, 10)
-        return tpDay ? touchpoints.filter(x => x.created_at?.startsWith(tpDay)).length : 0
-      }))
-      days.push({
-        label: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][d.getDay()],
-        pct: maxCount > 0 ? (count / maxCount) * 100 : 0,
-        active: i === 0,
-      })
-    }
-    return days
-  })()
-
-  // Donut chart data: deals grouped by company
-  const dealGroups = (() => {
-    const map: Record<string, number> = {}
-    deals.forEach(d => {
-      const name = d.company?.name || 'Other'
-      map[name] = (map[name] || 0) + (d.amount || 0)
-    })
-    const total = Object.values(map).reduce((s, v) => s + v, 0) || 1
-    const colors = ['var(--color-notification)', 'var(--color-success)', 'var(--color-warning)', 'var(--color-blue)', 'var(--color-purple)', 'var(--color-text-faint)']
-    let cumPct = 0
-    const segments = Object.entries(map).slice(0, 6).map(([name, val], i) => {
-      const pct = (val / total) * 100
-      const seg = { name, pct: Math.round(pct), color: colors[i % colors.length], start: cumPct, end: cumPct + pct / 100 }
-      cumPct += pct / 100
-      return seg
-    })
-    // Cover remaining to 1 full turn
-    if (cumPct < 1) segments.push({ name: '', pct: 0, color: 'var(--color-surface-offset)', start: cumPct, end: 1 })
-    return { segments, total: Object.keys(map).length, conic: segments.map(s => `${s.color} ${(s.start * 360).toFixed(0)}deg ${(s.end * 360).toFixed(0)}deg`).join(', ') }
-  })()
-
-  const timeAgo = (d: string) => {
-    const diff = Date.now() - new Date(d).getTime()
-    const mins = Math.floor(diff / 60000)
-    if (mins < 60) return `${mins}m`
-    const hrs = Math.floor(mins / 60)
-    if (hrs < 24) return `${hrs}h`
-    return `${Math.floor(hrs / 24)}d`
-  }
-
-  if (loading) {
-    return (
-      <div className="main-content">
-        <div className="page-header"><div><h1>Dashboard</h1><p>Loading...</p></div></div>
-        <div className="top-row">
-          {[1, 2, 3].map(i => <div key={i} className="panel" style={{ height: 200, background: 'var(--color-surface-offset)' }} />)}
-        </div>
-      </div>
-    )
-  }
-
-  if (error) {
-    return (
-      <div className="main-content">
-        <div className="page-header"><div><h1>Dashboard</h1></div></div>
-        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '12px 16px', background: 'var(--color-notification-highlight)', border: '1px solid var(--color-notification)', borderRadius: 'var(--radius-md)', color: 'var(--color-notification)', fontSize: 13 }}>
-          <span>{error}</span>
-          <button onClick={fetchDashboard} style={{ fontWeight: 600, textDecoration: 'underline', marginLeft: 8, background: 'none', border: 'none', color: 'inherit', cursor: 'pointer' }}>Retry</button>
-        </div>
-      </div>
-    )
+  const removeW = (k: string) => saveOrder(order.filter(x => x !== k))
+  const moveW = (from: string, to: string) => {
+    const a = order.indexOf(from), b = order.indexOf(to)
+    if (a < 0 || b < 0) return
+    const next = [...order]
+    next.splice(a, 1)
+    next.splice(b, 0, from)
+    saveOrder(next)
   }
 
   return (
-    <div className="main-content">
-      <div className="breadcrumb"><Link to="/dashboard" style={{ color: 'inherit', textDecoration: 'none' }}>Workspace</Link><span className="sep" style={{ margin: '0 6px', color: 'var(--color-text-faint)' }}>/</span><span className="current" style={{ color: 'var(--color-text-muted)', fontWeight: 600 }}>Dashboard</span></div>
-      <div className="page-header" style={{ marginBottom: 18 }}>
-        <div><h1>Dashboard</h1><p>Daily &amp; weekly review of meetings, tasks, and pipeline. <span style={{ color: 'var(--color-text-muted)' }}>{stats.contacts} contacts · {stats.deals} deals · {stats.tasks} tasks</span></p></div>
+    <div className="dash-content">
+      {/* Toolbar — design01 .dash-toolbar pattern */}
+      <div className="dash-toolbar">
+        <div>
+          <h1>早晨,Terrence 👋</h1>
+          <p>{todayStr()}</p>
+        </div>
+        <div style={{display:'flex', gap:10, alignItems:'center'}}>
+          {/* AI toggle inline */}
+          <div className="ai-toggle-inline">
+            <Sparkles size={15} />
+            <span>AI</span>
+            <button className={`switcher${aiOn ? ' on' : ''}`} onClick={() => setAiOn(!aiOn)} />
+          </div>
+          <button className={`dash-btn${editing ? ' primary' : ''}`} onClick={() => setEditing(!editing)}>
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="1"/><path d="M3 9h18M9 21V9"/></svg>
+            {editing ? '完成' : '自訂版面'}
+          </button>
+        </div>
       </div>
 
-      {/* Top Row */}
-      <div className="top-row animate-in">
-        <DnDSortableGroup items={topOrder} onChange={handleTopOrder}>
-          {(id) => {
-            switch (id) {
-              case 'focus':
-                return (
-                  <div className="panel">
-                    <FocusTimer />
+      {/* AI Brief */}
+      {aiOn && (
+        <section className="ai-brief-card">
+          <div className="brief-head">
+            <Sparkles size={20} />
+            <h2>AI 每日簡報</h2>
+            <span>基於即時數據 · 自動更新</span>
+          </div>
+          <div className="brief-grid">
+            <div>
+              <h4>今日重點</h4>
+              <ul>
+                <li>{stats.deals} 個 Deal 進行中,總值 {stats.dealValue}</li>
+                <li>本日 {stats.tasks} 項待辦任務</li>
+              </ul>
+            </div>
+            <div>
+              <h4>會議準備</h4>
+              <ul>
+                {touchpoints.slice(0,2).map(tp => <li key={tp.id}>{tp.title}</li>)}
+                {touchpoints.length === 0 && <li className="muted">暫無會議</li>}
+              </ul>
+            </div>
+            <div>
+              <h4>風險提示</h4>
+              <ul>
+                <li>{tasks.filter(t=>t.priority==='P0').length} 件緊急任務需跟進</li>
+                <li>{stats.companies} 間公司活躍中</li>
+              </ul>
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* Widget Grid — 12-column CSS grid */}
+      <div className="dash-grid">
+        {order.map(k => {
+          const def = allWidgets[k]
+          if (!def) return null
+          return (
+            <div key={k} className={`dash-widget span-${def.span}${editing && dragKey.current === k ? ' dragging' : ''}`}
+              draggable={editing}
+              onDragStart={() => { if (editing) dragKey.current = k }}
+              onDragOver={e => {
+                if (!editing || !dragKey.current || dragKey.current === k) return
+                e.preventDefault()
+                moveW(dragKey.current, k)
+              }}
+              onDragEnd={() => { dragKey.current = null }}>
+              <div className="w-head">
+                <h3>
+                  {k.startsWith('kpi_') ? def.label :
+                   k === 'tasks' ? <>Today's Tasks <span className="dash-badge" style={{background:'color-mix(in oklch,var(--color-primary)18%,var(--color-surface))',color:'var(--color-primary)'}}>{stats.tasks}</span></> :
+                   k === 'touchpoints' ? 'Recent Touchpoints' :
+                   k === 'pipeline' ? 'Deal Pipeline' :
+                   k === 'dealvalue' ? 'Total Deal Value' :
+                   k === 'aiinsight' ? 'AI Insight' :
+                   k === 'activity_feed' ? 'Activity Feed' : def.label}
+                </h3>
+                {editing && (
+                  <div className="w-actions">
+                    <button className="w-action" title="拖曳"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="9" cy="6" r="1"/><circle cx="9" cy="12" r="1"/><circle cx="9" cy="18" r="1"/><circle cx="15" cy="6" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="15" cy="18" r="1"/></svg></button>
+                    <button className="w-action" title="移除" onClick={e => { e.stopPropagation(); removeW(k) }}><X size={14} /></button>
                   </div>
-                )
-              case 'tasks':
-                return (
-                  <div className="panel">
-                    <div className="panel-head"><h3>Today's tasks{stats.tasks !== '—' ? <span className="count-chip">{stats.tasks}</span> : null}</h3><span className="link" style={{ fontSize: 12, color: 'var(--color-primary)', fontWeight: 600, cursor: 'pointer' }} onClick={() => navigate('/tasks')}>View all →</span></div>
-                    <div>
-                      {tasks.length === 0 ? (
-                        <div style={{ padding: '16px 18px', fontSize: 12, color: 'var(--color-text-faint)' }}>No tasks</div>
-                      ) : tasks.slice(0, 5).map(t => (
-                        <div key={t.id} className="task-row" onClick={() => navigate(`/tasks/${t.id}`)} style={{cursor:'pointer'}}>
-                          <div className="play-mini"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M5 3l14 9-14 9V3z"/></svg></div>
-                          <div className="info"><div className="t">{t.title}</div><div className="s"><span className={`badge ${statusPriorityColors[t.priority] || ''}`}>{priorityLabel[t.priority] || t.priority}</span> <span className={`badge ${statusPriorityColors[t.status] || ''}`}>{t.status}</span></div></div>
-                        </div>
-                      ))}
-                      {tasks.length > 5 && <div style={{ padding: '10px 18px', fontSize: 11.5, color: 'var(--color-primary)', fontWeight: 600, cursor: 'pointer' }}>+{tasks.length - 5} more</div>}
-                      <div className="schedule-cta" style={{ margin: '0 18px 12px' }} onClick={() => setShowNewTask(true)}>+ Add Task</div>
+                )}
+              </div>
+              <div className="w-body">
+                {k.startsWith('kpi_') && (
+                  <div className="kpi-center">
+                    <span className="kpi-val" style={{color:k==='kpi_contacts'?'var(--color-blue)':k==='kpi_companies'?'var(--color-purple)':k==='kpi_deals'?'var(--color-primary)':'var(--color-warning)'}}>
+                      {k==='kpi_contacts'?stats.contacts:k==='kpi_companies'?stats.companies:k==='kpi_deals'?stats.deals:stats.tasks}
+                    </span>
+                    <span className="kpi-lbl">{def.label}</span>
+                  </div>
+                )}
+                {k === 'tasks' && (tasks.length === 0
+                  ? <div className="empty">No tasks</div>
+                  : tasks.slice(0,5).map(t => (
+                    <div key={t.id} className="dash-row" onClick={() => navigate(`/tasks/${t.id}`)}>
+                      <CheckSquare size={14} className="row-icon" />
+                      <span className="row-name">{t.title}</span>
+                      <span className="dash-badge" style={{
+                        background: t.priority==='P0'?'color-mix(in oklch,var(--color-notification)18%,var(--color-surface))':t.priority==='P1'?'color-mix(in oklch,var(--color-warning)18%,var(--color-surface))':'color-mix(in oklch,var(--color-success)18%,var(--color-surface))',
+                        color: t.priority==='P0'?'var(--color-notification)':t.priority==='P1'?'var(--color-warning)':'var(--color-success)'
+                      }}>{t.priority||'P3'}</span>
+                    </div>
+                  ))
+                )}
+                {k === 'touchpoints' && (touchpoints.length === 0
+                  ? <div className="empty">No recent activity</div>
+                  : touchpoints.map(tp => (
+                    <div key={tp.id} className="dash-row" onClick={() => navigate(`/touchpoints/${tp.id}`)}>
+                      <Activity size={14} className="row-icon" />
+                      <span className="row-name">{tp.title}</span>
+                      <span className="row-meta">{tp.company?.name||''}</span>
+                    </div>
+                  ))
+                )}
+                {k === 'pipeline' && pipeline.map(p => (
+                  <div key={p.key} className="stage-row">
+                    <div className="stage-labels">
+                      <span>{p.label}</span>
+                      <span>{p.count} deals · ${p.total.toLocaleString()}</span>
+                    </div>
+                    <div className="bar-track">
+                      <div className="bar-fill" style={{width:`${(p.total/maxPipelineTotal)*100}%`,background:p.color}} />
                     </div>
                   </div>
-                )
-              case 'touchpoints':
-                return (
-                  <div className="panel">
-                    <div className="panel-head"><h3>Touchpoints</h3><span className="link" style={{ fontSize: 12, color: 'var(--color-primary)', fontWeight: 600, cursor: 'pointer' }} onClick={() => navigate('/touchpoints')}>View all →</span></div>
-                    <div>
-                      {touchpoints.length === 0 ? (
-                        <div style={{ padding: '16px 18px', fontSize: 12, color: 'var(--color-text-faint)' }}>No recent activity</div>
-                      ) : touchpoints.map(tp => (
-                        <div key={tp.id} className="meeting-slot" onClick={() => navigate(`/touchpoints/${tp.id}`)} style={{cursor:'pointer'}}>
-                          <div className="time"><b>{timeAgo(tp.created_at)}</b>ago</div>
-                          <div className="meeting-card">
-                            <div className="m-title">{tp.title}</div>
-                            <div className="m-sub">{tp.company?.name || ''}{tp.description ? ` · ${tp.description.slice(0, 40)}${tp.description.length > 40 ? '…' : ''}` : ''}</div>
-                          </div>
-                        </div>
-                      ))}
-                      <div className="schedule-cta" style={{ margin: '0 18px 12px' }} onClick={() => setShowNewTp(true)}>+ Schedule meeting</div>
-                    </div>
+                ))}
+                {k === 'dealvalue' && (
+                  <><div className="kpi-val" style={{color:'var(--color-primary)'}}>{stats.dealValue||'—'}</div>
+                  <div className="kpi-delta up">↑ {deals.filter(d=>d.stage_id==='closed_won').length} closed won</div></>
+                )}
+                {k === 'aiinsight' && (
+                  <div style={{fontSize:13,lineHeight:1.5,color:'var(--color-text-muted)'}}>
+                    <p>• {stats.contacts} contacts active</p>
+                    <p>• {stats.tasks} tasks pending</p>
+                    <p>• Pipeline velocity: {deals.length>0?Math.round(deals.filter(d=>d.stage_id==='closed_won').length/Math.max(1,deals.length)*100):0}%</p>
                   </div>
-                )
-              default:
-                return null
-            }
-          }}
-        </DnDSortableGroup>
+                )}
+                {k === 'activity_feed' && (
+                  <div style={{fontSize:13}}>
+                    {touchpoints.length === 0
+                      ? <div className="empty">No recent activity</div>
+                      : <table className="feed-table">
+                          <thead>
+                            <tr><th>Type</th><th>Title</th><th>Company</th><th>Date</th></tr>
+                          </thead>
+                          <tbody>
+                            {touchpoints.map(tp => (
+                              <tr key={tp.id} onClick={() => navigate(`/touchpoints/${tp.id}`)}>
+                                <td><span className="dash-badge" style={{background:'color-mix(in oklch,var(--color-primary)14%,var(--color-surface))',color:'var(--color-primary)'}}>{tp.type}</span></td>
+                                <td className="td-name">{tp.title}</td>
+                                <td className="td-muted">{tp.company?.name||'—'}</td>
+                                <td className="td-date">{new Date(tp.created_at).toLocaleDateString()}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                    }
+                  </div>
+                )}
+              </div>
+            </div>
+          )
+        })}
+        {/* Add widget tile */}
+        {editing && (
+          <div className="dash-add-tile" onClick={() => setShowPicker(!showPicker)}>
+            <Plus size={24} />
+            <span>新增小工具</span>
+          </div>
+        )}
       </div>
 
-      {/* Calendar Panel - uses project CalendarViews */}
-      <div className="panel animate-in" style={{ padding: '16px 18px' }}>
-        <CalendarViews events={calEvents} loading={calLoading} onRefresh={fetchCalendarEvents} />
-      </div>
-
-      {/* Bottom Row */}
-      <div className="dash-grid animate-in">
-        <DnDSortableGroup items={botOrder} onChange={handleBotOrder}>
-          {(id) => {
-            switch (id) {
-              case 'activity':
-                return (
-                  <div className="panel activity-panel">
-                    <div className="panel-head" style={{ padding: 0, border: 'none', marginBottom: 4 }}><h3>Activity</h3></div>
-                    <div className="big-num tabular">{touchpoints.length > 0 ? `${Math.round(activityData.reduce((s, d) => s + d.pct, 0) / Math.max(1, activityData.length))}%` : '—'}</div>
-                    <div className="bars">
-                      {activityData.map((d, i) => (
-                        <div key={i} className="bar-col">
-                          <span className="val">{touchpoints.filter(tp => tp.created_at?.startsWith(new Date(Date.now() - (6 - i) * 86400000).toISOString().slice(0, 10))).length}</span>
-                          <div className={`bar${d.active ? ' active' : ''}`} style={{ height: `${Math.max(4, d.pct)}%` }} />
-                          <span className="lbl">{d.label}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )
-              case 'deals':
-                return (
-                  <div className="panel">
-                    <div className="panel-head"><h3>Deals</h3><span className="delta" style={{ fontSize: 11, background: 'var(--color-success-highlight)', color: 'var(--color-success)', padding: '2px 7px', borderRadius: 'var(--radius-full)', fontWeight: 600 }}>{stats.deals} deals</span></div>
-                    <div className="donut-wrap">
-                      <div className="donut" style={{ background: `conic-gradient(${dealGroups.conic})` }}>
-                        <div className="center"><b>{dealGroups.total}</b><span>deals</span></div>
-                      </div>
-                      <div className="legend-list">
-                        {dealGroups.segments.filter(s => s.name).map((s, i) => (
-                          <div key={i} className="row">
-                            <span className="sw" style={{ background: s.color }} />
-                            <span className="name">{s.name}</span>
-                            <span className="pct">{s.pct}%</span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                )
-              case 'stats':
-                return (
-                  <div className="panel">
-                    <div className="panel-head"><h3>Quick Stats</h3></div>
-                    {[
-                      { label: 'Total Contacts', value: stats.contacts, color: 'var(--color-blue)' },
-                      { label: 'Companies', value: stats.companies, color: 'var(--color-purple)' },
-                      { label: 'Deal Value', value: stats.dealValue || stats.deals, color: 'var(--color-primary)' },
-                      { label: 'Open Tasks', value: stats.tasks, color: 'var(--color-warning)' },
-                    ].map(s => (
-                      <div key={s.label} className="list-row">
-                        <div className="list-icon" style={{ color: s.color, background: `color-mix(in oklch, ${s.color} 12%, transparent)` }}>
-                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
-                        </div>
-                        <div className="list-main">
-                          <div className="list-title">{s.value}</div>
-                          <div className="list-sub">{s.label}</div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )
-              default:
-                return null
-            }
-          }}
-        </DnDSortableGroup>
-      </div>
-
-      <QuickAddTouchpoint open={showNewTp} onClose={() => setShowNewTp(false)} onCreated={fetchDashboard} />
-      <QuickAddTask open={showNewTask} onClose={() => setShowNewTask(false)} onCreated={fetchDashboard} />
+      {/* Widget picker */}
+      {showPicker && (
+        <div className="picker-bar">
+          {Object.entries(allWidgets).filter(([k]) => !order.includes(k)).map(([k, v]) => (
+            <button key={k} className="picker-btn" onClick={() => addWidget(k)}>+ {v.label}</button>
+          ))}
+          {Object.keys(allWidgets).length === order.length && <span className="picker-done">All widgets added</span>}
+        </div>
+      )}
     </div>
   )
 }
