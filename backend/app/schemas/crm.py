@@ -226,6 +226,10 @@ class TaskCreate(BaseModel):
     assignee_id: Optional[UUID] = None
     contact_id: Optional[UUID] = None
     company_id: Optional[UUID] = None
+    parent_task_id: Optional[UUID] = None
+    recurring: Optional[bool] = None
+    area: Optional[str] = None
+    custom_fields: Optional[dict[str, Any]] = None
 
 
 class TaskUpdate(BaseModel):
@@ -237,6 +241,10 @@ class TaskUpdate(BaseModel):
     assignee_id: Optional[UUID] = None
     contact_id: Optional[UUID] = None
     company_id: Optional[UUID] = None
+    parent_task_id: Optional[UUID] = None
+    recurring: Optional[bool] = None
+    area: Optional[str] = None
+    custom_fields: Optional[dict[str, Any]] = None
 
 
 class TaskResponse(BaseModel):
@@ -250,6 +258,10 @@ class TaskResponse(BaseModel):
     assignee_id: Optional[UUID] = None
     contact_id: Optional[UUID] = None
     company_id: Optional[UUID] = None
+    parent_task_id: Optional[UUID] = None
+    recurring: Optional[bool] = None
+    area: Optional[str] = None
+    custom_fields: Optional[dict[str, Any]] = None
     company: Any = None
     created_at: datetime
     updated_at: datetime

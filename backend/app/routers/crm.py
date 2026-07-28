@@ -15,6 +15,7 @@ Every write operation (create / update / delete) records an ActivityLog row.
 
 from uuid import UUID
 from datetime import datetime, timezone
+from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy import func, select, or_, text
@@ -118,6 +119,138 @@ def _get_tenant_id(request: Request) -> UUID:
 
 def _get_user_id(request: Request) -> UUID | None:
     return getattr(request.state, "user_id", None)
+
+
+# ---------------------------------------------------------------------------
+# Custom Field helpers — EAV batch load + write
+# ---------------------------------------------------------------------------
+
+async def _load_custom_fields(
+    db: AsyncSession,
+    tenant_id: UUID,
+    module: str,
+    record_ids: list[UUID],
+) -> dict[str, dict[str, Any]]:
+    """Batch-load custom fields for a list of record IDs.
+
+    Returns {record_id_str: {field_key: value, ...}}
+    """
+    if not record_ids:
+        return {}
+
+    result = await db.execute(
+        text("""
+            SELECT v.record_id, d.field_key, d.field_type,
+                   v.value_text, v.value_number, v.value_boolean, v.value_date, v.value_json
+            FROM nexus_crm.get_custom_fields(:tenant_id, :module, :record_ids) v
+            JOIN nexus_crm.custom_field_definitions d ON d.field_key = v.field_key
+                AND d.module_name = :module2 AND d.tenant_id = :tenant_id2
+        """),
+        {
+            "tenant_id": tenant_id,
+            "module": module,
+            "record_ids": record_ids,
+            "module2": module,
+            "tenant_id2": tenant_id,
+        },
+    )
+    rows = result.all()  # force fetch before closing
+    cf_map: dict[str, dict[str, Any]] = {}
+    for row in rows:
+        rid = str(row.record_id)
+        if rid not in cf_map:
+            cf_map[rid] = {}
+        val = _extract_cf_value(row)
+        if val is not None:
+            cf_map[rid][row.field_key] = val
+    return cf_map
+
+
+def _extract_cf_value(row) -> Any:
+    """Pick the right value column based on field_type."""
+    ft = row.field_type
+    if ft == "boolean":
+        return row.value_boolean
+    elif ft == "number":
+        return row.value_number
+    elif ft == "date":
+        return row.value_date.isoformat() if row.value_date else None
+    elif ft in ("select", "multi_select"):
+        return row.value_text or row.value_json
+    elif ft == "file":
+        return row.value_json
+    else:
+        return row.value_text
+
+
+async def _apply_task_cf(
+    db: AsyncSession, tenant_id: UUID, task_id: UUID, custom_fields: dict[str, Any]
+) -> None:
+    """Write custom field values for a task (upsert via PG function)."""
+    if not custom_fields:
+        return
+    # Get definition_id for each field_key
+    result = await db.execute(
+        text("""
+            SELECT id, field_key FROM nexus_crm.custom_field_definitions
+            WHERE tenant_id = :tenant_id AND module_name = 'tasks'
+              AND field_key = ANY(:keys)
+        """),
+        {"tenant_id": tenant_id, "keys": list(custom_fields.keys())},
+    )
+    defs = {row.field_key: row.id for row in result}
+    for key, val in custom_fields.items():
+        def_id = defs.get(key)
+        if not def_id:
+            continue
+        # Map value to correct type column
+        params = {
+            "p_tenant_id": tenant_id,
+            "p_definition_id": def_id,
+            "p_record_id": task_id,
+            "p_value_text": None,
+            "p_value_number": None,
+            "p_value_boolean": None,
+            "p_value_date": None,
+            "p_value_json": None,
+        }
+        if isinstance(val, bool):
+            params["p_value_boolean"] = val
+        elif isinstance(val, (int, float)):
+            params["p_value_number"] = val
+        elif isinstance(val, (list, dict)):
+            params["p_value_json"] = val
+        elif isinstance(val, str):
+            # Try date parse
+            try:
+                from datetime import date as d_type
+                # just store as text for now
+                params["p_value_text"] = val
+            except Exception:
+                params["p_value_text"] = val
+        else:
+            params["p_value_text"] = str(val) if val is not None else None
+
+        await db.execute(
+            text("""
+                SELECT nexus_crm.upsert_custom_field_value(
+                    :p_tenant_id, :p_definition_id, :p_record_id,
+                    :p_value_text, :p_value_number, :p_value_boolean,
+                    :p_value_date::timestamptz, :p_value_json::jsonb
+                )
+            """),
+            params,
+        )
+
+
+async def _delete_task_cf(
+    db: AsyncSession, tenant_id: UUID, task_id: UUID
+) -> None:
+    """Delete all custom field values for a task."""
+    await db.execute(
+        text("SELECT nexus_crm.delete_custom_field_values(:tid, 'tasks', :rid)"),
+        {"tid": tenant_id, "rid": task_id},
+    )
 
 
 # ===========================================================================
@@ -888,11 +1021,20 @@ async def list_tasks(
     items_q = base.options(selectinload(Task.company)).order_by(Task.created_at.desc()).offset(offset).limit(limit)
     rows = (await db.execute(items_q)).scalars().all()
 
-    # Build response with resolved company names
+    # Batch-load custom fields
+    task_ids = [t.id for t in rows]
+    cf_map = await _load_custom_fields(db, tenant_id, "tasks", task_ids)
+
+    # Build response with resolved company names + custom fields
     items = []
     for t in rows:
         d = {col.name: getattr(t, col.name) for col in t.__table__.columns}
         d['company'] = {'id': str(t.company.id), 'name': t.company.name} if t.company else None
+        d['custom_fields'] = cf_map.get(str(t.id), {})
+        # Ensure native fields from model are present
+        d['parent_task_id'] = str(t.parent_task_id) if t.parent_task_id else None
+        d['recurring'] = t.recurring
+        d['area'] = t.area
         items.append(d)
 
     return ListResponse(items=items, total=total)
@@ -910,7 +1052,7 @@ async def create_task(
     task = Task(
         tenant_id=tenant_id,
         created_by=user_id,
-        **body.model_dump(),
+        **body.model_dump(exclude={'custom_fields'}),
     )
     db.add(task)
     await db.flush()
@@ -925,8 +1067,20 @@ async def create_task(
         summary=f"Created task '{task.title}'",
     )
 
+    # Write custom fields if provided
+    if body.custom_fields:
+        await _apply_task_cf(db, tenant_id, task.id, body.custom_fields)
+
     await db.refresh(task)
-    return task
+    # Return with custom fields
+    d = {col.name: getattr(task, col.name) for col in task.__table__.columns}
+    d['company'] = None
+    cf_map = await _load_custom_fields(db, tenant_id, "tasks", [task.id])
+    d['custom_fields'] = cf_map.get(str(task.id), {})
+    d['parent_task_id'] = str(task.parent_task_id) if task.parent_task_id else None
+    d['recurring'] = task.recurring
+    d['area'] = task.area
+    return d
 
 
 @router.get("/tasks/{task_id}", response_model=TaskResponse)
@@ -942,9 +1096,14 @@ async def get_task(
     task = result.scalar_one_or_none()
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
-    # Build response with resolved company name
+    # Build response with resolved company name + custom fields
     d = {col.name: getattr(task, col.name) for col in task.__table__.columns}
     d['company'] = {'id': str(task.company.id), 'name': task.company.name} if task.company else None
+    cf_map = await _load_custom_fields(db, tenant_id, "tasks", [task.id])
+    d['custom_fields'] = cf_map.get(str(task.id), {})
+    d['parent_task_id'] = str(task.parent_task_id) if task.parent_task_id else None
+    d['recurring'] = task.recurring
+    d['area'] = task.area
     return d
 
 
@@ -966,7 +1125,10 @@ async def update_task(
         raise HTTPException(status_code=404, detail="Task not found")
 
     changes = {}
-    for field, value in body.model_dump(exclude_unset=True).items():
+    body_dict = body.model_dump(exclude_unset=True)
+    cf_update = body_dict.pop('custom_fields', None)
+
+    for field, value in body_dict.items():
         setattr(task, field, value)
         changes[field] = str(value)
 
@@ -983,9 +1145,23 @@ async def update_task(
         changes=changes,
     )
 
+    # Update custom fields if provided
+    if cf_update is not None:
+        await _delete_task_cf(db, tenant_id, task.id)
+        await _apply_task_cf(db, tenant_id, task.id, cf_update)
+
     await db.flush()
     await db.refresh(task)
-    return task
+
+    # Return with custom fields
+    d = {col.name: getattr(task, col.name) for col in task.__table__.columns}
+    d['company'] = {'id': str(task.company.id), 'name': task.company.name} if task.company else None
+    cf_map = await _load_custom_fields(db, tenant_id, "tasks", [task.id])
+    d['custom_fields'] = cf_map.get(str(task.id), {})
+    d['parent_task_id'] = str(task.parent_task_id) if task.parent_task_id else None
+    d['recurring'] = task.recurring
+    d['area'] = task.area
+    return d
 
 
 @router.delete("/tasks/{task_id}", status_code=204)
@@ -1005,6 +1181,8 @@ async def delete_task(
         raise HTTPException(status_code=404, detail="Task not found")
 
     title = task.title
+    # Delete custom fields first
+    await _delete_task_cf(db, tenant_id, task.id)
     await db.delete(task)
 
     await _log_activity(

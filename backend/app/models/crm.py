@@ -124,11 +124,15 @@ class Task(Base):
     contact_id = Column(UUID(as_uuid=True), ForeignKey("nexus_crm.contacts.id", ondelete="SET NULL"))
     company_id = Column(UUID(as_uuid=True), ForeignKey("nexus_crm.companies.id", ondelete="SET NULL"))
     deal_id = Column(UUID(as_uuid=True))  # NULL for Module A, filled by Module B
+    parent_task_id = Column(UUID(as_uuid=True), ForeignKey("nexus_crm.tasks.id", ondelete="SET NULL"))
+    recurring = Column(Boolean, default=False)
+    area = Column(Text)
     created_by = Column(UUID(as_uuid=True), ForeignKey("nexus_auth.nexus_auth_users.id", ondelete="SET NULL"))
     completed_at = Column(DateTime(timezone=True))
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
+    parent = relationship("Task", remote_side="Task.id", backref="subtasks")
     contact = relationship("Contact", back_populates="tasks")
     company = relationship("Company", back_populates="tasks")
 
