@@ -10,7 +10,8 @@ import {
   Activity, DollarSign, Layout, ScanLine, Calendar,
 } from 'lucide-react'
 
-interface Task { id: string; title: string; priority: string; status: string; due_date: string | null }
+interface Task { id: string; title: string; priority: string; status: string; due_date: string | null; area?: string; custom_fields?: Record<string, any> }
+interface Company { id: string; name: string; category?: string; industry?: string }
 interface Touchpoint { id: string; type: string; title: string; description: string | null; company?: { name: string } | null; contact?: { name: string } | null; created_at: string }
 interface Deal { id: string; name: string; amount: number | null; stage_id: string; probability: number; company?: { name: string } | null }
 
@@ -213,6 +214,7 @@ export default function DashboardNew() {
   const [newOpen, setNewOpen] = useState(false)
   const newRef = useRef<HTMLDivElement>(null)
   const [drawerOpen, setDrawerOpen] = useState(false)
+  const [showCompanyDrawer, setShowCompanyDrawer] = useState(false)
   const [mobileSidebar, setMobileSidebar] = useState(false)
   const [widgetSearch, setWidgetSearch] = useState('')
   const chatBodyRef = useRef<HTMLDivElement>(null)
@@ -234,6 +236,7 @@ export default function DashboardNew() {
   const [tasks, setTasks] = useState<Task[]>([])
   const [touchpoints, setTouchpoints] = useState<Touchpoint[]>([])
   const [deals, setDeals] = useState<Deal[]>([])
+  const [companyList, setCompanyList] = useState<Company[]>([])
 
   useEffect(() => {
     const h = (e: MouseEvent) => { if (newRef.current && !newRef.current.contains(e.target as Node)) setNewOpen(false) }
@@ -243,12 +246,13 @@ export default function DashboardNew() {
 
   const fetchData = useCallback(async () => {
     try {
-      const [cRes, coRes, dRes, tRes, tpRes] = await Promise.all([
+      const [cRes, coRes, dRes, tRes, tpRes, coListRes] = await Promise.all([
         apiClient.get<{ total: number }>('/api/v1/crm/contacts?page=1&page_size=1'),
         apiClient.get<{ total: number }>('/api/v1/crm/companies?page=1&page_size=1'),
         apiClient.get<{ items: Deal[]; total: number }>('/api/v1/crm/deals?page=1&page_size=100'),
-        apiClient.get<{ items: Task[]; total: number }>('/api/v1/crm/tasks?page=1&page_size=10'),
+        apiClient.get<{ items: Task[]; total: number }>('/api/v1/crm/tasks?limit=5'),
         apiClient.get<{ items: Touchpoint[]; total: number }>('/api/v1/crm/touchpoints?page=1&page_size=10'),
+        apiClient.get<{ items: Company[]; total: number }>('/api/v1/crm/companies?limit=50'),
       ])
       const dealsList = dRes.items || []
       const totalVal = dealsList.reduce((s: number, d: Deal) => s + (d.amount || 0), 0)
@@ -260,6 +264,7 @@ export default function DashboardNew() {
       setTasks(tRes.items || [])
       setTouchpoints((tpRes.items || []).slice(0, 5))
       setDeals(dealsList)
+      setCompanyList(coListRes.items || [])
     } catch { /* silent */ }
   }, [])
   useEffect(() => { fetchData() }, [fetchData])
@@ -364,7 +369,7 @@ export default function DashboardNew() {
       </div>
     ),
     kpi_companies: () => (
-      <div style={{display:'flex',alignItems:'center',justifyContent:'center',flexDirection:'column',gap:4,height:'100%'}}>
+      <div style={{display:'flex',alignItems:'center',justifyContent:'center',flexDirection:'column',gap:4,height:'100%',cursor:'pointer'}} onClick={() => setShowCompanyDrawer(true)}>
         <span className="kpi-val" style={{fontSize:26,color:'var(--color-purple)'}}>{stats.companies}</span>
         <span style={{fontSize:12,color:'var(--color-text-muted)',fontWeight:500}}>{allWidgets.kpi_companies.label}</span>
       </div>
@@ -381,20 +386,34 @@ export default function DashboardNew() {
         <span style={{fontSize:12,color:'var(--color-text-muted)',fontWeight:500}}>{allWidgets.kpi_tasks.label}</span>
       </div>
     ),
-    tasks: () => (
-      tasks.length === 0
-        ? <div style={{padding:'16px 0',fontSize:12,color:'var(--color-text-faint)'}}>No tasks</div>
-        : <>{tasks.slice(0,5).map(t => (
-            <div key={t.id} className="list-row" onClick={() => navigate(`/tasks/${t.id}`)} style={{cursor:'pointer'}}>
-              <CheckSquare size={14} style={{color:'var(--color-text-muted)',flexShrink:0}} />
-              <span className="name">{t.title}</span>
-              <span className="badge" style={{
-                background: t.priority==='P0'?'color-mix(in oklch,var(--color-notification)18%,var(--color-surface))':t.priority==='P1'?'color-mix(in oklch,var(--color-warning)18%,var(--color-surface))':'color-mix(in oklch,var(--color-success)18%,var(--color-surface))',
-                color: t.priority==='P0'?'var(--color-notification)':t.priority==='P1'?'var(--color-warning)':'var(--color-success)'
-              }}>{t.priority||'P3'}</span>
-            </div>
-          ))}</>
-    ),
+    tasks: () => {
+      const areaSymbol = (area?: string) => {
+        if (!area) return null
+        const a = area.toLowerCase()
+        if (a.includes('work') || a.includes('💼')) return <span style={{marginRight:4}}>💼</span>
+        if (a.includes('personal') || a.includes('home') || a.includes('🏠')) return <span style={{marginRight:4}}>🏠</span>
+        if (a.includes('jesus') || a.includes('church') || a.includes('✝️')) return <span style={{marginRight:4}}>✝️</span>
+        if (a.includes('learning') || a.includes('study') || a.includes('📚')) return <span style={{marginRight:4}}>📚</span>
+        return null
+      }
+      const isOverdue = (t: Task) => t.due_date && new Date(t.due_date) < new Date() && t.status !== 'done'
+      return (
+        tasks.length === 0
+          ? <div style={{padding:'16px 0',fontSize:12,color:'var(--color-text-faint)'}}>No tasks</div>
+          : <>{tasks.slice(0,5).map(t => (
+              <div key={t.id} className="list-row" onClick={() => navigate(`/tasks/${t.id}`)} style={{cursor:'pointer'}}>
+                <CheckSquare size={14} style={{color:'var(--color-text-muted)',flexShrink:0}} />
+                {areaSymbol(t.area)}
+                <span className="name">{t.title}</span>
+                {isOverdue(t) && <span className="badge" style={{background:'color-mix(in oklch,var(--color-notification)18%,var(--color-surface))',color:'var(--color-notification)',marginLeft:4,flexShrink:0}}>逾期</span>}
+                <span className="badge" style={{
+                  background: t.priority==='P0'?'color-mix(in oklch,var(--color-notification)18%,var(--color-surface))':t.priority==='P1'?'color-mix(in oklch,var(--color-warning)18%,var(--color-surface))':'color-mix(in oklch,var(--color-success)18%,var(--color-surface))',
+                  color: t.priority==='P0'?'var(--color-notification)':t.priority==='P1'?'var(--color-warning)':'var(--color-success)'
+                }}>{t.custom_fields?.notion_priority || t.priority || 'P3'}</span>
+              </div>
+            ))}</>
+      )
+    },
     touchpoints: () => (
       touchpoints.length === 0
         ? <div style={{padding:'16px 0',fontSize:12,color:'var(--color-text-faint)'}}>No recent activity</div>
@@ -423,13 +442,25 @@ export default function DashboardNew() {
       <><div className="kpi-val" style={{fontSize:26,color:'var(--color-primary)'}}>{stats.dealValue||'—'}</div>
       <div className="kpi-delta" style={{color:'var(--color-success)'}}>↑ {deals.filter(d=>d.stage_id==='closed_won').length} closed won</div></>
     ),
-    aiinsight: () => (
-      <div style={{fontSize:13,lineHeight:1.5,color:'var(--color-text-muted)'}}>
-        <p>• {stats.contacts} contacts active</p>
-        <p>• {stats.tasks} tasks pending</p>
-        <p>• Pipeline velocity: {deals.length>0?Math.round(deals.filter(d=>d.stage_id==='closed_won').length/Math.max(1,deals.length)*100):0}%</p>
-      </div>
-    ),
+    aiinsight: () => {
+      const overdueCount = tasks.filter(t => t.due_date && new Date(t.due_date) < new Date() && t.status !== 'done').length
+      const p0Count = tasks.filter(t => t.priority === 'P0').length
+      const todayDue = tasks.filter(t => {
+        if (!t.due_date) return false
+        const d = new Date(t.due_date)
+        const today = new Date()
+        return d.getDate() === today.getDate() && d.getMonth() === today.getMonth() && d.getFullYear() === today.getFullYear()
+      }).length
+      return (
+        <div style={{fontSize:13,lineHeight:1.5,color:'var(--color-text-muted)'}}>
+          <p>• {stats.contacts} contacts active</p>
+          <p>• {stats.tasks} tasks pending</p>
+          <p>• {overdueCount} overdue, {p0Count} P0 urgent</p>
+          <p>• {todayDue} tasks due today</p>
+          <p>• Pipeline velocity: {deals.length>0?Math.round(deals.filter(d=>d.stage_id==='closed_won').length/Math.max(1,deals.length)*100):0}%</p>
+        </div>
+      )
+    },
     activity_feed: () => (
       <div style={{fontSize:13}}>
         {touchpoints.length === 0
@@ -1012,6 +1043,26 @@ export default function DashboardNew() {
               </div>
             )
           })}
+        </div>
+      </aside>
+      {/* ── KPI Companies Drawer ── */}
+      <div className={`drawer-overlay${showCompanyDrawer ? ' show' : ''}`} onClick={() => setShowCompanyDrawer(false)} />
+      <aside className={`drawer${showCompanyDrawer ? ' show' : ''}`}>
+        <div className="drawer-head">
+          <h3>Companies ({companyList.length})</h3>
+          <button className="icon-btn" onClick={() => setShowCompanyDrawer(false)}><X size={19} /></button>
+        </div>
+        <div className="drawer-body">
+          {companyList.length === 0
+            ? <div style={{padding:'16px 0',fontSize:12,color:'var(--color-text-faint)'}}>No companies loaded</div>
+            : companyList.map(c => (
+                <div key={c.id} className="list-row" style={{cursor:'pointer'}} onClick={() => { navigate(`/companies/${c.id}`); setShowCompanyDrawer(false) }}>
+                  <Building2 size={14} style={{color:'var(--color-purple)',flexShrink:0}} />
+                  <span className="name">{c.name}</span>
+                  <span className="meta">{c.industry || c.category || '—'}</span>
+                </div>
+              ))
+          }
         </div>
       </aside>
       <button className="chat-fab" aria-label="Open AI assistant" onClick={() => {
