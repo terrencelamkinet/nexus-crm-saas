@@ -54,6 +54,14 @@ async def get_tenant_session(request: Request) -> AsyncGenerator[AsyncSession, N
                         text("SELECT set_config('app.team_ids', :tids, true)"),
                         {"tids": str(tids)},
                     )
+                # Set single team_id from first team (or default) for RLS V2 team-scope checks
+                if tids:
+                    first_team = str(tids).split(",")[0].strip().strip("['").strip("']")
+                    if first_team:
+                        await conn.execute(
+                            text("SELECT set_config('app.team_id', :tid, true)"),
+                            {"tid": first_team},
+                       )
             yield session
             await session.commit()
         except Exception:
