@@ -42,9 +42,12 @@ export default function GenericListPage({ config, extraData }: Props) {
   const [sortBy, setSortBy] = useState('')
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc')
 
-  const [filters, setFilters] = useState<Record<string, string>>({})
+  type FilterOp = 'is' | 'is_not'
+interface FilterEntry { op: FilterOp; value: string }
+const [filters, setFilters] = useState<Record<string, FilterEntry>>({})
   const [filterOpen, setFilterOpen] = useState(false)
   const [filterField, setFilterField] = useState('')
+  const [filterOp, setFilterOp] = useState<FilterOp>('is')
   const [filterValue, setFilterValue] = useState('')
 
   const [sortOpen, setSortOpen] = useState(false)
@@ -97,7 +100,10 @@ export default function GenericListPage({ config, extraData }: Props) {
       params.set('sort_order', sortOrder)
     }
     for (const [k, v] of Object.entries(filters)) {
-      if (v) params.set(k, v)
+      if (v.value) {
+        if (v.op === 'is_not') params.set(k + '_not', v.value)
+        else params.set(k, v.value)
+      }
     }
     return '?' + params.toString()
   }
@@ -150,9 +156,10 @@ export default function GenericListPage({ config, extraData }: Props) {
   }
 
   const addFilter = () => {
-    if (!filterField) return
-    setFilters(f => ({ ...f, [filterField]: filterValue }))
+    if (!filterField || !filterValue) return
+    setFilters(f => ({ ...f, [filterField]: { op: filterOp, value: filterValue } } as Record<string, FilterEntry>))
     setFilterField('')
+    setFilterOp('is')
     setFilterValue('')
     setFilterOpen(false)
     setPage(1)
@@ -286,7 +293,7 @@ export default function GenericListPage({ config, extraData }: Props) {
 
   const nameField = config.fields.find(f => f.type === 'title')
 
-  const filterCount = Object.values(filters).filter(Boolean).length
+  const filterCount = Object.values(filters).filter(v => v.value).length
   const countFieldsHidden = config.fields.filter(f => f.type !== 'title' && f.type !== 'created_time' && f.type !== 'last_edited_time' && !visibleCols.includes(f.key)).length
 
   return (
@@ -534,12 +541,24 @@ export default function GenericListPage({ config, extraData }: Props) {
         {filterOpen && (
           <div className="filter-panel">
             <div className="filter-row">
-              <select value={filterField} onChange={e => { setFilterField(e.target.value); setFilterValue(''); }} className="input-field filter-field-select">
+              <select value={filterField} onChange={e => { setFilterField(e.target.value); setFilterValue(''); setFilterOp('is'); }} className="input-field filter-field-select">
                 <option value="">— Field —</option>
                 {filterableFields.map(f => (
                   <option key={f.key} value={f.key}>{f.label}</option>
                 ))}
               </select>
+              {filterField && (() => {
+                const selectedField = filterableFields.find(x => x.key === filterField)
+                if (selectedField?.type === 'select' || selectedField?.type === 'status') {
+                  return (
+                    <select value={filterOp} onChange={e => setFilterOp(e.target.value as FilterOp)} className="input-field filter-op-select" style={{ minWidth: 72, width: 72 }}>
+                      <option value="is">is</option>
+                      <option value="is_not">is not</option>
+                    </select>
+                  )
+                }
+                return null
+              })()}
               {(() => {
                 const f = filterField ? filterableFields.find(x => x.key === filterField) : null
                 const opts = f?.options
@@ -567,11 +586,12 @@ export default function GenericListPage({ config, extraData }: Props) {
 
         {filterCount > 0 && (
           <div className="active-filters">
-            {Object.entries(filters).filter(([,v]) => v).map(([k, v]) => {
+            {Object.entries(filters).filter(([,v]) => v.value).map(([k, v]) => {
               const field = config.fields.find(f => f.key === k)
+              const label = v.op === 'is_not' ? `${v.value} ⊘` : v.value
               return (
                 <span key={k} className="filter-tag">
-                  {field?.label || k}: {v}
+                  {field?.label || k}: {label}
                   <button onClick={() => removeFilter(k)} className="filter-tag-x"><X className="icon-12" /></button>
                 </span>
               )

@@ -1002,7 +1002,9 @@ async def list_tasks(
     offset: int = 0,
     search: str | None = None,
     status: str | None = None,
+    status_not: str | None = None,
     priority: str | None = None,
+    priority_not: str | None = None,
     db: AsyncSession = Depends(get_tenant_session),
 ):
     tenant_id = _get_tenant_id(request)
@@ -1012,8 +1014,12 @@ async def list_tasks(
         base = base.where(Task.title.ilike(f"%{search}%"))
     if status:
         base = base.where(Task.status == status)
+    if status_not:
+        base = base.where(Task.status != status_not)
     if priority:
         base = base.where(Task.priority == priority)
+    if priority_not:
+        base = base.where(Task.priority != priority_not)
 
     count_q = select(func.count()).select_from(base.subquery())
     total = (await db.execute(count_q)).scalar() or 0
