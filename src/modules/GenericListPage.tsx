@@ -49,6 +49,7 @@ const [filters, setFilters] = useState<Record<string, FilterEntry>>({})
   const [filterField, setFilterField] = useState('')
   const [filterOp, setFilterOp] = useState<FilterOp>('is')
   const [filterValue, setFilterValue] = useState('')
+  const [filterChecked, setFilterChecked] = useState<string[]>([])
 
   const [sortOpen, setSortOpen] = useState(false)
   const [sortField, setSortField] = useState('')
@@ -541,7 +542,7 @@ const [filters, setFilters] = useState<Record<string, FilterEntry>>({})
         {filterOpen && (
           <div className="filter-panel">
             <div className="filter-row">
-              <select value={filterField} onChange={e => { setFilterField(e.target.value); setFilterValue(''); setFilterOp('is'); }} className="input-field filter-field-select">
+              <select value={filterField} onChange={e => { setFilterField(e.target.value); setFilterValue(''); setFilterOp('is'); setFilterChecked([]); }} className="input-field filter-field-select">
                 <option value="">— Field —</option>
                 {filterableFields.map(f => (
                   <option key={f.key} value={f.key}>{f.label}</option>
@@ -563,13 +564,38 @@ const [filters, setFilters] = useState<Record<string, FilterEntry>>({})
                 const f = filterField ? filterableFields.find(x => x.key === filterField) : null
                 const opts = f?.options
                 if (f && opts && opts.length > 0) {
+                  const toggleVal = (val: string) => {
+                    setFilterChecked(prev =>
+                      prev.includes(val) ? prev.filter(v => v !== val) : [...prev, val]
+                    )
+                  }
                   return (
-                    <select value={filterValue} onChange={e => setFilterValue(e.target.value)} className="input-field filter-value-input">
-                      <option value="">— All —</option>
-                      {opts.map(o => (
-                        <option key={o.value} value={o.value}>{o.label}</option>
-                      ))}
-                    </select>
+                    <div className="filter-checkbox-list" style={{ display: 'flex', flexWrap: 'wrap', gap: 4, minWidth: 200 }}>
+                      {opts.map(o => {
+                        const checked = filterChecked.includes(o.value)
+                        return (
+                          <label key={o.value} onClick={e => e.stopPropagation()}
+                            style={{
+                              display: 'flex', alignItems: 'center', gap: 4,
+                              padding: '3px 8px', borderRadius: 6, fontSize: 12,
+                              cursor: 'pointer', userSelect: 'none',
+                              background: checked ? 'var(--color-primary)' : 'var(--color-surface)',
+                              color: checked ? '#fff' : 'var(--color-text)',
+                              border: checked ? '1px solid var(--color-primary)' : '1px solid var(--color-border)',
+                              transition: 'all .1s',
+                            }}>
+                            <input type="checkbox" checked={checked}
+                              onChange={() => toggleVal(o.value)}
+                              style={{ margin: 0, accentColor: checked ? '#fff' : undefined, width: 13, height: 13 }} />
+                            {o.label}
+                          </label>
+                        )
+                      })}
+                      {filterChecked.length > 0 && (
+                        <button onClick={() => setFilterChecked([])} className="btn-ghost"
+                          style={{ fontSize: 11, padding: '3px 6px', height: 'auto' }}>clear</button>
+                      )}
+                    </div>
                   )
                 }
                 return (
@@ -578,7 +604,17 @@ const [filters, setFilters] = useState<Record<string, FilterEntry>>({})
                     onKeyDown={e => e.key === 'Enter' && addFilter()} />
                 )
               })()}
-              <button onClick={addFilter} disabled={!filterField || !filterValue} className="btn-primary filter-apply">Apply</button>
+              <button onClick={() => {
+                const val = filterChecked.length > 0 ? filterChecked.join(',') : filterValue
+                if (!filterField || !val) return
+                setFilters(f => ({ ...f, [filterField]: { op: filterOp, value: val } }))
+                setFilterField('')
+                setFilterOp('is')
+                setFilterValue('')
+                setFilterChecked([])
+                setFilterOpen(false)
+                setPage(1)
+              }} disabled={!filterField || (filterChecked.length === 0 && !filterValue)} className="btn-primary filter-apply">Apply ({filterChecked.length > 0 ? filterChecked.length : '✓'})</button>
               <button onClick={() => setFilterOpen(false)} className="btn-ghost filter-cancel">Cancel</button>
             </div>
           </div>
@@ -588,7 +624,10 @@ const [filters, setFilters] = useState<Record<string, FilterEntry>>({})
           <div className="active-filters">
             {Object.entries(filters).filter(([,v]) => v.value).map(([k, v]) => {
               const field = config.fields.find(f => f.key === k)
-              const label = v.op === 'is_not' ? `${v.value} ⊘` : v.value
+              const vals = v.value.split(',').filter(Boolean)
+              const label = v.op === 'is_not'
+                ? `${vals.map(v => v.trim()).join(' + ')} ⊘`
+                : vals.map(v => v.trim()).join(' + ')
               return (
                 <span key={k} className="filter-tag">
                   {field?.label || k}: {label}

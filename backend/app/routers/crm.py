@@ -1013,13 +1013,29 @@ async def list_tasks(
     if search:
         base = base.where(Task.title.ilike(f"%{search}%"))
     if status:
-        base = base.where(Task.status == status)
+        vals = [v.strip() for v in status.split(',') if v.strip()]
+        if len(vals) == 1:
+            base = base.where(Task.status == vals[0])
+        else:
+            base = base.where(Task.status.in_(vals))
     if status_not:
-        base = base.where(Task.status != status_not)
+        vals = [v.strip() for v in status_not.split(',') if v.strip()]
+        if len(vals) == 1:
+            base = base.where(Task.status != vals[0])
+        else:
+            base = base.where(Task.status.notin_(vals))
     if priority:
-        base = base.where(Task.priority == priority)
+        vals = [v.strip() for v in priority.split(',') if v.strip()]
+        if len(vals) == 1:
+            base = base.where(Task.priority == vals[0])
+        else:
+            base = base.where(Task.priority.in_(vals))
     if priority_not:
-        base = base.where(Task.priority != priority_not)
+        vals = [v.strip() for v in priority_not.split(',') if v.strip()]
+        if len(vals) == 1:
+            base = base.where(Task.priority != vals[0])
+        else:
+            base = base.where(Task.priority.notin_(vals))
 
     count_q = select(func.count()).select_from(base.subquery())
     total = (await db.execute(count_q)).scalar() or 0
