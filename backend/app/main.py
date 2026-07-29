@@ -8,7 +8,9 @@ from app.models.crm import Company, Contact, Touchpoint, Task, NameCard, Note, A
 from app.models.crm_module_b import DealPipeline, DealStage, Deal, Product, DealLineItem, Quote, QuoteItem, SalesReport, ModuleSetting  # Register Module B models
 from app.models.notification import Notification, NotificationPreference  # Register Notification models
 from app.models.dashboard_layout import DashboardLayout  # Register Dashboard layout model
+from app.models.ai import Agent, AISession, Message, Tool, ActionRequest, Quota, UsageEvent, ModelProfile, ProviderCredential, ProviderHealth  # Register AI models
 from app.middleware.tenant import TenantMiddleware
+from app.middleware.ai_session import AISessionMiddleware
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -33,6 +35,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 app.add_middleware(TenantMiddleware)
+app.add_middleware(AISessionMiddleware)
 
 # Mount routers
 from app.routers import auth
@@ -51,6 +54,8 @@ app.include_router(crm_notifications.router)
 app.include_router(crm_todo.router)
 app.include_router(dashboard_layout.router)
 app.include_router(crm_module_c.router)
+from app.routers import ai
+app.include_router(ai.router)
 
 @app.get("/health")
 async def health():
