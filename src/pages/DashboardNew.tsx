@@ -871,7 +871,7 @@ export default function DashboardNew() {
           </div>
           <button className={`btn ${editing ? 'btn-primary' : 'btn-ghost'}`}
             onClick={() => setEditing(!editing)}
-            style={{display:'inline-flex',alignItems:'center',gap:6,padding:'9px 16px',borderRadius:'var(--radius-md)',fontSize:13.5,fontWeight:600,cursor:'pointer',border:'none'}}>
+            style={{display:'inline-flex',alignItems:'center',gap:6,padding:'9px 16px',borderRadius:'var(--radius-md)',fontSize:13.5,fontWeight:600,cursor:'pointer',background: editing ? 'var(--color-primary)' : 'var(--color-surface-offset)',color: editing ? '#fff' : 'var(--color-text)'}}>
             <Layout size={15} />{editing ? '完成' : '自訂版面'}
           </button>
         </div>
@@ -919,8 +919,8 @@ export default function DashboardNew() {
           if (!def) return null
           const IconComp = widgetIcon(k)
           return (
-            <div key={k} className={`widget`}
-              style={{gridColumn:`span ${def.span}`,background:'var(--color-surface-2)',border:'1px solid var(--color-border)',borderRadius:'var(--radius-lg)',padding:16,display:'flex',flexDirection:'column',position:'relative',minHeight:160}}
+            <div key={k} className={`widget${dragKey.current === k ? ' dragging' : ''}`}
+              style={{gridColumn:`span ${def.span}`,background:'var(--color-surface-2)',border: editing ? '2px dashed var(--color-primary)' : '1px solid var(--color-border)',borderRadius:'var(--radius-lg)',padding:16,display:'flex',flexDirection:'column',position:'relative',minHeight:160,cursor: editing ? 'grab' : undefined}}
               draggable={editing}
               onDragStart={() => { if (editing) dragKey.current = k }}
               onDragOver={(e) => {

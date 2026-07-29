@@ -576,3 +576,4 @@
   }
   .dash01-shell .dash-toolbar { flex-direction: column; align-items: flex-start !important; }
   .dash01-shell .dash-toolbar > div:last-child { align-self: flex-end; }
+}
