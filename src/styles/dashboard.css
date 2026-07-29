@@ -561,3 +561,18 @@
   transition: background var(--transition-interactive);
 }
 .dash01-shell .widget-picker-btn:hover { background: var(--color-surface-offset-2); }
+
+/* ── Mobile responsive ── */
+@media (max-width: 768px) {
+  .dash01-shell .dash-toolbar h1 { font-size: 18px; }
+  .dash01-shell .new-btn { width: 34px; height: 34px; }
+  .dash01-shell .btn { font-size: 12.5px; padding: 8px 12px; }
+}
+@media (max-width: 640px) {
+  /* Full-width widgets on phone */
+  .dash01-shell .widget,
+  .dash01-shell .add-widget-tile {
+    grid-column: 1 / -1 !important;
+  }
+  .dash01-shell .dash-toolbar { flex-direction: column; align-items: flex-start !important; }
+  .dash01-shell .dash-toolbar > div:last-child { align-self: flex-end; }
