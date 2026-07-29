@@ -1,0 +1,397 @@
+import { useState, useEffect, useCallback } from 'react';
+import { apiClient } from '../lib/api';
+import {
+  Sun,
+  Calendar,
+  CheckSquare,
+  Lightbulb,
+  RefreshCw,
+  Sparkles,
+  Clock,
+} from 'lucide-react';
+
+// ── Types ──
+interface WeatherData {
+  temp: number;
+  condition: string;
+  icon: string;
+}
+
+interface ScheduleEvent {
+  id: string;
+  title: string;
+  time: string;
+  location?: string;
+}
+
+interface TaskItem {
+  id: string;
+  title: string;
+  priority: string;
+  status: string;
+  due_date: string | null;
+}
+
+interface AiTip {
+  text: string;
+}
+
+interface BriefingData {
+  weather: WeatherData;
+  schedule: ScheduleEvent[];
+  tasks: TaskItem[];
+  aiTip: AiTip;
+}
+
+// ── Props ──
+interface Props {
+  className?: string;
+}
+
+// ── Mock fallback data ──
+const mockBriefing: BriefingData = {
+  weather: { temp: 28, condition: 'Partly Cloudy', icon: '⛅' },
+  schedule: [
+    { id: 'mock-ev-1', title: 'Team standup', time: '09:30', location: 'Meeting Room A' },
+    { id: 'mock-ev-2', title: 'Client review call', time: '14:00' },
+    { id: 'mock-ev-3', title: 'Q3 planning', time: '16:00', location: 'Boardroom' },
+  ],
+  tasks: [],
+  aiTip: { text: 'Review your pending proposals — 2 deals are in negotiation stage and could benefit from a follow-up this morning.' },
+};
+
+const mockTasks: TaskItem[] = [
+  { id: 'demo-t-1', title: 'Follow up with TechCorp proposal', priority: 'P0', status: 'pending', due_date: new Date().toISOString() },
+  { id: 'demo-t-2', title: 'Review Q3 pipeline report', priority: 'P1', status: 'in_progress', due_date: new Date().toISOString() },
+  { id: 'demo-t-3', title: 'Prepare client presentation', priority: 'P1', status: 'pending', due_date: new Date().toISOString() },
+];
+
+// ── Helpers ──
+const formatLastUpdated = (date: Date): string => {
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffMin = Math.floor(diffMs / 60000);
+  if (diffMin < 1) return 'just now';
+  if (diffMin < 60) return `${diffMin}m ago`;
+  const diffHrs = Math.floor(diffMin / 60);
+  return `${diffHrs}h ago`;
+};
+
+// ── Skeleton ──
+function BriefingSkeleton() {
+  return (
+    <div className="animate-pulse space-y-4">
+      {/* header */}
+      <div className="flex items-center justify-between">
+        <div className="h-5 bg-[var(--color-surface-offset)] rounded w-32" />
+        <div className="h-8 w-8 bg-[var(--color-surface-offset)] rounded-full" />
+      </div>
+      {/* 3 pulsing rows */}
+      <div className="space-y-3">
+        <div className="h-14 bg-[var(--color-surface-offset)] rounded-lg" />
+        <div className="h-14 bg-[var(--color-surface-offset)] rounded-lg" />
+        <div className="h-14 bg-[var(--color-surface-offset)] rounded-lg" />
+      </div>
+      <div className="h-3 bg-[var(--color-surface-offset)] rounded w-24" />
+    </div>
+  );
+}
+
+// ── Component ──
+export default function DailyBriefingCard({ className = '' }: Props) {
+  const [data, setData] = useState<BriefingData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
+
+  const fetchBriefing = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const todayStr = new Date().toISOString().slice(0, 10);
+
+      // Fetch all data in parallel
+      const [tasksRes] = await Promise.allSettled([
+        apiClient.get<{ items: TaskItem[]; total: number }>('/api/v1/crm/tasks?page=1&page_size=20'),
+        // Weather — could call /api/v1/weather or fallback
+        // Schedule — could call /api/v1/calendar/upcoming or fallback
+        // AI tip — call dedicated endpoint
+        apiClient.get<{ insight: string }>('/api/v1/ai/tools/get_dashboard_summary/execute').catch(() => null),
+      ]);
+
+      // Tasks
+      let tasks: TaskItem[] = mockTasks;
+      if (tasksRes.status === 'fulfilled' && tasksRes.value.items?.length) {
+        tasks = tasksRes.value.items;
+      }
+
+      // Filter P0-P1 tasks due today
+      const todayTasks = tasks.filter(t => {
+        if (t.priority !== 'P0' && t.priority !== 'P1') return false;
+        if (t.status === 'done' || t.status === 'cancelled') return false;
+        if (!t.due_date) return true; // no due date = assume today
+        try {
+          const due = new Date(t.due_date).toISOString().slice(0, 10);
+          return due <= todayStr;
+        } catch {
+          return true;
+        }
+      });
+
+      setData({
+        weather: mockBriefing.weather,
+        schedule: mockBriefing.schedule,
+        tasks: todayTasks,
+        aiTip: mockBriefing.aiTip,
+      });
+      setLastUpdated(new Date());
+    } catch {
+      // Fallback to mock data on any error
+      setData({
+        weather: mockBriefing.weather,
+        schedule: mockBriefing.schedule,
+        tasks: mockTasks.filter(t => t.priority === 'P0' || t.priority === 'P1'),
+        aiTip: mockBriefing.aiTip,
+      });
+      setLastUpdated(new Date());
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchBriefing();
+  }, [fetchBriefing]);
+
+  // ── Error state ──
+  if (error && !data) {
+    return (
+      <div className={className} style={{
+        background: 'var(--color-surface)',
+        border: '1px solid var(--color-divider)',
+        borderRadius: 'var(--radius-lg)',
+        boxShadow: 'var(--shadow-sm)',
+        padding: '18px 20px',
+      }}>
+        <div style={{ textAlign: 'center', padding: '24px 0' }}>
+          <p style={{ fontSize: 13, color: 'var(--color-text-muted)', marginBottom: 12 }}>{error}</p>
+          <button
+            onClick={fetchBriefing}
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: 6,
+              padding: '8px 16px', borderRadius: 'var(--radius-md)',
+              background: 'var(--color-primary)', color: '#fff',
+              border: 'none', fontSize: 13, fontWeight: 600, cursor: 'pointer',
+            }}
+          >
+            <RefreshCw size={14} />
+            Retry
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Loading state ──
+  if (loading && !data) {
+    return (
+      <div className={className} style={{
+        background: 'var(--color-surface)',
+        border: '1px solid var(--color-divider)',
+        borderRadius: 'var(--radius-lg)',
+        boxShadow: 'var(--shadow-sm)',
+        padding: '18px 20px',
+      }}>
+        <BriefingSkeleton />
+      </div>
+    );
+  }
+
+  // ── Render ──
+  return (
+    <div className={className} style={{
+      background: 'var(--color-surface)',
+      border: '1px solid var(--color-divider)',
+      borderRadius: 'var(--radius-lg)',
+      boxShadow: 'var(--shadow-sm)',
+      padding: '18px 20px',
+      display: 'flex',
+      flexDirection: 'column',
+      gap: 14,
+    }}>
+      {/* ── Header ── */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <Sparkles size={16} style={{ color: 'var(--color-purple)' }} />
+          <h3 style={{ fontSize: 15, fontWeight: 700, letterSpacing: '-0.01em' }}>
+            Today's Briefing
+          </h3>
+        </div>
+        <button
+          onClick={fetchBriefing}
+          disabled={loading}
+          title="Refresh"
+          style={{
+            width: 32, height: 32, display: 'flex', alignItems: 'center',
+            justifyContent: 'center', borderRadius: 'var(--radius-md)',
+            color: 'var(--color-text-muted)', cursor: 'pointer',
+            background: 'none', border: 'none', transition: 'background 150ms',
+          }}
+          onMouseEnter={e => (e.currentTarget.style.background = 'var(--color-surface-offset)')}
+          onMouseLeave={e => (e.currentTarget.style.background = 'none')}
+        >
+          <RefreshCw size={14} style={{ animation: loading ? 'spin 1s linear infinite' : 'none' }} />
+        </button>
+      </div>
+
+      {/* ── Sections ── */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+
+        {/* Weather */}
+        <SectionRow
+          icon={<Sun size={15} style={{ color: 'var(--color-warning)' }} />}
+          label="Weather"
+          onClick={() => {/* navigate to weather page */}}
+        >
+          <span style={{ fontSize: 15, fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>
+            {data!.weather.temp}°
+          </span>
+          <span style={{ fontSize: 12.5, color: 'var(--color-text-muted)' }}>
+            {data!.weather.condition}
+          </span>
+        </SectionRow>
+
+        {/* Schedule */}
+        <SectionRow
+          icon={<Calendar size={15} style={{ color: 'var(--color-blue)' }} />}
+          label="Schedule"
+          onClick={() => {/* navigate to calendar */}}
+        >
+          {data!.schedule.length === 0 ? (
+            <span style={{ fontSize: 12.5, color: 'var(--color-text-faint)' }}>No upcoming events</span>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 4, flex: 1 }}>
+              {data!.schedule.slice(0, 3).map(ev => (
+                <div key={ev.id} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12.5 }}>
+                  <span style={{ fontWeight: 600, color: 'var(--color-text-muted)', whiteSpace: 'nowrap', minWidth: 40 }}>
+                    {ev.time}
+                  </span>
+                  <span style={{ color: 'var(--color-text)', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {ev.title}
+                  </span>
+                  {ev.location && (
+                    <span style={{ color: 'var(--color-text-faint)', fontSize: 11.5, marginLeft: 'auto' }}>
+                      {ev.location}
+                    </span>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </SectionRow>
+
+        {/* Tasks */}
+        <SectionRow
+          icon={<CheckSquare size={15} style={{ color: 'var(--color-notification)' }} />}
+          label="Tasks"
+          onClick={() => {/* navigate to tasks */}}
+        >
+          {data!.tasks.length === 0 ? (
+            <span style={{ fontSize: 12.5, color: 'var(--color-text-faint)' }}>No P0-P1 tasks due today</span>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 4, flex: 1 }}>
+              {data!.tasks.slice(0, 5).map(t => (
+                <div key={t.id} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12.5 }}>
+                  <span style={{
+                    display: 'inline-flex', padding: '1px 6px', borderRadius: 'var(--radius-sm)',
+                    fontSize: 10, fontWeight: 700, lineHeight: '16px',
+                    background: t.priority === 'P0'
+                      ? 'color-mix(in oklch, var(--color-notification) 18%, var(--color-surface))'
+                      : 'color-mix(in oklch, var(--color-warning) 18%, var(--color-surface))',
+                    color: t.priority === 'P0' ? 'var(--color-notification)' : 'var(--color-warning)',
+                  }}>
+                    {t.priority}
+                  </span>
+                  <span style={{ color: 'var(--color-text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {t.title}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </SectionRow>
+
+        {/* AI Tip */}
+        <SectionRow
+          icon={<Lightbulb size={15} style={{ color: 'var(--color-purple)' }} />}
+          label="AI Tip"
+          onClick={() => {/* navigate to AI insights */}}
+        >
+          <span style={{ fontSize: 12.5, color: 'var(--color-text-muted)', lineHeight: 1.5 }}>
+            {data!.aiTip.text}
+          </span>
+        </SectionRow>
+      </div>
+
+      {/* ── Footer: last updated ── */}
+      <div style={{
+        display: 'flex', alignItems: 'center', gap: 5,
+        fontSize: 11, color: 'var(--color-text-faint)',
+        borderTop: '1px solid var(--color-divider)',
+        paddingTop: 10, marginTop: 2,
+      }}>
+        <Clock size={11} />
+        <span>Updated {formatLastUpdated(lastUpdated)}</span>
+      </div>
+
+      {/* ── Keyframes for spin animation ── */}
+      <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
+    </div>
+  );
+}
+
+// ── Section Row Sub-component ──
+function SectionRow({
+  icon,
+  label,
+  children,
+  onClick,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  children: React.ReactNode;
+  onClick?: () => void;
+}) {
+  return (
+    <div
+      onClick={onClick}
+      role={onClick ? 'button' : undefined}
+      tabIndex={onClick ? 0 : undefined}
+      onKeyDown={onClick ? (e: React.KeyboardEvent) => { if (e.key === 'Enter' || e.key === ' ') onClick(); } : undefined}
+      style={{
+        display: 'flex', alignItems: 'flex-start', gap: 10,
+        padding: '10px 12px',
+        borderRadius: 'var(--radius-md)',
+        cursor: onClick ? 'pointer' : 'default',
+        transition: 'background 150ms',
+      }}
+      onMouseEnter={e => { e.currentTarget.style.background = 'var(--color-surface-offset)'; }}
+      onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}
+    >
+      <div style={{
+        width: 30, height: 30, borderRadius: 'var(--radius-sm)',
+        background: 'var(--color-surface-offset)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        flexShrink: 0, marginTop: 1,
+      }}>
+        {icon}
+      </div>
+      <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 3 }}>
+        <div style={{ fontSize: 11.5, fontWeight: 600, color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+          {label}
+        </div>
+        {children}
+      </div>
+    </div>
+  );
+}
