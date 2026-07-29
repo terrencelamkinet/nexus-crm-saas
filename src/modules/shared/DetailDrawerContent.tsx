@@ -1,5 +1,5 @@
 import { useState, useEffect, Suspense } from 'react'
-import { Phone, Mail, Building2, User, Clock, Edit3, Trash2 } from 'lucide-react'
+import { Phone, Mail, Building2, User, Clock, Edit3, Trash2, ExternalLink } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { apiClient } from '../../lib/api'
 import { FieldsRenderer } from './FieldsRenderer'
@@ -224,6 +224,13 @@ export default function DetailDrawerContent({ config, id, onClose, tabRenderers,
           <>
             <button onClick={handleDeleteClick} className="btn-danger btn-sm">
               <Trash2 className="icon-14" /> Delete
+            </button>
+            <button onClick={() => {
+              const route = config.routePrefix || config.labelPlural.toLowerCase()
+              onClose()
+              navigate(`/${route}/${entity.id}`)
+            }} className="btn-primary btn-sm">
+              <ExternalLink className="icon-14" /> Open full
             </button>
             <button onClick={openEdit} className="btn-primary btn-sm">
               <Edit3 className="icon-14" /> Edit
