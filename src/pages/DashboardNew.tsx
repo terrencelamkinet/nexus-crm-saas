@@ -986,15 +986,15 @@ export default function DashboardNew() {
             </button>
             {newOpen && (
               <div style={{position:'absolute',top:'calc(100% + 8px)',right:0,width:200,background:'var(--color-surface-2)',border:'1px solid var(--color-border)',borderRadius:'var(--radius-lg)',boxShadow:'var(--shadow-lg)',padding:6,zIndex:50}}>
-                <button className="new-dropdown-item" onClick={() => { setNewOpen(false); navigate('/tasks/new') }}
+                <button className="new-dropdown-item" onClick={() => { setNewOpen(false); navigate('/tasks') }}
                   style={{display:'flex',alignItems:'center',gap:10,padding:'9px 10px',borderRadius:'var(--radius-sm)',fontSize:13.5,fontWeight:500,width:'100%',textAlign:'left',color:'var(--color-text)',background:'none',border:'none',cursor:'pointer'}}>
                   <CheckSquare size={16} style={{color:'var(--color-text-muted)'}} />New Task
                 </button>
-                <button className="new-dropdown-item" onClick={() => { setNewOpen(false); navigate('/contacts/new') }}
+                <button className="new-dropdown-item" onClick={() => { setNewOpen(false); navigate('/contacts') }}
                   style={{display:'flex',alignItems:'center',gap:10,padding:'9px 10px',borderRadius:'var(--radius-sm)',fontSize:13.5,fontWeight:500,width:'100%',textAlign:'left',color:'var(--color-text)',background:'none',border:'none',cursor:'pointer'}}>
                   <Users size={16} style={{color:'var(--color-text-muted)'}} />New Contact
                 </button>
-                <button className="new-dropdown-item" onClick={() => { setNewOpen(false); navigate('/companies/new') }}
+                <button className="new-dropdown-item" onClick={() => { setNewOpen(false); navigate('/companies') }}
                   style={{display:'flex',alignItems:'center',gap:10,padding:'9px 10px',borderRadius:'var(--radius-sm)',fontSize:13.5,fontWeight:500,width:'100%',textAlign:'left',color:'var(--color-text)',background:'none',border:'none',cursor:'pointer'}}>
                   <Building2 size={16} style={{color:'var(--color-text-muted)'}} />New Company
                 </button>
