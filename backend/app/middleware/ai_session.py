@@ -32,6 +32,10 @@ class AISessionMiddleware(BaseHTTPMiddleware):
         if not request.url.path.startswith(self.AI_PREFIX):
             return await call_next(request)
 
+        # /api/v1/ai/health is public — no auth, no session context
+        if request.url.path == "/api/v1/ai/health":
+            return await call_next(request)
+
         async with async_session() as db:
             ctx: AISessionContext = await build_ai_session_context(request, db)
 
