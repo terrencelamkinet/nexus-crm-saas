@@ -13,6 +13,8 @@ const enabledModules: string[] = [
   'tasks',
   'touchpoints',
   'projects',
+  'sales',
+  'shipping',
 ]
 
 export function isModuleEnabled(name: string): boolean {

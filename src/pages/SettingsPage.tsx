@@ -21,11 +21,9 @@ export default function SettingsPage() {
   const [saveState, setSaveState] = useState<'idle' | 'saving' | 'done'>('idle')
 
   const moduleDefs = [
-    { key: 'foundation', label: 'Foundation CRM', icon: '🧱', desc: 'Companies, Contacts, Touchpoints, Tasks, Notes, NameCards — core CRM (Module A).', alwaysOn: true },
-    { key: 'projects', label: 'Projects', icon: '📊', desc: 'Project-based tracking, budgets, milestones. Links to contacts and companies (Module D).' },
-    { key: 'sales', label: 'Sales', icon: '💰', desc: 'Deal pipeline, stages, sales reports, quotes. Links from Contacts (Module C).' },
-    { key: 'inventory', label: 'Inventory', icon: '📦', desc: 'Inventory, stock levels, product catalog.' },
-    { key: 'scheduling', label: 'Scheduling', icon: '📅', desc: 'Calendar sync, appointment scheduling.' },
+    { key: 'projects', label: 'Projects', icon: '📊', desc: 'Project-based tracking, budgets, milestones. Links to contacts and companies.' },
+    { key: 'sales', label: 'Sales', icon: '💰', desc: 'Deal pipeline, stages, sales reports, quotes. Links from Contacts.' },
+    { key: 'shipping', label: 'Shipping', icon: '🚢', desc: 'Shipment tracking, dispatch orders, delivery management.' },
   ]
 
   const loadModules = async () => {
@@ -151,21 +149,17 @@ export default function SettingsPage() {
               ) : (
                 <div className="stg-module-list">
                   {moduleDefs.map(def => (
-                    <div key={def.key} className={`stg-module-row${def.alwaysOn ? ' always-on' : ''}`}
-                      onClick={() => !def.alwaysOn && toggleDraft(def.key)}>
+                    <div key={def.key} className="stg-module-row"
+                      onClick={() => toggleDraft(def.key)}>
                       <div className="stg-module-icon">{def.icon}</div>
                       <div className="stg-module-info">
                         <p className="stg-module-name">{def.label}</p>
                         <p className="stg-module-desc">{def.desc}</p>
                       </div>
-                      {def.alwaysOn ? (
-                        <span className="stg-always-badge">Always on</span>
-                      ) : (
                       <div className={`stg-toggle${draft[def.key] !== false ? ' on' : ''}`}
                         onClick={(e) => { e.stopPropagation(); toggleDraft(def.key); }}>
                           <div className="stg-toggle-knob" />
                         </div>
-                      )}
                     </div>
                   ))}
                 </div>

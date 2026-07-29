@@ -45,6 +45,12 @@ function App() {
           <Route path="projects" element={<ProjectGate><ProjectsPage /></ProjectGate>} />
           <Route path="projects/:id" element={<ProjectGate><ProjectsDetailPage /></ProjectGate>} />
           <Route path="deals" element={<SalesGate><DealsPage /></SalesGate>} />
+          <Route path="shipping" element={
+            <div className="p-8">
+              <h1 className="text-2xl font-bold c-text">Shipping</h1>
+              <p className="c-text-muted">Shipping module coming soon</p>
+            </div>
+          } />
           <Route path="touchpoints" element={<TouchpointsPage />} />
           <Route path="touchpoints/:id" element={<TouchpointDetailPage />} />
           <Route path="tasks" element={<TasksPage />} />

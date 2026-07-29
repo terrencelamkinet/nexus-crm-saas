@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { NavLink, Link } from 'react-router-dom';
 import { LayoutDashboard, Users, Building2, TrendingUp,
   CheckSquare, Activity, ScanLine, Settings, BarChart3,
-  Sparkles, UserCog, FolderKanban, Bell,
+  Sparkles, UserCog, FolderKanban, Bell, Truck,
 } from 'lucide-react';
 import { apiClient } from '../lib/api';
 
@@ -24,6 +24,7 @@ const workspaceItems = [
   { to: '/projects', label: 'Projects', icon: FolderKanban, module: 'projects' },
   { to: '/deals', label: 'Deals', icon: TrendingUp, module: 'sales' },
   { to: '/tasks', label: 'Tasks', icon: CheckSquare },
+  { to: '/shipping', label: 'Shipping', icon: Truck, module: 'shipping' },
 ];
 
 const secondaryItems = [
