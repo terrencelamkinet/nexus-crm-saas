@@ -172,8 +172,8 @@ const modulesData: ModuleData[] = [
 
 export default function DashboardNew() {
   const navigate = useNavigate()
-  const dark = document.documentElement.getAttribute('data-theme') === 'dark'
-  const [aiOn, setAiOn] = useState(false)
+  const [modules, setModules] = useState<Record<string, boolean>>({})
+  const aiOn = modules['ai_assistant'] === true
   const [editing, setEditing] = useState(false)
   const [chatOpen, setChatOpen] = useState(false)
   const [chatMsg, setChatMsg] = useState('')
@@ -238,6 +238,22 @@ export default function DashboardNew() {
     } catch { /* silent */ }
   }, [])
   useEffect(() => { fetchData() }, [fetchData])
+
+  // Load modules — read ai_assistant setting
+  const fetchModules = useCallback(async () => {
+    try {
+      const list: any[] = await apiClient.get('/api/v1/crm/module-settings')
+      const map: Record<string, boolean> = {}
+      ;(list || []).forEach((m: any) => { map[m.module_key] = m.enabled })
+      setModules(map)
+    } catch {}
+  }, [])
+  useEffect(() => {
+    fetchModules()
+    const handler = () => fetchModules()
+    window.addEventListener('modules-changed', handler)
+    return () => window.removeEventListener('modules-changed', handler)
+  }, [fetchModules])
 
   const pipeline = stageKeys.map(k => {
     const items = deals.filter(d => d.stage_id === k)
@@ -823,7 +839,7 @@ export default function DashboardNew() {
   }
 
   return (
-    <div className={`dash01-shell${editing ? ' editing' : ''}`} data-theme={dark ? 'dark' : 'light'}>
+    <div className={`dash01-shell${editing ? ' editing' : ''}`}>
       {/* Toolbar — dashboard-specific controls */}
       <div className="dash-toolbar" style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:18,flexWrap:'wrap',gap:10}}>
         <div>
@@ -831,13 +847,6 @@ export default function DashboardNew() {
           <p style={{fontSize:13,color:'var(--color-text-muted)',marginTop:2}}>{todayStr()}</p>
         </div>
         <div style={{display:'flex',alignItems:'center',gap:8}}>
-          <div className="ai-toggle" style={{display:'flex',alignItems:'center',gap:8,padding:'6px 12px',borderRadius:'999px',background:'var(--color-surface-offset)',border:'1px solid var(--color-border)',fontSize:13,fontWeight:600}}>
-            <Sparkles size={15} />
-            <span>AI 秘書</span>
-            <button className={`switch${aiOn ? ' on' : ''}`} role="switch" aria-checked={aiOn}
-              onClick={() => setAiOn(!aiOn)}
-              style={{width:34,height:19,borderRadius:'999px',background:aiOn ? 'var(--color-purple)' : 'var(--color-border)',position:'relative',transition:'background .2s',cursor:'pointer',border:'none',padding:0}} />
-          </div>
           <div className="new-menu-wrap" ref={newRef} style={{position:'relative'}}>
             <button className="new-btn" aria-label="Create new" onClick={() => setNewOpen(!newOpen)}
               style={{width:38,height:38,borderRadius:'999px',background:'var(--color-primary)',color:'#fff',display:'flex',alignItems:'center',justifyContent:'center',border:'none',cursor:'pointer'}}>
