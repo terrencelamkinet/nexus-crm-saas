@@ -581,7 +581,7 @@ const [filters, setFilters] = useState<Record<string, FilterEntry>>({})
                         <span style={{ fontSize: 10, opacity: 0.5 }}>{filterValueOpen ? '▲' : '▼'}</span>
                       </button>
                       {filterValueOpen && (
-                        <div className="sort-panel" style={{ width: 220, maxHeight: 260, overflowY: 'auto', padding: 8, position: 'absolute', left: 0, top: '100%', marginTop: 4, zIndex: 30 }}>
+                        <div className="sort-panel" style={{ width: 220, maxHeight: 260, overflowY: 'auto', padding: 8, position: 'absolute', left: 0, top: '100%', marginTop: 4, zIndex: 9999, boxShadow: '0 8px 32px rgba(0,0,0,.15)' }}>
                           {opts.map(o => {
                             const checked = filterChecked.includes(o.value)
                             return (
@@ -640,7 +640,14 @@ const [filters, setFilters] = useState<Record<string, FilterEntry>>({})
                 ? `${vals.map(v => v.trim()).join(' + ')} ⊘`
                 : vals.map(v => v.trim()).join(' + ')
               return (
-                <span key={k} className="filter-tag">
+                <span key={k} className="filter-tag" style={{ cursor: 'pointer' }}
+                  onClick={() => {
+                    setFilterField(k)
+                    setFilterOp(v.op)
+                    setFilterChecked(vals.map(x => x.trim()))
+                    setFilterValue(v.value)
+                    setFilterOpen(true)
+                  }}>
                   {field?.label || k}: {label}
                   <button onClick={() => removeFilter(k)} className="filter-tag-x"><X className="icon-12" /></button>
                 </span>
