@@ -147,7 +147,7 @@ const [filters, setFilters] = useState<Record<string, FilterEntry>>({})
   
   const loadFilterPreset = useCallback(async () => {
     try {
-      const settings = await apiClient.get<{ settings?: any }[]>('/api/v1/crm/module-settings')
+      const settings = await apiClient.get<{ module_key: string; settings?: any }[]>('/api/v1/crm/module-settings')
       const ms = settings?.find(s => s.module_key === filterModuleKey)
       if (ms?.settings?.filterPreset) {
         const p = ms.settings.filterPreset
@@ -160,7 +160,7 @@ const [filters, setFilters] = useState<Record<string, FilterEntry>>({})
 
   useEffect(() => { loadFilterPreset() }, [loadFilterPreset])
 
-  const saveFilterPreset = useRef<() => void>()
+  const saveFilterPreset = useRef<() => void>(() => {})
   saveFilterPreset.current = () => {
     const payload = {
       module_key: filterModuleKey,

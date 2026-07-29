@@ -290,6 +290,7 @@ export default function DetailDrawerContent({ config, id, onClose, tabRenderers,
                   <FieldsRenderer key={f.key} field={f} entity={entity} form={form}
                     onChange={handleChange} editOpen={editOpen}
                     relationData={{ companies: extraData?.companies }}
+                    onNavigate={(url) => navigate(url)}
                   />
                 ))}
               </div>
@@ -340,7 +341,7 @@ export default function DetailDrawerContent({ config, id, onClose, tabRenderers,
 }
 
 /* ── Mobile detail fields: grid, top 10 with show more ── */
-function DetailFieldsSection({ detailFields, config, entity, form, handleChange, editOpen, extraData }: {
+function DetailFieldsSection({ detailFields, config, entity, form, handleChange, editOpen, extraData, onNavigate }: {
   detailFields: any[]
   config: any
   entity: any
@@ -348,6 +349,7 @@ function DetailFieldsSection({ detailFields, config, entity, form, handleChange,
   handleChange: (k: string, v: any) => void
   editOpen: boolean
   extraData?: any
+  onNavigate?: (url: string) => void
 }) {
   const [showAll, setShowAll] = useState(false)
   const visible = showAll ? detailFields : detailFields.slice(0, 10)
@@ -359,6 +361,7 @@ function DetailFieldsSection({ detailFields, config, entity, form, handleChange,
           <FieldsRenderer key={f.key} field={f} entity={entity} form={form}
             onChange={handleChange} editOpen={editOpen}
             relationData={{ companies: extraData?.companies }}
+            onNavigate={onNavigate}
           />
         ))}
       </div>

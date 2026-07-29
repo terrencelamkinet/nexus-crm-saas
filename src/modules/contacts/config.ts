@@ -23,7 +23,7 @@ const contactConfig: ResourceConfig = {
       options: [{ value: '1', label: '1', color: 'green' }, { value: '2', label: '2', color: 'blue' }, { value: '3', label: '3', color: 'yellow' }, { value: '4', label: '4', color: 'red' }] },
     { key: 'tags',           label: 'Tag',          type: 'multi_select', bulkEditable: true,
       options: [{ value: 'Sales', label: 'Sales', color: 'blue' }, { value: 'Client', label: 'Client', color: 'green' }, { value: 'Technical', label: 'Technical', color: 'purple' }, { value: 'Head', label: 'Head', color: 'yellow' }, { value: 'Internal Sales', label: 'Internal Sales', color: 'gray' }] },
-    { key: 'numbers',        label: 'No.',          type: 'multi_select',
+    { key: 'numbers',        label: 'Contact No.',  type: 'multi_select',
       options: [{ value: '1', label: '1' }, { value: '2', label: '2' }, { value: '3', label: '3' }, { value: '4', label: '4' }, { value: '5', label: '5' }, { value: '6', label: '6' }, { value: '7', label: '7' }, { value: '8', label: '8' }] },
     { key: 'email',          label: 'Email',        type: 'email',    sortable: true, searchable: true, visibleByDefault: true },
     { key: 'phone',          label: 'Phone',        type: 'text',     visibleByDefault: true, searchable: true },

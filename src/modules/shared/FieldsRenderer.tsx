@@ -4,6 +4,14 @@ import { formatDate, formatRelativeDate, formatAmount } from './field-utils'
 import EntitySearch from './EntitySearch'
 import { isModuleEnabled } from '../enabled-modules'
 
+const RELATION_ROUTES: Record<string, string> = {
+  contacts: '/contacts',
+  companies: '/companies',
+  projects: '/projects',
+  tasks: '/tasks',
+  touchpoints: '/touchpoints',
+}
+
 interface Props {
   field: FieldConfig
   entity?: any
@@ -12,10 +20,12 @@ interface Props {
   editOpen?: boolean
   /** Extra lookup data for relation fields */
   relationData?: Record<string, { id: string; name: string }[]>
+  /** Callback when a relation link is clicked — navigates to detail page */
+  onNavigate?: (url: string) => void
 }
 
 // ═══ TABLE CELL RENDERER ═══
-export function CellRenderer({ value, field }: { value: any; field: FieldConfig }) {
+export function CellRenderer({ value, field, onNavigate }: { value: any; field: FieldConfig; onNavigate?: (url: string) => void }) {
   if (field.dependsOnModule && !isModuleEnabled(field.dependsOnModule)) return null
   if (value == null) return <span className="text-faint">—</span>
 
@@ -65,6 +75,17 @@ export function CellRenderer({ value, field }: { value: any; field: FieldConfig 
         onClick={e => e.stopPropagation()}>{value}</a>
     case 'relation': {
       if (typeof value === 'object' && value) {
+        const resource = field.relation?.resource || ''
+        const route = RELATION_ROUTES[resource]
+        const href = route ? `${route}/${value.id}` : ''
+        if (href && onNavigate) {
+          return (
+            <a href={href} onClick={e => { e.preventDefault(); onNavigate(href) }}
+              style={{ color: 'var(--color-primary)', textDecoration: 'none', cursor: 'pointer' }}>
+              {value.name || value.title || value.id}
+            </a>
+          )
+        }
         return <span className="badge badge-p3">{value.name || value.title || value.id}</span>
       }
       return <span className="text-faint">{String(value)}</span>
@@ -79,7 +100,7 @@ export function CellRenderer({ value, field }: { value: any; field: FieldConfig 
 }
 
 // ═══ DETAIL / FORM FIELD RENDERER ═══
-export function FieldsRenderer({ field, entity, form, onChange, editOpen, relationData }: Props) {
+export function FieldsRenderer({ field, entity, form, onChange, editOpen, relationData, onNavigate }: Props) {
   const label = <div className="field-label">{field.label}{field.required ? ' *' : ''}</div>
   const isReadonly = !editOpen || field.editable === false
     || ['rollup', 'formula', 'created_time', 'last_edited_time', 'created_by', 'last_edited_by', 'unique_id'].includes(field.type)
@@ -91,7 +112,7 @@ export function FieldsRenderer({ field, entity, form, onChange, editOpen, relati
     return (
       <div className="form-field" style={field.gridColumn === 'full' ? { gridColumn: '1 / -1' } : {}}>
         {label}
-        <CellRenderer value={displayVal} field={field} />
+        <CellRenderer value={displayVal} field={field} onNavigate={onNavigate} />
       </div>
     )
   }
