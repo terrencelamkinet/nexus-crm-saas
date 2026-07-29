@@ -602,11 +602,13 @@ const [filters, setFilters] = useState<Record<string, FilterEntry>>(() => loadFi
                   return (
                     <div className="pos-relative" style={{ minWidth: 160 }}>
                       <button ref={filterBtnRef} onClick={() => {
-                        if (!filterValueOpen && filterBtnRef.current) {
-                          const r = filterBtnRef.current.getBoundingClientRect()
-                          setFilterPos({ top: r.bottom + 4, left: r.left, width: r.width })
-                        }
-                        setFilterValueOpen(o => !o)
+                        setFilterValueOpen(o => {
+                          if (!o && filterBtnRef.current) {
+                            const r = filterBtnRef.current.getBoundingClientRect()
+                            setFilterPos({ top: r.bottom + 6, left: r.left, width: Math.max(r.width, 220) })
+                          }
+                          return !o
+                        })
                       }}
                         className="input-field filter-value-input"
                         style={{ textAlign: 'left', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6, width: '100%' }}>
@@ -615,31 +617,6 @@ const [filters, setFilters] = useState<Record<string, FilterEntry>>(() => loadFi
                         </span>
                         <span style={{ fontSize: 10, opacity: 0.5 }}>{filterValueOpen ? '▲' : '▼'}</span>
                       </button>
-                      {filterValueOpen && filterPos && (
-                        <div style={{ position: 'fixed', top: filterPos.top, left: filterPos.left, width: filterPos.width, maxHeight: 260, overflowY: 'auto', zIndex: 99999, background: 'var(--color-surface)', border: '1px solid var(--color-divider)', borderRadius: 'var(--radius-md)', boxShadow: '0 8px 32px rgba(0,0,0,.15)', padding: 8 }}>
-                          {opts.map(o => {
-                            const checked = filterChecked.includes(o.value)
-                            return (
-                              <label key={o.value}
-                                style={{
-                                  display: 'flex', alignItems: 'center', gap: 8, padding: '6px 8px',
-                                  borderRadius: 6, cursor: 'pointer', fontSize: 13,
-                                  background: checked ? 'var(--color-surface-offset)' : 'transparent',
-                                }}>
-                                <input type="checkbox" checked={checked}
-                                  onChange={() => toggleVal(o.value)}
-                                  style={{ margin: 0, width: 14, height: 14, accentColor: 'var(--color-primary)' }} />
-                                {o.label}
-                              </label>
-                            )
-                          })}
-                          {filterChecked.length > 0 && (
-                            <button onClick={() => setFilterChecked([])}
-                              style={{ width: '100%', marginTop: 6, fontSize: 12, padding: '4px 8px' }}
-                              className="btn-ghost">Clear all</button>
-                          )}
-                        </div>
-                      )}
                       {filterValueOpen && <div className="popover-backdrop" onClick={() => setFilterValueOpen(false)} />}
                     </div>
                   )
@@ -938,6 +915,42 @@ const [filters, setFilters] = useState<Record<string, FilterEntry>>(() => loadFi
           />
         )}
       </SlideDrawer>
+
+      {/* Filter value dropdown — rendered at root level to avoid any clipping */}
+      {filterValueOpen && filterPos && (() => {
+        const f = filterableFields.find(x => x.key === filterField)
+        const opts = f?.options || []
+        const toggleVal = (val: string) => {
+          setFilterChecked(prev =>
+            prev.includes(val) ? prev.filter(v => v !== val) : [...prev, val]
+          )
+        }
+        return (
+          <div style={{ position: 'fixed', top: filterPos.top, left: filterPos.left, width: filterPos.width, maxHeight: 260, overflowY: 'auto', zIndex: 99999, background: 'var(--color-surface)', border: '1px solid var(--color-divider)', borderRadius: 'var(--radius-md)', boxShadow: '0 8px 32px rgba(0,0,0,.15)', padding: 8 }}>
+            {opts.map(o => {
+              const checked = filterChecked.includes(o.value)
+              return (
+                <label key={o.value}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 8, padding: '6px 8px',
+                    borderRadius: 6, cursor: 'pointer', fontSize: 13,
+                    background: checked ? 'var(--color-surface-offset)' : 'transparent',
+                  }}>
+                  <input type="checkbox" checked={checked}
+                    onChange={() => toggleVal(o.value)}
+                    style={{ margin: 0, width: 14, height: 14, accentColor: 'var(--color-primary)' }} />
+                  {o.label}
+                </label>
+              )
+            })}
+            {filterChecked.length > 0 && (
+              <button onClick={() => setFilterChecked([])}
+                style={{ width: '100%', marginTop: 6, fontSize: 12, padding: '4px 8px' }}
+                className="btn-ghost">Clear all</button>
+            )}
+          </div>
+        )
+      })()}
     </div>
   )
 }
