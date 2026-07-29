@@ -343,6 +343,7 @@ table{border-collapse:collapse;width:100%}
 .toolbar-sep{width:1px;height:20px;background:var(--color-divider);margin:0 4px}
 .toolbar-btn.active{color:var(--color-primary);background:var(--color-primary-highlight)}
 .toolbar-popover-layer{position:absolute;right:0;top:100%;overflow:visible;z-index:20;display:contents}
+.popover-backdrop{position:fixed;inset:0;z-index:10}
 .sort-panel{position:absolute;right:0;top:100%;z-index:30;margin-top:4px;width:280px;background:var(--color-surface);border:1px solid var(--color-divider);border-radius:var(--radius-md);box-shadow:var(--shadow-lg);padding:12px}
 .filter-panel{border-bottom:1px solid var(--color-divider);padding:12px 18px;background:var(--color-surface-offset);animation:fadeUp 150ms var(--ease-out) both}
 .filter-row{display:flex;align-items:center;gap:8px}

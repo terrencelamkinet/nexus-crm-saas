@@ -50,6 +50,7 @@ const [filters, setFilters] = useState<Record<string, FilterEntry>>({})
   const [filterOp, setFilterOp] = useState<FilterOp>('is')
   const [filterValue, setFilterValue] = useState('')
   const [filterChecked, setFilterChecked] = useState<string[]>([])
+  const [filterValueOpen, setFilterValueOpen] = useState(false)
 
   const [sortOpen, setSortOpen] = useState(false)
   const [sortField, setSortField] = useState('')
@@ -570,31 +571,41 @@ const [filters, setFilters] = useState<Record<string, FilterEntry>>({})
                     )
                   }
                   return (
-                    <div className="filter-checkbox-list" style={{ display: 'flex', flexWrap: 'wrap', gap: 4, minWidth: 200 }}>
-                      {opts.map(o => {
-                        const checked = filterChecked.includes(o.value)
-                        return (
-                          <label key={o.value} onClick={e => e.stopPropagation()}
-                            style={{
-                              display: 'flex', alignItems: 'center', gap: 4,
-                              padding: '3px 8px', borderRadius: 6, fontSize: 12,
-                              cursor: 'pointer', userSelect: 'none',
-                              background: checked ? 'var(--color-primary)' : 'var(--color-surface)',
-                              color: checked ? '#fff' : 'var(--color-text)',
-                              border: checked ? '1px solid var(--color-primary)' : '1px solid var(--color-border)',
-                              transition: 'all .1s',
-                            }}>
-                            <input type="checkbox" checked={checked}
-                              onChange={() => toggleVal(o.value)}
-                              style={{ margin: 0, accentColor: checked ? '#fff' : undefined, width: 13, height: 13 }} />
-                            {o.label}
-                          </label>
-                        )
-                      })}
-                      {filterChecked.length > 0 && (
-                        <button onClick={() => setFilterChecked([])} className="btn-ghost"
-                          style={{ fontSize: 11, padding: '3px 6px', height: 'auto' }}>clear</button>
+                    <div className="pos-relative" style={{ minWidth: 160 }}>
+                      <button onClick={() => setFilterValueOpen(o => !o)}
+                        className="input-field filter-value-input"
+                        style={{ textAlign: 'left', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6, width: '100%' }}>
+                        <span style={{ color: filterChecked.length ? 'var(--color-text)' : 'var(--color-text-faint)', fontSize: 12 }}>
+                          {filterChecked.length > 0 ? `${filterChecked.length} selected` : 'Select values'}
+                        </span>
+                        <span style={{ fontSize: 10, opacity: 0.5 }}>{filterValueOpen ? '▲' : '▼'}</span>
+                      </button>
+                      {filterValueOpen && (
+                        <div className="sort-panel" style={{ width: 220, maxHeight: 260, overflowY: 'auto', padding: 8, position: 'absolute', left: 0, top: '100%', marginTop: 4, zIndex: 30 }}>
+                          {opts.map(o => {
+                            const checked = filterChecked.includes(o.value)
+                            return (
+                              <label key={o.value}
+                                style={{
+                                  display: 'flex', alignItems: 'center', gap: 8, padding: '6px 8px',
+                                  borderRadius: 6, cursor: 'pointer', fontSize: 13,
+                                  background: checked ? 'var(--color-surface-offset)' : 'transparent',
+                                }}>
+                                <input type="checkbox" checked={checked}
+                                  onChange={() => toggleVal(o.value)}
+                                  style={{ margin: 0, width: 14, height: 14, accentColor: 'var(--color-primary)' }} />
+                                {o.label}
+                              </label>
+                            )
+                          })}
+                          {filterChecked.length > 0 && (
+                            <button onClick={() => setFilterChecked([])}
+                              style={{ width: '100%', marginTop: 6, fontSize: 12, padding: '4px 8px' }}
+                              className="btn-ghost">Clear all</button>
+                          )}
+                        </div>
                       )}
+                      {filterValueOpen && <div className="popover-backdrop" onClick={() => setFilterValueOpen(false)} />}
                     </div>
                   )
                 }
