@@ -124,7 +124,6 @@ const defaultOrder: WidgetKey[] = [
   'kpi_contacts', 'kpi_companies', 'kpi_deals', 'kpi_tasks',
   'd2', 't1', 'c2', 'co3', 's1', 'te2', 'cal1', 'activity_feed',
 ]
-const ORDER_KEY = 'dash01-order'
 
 interface ModuleWidget { key: string; name: string; desc: string }
 interface ModuleData { id: string; name: string; widgets: ModuleWidget[] }
@@ -217,15 +216,10 @@ export default function DashboardNew() {
   const dragKey = useRef<string | null>(null)
   const dragPending = useRef(false)
   const gridRef = useRef<HTMLDivElement>(null)
-  // Widget order - persists to localStorage
-  const [order, setOrder] = useState<WidgetKey[]>(() => {
-    try { return JSON.parse(localStorage.getItem(ORDER_KEY) || 'null') || [...defaultOrder] }
-    catch { return [...defaultOrder] }
-  })
-  const saveOrder = (o: WidgetKey[]) => {
-    setOrder(o)
-    try { localStorage.setItem(ORDER_KEY, JSON.stringify(o)) } catch {}
-  }
+  // Widget order — persists via API (cross-browser)
+  const [order, setOrder] = useState<WidgetKey[]>([...defaultOrder])
+  const orderLoaded = useRef(false)
+  const saveTimer = useRef<ReturnType<typeof setTimeout>>(undefined as any)
   // Data
   const [stats, setStats] = useState({ contacts: 0, deals: 0, dealValue: '', tasks: 0, companies: 0 })
   const [tasks, setTasks] = useState<Task[]>([])
@@ -298,12 +292,40 @@ export default function DashboardNew() {
       setModules(map)
     } catch {}
   }, [])
+  // ── Dashboard layout persistence (tenant-level, cross-browser) ──
   useEffect(() => {
     fetchModules()
+    const load = async () => {
+      try {
+        const list: any[] = await apiClient.get('/api/v1/crm/module-settings')
+        const dash = (list || []).find((m: any) => m.module_key === 'dashboard')
+        if (dash?.settings?.widgetOrder?.length) {
+          setOrder(dash.settings.widgetOrder)
+        }
+      } catch { /* use defaults */ }
+      orderLoaded.current = true
+    }
+    load()
     const handler = () => fetchModules()
     window.addEventListener('modules-changed', handler)
     return () => window.removeEventListener('modules-changed', handler)
   }, [fetchModules])
+
+  // Debounced save when order changes
+  useEffect(() => {
+    if (!orderLoaded.current) return
+    clearTimeout(saveTimer.current)
+    saveTimer.current = setTimeout(async () => {
+      try {
+        await apiClient.put('/api/v1/crm/module-settings/dashboard', {
+          module_key: 'dashboard',
+          enabled: true,
+          settings: { widgetOrder: order },
+        })
+      } catch { /* silent */ }
+    }, 1500)
+    return () => clearTimeout(saveTimer.current)
+  }, [order])
 
   // ── Build Detail Functions ──
   const buildTaskDetail = (task: Task) => (
@@ -357,11 +379,11 @@ export default function DashboardNew() {
   // Widget icon helper
   const addWidget = (k: string) => {
     if (order.includes(k)) return
-    saveOrder([...order, k])
+    setOrder([...order, k])
     setDrawerOpen(false)
   }
   const removeW = (k: string) => {
-    saveOrder(order.filter(x => x !== k))
+    setOrder(order.filter(x => x !== k))
   }
   // RAF-throttled drag
   const handleDragStart = (k: string) => { dragKey.current = k; dragPending.current = false }
@@ -391,7 +413,7 @@ export default function DashboardNew() {
       const key = el.getAttribute('data-key')
       if (key) domKeys.push(key)
     })
-    if (domKeys.length > 0) saveOrder(domKeys)
+    if (domKeys.length > 0) setOrder(domKeys)
   }
 
   // ── Chat helpers ──
