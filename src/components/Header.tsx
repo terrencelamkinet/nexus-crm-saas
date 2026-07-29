@@ -84,7 +84,12 @@ export default function Header() {
     } catch {}
   };
 
-  useEffect(() => { fetchNotifs(); const t = setInterval(fetchNotifs, 15000); return () => clearInterval(t); }, [notifOpen]);
+  useEffect(() => {
+    if (!notifOpen) return
+    fetchNotifs()
+    const t = setInterval(fetchNotifs, 15000)
+    return () => clearInterval(t)
+  }, [notifOpen]);
   useEffect(() => { if (notifOpen) fetchNotifs(); }, [notifOpen]);
 
   const handleNotifClick = async (n: any) => {

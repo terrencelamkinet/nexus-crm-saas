@@ -48,7 +48,6 @@ export default function EntitySearch({
   const [showDropdown, setShowDropdown] = useState(false)
   const [selectedLabel, setSelectedLabel] = useState('')
   const [focused, setFocused] = useState(false)
-  const [fetchedLabel, setFetchedLabel] = useState(false)
 
   // ── Fixed-position dropdown coordinates ──
   const [dropPos, setDropPos] = useState<{ top: number; left: number; width: number }>({ top: 0, left: 0, width: 0 })
@@ -70,11 +69,12 @@ export default function EntitySearch({
   const inputRef = useRef<HTMLInputElement>(null)
   const debounceRef = useRef<ReturnType<typeof setTimeout>>(undefined)
   const abortRef = useRef<AbortController>(null)
+  const labelFetchedRef = useRef(false)
 
   // ── Fetch label when value is set ──
   useEffect(() => {
-    if (value && !fetchedLabel) {
-      setFetchedLabel(true)
+    if (value && !labelFetchedRef.current) {
+      labelFetchedRef.current = true
       apiClient.get<SearchItem>(`${searchUrl}/${value}`)
         .then(data => {
           const lbl = String(data?.[displayField] ?? '') || data?.title || data?.email || data?.id || ''
@@ -82,14 +82,14 @@ export default function EntitySearch({
         })
         .catch(() => {})
     }
-  }, [value, searchUrl, displayField, fetchedLabel])
+  }, [value, searchUrl, displayField])
 
   // ── Reset when value clears ──
   useEffect(() => {
     if (!value) {
       setSelectedLabel('')
       setQuery('')
-      setFetchedLabel(false)
+      labelFetchedRef.current = false
     }
   }, [value])
 
@@ -165,7 +165,7 @@ export default function EntitySearch({
     setResults([])
     setShowDropdown(false)
     onChange(item.id)
-    setFetchedLabel(true)
+    labelFetchedRef.current = true
   }
 
   const handleClear = () => {
@@ -174,7 +174,7 @@ export default function EntitySearch({
     setResults([])
     setShowDropdown(false)
     onChange('')
-    setFetchedLabel(false)
+    labelFetchedRef.current = false
     inputRef.current?.focus()
   }
 
@@ -199,7 +199,7 @@ export default function EntitySearch({
       const newLabel = String(created[displayField] ?? '') || created.title || created.name || newId
       setSelectedLabel(newLabel)
       setQuery('')
-      setFetchedLabel(true)
+      labelFetchedRef.current = true
       onChange(newId)
       setShowCreate(false)
       setCreateName('')

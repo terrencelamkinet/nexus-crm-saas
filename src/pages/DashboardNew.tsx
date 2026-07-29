@@ -283,21 +283,16 @@ export default function DashboardNew() {
   }, [])
   useEffect(() => { fetchData() }, [fetchData])
 
-  // Load modules — read ai_assistant setting
-  const fetchModules = useCallback(async () => {
-    try {
-      const list: any[] = await apiClient.get('/api/v1/crm/module-settings')
-      const map: Record<string, boolean> = {}
-      ;(list || []).forEach((m: any) => { map[m.module_key] = m.enabled })
-      setModules(map)
-    } catch {}
-  }, [])
-  // ── Dashboard layout persistence (tenant-level, cross-browser) ──
+  // ── Dashboard layout persistence + module settings (single API call) ──
   useEffect(() => {
-    fetchModules()
-    const load = async () => {
+    const loadAll = async () => {
       try {
         const list: any[] = await apiClient.get('/api/v1/crm/module-settings')
+        // module enable map
+        const map: Record<string, boolean> = {}
+        ;(list || []).forEach((m: any) => { map[m.module_key] = m.enabled })
+        setModules(map)
+        // dashboard widget order
         const dash = (list || []).find((m: any) => m.module_key === 'dashboard')
         if (dash?.settings?.widgetOrder?.length) {
           setOrder(dash.settings.widgetOrder)
@@ -305,11 +300,11 @@ export default function DashboardNew() {
       } catch { /* use defaults */ }
       orderLoaded.current = true
     }
-    load()
-    const handler = () => fetchModules()
+    loadAll()
+    const handler = () => loadAll()
     window.addEventListener('modules-changed', handler)
     return () => window.removeEventListener('modules-changed', handler)
-  }, [fetchModules])
+  }, [])
 
   // Debounced save when order changes
   useEffect(() => {
