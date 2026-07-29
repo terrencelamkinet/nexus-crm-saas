@@ -6,6 +6,7 @@ from app.models.ai.action_request import ActionRequest
 from app.models.ai.usage import Quota, UsageEvent
 from app.models.ai.model_profile import ModelProfile
 from app.models.ai.provider import ProviderCredential, ProviderHealth
+from app.models.ai.vector import VectorDocument, VectorDocumentChunk
 
 __all__ = [
     "Agent",
@@ -18,4 +19,6 @@ __all__ = [
     "ModelProfile",
     "ProviderCredential",
     "ProviderHealth",
+    "VectorDocument",
+    "VectorDocumentChunk",
 ]
