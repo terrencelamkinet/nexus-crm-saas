@@ -127,14 +127,14 @@ export function DealsTab({ entity: company }: { entity: EntityRecord; moduleConf
   )
 }
 
-/** Projects tab — deals as projects (since deals = projects in this system) */
+/** Projects tab — projects belonging to this company */
 export function ProjectsTab({ entity: company }: { entity: EntityRecord; moduleConfig: ModuleConfig; refresh: () => void }) {
   const [projects, setProjects] = useState<LinkRow[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     setLoading(true)
-    apiClient.get<{ items: LinkRow[] }>(`/api/v1/crm/deals?company_id=${company.id}&page_size=200`)
+    apiClient.get<{ items: LinkRow[] }>(`/api/v1/crm/projects?company_id=${company.id}&page_size=200`)
       .then(r => setProjects(r.items || []))
       .catch(() => {})
       .finally(() => setLoading(false))
@@ -154,18 +154,19 @@ export function ProjectsTab({ entity: company }: { entity: EntityRecord; moduleC
       ) : (
         <div className="flex-col">
           {projects.map(p => (
-            <div key={p.id} className="list-row">
+            <Link key={p.id} to={`/projects/${p.id}`} className="list-row hover:bg-slate-50 no-underline">
               <div className="list-main">
                 <div className="list-title">{p.name}</div>
                 <div className="list-sub">
-                  Stage: {p.stage?.name || p.stage_name || '—'}
+                  <span className={`badge badge-p3`}>{p.status}</span>
+                  {p.priority && <span className="ml-2">· {p.priority}</span>}
                 </div>
               </div>
               <div className="text-right">
-                <div className="list-title">{fmt(p.amount)}</div>
-                <div className="list-sub">{p.status}</div>
+                <div className="list-title">{fmt(p.budget_amount)}</div>
+                <div className="list-sub">{p.deadline ? new Date(p.deadline).toLocaleDateString() : '—'}</div>
               </div>
-            </div>
+            </Link>
           ))}
         </div>
       )}
@@ -529,5 +530,52 @@ export function TimelineTab({ entity: company, refresh }: { entity: EntityRecord
         </div>
       )}
     </>
+  )
+}
+
+// ── Tasks tab ──────────────────────────────────────────
+
+interface TaskItem {
+  id: string; title: string; status: string; priority: string; due_date: string | null
+}
+
+export function TasksTab({ entity: company }: { entity: EntityRecord; moduleConfig: ModuleConfig; refresh: () => void }) {
+  const [tasks, setTasks] = useState<TaskItem[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    setLoading(true)
+    apiClient.get<{ items: TaskItem[] }>(`/api/v1/crm/tasks?company_id=${company.id}&page_size=100`)
+      .then(r => setTasks(r.items || []))
+      .catch(() => {})
+      .finally(() => setLoading(false))
+  }, [company.id])
+
+  if (loading) return <div className="panel"><div className="panel-head"><h3>Tasks</h3></div><div className="empty-state">Loading...</div></div>
+
+  return (
+    <div className="panel">
+      <div className="panel-head">
+        <h3>Tasks ({tasks.length})</h3>
+      </div>
+      {tasks.length === 0 ? (
+        <div className="empty-state">No tasks linked</div>
+      ) : (
+        <div className="flex-col">
+          {tasks.map(t => (
+            <div key={t.id} className="list-row">
+              <div className="list-main">
+                <div className="list-title">{t.title}</div>
+                <div className="list-sub flex items-center gap-2">
+                  <span className={`badge ${t.status === 'done' ? 'badge-active' : t.status === 'in_progress' ? 'badge-warm' : 'badge-p3'}`}>{t.status}</span>
+                  {t.priority && <span className={`badge ${t.priority === 'P0' ? 'badge-p0' : t.priority === 'P1' ? 'badge-p1' : 'badge-p3'}`}>{t.priority}</span>}
+                </div>
+              </div>
+              {t.due_date && <div className="text-right text-xs">{new Date(t.due_date).toLocaleDateString()}</div>}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
   )
 }

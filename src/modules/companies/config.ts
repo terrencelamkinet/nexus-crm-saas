@@ -80,6 +80,7 @@ const companyConfig: ResourceConfig = {
     { id: 'projects',      label: 'Projects' },
     { id: 'products',      label: 'Products' },
     { id: 'partners',      label: 'Partners' },
+    { id: 'tasks',         label: 'Tasks' },
     { id: 'touchpoints',   label: 'Touchpoints' },
     { id: 'notes',         label: 'Notes' },
     { id: 'timeline',      label: 'Timeline' },

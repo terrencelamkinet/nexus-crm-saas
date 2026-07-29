@@ -3,6 +3,51 @@ import { Activity, Trash2, X } from 'lucide-react'
 import { apiClient } from '../../lib/api'
 import type { EntityRecord, ModuleConfig } from '../module-types'
 
+interface TaskItem {
+  id: string; title: string; status: string; priority: string; due_date: string | null
+}
+
+export function TasksTab({ entity }: { entity: EntityRecord; moduleConfig: ModuleConfig; refresh: () => void }) {
+  const [tasks, setTasks] = useState<TaskItem[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    setLoading(true)
+    apiClient.get<{ items: TaskItem[] }>(`/api/v1/crm/tasks?contact_id=${entity.id}&page_size=100`)
+      .then(r => setTasks(r.items || []))
+      .catch(() => {})
+      .finally(() => setLoading(false))
+  }, [entity.id])
+
+  if (loading) return <div className="panel"><div className="panel-head"><h3>Tasks</h3></div><div className="empty-state">Loading...</div></div>
+
+  return (
+    <div className="panel">
+      <div className="panel-head">
+        <h3>Tasks ({tasks.length})</h3>
+      </div>
+      {tasks.length === 0 ? (
+        <div className="empty-state">No tasks linked</div>
+      ) : (
+        <div className="flex-col">
+          {tasks.map(t => (
+            <div key={t.id} className="list-row">
+              <div className="list-main">
+                <div className="list-title">{t.title}</div>
+                <div className="list-sub flex items-center gap-2">
+                  <span className={`badge ${t.status === 'done' ? 'badge-active' : t.status === 'in_progress' ? 'badge-warm' : 'badge-p3'}`}>{t.status}</span>
+                  {t.priority && <span className={`badge ${t.priority === 'P0' ? 'badge-p0' : t.priority === 'P1' ? 'badge-p1' : 'badge-p3'}`}>{t.priority}</span>}
+                </div>
+              </div>
+              {t.due_date && <div className="text-right text-xs">{new Date(t.due_date).toLocaleDateString()}</div>}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 interface Touchpoint {
   id: string; type: string; title: string; description: string | null
   company?: { name: string } | null; created_at: string
@@ -138,13 +183,13 @@ export function TimelineTab({ entity, refresh }: { entity: EntityRecord; moduleC
   )
 }
 
-export function DealsTab(_props: { entity: EntityRecord; moduleConfig: ModuleConfig; refresh: () => void }) {
+export function DealsTab({ entity }: { entity: EntityRecord; moduleConfig: ModuleConfig; refresh: () => void }) {
   const [deals, setDeals] = useState<Deal[]>([])
   useEffect(() => {
-    apiClient.get<{ items: Deal[] }>('/api/v1/crm/deals?page_size=200')
-      .then(r => setDeals((r.items || []).filter((d: Deal) => d.status === 'active')))
+    apiClient.get<{ items: Deal[] }>(`/api/v1/crm/deals?contact_id=${entity.id}&page_size=200`)
+      .then(r => setDeals(r.items || []))
       .catch(() => {})
-  }, [])
+  }, [entity.id])
 
   return (
     <div className="panel">

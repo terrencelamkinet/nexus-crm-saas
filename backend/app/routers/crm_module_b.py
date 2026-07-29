@@ -393,6 +393,7 @@ async def list_deals(
     pipeline_id: UUID | None = None,
     company_id: UUID | None = None,
     owner_id: UUID | None = None,
+    contact_id: UUID | None = None,
     db: AsyncSession = Depends(get_tenant_session),
 ):
     tenant_id = _get_tenant_id(request)
@@ -415,6 +416,8 @@ async def list_deals(
         base = base.where(Deal.company_id == company_id)
     if owner_id:
         base = base.where(Deal.owner_id == owner_id)
+    if contact_id:
+        base = base.where(Deal.contact_id == contact_id)
 
     count_q = select(func.count()).select_from(base.subquery())
     total = (await db.execute(count_q)).scalar() or 0

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import GenericDetailPage from '../GenericDetailPage'
 import contactConfig from './config'
-import { TimelineTab, DealsTab, TouchpointsTab, NotesTab, ProjectsTab } from './ContactDetailTabs'
+import { TimelineTab, DealsTab, TouchpointsTab, NotesTab, ProjectsTab, TasksTab } from './ContactDetailTabs'
 import { apiClient } from '../../lib/api'
 import { useModuleSettings } from '../../lib/useModules'
 import type { ResourceConfig } from '../module-types'
@@ -46,6 +46,7 @@ export default function ContactDetailPage() {
         touchpoints: TouchpointsTab,
         notes: NotesTab,
         projects: ProjectsTab,
+        tasks: TasksTab,
       }}
     />
   )

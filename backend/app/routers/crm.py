@@ -1005,6 +1005,8 @@ async def list_tasks(
     status_not: str | None = None,
     priority: str | None = None,
     priority_not: str | None = None,
+    contact_id: UUID | None = None,
+    company_id: UUID | None = None,
     db: AsyncSession = Depends(get_tenant_session),
 ):
     tenant_id = _get_tenant_id(request)
@@ -1036,6 +1038,10 @@ async def list_tasks(
             base = base.where(Task.priority != vals[0])
         else:
             base = base.where(Task.priority.notin_(vals))
+    if contact_id:
+        base = base.where(Task.contact_id == contact_id)
+    if company_id:
+        base = base.where(Task.company_id == company_id)
 
     count_q = select(func.count()).select_from(base.subquery())
     total = (await db.execute(count_q)).scalar() or 0
