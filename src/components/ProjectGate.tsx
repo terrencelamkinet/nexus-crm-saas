@@ -15,7 +15,7 @@ export default function ProjectGate({ children }: { children: React.ReactNode })
       .then((list: any) => {
         const settings = Array.isArray(list) ? list : [];
         const proj = settings.find((m: any) => m.module_key === 'projects');
-        setEnabled(proj ? proj.enabled === true : false);
+        setEnabled(proj ? proj.enabled === true : true);
       })
       .catch(() => {})
       .finally(() => setChecked(true));

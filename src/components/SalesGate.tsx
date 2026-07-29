@@ -15,7 +15,7 @@ export default function SalesGate({ children }: { children: React.ReactNode }) {
       .then((list: any) => {
         const settings = Array.isArray(list) ? list : [];
         const sales = settings.find((m: any) => m.module_key === 'sales');
-        setEnabled(sales ? sales.enabled === true : false);
+        setEnabled(sales ? sales.enabled === true : true);
       })
       .catch(() => {})
       .finally(() => setChecked(true));
