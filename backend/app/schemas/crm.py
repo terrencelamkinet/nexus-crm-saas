@@ -449,6 +449,8 @@ class ProjectCreate(BaseModel):
     deadline: Optional[datetime] = None
     end_date: Optional[datetime] = None
     project_manager_id: Optional[UUID] = None
+    sales_owner_id: Optional[UUID] = None
+    incharge_client_id: Optional[UUID] = None
 
 
 class ProjectUpdate(BaseModel):
@@ -465,6 +467,8 @@ class ProjectUpdate(BaseModel):
     deadline: Optional[datetime] = None
     end_date: Optional[datetime] = None
     project_manager_id: Optional[UUID] = None
+    sales_owner_id: Optional[UUID] = None
+    incharge_client_id: Optional[UUID] = None
 
 
 class ProjectResponse(BaseModel):
@@ -473,6 +477,7 @@ class ProjectResponse(BaseModel):
     project_code: str
     name: str
     company_id: UUID
+    company: Optional[dict] = None
     deal_id: Optional[UUID] = None
     stage_id: Optional[UUID] = None
     stage_updated_at: Optional[datetime] = None
@@ -484,6 +489,8 @@ class ProjectResponse(BaseModel):
     deadline: Optional[datetime] = None
     end_date: Optional[datetime] = None
     project_manager_id: Optional[UUID] = None
+    sales_owner_id: Optional[UUID] = None
+    incharge_client_id: Optional[UUID] = None
     created_at: datetime
     updated_at: datetime
 

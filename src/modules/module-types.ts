@@ -28,6 +28,7 @@ export interface FieldConfig {
   key: string
   label: string
   type: FieldType
+  apiKey?: string              // override for API payload field name (e.g. 'company' → 'company_id')
   visibleByDefault?: boolean   // default true
   sortable?: boolean           // default true for most
   searchable?: boolean         // only title + text fields

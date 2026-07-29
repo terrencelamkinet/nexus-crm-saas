@@ -351,8 +351,8 @@ const [filters, setFilters] = useState<Record<string, FilterEntry>>({})
         if (href) {
           return (
             <a href={href} onClick={e => { e.preventDefault(); e.stopPropagation(); navigate(href) }}
-              className="relation-link"
-              style={{ color: 'var(--color-primary)', textDecoration: 'none', cursor: 'pointer' }}>
+              className="badge badge-p3"
+              style={{ color: 'var(--color-primary)', cursor: 'pointer', textDecoration: 'none' }}>
               {item[fieldKey].name || item[fieldKey].title || item[fieldKey].id}
             </a>
           )

@@ -1768,7 +1768,7 @@ async def list_projects(
     db: AsyncSession = Depends(get_tenant_session),
 ):
     tenant_id = _get_tenant_id(request)
-    base = select(Project).where(Project.tenant_id == tenant_id)
+    base = select(Project).where(Project.tenant_id == tenant_id).options(selectinload(Project.company))
 
     if search:
         base = base.where(Project.name.ilike(f"%{search}%"))
@@ -1784,8 +1784,13 @@ async def list_projects(
 
     items_q = base.order_by(Project.created_at.desc()).offset(offset).limit(limit)
     rows = (await db.execute(items_q)).scalars().all()
-
-    return ListResponse(items=list(rows), total=total)
+    items = []
+    for p in rows:
+        item = p.__dict__.copy()
+        if p.company:
+            item['company'] = {'id': str(p.company.id), 'name': p.company.name}
+        items.append(item)
+    return ListResponse(items=items, total=total)
 
 
 @router.post("/projects", response_model=ProjectResponse, status_code=201)
@@ -1826,12 +1831,15 @@ async def get_project(
 ):
     tenant_id = _get_tenant_id(request)
     result = await db.execute(
-        select(Project).where(Project.id == project_id, Project.tenant_id == tenant_id)
+        select(Project).where(Project.id == project_id, Project.tenant_id == tenant_id).options(selectinload(Project.company))
     )
     project = result.scalar_one_or_none()
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
-    return project
+    item = project.__dict__.copy()
+    if project.company:
+        item['company'] = {'id': str(project.company.id), 'name': project.company.name}
+    return item
 
 
 @router.patch("/projects/{project_id}", response_model=ProjectResponse)

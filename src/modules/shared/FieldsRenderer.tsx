@@ -81,7 +81,8 @@ export function CellRenderer({ value, field, onNavigate }: { value: any; field: 
         if (href && onNavigate) {
           return (
             <a href={href} onClick={e => { e.preventDefault(); onNavigate(href) }}
-              style={{ color: 'var(--color-primary)', textDecoration: 'none', cursor: 'pointer' }}>
+              className="badge badge-p3"
+              style={{ color: 'var(--color-primary)', cursor: 'pointer', textDecoration: 'none' }}>
               {value.name || value.title || value.id}
             </a>
           )

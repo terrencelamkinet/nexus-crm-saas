@@ -329,8 +329,12 @@ class Project(Base):
     deadline = Column(DateTime(timezone=True))
     end_date = Column(DateTime(timezone=True))
     project_manager_id = Column(UUID(as_uuid=True), ForeignKey("nexus_auth.nexus_auth_users.id", ondelete="SET NULL"))
+    sales_owner_id = Column(UUID(as_uuid=True), ForeignKey("nexus_auth.nexus_auth_users.id", ondelete="SET NULL"))
+    incharge_client_id = Column(UUID(as_uuid=True), ForeignKey("nexus_crm.contacts.id", ondelete="SET NULL"))
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+
+    company = relationship("Company", foreign_keys=[company_id])
 
 
 class ProjectCalendarEvent(Base):

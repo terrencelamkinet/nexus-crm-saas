@@ -5,11 +5,12 @@ export function buildPayload(form: Record<string, any>, fields: FieldConfig[]): 
   for (const f of fields) {
     if (['rollup', 'formula', 'created_time', 'last_edited_time', 'created_by', 'last_edited_by'].includes(f.type)) continue
     const val = form[f.key]
-    if (f.type === 'multi_select') payload[f.key] = Array.isArray(val) ? val : []
-    else if (f.type === 'relation') payload[f.key] = val || null
-    else if (f.type === 'checkbox') payload[f.key] = !!val
-    else if (f.type === 'number') payload[f.key] = val ? Number(val) : null
-    else payload[f.key] = val || null
+    const targetKey = f.apiKey || f.key
+    if (f.type === 'multi_select') payload[targetKey] = Array.isArray(val) ? val : []
+    else if (f.type === 'relation') payload[targetKey] = val || null
+    else if (f.type === 'checkbox') payload[targetKey] = !!val
+    else if (f.type === 'number') payload[targetKey] = val ? Number(val) : null
+    else payload[targetKey] = val || null
   }
   return payload
 }
@@ -77,5 +78,6 @@ export function pickFormValue(entity: any, field: FieldConfig): any {
     return ''
   }
   if (field.type === 'relation' && typeof val === 'object') return val.id || ''
+  if (field.type === 'relation' && typeof val === 'string') return val
   return val
 }
