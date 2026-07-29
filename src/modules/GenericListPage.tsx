@@ -142,7 +142,8 @@ const [filters, setFilters] = useState<Record<string, FilterEntry>>({})
   }, [query, page, sortBy, sortOrder, filters])
 
   // ─── Server-side filter preset (tenant-level, not device) ───
-  const filterModuleKey = config.name === 'task' ? 'tasks' : config.name + 's'
+  const PLURAL_MAP: Record<string, string> = { company: 'companies', contact: 'contacts', touchpoint: 'touchpoints' }
+  const filterModuleKey = PLURAL_MAP[config.name] || (config.name === 'task' ? 'tasks' : config.name + 's')
   
   const loadFilterPreset = useCallback(async () => {
     try {
@@ -153,6 +154,8 @@ const [filters, setFilters] = useState<Record<string, FilterEntry>>({})
         if (p.filters) setFilters(p.filters)
         if (p.query) setQuery(p.query)
         if (p.sortBy) { setSortBy(p.sortBy); setSortOrder(p.sortOrder || 'desc') }
+        if (p.visibleCols) setVisibleCols(p.visibleCols)
+        if (p.view) setView(p.view)
       }
     } catch { /* no-op — use defaults */ }
   }, [filterModuleKey])
@@ -170,6 +173,8 @@ const [filters, setFilters] = useState<Record<string, FilterEntry>>({})
           query,
           sortBy,
           sortOrder,
+          visibleCols,
+          view,
         },
       },
     }
@@ -180,7 +185,7 @@ const [filters, setFilters] = useState<Record<string, FilterEntry>>({})
   useEffect(() => {
     const t = setTimeout(() => saveFilterPreset.current?.(), 1500)
     return () => clearTimeout(t)
-  }, [filters, query, sortBy, sortOrder])
+  }, [filters, query, sortBy, sortOrder, visibleCols, view])
 
   const items = data?.items ?? []
   const total = data?.total ?? 0

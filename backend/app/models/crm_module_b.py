@@ -9,7 +9,7 @@ import uuid
 from datetime import datetime, timezone
 from sqlalchemy import (
     Column, String, Text, Boolean, DateTime, ForeignKey,
-    Integer, Date, Numeric, JSON, ARRAY,
+    Integer, Date, Numeric, JSON, ARRAY, UniqueConstraint,
 )
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
@@ -172,7 +172,10 @@ class SalesReport(Base):
 class ModuleSetting(Base):
     """Tenant-level module enable/disable configuration."""
     __tablename__ = "module_settings"
-    __table_args__ = {"schema": "nexus_crm"}
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "module_key", name="uq_tenant_module"),
+        {"schema": "nexus_crm"},
+    )
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     tenant_id = Column(UUID(as_uuid=True), nullable=False)
