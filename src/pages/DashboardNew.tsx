@@ -2,45 +2,17 @@ import '../styles/dashboard.css'
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { apiClient } from '../lib/api'
-import { useAuth } from '../lib/AuthContext'
 import {
   LayoutDashboard, Users, Building2, TrendingUp, FolderKanban,
-  CheckSquare, Truck, UsersRound, Moon, Sun, Bell,
-  Search, Plus, Sparkles, X, Minus, Send,
-  Activity, DollarSign, Layout, ScanLine, Calendar,
+  CheckSquare, Truck, UsersRound,
+  Plus, Sparkles, X, Minus, Send,
+  Activity, DollarSign, Layout, Calendar,
 } from 'lucide-react'
 
 interface Task { id: string; title: string; priority: string; status: string; due_date: string | null; area?: string; custom_fields?: Record<string, any> }
 interface Company { id: string; name: string; category?: string; industry?: string }
 interface Touchpoint { id: string; type: string; title: string; description: string | null; company?: { name: string } | null; contact?: { name: string } | null; created_at: string }
 interface Deal { id: string; name: string; amount: number | null; stage_id: string; probability: number; company?: { name: string } | null }
-
-const navSections = [
-  { label: 'Workspace', items: [
-    { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-    { to: '/contacts', label: 'Contacts', icon: Users },
-    { to: '/companies', label: 'Companies', icon: Building2 },
-    { to: '/projects', label: 'Projects', icon: FolderKanban },
-    { to: '/deals', label: 'Deals', icon: TrendingUp },
-    { to: '/tasks', label: 'Tasks', icon: CheckSquare },
-  ]},
-  { label: 'Records', items: [
-    { to: '/touchpoints', label: 'Touchpoints', icon: Activity },
-    { to: '/namecards', label: 'NameCards', icon: ScanLine },
-  ]},
-  { label: 'Organization', items: [
-    { to: '/team', label: 'Team', icon: UsersRound },
-  ]},
-]
-
-const newItems = [
-  { label: 'New Task', icon: CheckSquare, route: '/tasks/new' },
-  { label: 'New Contact', icon: Users, route: '/contacts/new' },
-  { label: 'New Company', icon: Building2, route: '/companies/new' },
-  { label: 'New Deal', icon: TrendingUp, route: '/deals/new' },
-  { label: 'New Project', icon: FolderKanban, route: '/projects/new' },
-  { label: 'New Shipment', icon: Truck, route: '/shipping/new' },
-]
 
 const todayStr = () => {
   const d = new Date()
@@ -200,13 +172,7 @@ const modulesData: ModuleData[] = [
 
 export default function DashboardNew() {
   const navigate = useNavigate()
-  const { user } = useAuth()
-  const [dark, setDark] = useState(() => localStorage.getItem('dash01-theme') === 'dark')
-  useEffect(() => {
-    const t = dark ? 'dark' : 'light'
-    document.documentElement.setAttribute('data-theme', t)
-    localStorage.setItem('dash01-theme', t)
-  }, [dark])
+  const dark = document.documentElement.getAttribute('data-theme') === 'dark'
   const [aiOn, setAiOn] = useState(false)
   const [editing, setEditing] = useState(false)
   const [chatOpen, setChatOpen] = useState(false)
@@ -215,7 +181,6 @@ export default function DashboardNew() {
   const newRef = useRef<HTMLDivElement>(null)
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [showCompanyDrawer, setShowCompanyDrawer] = useState(false)
-  const [mobileSidebar, setMobileSidebar] = useState(false)
   const [widgetSearch, setWidgetSearch] = useState('')
   const chatBodyRef = useRef<HTMLDivElement>(null)
   const chatOpenedRef = useRef(false)
@@ -284,10 +249,7 @@ export default function DashboardNew() {
   })
   const maxPipelineTotal = Math.max(1, ...pipeline.map(p => p.total))
 
-  const initials = user?.email ? user.email.split('@')[0].split('.').map(s => s[0]).join('').toUpperCase().slice(0, 2) : 'TL'
-  const displayName = user?.email?.split('@')[0].replace('.', ' ') || 'Terrence Lam'
-
-  // Add/remove widget
+  // Widget icon helper
   const addWidget = (k: string) => {
     if (order.includes(k)) return
     saveOrder([...order, k])
@@ -862,227 +824,162 @@ export default function DashboardNew() {
 
   return (
     <div className={`dash01-shell${editing ? ' editing' : ''}`} data-theme={dark ? 'dark' : 'light'}>
-      <div className="app">
-        {/* SIDEBAR — design01 */}
-        <aside className="sidebar">
-          <div className="sidebar-logo">
-            <svg viewBox="0 0 32 32" fill="none"><path d="M16 3L27 9V23L16 29L5 23V9L16 3Z" stroke="currentColor" strokeWidth="2" strokeLinejoin="round"/><path d="M16 3V15M16 15L27 9M16 15L5 9M16 15V29" stroke="currentColor" strokeWidth="2"/></svg>
-            <span>Nexus CRM</span>
+      {/* Toolbar — dashboard-specific controls */}
+      <div className="dash-toolbar" style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:18,flexWrap:'wrap',gap:10}}>
+        <div>
+          <h1 style={{fontSize:22,fontWeight:700}}>早晨,Terrence 👋</h1>
+          <p style={{fontSize:13,color:'var(--color-text-muted)',marginTop:2}}>{todayStr()}</p>
+        </div>
+        <div style={{display:'flex',alignItems:'center',gap:8}}>
+          <div className="ai-toggle" style={{display:'flex',alignItems:'center',gap:8,padding:'6px 12px',borderRadius:'999px',background:'var(--color-surface-offset)',border:'1px solid var(--color-border)',fontSize:13,fontWeight:600}}>
+            <Sparkles size={15} />
+            <span>AI 秘書</span>
+            <button className={`switch${aiOn ? ' on' : ''}`} role="switch" aria-checked={aiOn}
+              onClick={() => setAiOn(!aiOn)}
+              style={{width:34,height:19,borderRadius:'999px',background:aiOn ? 'var(--color-purple)' : 'var(--color-border)',position:'relative',transition:'background .2s',cursor:'pointer',border:'none',padding:0}} />
           </div>
-          <nav className="sidebar-nav">
-            {navSections.map(section => (
-              <div key={section.label}>
-                <p className="nav-section-label">{section.label}</p>
-                {section.items.map(item => (
-                  <button key={item.to} className={`nav-item${location.pathname === item.to ? ' active' : ''}`}
-                    onClick={() => navigate(item.to)}>
-                    <item.icon size={18} /><span>{item.label}</span>
-                  </button>
-                ))}
-              </div>
-            ))}
-            <button className={`nav-item${location.pathname === '/notifications' ? ' active' : ''}`}
-              onClick={() => navigate('/notifications')}>
-              <Bell size={18} /><span>Notifications</span>
+          <div className="new-menu-wrap" ref={newRef} style={{position:'relative'}}>
+            <button className="new-btn" aria-label="Create new" onClick={() => setNewOpen(!newOpen)}
+              style={{width:38,height:38,borderRadius:'999px',background:'var(--color-primary)',color:'#fff',display:'flex',alignItems:'center',justifyContent:'center',border:'none',cursor:'pointer'}}>
+              <Plus size={20} />
             </button>
-          </nav>
-          <div className="sidebar-user">
-            <div className="avatar">{initials}</div>
-            <div className="info"><strong>{displayName}</strong><span>{user?.email || 'Terrence_PRO'}</span></div>
-            <button className="icon-btn" style={{width:28,height:28}} onClick={() => setDark(!dark)} aria-label="Toggle theme">
-              {dark ? <Sun size={15} /> : <Moon size={15} />}
-            </button>
-          </div>
-        </aside>
-
-        {/* Mobile sidebar overlay */}
-        <div className={`dash-mobile-scrim${mobileSidebar ? ' open' : ''}`} onClick={() => setMobileSidebar(false)} />
-        <aside className={`dash-mobile-sidebar${mobileSidebar ? ' open' : ''}`}>
-          <div className="sidebar-logo">
-            <svg viewBox="0 0 32 32" fill="none"><path d="M16 3L27 9V23L16 29L5 23V9L16 3Z" stroke="currentColor" strokeWidth="2" strokeLinejoin="round"/><path d="M16 3V15M16 15L27 9M16 15L5 9M16 15V29" stroke="currentColor" strokeWidth="2"/></svg>
-            <span>Nexus CRM</span>
-            <button className="icon-btn" style={{marginLeft:'auto',width:28,height:28}} onClick={() => setMobileSidebar(false)}><X size={18} /></button>
-          </div>
-          <nav className="sidebar-nav">
-            {navSections.map(section => (
-              <div key={section.label}>
-                <p className="nav-section-label">{section.label}</p>
-                {section.items.map(item => (
-                  <button key={item.to} className={`nav-item${location.pathname === item.to ? ' active' : ''}`}
-                    onClick={() => { navigate(item.to); setMobileSidebar(false) }}>
-                    <item.icon size={18} /><span>{item.label}</span>
-                  </button>
-                ))}
-              </div>
-            ))}
-            <button className={`nav-item${location.pathname === '/notifications' ? ' active' : ''}`}
-              onClick={() => { navigate('/notifications'); setMobileSidebar(false) }}>
-              <Bell size={18} /><span>Notifications</span>
-            </button>
-          </nav>
-          <div className="sidebar-user">
-            <div className="avatar">{initials}</div>
-            <div className="info"><strong>{displayName}</strong><span>{user?.email || 'Terrence_PRO'}</span></div>
-          </div>
-        </aside>
-
-        {/* MAIN */}
-        <div className="main">
-          {/* TOPBAR — design01 */}
-          <header className="topbar">
-            <div className="topbar-left">
-              <button className="dash-mobile-hamburger" aria-label="Menu" onClick={() => setMobileSidebar(true)}>
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
-              </button>
-              <h1 className="page-title">Dashboard</h1>
-              <div className="ai-toggle">
-                <Sparkles size={15} />
-                <span>AI 秘書</span>
-                <button className={`switch${aiOn ? ' on' : ''}`} role="switch" aria-checked={aiOn}
-                  onClick={() => setAiOn(!aiOn)} />
-              </div>
-            </div>
-            <div className="topbar-right">
-              <button className="icon-btn" aria-label="Search"><Search size={19} /></button>
-              <button className="icon-btn" aria-label="Notifications"><Bell size={19} /></button>
-              <div className="new-menu-wrap" ref={newRef}>
-                <button className="new-btn" aria-label="Create new" onClick={() => setNewOpen(!newOpen)}>
-                  <Plus size={20} />
+            {newOpen && (
+              <div style={{position:'absolute',top:'calc(100% + 8px)',right:0,width:200,background:'var(--color-surface-2)',border:'1px solid var(--color-border)',borderRadius:'var(--radius-lg)',boxShadow:'var(--shadow-lg)',padding:6,zIndex:50}}>
+                <button className="new-dropdown-item" onClick={() => { setNewOpen(false); navigate('/tasks/new') }}
+                  style={{display:'flex',alignItems:'center',gap:10,padding:'9px 10px',borderRadius:'var(--radius-sm)',fontSize:13.5,fontWeight:500,width:'100%',textAlign:'left',color:'var(--color-text)',background:'none',border:'none',cursor:'pointer'}}>
+                  <CheckSquare size={16} style={{color:'var(--color-text-muted)'}} />New Task
                 </button>
-                {newOpen && (
-                  <div className="new-dropdown">
-                    {newItems.map(item => (
-                      <button key={item.label} className="new-dropdown-item" onClick={() => { setNewOpen(false); navigate(item.route) }}>
-                        <item.icon size={16} />{item.label}
-                      </button>
-                    ))}
+                <button className="new-dropdown-item" onClick={() => { setNewOpen(false); navigate('/contacts/new') }}
+                  style={{display:'flex',alignItems:'center',gap:10,padding:'9px 10px',borderRadius:'var(--radius-sm)',fontSize:13.5,fontWeight:500,width:'100%',textAlign:'left',color:'var(--color-text)',background:'none',border:'none',cursor:'pointer'}}>
+                  <Users size={16} style={{color:'var(--color-text-muted)'}} />New Contact
+                </button>
+                <button className="new-dropdown-item" onClick={() => { setNewOpen(false); navigate('/companies/new') }}
+                  style={{display:'flex',alignItems:'center',gap:10,padding:'9px 10px',borderRadius:'var(--radius-sm)',fontSize:13.5,fontWeight:500,width:'100%',textAlign:'left',color:'var(--color-text)',background:'none',border:'none',cursor:'pointer'}}>
+                  <Building2 size={16} style={{color:'var(--color-text-muted)'}} />New Company
+                </button>
+              </div>
+            )}
+          </div>
+          <button className={`btn ${editing ? 'btn-primary' : 'btn-ghost'}`}
+            onClick={() => setEditing(!editing)}
+            style={{display:'inline-flex',alignItems:'center',gap:6,padding:'9px 16px',borderRadius:'var(--radius-md)',fontSize:13.5,fontWeight:600,cursor:'pointer',border:'none'}}>
+            <Layout size={15} />{editing ? '完成' : '自訂版面'}
+          </button>
+        </div>
+      </div>
+
+      {/* AI Daily Brief */}
+      <section className={`ai-brief${aiOn ? ' show' : ''}`}
+        style={{display:aiOn ? 'block' : 'none',background:'linear-gradient(135deg,color-mix(in oklch,var(--color-purple)10%,var(--color-surface)),var(--color-surface))',border:'1px solid color-mix(in oklch,var(--color-purple)25%,var(--color-border))',borderRadius:'var(--radius-xl)',padding:'20px 22px',marginBottom:20}}>
+        <div className="ai-brief-head" style={{display:'flex',alignItems:'center',gap:10,marginBottom:14}}>
+          <Sparkles size={20} style={{color:'var(--color-purple)'}} />
+          <h2 style={{fontSize:15,fontWeight:700,margin:0}}>AI 每日簡報</h2>
+          <span style={{fontSize:12,color:'var(--color-text-muted)',marginLeft:'auto'}}>基於即時數據 · 自動更新</span>
+        </div>
+        <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:16}}>
+          <div>
+            <h4 style={{fontSize:12,fontWeight:700,textTransform:'uppercase',letterSpacing:'.04em',color:'var(--color-text-muted)',marginBottom:8}}>今日重點</h4>
+            <ul style={{listStyle:'none',display:'flex',flexDirection:'column',gap:6,padding:0,margin:0}}>
+              <li style={{fontSize:13,display:'flex',gap:6,lineHeight:1.4}}><span style={{color:'var(--color-purple)'}}>•</span>{stats.deals} 個 Deal 進行中,總值 {stats.dealValue}</li>
+              <li style={{fontSize:13,display:'flex',gap:6,lineHeight:1.4}}><span style={{color:'var(--color-purple)'}}>•</span>本日 {stats.tasks} 項待辦任務</li>
+            </ul>
+          </div>
+          <div>
+            <h4 style={{fontSize:12,fontWeight:700,textTransform:'uppercase',letterSpacing:'.04em',color:'var(--color-text-muted)',marginBottom:8}}>會議準備</h4>
+            <ul style={{listStyle:'none',display:'flex',flexDirection:'column',gap:6,padding:0,margin:0}}>
+              {touchpoints.slice(0, 2).map(tp => (
+                <li key={tp.id} style={{fontSize:13,display:'flex',gap:6,lineHeight:1.4}}><span style={{color:'var(--color-purple)'}}>•</span>{tp.title}</li>
+              ))}
+              {touchpoints.length === 0 && <li style={{fontSize:13,color:'var(--color-text-muted)'}}>暫無會議</li>}
+            </ul>
+          </div>
+          <div>
+            <h4 style={{fontSize:12,fontWeight:700,textTransform:'uppercase',letterSpacing:'.04em',color:'var(--color-text-muted)',marginBottom:8}}>風險提示</h4>
+            <ul style={{listStyle:'none',display:'flex',flexDirection:'column',gap:6,padding:0,margin:0}}>
+              <li style={{fontSize:13,display:'flex',gap:6,lineHeight:1.4}}><span style={{color:'var(--color-purple)'}}>•</span>{tasks.filter(t => t.priority === 'P0').length} 件緊急任務需跟進</li>
+              <li style={{fontSize:13,display:'flex',gap:6,lineHeight:1.4}}><span style={{color:'var(--color-purple)'}}>•</span>{stats.companies} 間公司活躍中</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      {/* WIDGET GRID — CSS grid, 12-column, span classes */}
+      <div style={{display:'grid',gridTemplateColumns:'repeat(12,1fr)',gap:16,alignItems:'start'}}>
+        {order.map((k) => {
+          const def = allWidgets[k]
+          if (!def) return null
+          const IconComp = widgetIcon(k)
+          return (
+            <div key={k} className={`widget`}
+              style={{gridColumn:`span ${def.span}`,background:'var(--color-surface-2)',border:'1px solid var(--color-border)',borderRadius:'var(--radius-lg)',padding:16,display:'flex',flexDirection:'column',position:'relative',minHeight:160}}
+              draggable={editing}
+              onDragStart={() => { if (editing) dragKey.current = k }}
+              onDragOver={(e) => {
+                if (!editing || !dragKey.current || dragKey.current === k) return
+                e.preventDefault()
+                moveWidget(dragKey.current, k)
+              }}
+              onDragEnd={() => { dragKey.current = null }}>
+              <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:12,flexShrink:0}}>
+                <h3 style={{fontSize:13.5,fontWeight:700,margin:0,display:'flex',alignItems:'center',gap:6}}>
+                  <IconComp size={15} style={{color: iconColor(k)}} />
+                  {k.startsWith('kpi_') ? def.label :
+                   k === 'tasks' ? <>Today's Tasks <span className="badge" style={{padding:'2px 8px',borderRadius:'999px',fontSize:11,fontWeight:700,background:'color-mix(in oklch,var(--color-primary)18%,var(--color-surface))',color:'var(--color-primary)'}}>{stats.tasks}</span></> :
+                   k === 'touchpoints' ? 'Recent Touchpoints' :
+                   k === 'pipeline' ? 'Deal Pipeline' :
+                   k === 'dealvalue' ? <><DollarSign size={15} style={{color:'var(--color-text-muted)'}} /> Total Deal Value</> :
+                   k === 'aiinsight' ? <><Sparkles size={15} style={{color:'var(--color-purple)'}} /> AI Insight</> :
+                   k === 'activity_feed' ? <><Activity size={15} style={{color:'var(--color-text-muted)'}} /> Activity Feed</> :
+                   def.label}
+                </h3>
+                {editing && (
+                  <div style={{display:'flex',gap:2}}>
+                    <button aria-label="拖曳排序" style={{width:24,height:24,display:'flex',alignItems:'center',justifyContent:'center',borderRadius:'var(--radius-sm)',color:'var(--color-text-faint)',background:'none',border:'none',cursor:'pointer'}}>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="9" cy="6" r="1"/><circle cx="9" cy="12" r="1"/><circle cx="9" cy="18" r="1"/><circle cx="15" cy="6" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="15" cy="18" r="1"/></svg>
+                    </button>
+                    <button aria-label="移除" onClick={(e) => { e.stopPropagation(); removeW(k) }} style={{width:24,height:24,display:'flex',alignItems:'center',justifyContent:'center',borderRadius:'var(--radius-sm)',color:'var(--color-text-faint)',background:'none',border:'none',cursor:'pointer'}}>
+                      <X size={14} />
+                    </button>
                   </div>
                 )}
               </div>
-            </div>
-          </header>
-
-          {/* CONTENT — design01 main-content exactly */}
-          <main className="content">
-            <div className="dash-toolbar">
-              <div>
-                <h1>早晨,Terrence 👋</h1>
-                <p>{todayStr()}</p>
+              <div className="widget-body" style={{flex:1,minHeight:0}}>
+                {widgetBodies[k] ? widgetBodies[k]() : (
+                  <div style={{padding:'16px 0',fontSize:12,color:'var(--color-text-faint)'}}>No content</div>
+                )}
               </div>
-              <div style={{display:'flex', gap:10}}>
-                <button className={`btn ${editing ? 'btn-primary' : 'btn-ghost'}`}
-                  onClick={() => setEditing(!editing)}>
-                  <Layout size={15} />{editing ? '完成' : '自訂版面'}
+              {(k === 'c1' || k === 'co3' || k === 'd3' || k === 't2' || k === 's2' || k === 'te1') && aiOn && (
+                <button className="ai-tag" style={{display:'inline-flex',alignItems:'center',gap:5,padding:'5px 10px',borderRadius:'999px',background:'var(--color-purple-highlight)',color:'var(--color-purple)',fontSize:11.5,fontWeight:700,marginTop:8,border:'none',cursor:'pointer'}}
+                  onClick={() => {
+                    setChatOpen(true)
+                    if (!chatOpenedRef.current) {
+                      chatOpenedRef.current = true
+                      setTimeout(() => sendInitialReport(), 400)
+                    }
+                  }}>
+                  <Sparkles size={12} />AI advise
                 </button>
-              </div>
-            </div>
-
-            {/* AI Daily Brief */}
-            <section className={`ai-brief${aiOn ? ' show' : ''}`}>
-              <div className="ai-brief-head">
-                <Sparkles size={20} />
-                <h2>AI 每日簡報</h2>
-                <span>基於即時數據 · 自動更新</span>
-              </div>
-              <div className="ai-brief-grid">
-                <div className="ai-brief-col">
-                  <h4>今日重點</h4>
-                  <ul>
-                    <li>{stats.deals} 個 Deal 進行中,總值 {stats.dealValue}</li>
-                    <li>本日 {stats.tasks} 項待辦任務</li>
-                  </ul>
-                </div>
-                <div className="ai-brief-col">
-                  <h4>會議準備</h4>
-                  <ul>
-                    {touchpoints.slice(0, 2).map(tp => (
-                      <li key={tp.id}>{tp.title}</li>
-                    ))}
-                    {touchpoints.length === 0 && <li style={{color:'var(--color-text-muted)'}}>暫無會議</li>}
-                  </ul>
-                </div>
-                <div className="ai-brief-col">
-                  <h4>風險提示</h4>
-                  <ul>
-                    <li>{tasks.filter(t => t.priority === 'P0').length} 件緊急任務需跟進</li>
-                    <li>{stats.companies} 間公司活躍中</li>
-                  </ul>
-                </div>
-              </div>
-            </section>
-
-            {/* WIDGET GRID — CSS grid, 12-column, span classes */}
-            <div className="grid">
-              {order.map((k) => {
-                const def = allWidgets[k]
-                if (!def) return null
-                const IconComp = widgetIcon(k)
-                return (
-                  <div key={k} className={`widget span-${def.span}${dragKey.current === k ? ' dragging' : ''}`}
-                    draggable={editing}
-                    onDragStart={() => { if (editing) dragKey.current = k }}
-                    onDragOver={(e) => {
-                      if (!editing || !dragKey.current || dragKey.current === k) return
-                      e.preventDefault()
-                      moveWidget(dragKey.current, k)
-                    }}
-                    onDragEnd={() => { dragKey.current = null }}>
-                    <div className="widget-head">
-                      <h3>
-                        <IconComp size={15} style={{color: iconColor(k)}} />
-                        {k.startsWith('kpi_') ? def.label :
-                         k === 'tasks' ? <>Today's Tasks <span className="badge" style={{background:'color-mix(in oklch,var(--color-primary)18%,var(--color-surface))',color:'var(--color-primary)'}}>{stats.tasks}</span></> :
-                         k === 'touchpoints' ? 'Recent Touchpoints' :
-                         k === 'pipeline' ? 'Deal Pipeline' :
-                         k === 'dealvalue' ? <><DollarSign size={15} style={{color:'var(--color-text-muted)'}} /> Total Deal Value</> :
-                         k === 'aiinsight' ? <><Sparkles size={15} style={{color:'var(--color-purple)'}} /> AI Insight</> :
-                         k === 'activity_feed' ? <><Activity size={15} style={{color:'var(--color-text-muted)'}} /> Activity Feed</> :
-                         def.label}
-                      </h3>
-                      {editing && (
-                        <div className="widget-actions">
-                          <button aria-label="拖曳排序"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="9" cy="6" r="1"/><circle cx="9" cy="12" r="1"/><circle cx="9" cy="18" r="1"/><circle cx="15" cy="6" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="15" cy="18" r="1"/></svg></button>
-                          <button aria-label="移除" onClick={(e) => { e.stopPropagation(); removeW(k) }}><X size={14} /></button>
-                        </div>
-                      )}
-                    </div>
-                    <div className="widget-body">
-                      {widgetBodies[k] ? widgetBodies[k]() : (
-                        <div style={{padding:'16px 0',fontSize:12,color:'var(--color-text-faint)'}}>No content</div>
-                      )}
-                    </div>
-                    {(k === 'c1' || k === 'co3' || k === 'd3' || k === 't2' || k === 's2' || k === 'te1') && aiOn && (
-                      <button className="ai-tag" style={{display:'inline-flex',marginTop:8}}
-                        onClick={() => {
-                          setChatOpen(true)
-                          if (!chatOpenedRef.current) {
-                            chatOpenedRef.current = true
-                            setTimeout(() => sendInitialReport(), 400)
-                          }
-                        }}>
-                        <Sparkles size={12} />AI advise
-                      </button>
-                    )}
-                  </div>
-                )
-              })}
-              {/* Add Widget Tile — opens drawer */}
-              {editing && (
-                <div className="add-widget-tile" onClick={() => setDrawerOpen(true)}>
-                  <Plus size={24} />
-                  <span>新增小工具</span>
-                </div>
               )}
             </div>
-
-            {aiOn && (
-              <div className="ai-tag" style={{display:'inline-flex',alignSelf:'flex-start',marginTop:10}}>
-                <Sparkles size={12} /> AI 分析已啟用
-              </div>
-            )}
-          </main>
-        </div>
+          )
+        })}
+        {/* Add Widget Tile — opens drawer */}
+        {editing && (
+          <div className="add-widget-tile"
+            style={{gridColumn:'span 4',border:'1.5px dashed var(--color-border)',borderRadius:'var(--radius-lg)',minHeight:160,display:'flex',alignItems:'center',justifyContent:'center',flexDirection:'column',gap:8,color:'var(--color-text-muted)',cursor:'pointer'}}
+            onClick={() => setDrawerOpen(true)}>
+            <Plus size={24} />
+            <span style={{fontSize:13,fontWeight:600}}>新增小工具</span>
+          </div>
+        )}
       </div>
+
+      {aiOn && (
+        <div className="ai-tag" style={{display:'inline-flex',alignItems:'center',gap:5,padding:'5px 10px',borderRadius:'999px',background:'var(--color-purple-highlight)',color:'var(--color-purple)',fontSize:11.5,fontWeight:700,marginTop:10,border:'none',cursor:'pointer'}}>
+          <Sparkles size={12} /> AI 分析已啟用
+        </div>
+      )}
+
 
       {/* ── DRAWER (Widget Picker) — outside .content to avoid overflow clip ── */}
       <div className={`drawer-overlay${drawerOpen ? ' show' : ''}`} onClick={() => setDrawerOpen(false)} />
