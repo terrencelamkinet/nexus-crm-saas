@@ -1,15 +1,32 @@
 """
 Tool registry — canonical catalog of all AI-callable tools.
 
-Every tool that the AI layer can invoke must be registered in TOOL_REGISTRY.
-Handlers are async placeholder functions that raise NotImplementedError until
-the concrete CRM service module wires them in.
+Every tool that the AI layer can invoke is registered in TOOL_REGISTRY.
+Handlers call SQLAlchemy models directly (no service layer dependency).
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from datetime import datetime, timezone, timedelta
 from typing import Any, Callable, Coroutine
+from uuid import UUID
+
+from sqlalchemy import func, select, or_
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
+
+from app.ai.session.context import AISessionContext
+from app.models.crm import (
+    Company,
+    Contact,
+    Project,
+    ProjectCalendarEvent,
+    Task,
+    Touchpoint,
+    TouchpointParticipant,
+)
+from app.models.crm_module_b import Deal, DealStage
 
 # ---------------------------------------------------------------------------
 # Data structures
@@ -29,19 +46,584 @@ class ToolDef:
 
 
 # ---------------------------------------------------------------------------
-# Placeholder handlers
+# Helper: convert an ORM row to a plain dict
 # ---------------------------------------------------------------------------
 
 
-async def _not_implemented_handler(**kwargs: Any) -> Any:
-    raise NotImplementedError(
-        f"Handler for this tool has not been wired in yet. "
-        f"Received kwargs: {kwargs}"
+def _row_to_dict(row: Any) -> dict[str, Any]:
+    """Convert a SQLAlchemy model instance to a dict, coercing UUIDs to strings."""
+    d = {}
+    for col in row.__table__.columns:
+        val = getattr(row, col.name)
+        if isinstance(val, UUID):
+            val = str(val)
+        elif isinstance(val, datetime):
+            val = val.isoformat()
+        d[col.name] = val
+    return d
+
+
+# ---------------------------------------------------------------------------
+# 10 READ tool handlers
+# ---------------------------------------------------------------------------
+
+
+async def _search_companies(
+    ctx: AISessionContext,
+    params: dict[str, Any],
+    db: AsyncSession,
+) -> list[dict[str, Any]]:
+    """Search companies by name or domain, tenant-scoped."""
+    query = params.get("query", "")
+    limit = min(params.get("limit", 20), 100)
+
+    base = select(Company).where(Company.tenant_id == ctx.tenant_id)
+    if query:
+        base = base.where(
+            or_(
+                Company.name.ilike(f"%{query}%"),
+                Company.domain.ilike(f"%{query}%"),
+            )
+        )
+    base = base.order_by(Company.created_at.desc()).limit(limit)
+    rows = (await db.execute(base)).scalars().all()
+    return [_row_to_dict(r) for r in rows]
+
+
+async def _get_company_detail(
+    ctx: AISessionContext,
+    params: dict[str, Any],
+    db: AsyncSession,
+) -> dict[str, Any] | None:
+    """Get a single company by UUID."""
+    company_id = UUID(params["company_id"])
+    result = await db.execute(
+        select(Company).where(
+            Company.id == company_id, Company.tenant_id == ctx.tenant_id
+        )
+    )
+    company = result.scalar_one_or_none()
+    if not company:
+        return None
+    return _row_to_dict(company)
+
+
+async def _search_contacts(
+    ctx: AISessionContext,
+    params: dict[str, Any],
+    db: AsyncSession,
+) -> list[dict[str, Any]]:
+    """Search contacts by name, email or phone, tenant-scoped."""
+    query = params.get("query", "")
+    limit = min(params.get("limit", 20), 100)
+    company_id = params.get("company_id")
+
+    base = select(Contact).where(Contact.tenant_id == ctx.tenant_id)
+
+    if query:
+        base = base.where(
+            or_(
+                Contact.name.ilike(f"%{query}%"),
+                Contact.email.ilike(f"%{query}%"),
+                Contact.phone.ilike(f"%{query}%"),
+            )
+        )
+    if company_id:
+        base = base.where(Contact.company_id == UUID(company_id))
+
+    base = base.order_by(Contact.created_at.desc()).limit(limit)
+    rows = (await db.execute(base)).scalars().all()
+    return [_row_to_dict(r) for r in rows]
+
+
+async def _get_contact_detail(
+    ctx: AISessionContext,
+    params: dict[str, Any],
+    db: AsyncSession,
+) -> dict[str, Any] | None:
+    """Get a single contact by UUID."""
+    contact_id = UUID(params["contact_id"])
+    result = await db.execute(
+        select(Contact)
+        .options(selectinload(Contact.company))
+        .where(Contact.id == contact_id, Contact.tenant_id == ctx.tenant_id)
+    )
+    contact = result.scalar_one_or_none()
+    if not contact:
+        return None
+    d = _row_to_dict(contact)
+    if contact.company:
+        d["company"] = {"id": str(contact.company.id), "name": contact.company.name}
+    return d
+
+
+async def _search_projects(
+    ctx: AISessionContext,
+    params: dict[str, Any],
+    db: AsyncSession,
+) -> list[dict[str, Any]]:
+    """Search projects by name/code, optionally filtered by status."""
+    query = params.get("query", "")
+    status = params.get("status")
+    limit = min(params.get("limit", 20), 100)
+
+    base = (
+        select(Project)
+        .options(selectinload(Project.company))
+        .where(Project.tenant_id == ctx.tenant_id)
     )
 
+    if query:
+        base = base.where(Project.name.ilike(f"%{query}%"))
+    if status:
+        base = base.where(Project.status == status)
 
-def _placeholder() -> Callable[..., Coroutine[Any, Any, Any]]:
-    return _not_implemented_handler
+    base = base.order_by(Project.created_at.desc()).limit(limit)
+    rows = (await db.execute(base)).scalars().all()
+
+    items = []
+    for r in rows:
+        d = _row_to_dict(r)
+        if r.company:
+            d["company"] = {"id": str(r.company.id), "name": r.company.name}
+        items.append(d)
+    return items
+
+
+async def _list_tasks(
+    ctx: AISessionContext,
+    params: dict[str, Any],
+    db: AsyncSession,
+) -> list[dict[str, Any]]:
+    """List tasks, optionally filtered by project/assignee/status."""
+    project_id = params.get("project_id")
+    assignee_id = params.get("assignee_id")
+    status = params.get("status")
+    limit = min(params.get("limit", 50), 200)
+
+    base = (
+        select(Task)
+        .options(selectinload(Task.company))
+        .where(Task.tenant_id == ctx.tenant_id)
+    )
+
+    if project_id:
+        base = base.where(Task.deal_id == UUID(project_id))
+    if assignee_id:
+        base = base.where(Task.assignee_id == UUID(assignee_id))
+    if status:
+        base = base.where(Task.status == status)
+
+    base = base.order_by(Task.created_at.desc()).limit(limit)
+    rows = (await db.execute(base)).scalars().all()
+
+    items = []
+    for r in rows:
+        d = _row_to_dict(r)
+        if r.company:
+            d["company"] = {"id": str(r.company.id), "name": r.company.name}
+        d["parent_task_id"] = str(r.parent_task_id) if r.parent_task_id else None
+        items.append(d)
+    return items
+
+
+async def _list_touchpoints(
+    ctx: AISessionContext,
+    params: dict[str, Any],
+    db: AsyncSession,
+) -> list[dict[str, Any]]:
+    """List touchpoints, optionally filtered by company or contact."""
+    company_id = params.get("company_id")
+    contact_id = params.get("contact_id")
+    limit = min(params.get("limit", 50), 200)
+
+    base = (
+        select(Touchpoint)
+        .options(selectinload(Touchpoint.company), selectinload(Touchpoint.participants))
+        .where(Touchpoint.tenant_id == ctx.tenant_id)
+    )
+
+    if contact_id:
+        base = base.where(
+            Touchpoint.id.in_(
+                select(TouchpointParticipant.touchpoint_id).where(
+                    TouchpointParticipant.contact_id == UUID(contact_id),
+                    TouchpointParticipant.tenant_id == ctx.tenant_id,
+                )
+            )
+        )
+
+    if company_id:
+        base = base.where(Touchpoint.company_id == UUID(company_id))
+
+    base = base.order_by(Touchpoint.created_at.desc()).limit(limit)
+    rows = (await db.execute(base)).scalars().all()
+
+    items = []
+    for r in rows:
+        d = _row_to_dict(r)
+        if r.company:
+            d["company"] = {"id": str(r.company.id), "name": r.company.name}
+        d["participants"] = [
+            {"id": str(p.id), "name": p.name} for p in r.participants
+        ]
+        items.append(d)
+    return items
+
+
+async def _get_dashboard_summary(
+    ctx: AISessionContext,
+    params: dict[str, Any],
+    db: AsyncSession,
+) -> dict[str, Any]:
+    """Aggregate counts from multiple CRM tables for a dashboard overview."""
+    tid = ctx.tenant_id
+    period_str = params.get("period", "30d")
+
+    # Determine the cutoff date based on period
+    cutoff_map = {"7d": 7, "30d": 30, "90d": 90}
+    days = cutoff_map.get(period_str, 30)
+    cutoff = datetime.now(timezone.utc) - timedelta(days=days)
+
+    # Run all counts concurrently
+    company_count = (
+        await db.execute(
+            select(func.count()).select_from(
+                select(Company).where(Company.tenant_id == tid).subquery()
+            )
+        )
+    ).scalar() or 0
+
+    contact_count = (
+        await db.execute(
+            select(func.count()).select_from(
+                select(Contact).where(Contact.tenant_id == tid).subquery()
+            )
+        )
+    ).scalar() or 0
+
+    project_count = (
+        await db.execute(
+            select(func.count()).select_from(
+                select(Project).where(Project.tenant_id == tid).subquery()
+            )
+        )
+    ).scalar() or 0
+
+    task_count = (
+        await db.execute(
+            select(func.count()).select_from(
+                select(Task).where(Task.tenant_id == tid).subquery()
+            )
+        )
+    ).scalar() or 0
+
+    open_task_count = (
+        await db.execute(
+            select(func.count()).select_from(
+                select(Task)
+                .where(Task.tenant_id == tid, Task.status.in_(["pending", "in_progress"]))
+                .subquery()
+            )
+        )
+    ).scalar() or 0
+
+    deal_count = (
+        await db.execute(
+            select(func.count()).select_from(
+                select(Deal).where(Deal.tenant_id == tid).subquery()
+            )
+        )
+    ).scalar() or 0
+
+    open_deal_count = (
+        await db.execute(
+            select(func.count()).select_from(
+                select(Deal).where(Deal.tenant_id == tid, Deal.status == "open").subquery()
+            )
+        )
+    ).scalar() or 0
+
+    # Recent activity — items created in the period
+    recent_companies = (
+        await db.execute(
+            select(func.count()).select_from(
+                select(Company)
+                .where(Company.tenant_id == tid, Company.created_at >= cutoff)
+                .subquery()
+            )
+        )
+    ).scalar() or 0
+
+    recent_contacts = (
+        await db.execute(
+            select(func.count()).select_from(
+                select(Contact)
+                .where(Contact.tenant_id == tid, Contact.created_at >= cutoff)
+                .subquery()
+            )
+        )
+    ).scalar() or 0
+
+    recent_tasks = (
+        await db.execute(
+            select(func.count()).select_from(
+                select(Task)
+                .where(Task.tenant_id == tid, Task.created_at >= cutoff)
+                .subquery()
+            )
+        )
+    ).scalar() or 0
+
+    # Touchpoints
+    touchpoint_count = (
+        await db.execute(
+            select(func.count()).select_from(
+                select(Touchpoint).where(Touchpoint.tenant_id == tid).subquery()
+            )
+        )
+    ).scalar() or 0
+
+    return {
+        "period": period_str,
+        "companies": company_count,
+        "contacts": contact_count,
+        "projects": project_count,
+        "tasks": task_count,
+        "open_tasks": open_task_count,
+        "deals": deal_count,
+        "open_deals": open_deal_count,
+        "touchpoints": touchpoint_count,
+        "recent": {
+            "new_companies": recent_companies,
+            "new_contacts": recent_contacts,
+            "new_tasks": recent_tasks,
+        },
+    }
+
+
+async def _search_deals(
+    ctx: AISessionContext,
+    params: dict[str, Any],
+    db: AsyncSession,
+) -> list[dict[str, Any]]:
+    """Search deals by name, optionally filtered by stage."""
+    query = params.get("query", "")
+    stage = params.get("stage")
+    limit = min(params.get("limit", 20), 100)
+
+    base = select(Deal).where(Deal.tenant_id == ctx.tenant_id)
+
+    if query:
+        base = base.where(Deal.name.ilike(f"%{query}%"))
+    if stage:
+        base = base.where(Deal.stage_id == UUID(stage))
+
+    base = base.order_by(Deal.created_at.desc()).limit(limit)
+    rows = (await db.execute(base)).scalars().all()
+
+    items = []
+    for r in rows:
+        d = _row_to_dict(r)
+        d["amount"] = float(r.amount) if r.amount is not None else None
+        items.append(d)
+    return items
+
+
+async def _get_upcoming_events(
+    ctx: AISessionContext,
+    params: dict[str, Any],
+    db: AsyncSession,
+) -> list[dict[str, Any]]:
+    """Get upcoming project calendar events."""
+    days_ahead = params.get("days_ahead", 30)
+    limit = min(params.get("limit", 20), 100)
+
+    now = datetime.now(timezone.utc)
+    cutoff = now + timedelta(days=int(days_ahead))
+
+    base = (
+        select(ProjectCalendarEvent)
+        .where(
+            ProjectCalendarEvent.tenant_id == ctx.tenant_id,
+            ProjectCalendarEvent.start >= now,
+            ProjectCalendarEvent.start <= cutoff,
+        )
+        .order_by(ProjectCalendarEvent.start.asc())
+        .limit(limit)
+    )
+
+    rows = (await db.execute(base)).scalars().all()
+    return [_row_to_dict(r) for r in rows]
+
+
+# ---------------------------------------------------------------------------
+# 3 WRITE tool handlers (draft-only for now; execute mode not yet implemented)
+# ---------------------------------------------------------------------------
+
+
+async def _create_task_draft(
+    ctx: AISessionContext,
+    params: dict[str, Any],
+    db: AsyncSession,
+    mode: str = "draft",
+) -> dict[str, Any]:
+    """Validate task creation params and return a preview dict.
+
+    In "draft" mode: validates required fields and returns a preview.
+    In "execute" mode: validates and creates the actual Task record.
+    """
+    errors: list[str] = []
+    if not params.get("title"):
+        errors.append("'title' is required")
+
+    preview = {
+        "action": "create_task",
+        "title": params.get("title"),
+        "description": params.get("description"),
+        "assignee_id": params.get("assignee_id"),
+        "due_date": params.get("due_date"),
+        "priority": params.get("priority", "medium"),
+        "status": "pending",
+        "validated": len(errors) == 0,
+    }
+
+    if errors:
+        preview["errors"] = errors
+        return preview
+
+    if mode == "execute":
+        task = Task(
+            tenant_id=ctx.tenant_id,
+            title=params["title"],
+            description=params.get("description"),
+            assignee_id=UUID(params["assignee_id"]) if params.get("assignee_id") else None,
+            due_date=(
+                datetime.strptime(params["due_date"], "%Y-%m-%d").date()
+                if params.get("due_date")
+                else None
+            ),
+            priority=params.get("priority", "medium"),
+            created_by=ctx.user_id,
+        )
+        db.add(task)
+        await db.flush()
+        await db.refresh(task)
+        preview["id"] = str(task.id)
+        preview["created_at"] = task.created_at.isoformat()
+
+    return preview
+
+
+async def _create_touchpoint_draft(
+    ctx: AISessionContext,
+    params: dict[str, Any],
+    db: AsyncSession,
+    mode: str = "draft",
+) -> dict[str, Any]:
+    """Validate touchpoint creation params and return a preview dict."""
+    errors: list[str] = []
+    if not params.get("type"):
+        errors.append("'type' is required (call, email, meeting, note, other)")
+    if not params.get("summary"):
+        errors.append("'summary' is required")
+
+    preview = {
+        "action": "create_touchpoint",
+        "type": params.get("type"),
+        "summary": params.get("summary"),
+        "company_id": params.get("company_id"),
+        "contact_id": params.get("contact_id"),
+        "occurred_at": params.get("occurred_at"),
+        "validated": len(errors) == 0,
+    }
+
+    if errors:
+        preview["errors"] = errors
+        return preview
+
+    if mode == "execute":
+        touchpoint = Touchpoint(
+            tenant_id=ctx.tenant_id,
+            title=params["summary"],
+            type=params["type"],
+            description=params.get("summary"),
+            company_id=UUID(params["company_id"]) if params.get("company_id") else None,
+            contact_id=UUID(params["contact_id"]) if params.get("contact_id") else None,
+            date=(
+                datetime.fromisoformat(params["occurred_at"])
+                if params.get("occurred_at")
+                else datetime.now(timezone.utc)
+            ),
+            created_by=ctx.user_id,
+        )
+        db.add(touchpoint)
+        await db.flush()
+        await db.refresh(touchpoint)
+        preview["id"] = str(touchpoint.id)
+        preview["created_at"] = touchpoint.created_at.isoformat()
+
+    return preview
+
+
+async def _update_contact_draft(
+    ctx: AISessionContext,
+    params: dict[str, Any],
+    db: AsyncSession,
+    mode: str = "draft",
+) -> dict[str, Any]:
+    """Validate contact update params and return a preview dict.
+
+    In "draft" mode: validates params, looks up the contact, and shows
+    what would be changed.
+    In "execute" mode: performs the actual update.
+    """
+    errors: list[str] = []
+    contact_id_str = params.get("contact_id")
+    if not contact_id_str:
+        errors.append("'contact_id' is required")
+
+    contact = None
+    if contact_id_str:
+        try:
+            contact_id = UUID(contact_id_str)
+            result = await db.execute(
+                select(Contact).where(
+                    Contact.id == contact_id, Contact.tenant_id == ctx.tenant_id
+                )
+            )
+            contact = result.scalar_one_or_none()
+            if not contact:
+                errors.append(f"Contact '{contact_id_str}' not found")
+        except ValueError:
+            errors.append(f"Invalid contact_id format: {contact_id_str}")
+
+    changes = {}
+    for field in ("name", "email", "phone", "notes"):
+        if field in params and params[field] is not None:
+            changes[field] = params[field]
+
+    preview = {
+        "action": "update_contact",
+        "contact_id": contact_id_str,
+        "current": _row_to_dict(contact) if contact else None,
+        "changes": changes,
+        "validated": len(errors) == 0,
+    }
+
+    if errors:
+        preview["errors"] = errors
+        return preview
+
+    if mode == "execute" and contact:
+        for field, value in changes.items():
+            setattr(contact, field, value)
+        contact.updated_at = datetime.now(timezone.utc)
+        await db.flush()
+        await db.refresh(contact)
+        preview["result"] = _row_to_dict(contact)
+
+    return preview
 
 
 # ---------------------------------------------------------------------------
@@ -62,7 +644,7 @@ TOOL_REGISTRY: dict[str, ToolDef] = {
                 "limit": {"type": "integer", "default": 20},
             },
         },
-        handler=_placeholder(),
+        handler=_search_companies,
     ),
     "get_company_detail": ToolDef(
         key="get_company_detail",
@@ -75,7 +657,7 @@ TOOL_REGISTRY: dict[str, ToolDef] = {
             },
             "required": ["company_id"],
         },
-        handler=_placeholder(),
+        handler=_get_company_detail,
     ),
     "search_contacts": ToolDef(
         key="search_contacts",
@@ -89,7 +671,7 @@ TOOL_REGISTRY: dict[str, ToolDef] = {
                 "limit": {"type": "integer", "default": 20},
             },
         },
-        handler=_placeholder(),
+        handler=_search_contacts,
     ),
     "get_contact_detail": ToolDef(
         key="get_contact_detail",
@@ -102,7 +684,7 @@ TOOL_REGISTRY: dict[str, ToolDef] = {
             },
             "required": ["contact_id"],
         },
-        handler=_placeholder(),
+        handler=_get_contact_detail,
     ),
     "search_projects": ToolDef(
         key="search_projects",
@@ -116,7 +698,7 @@ TOOL_REGISTRY: dict[str, ToolDef] = {
                 "limit": {"type": "integer", "default": 20},
             },
         },
-        handler=_placeholder(),
+        handler=_search_projects,
     ),
     "list_tasks": ToolDef(
         key="list_tasks",
@@ -131,7 +713,7 @@ TOOL_REGISTRY: dict[str, ToolDef] = {
                 "limit": {"type": "integer", "default": 50},
             },
         },
-        handler=_placeholder(),
+        handler=_list_tasks,
     ),
     "list_touchpoints": ToolDef(
         key="list_touchpoints",
@@ -145,7 +727,7 @@ TOOL_REGISTRY: dict[str, ToolDef] = {
                 "limit": {"type": "integer", "default": 50},
             },
         },
-        handler=_placeholder(),
+        handler=_list_touchpoints,
     ),
     "get_dashboard_summary": ToolDef(
         key="get_dashboard_summary",
@@ -157,7 +739,7 @@ TOOL_REGISTRY: dict[str, ToolDef] = {
                 "period": {"type": "string", "enum": ["7d", "30d", "90d"], "default": "30d"},
             },
         },
-        handler=_placeholder(),
+        handler=_get_dashboard_summary,
     ),
     "search_deals": ToolDef(
         key="search_deals",
@@ -171,7 +753,7 @@ TOOL_REGISTRY: dict[str, ToolDef] = {
                 "limit": {"type": "integer", "default": 20},
             },
         },
-        handler=_placeholder(),
+        handler=_search_deals,
     ),
     "get_upcoming_events": ToolDef(
         key="get_upcoming_events",
@@ -184,7 +766,7 @@ TOOL_REGISTRY: dict[str, ToolDef] = {
                 "limit": {"type": "integer", "default": 20},
             },
         },
-        handler=_placeholder(),
+        handler=_get_upcoming_events,
     ),
     # ---- 3 WRITE tools (all require confirmation) --------------------------
     "create_task_draft": ToolDef(
@@ -203,7 +785,7 @@ TOOL_REGISTRY: dict[str, ToolDef] = {
             },
             "required": ["title"],
         },
-        handler=_placeholder(),
+        handler=_create_task_draft,
     ),
     "create_touchpoint_draft": ToolDef(
         key="create_touchpoint_draft",
@@ -221,7 +803,7 @@ TOOL_REGISTRY: dict[str, ToolDef] = {
             },
             "required": ["type", "summary"],
         },
-        handler=_placeholder(),
+        handler=_create_touchpoint_draft,
     ),
     "update_contact_draft": ToolDef(
         key="update_contact_draft",
@@ -239,7 +821,7 @@ TOOL_REGISTRY: dict[str, ToolDef] = {
             },
             "required": ["contact_id"],
         },
-        handler=_placeholder(),
+        handler=_update_contact_draft,
     ),
     # fmt: on
 }

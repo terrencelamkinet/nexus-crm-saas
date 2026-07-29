@@ -1,6 +1,7 @@
 import { Outlet } from 'react-router-dom';
 import Sidebar from './Sidebar';
 import Header from './Header';
+import ChatboxPanel from './ChatboxPanel';
 
 export default function Layout() {
   const closeMobile = () => {
@@ -17,6 +18,7 @@ export default function Layout() {
       <main className="main-content">
         <Outlet />
       </main>
+      <ChatboxPanel />
     </div>
   );
 }

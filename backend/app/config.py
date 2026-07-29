@@ -30,6 +30,10 @@ class Settings(BaseSettings):
     # CORS
     allowed_origins: str = "http://localhost:5173,https://nexus-crm.kinet-poc.com"
 
+    # AI Provider keys
+    deepseek_api_key: str = ""
+    gemini_api_key: str = ""
+
     model_config = {"env_prefix": "NEXUS_"}
 
 settings = Settings()

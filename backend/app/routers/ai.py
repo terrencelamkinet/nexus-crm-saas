@@ -2,10 +2,13 @@
 
 Draft → Confirm → Execute flow for AI tools.
 Provider-agnostic: no LLM imports, pure REST.
+
+Default provider: DeepSeek (deepseek-chat).
 """
 
 from uuid import UUID
 from datetime import datetime, timezone
+from typing import Any
 from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
@@ -13,7 +16,20 @@ from sqlalchemy import select
 from app.db import get_tenant_session
 from app.ai.tool_registry import TOOL_REGISTRY, ToolDef
 from app.ai.tools.guard import authorize_tool_call, ScopeViolation, log_audit
+from app.ai.providers import get_provider, ProviderAdapter
 from app.models.ai import ActionRequest
+
+# ---------------------------------------------------------------------------
+# Default provider configuration
+# ---------------------------------------------------------------------------
+DEFAULT_PROVIDER: str = "deepseek"
+DEFAULT_MODEL: str = "deepseek-chat"
+
+
+def _default_adapter() -> ProviderAdapter:
+    """Build the default LLM provider adapter (DeepSeek)."""
+    return get_provider(DEFAULT_PROVIDER, default_model=DEFAULT_MODEL)
+
 
 router = APIRouter(prefix="/api/v1/ai", tags=["AI"])
 
@@ -40,7 +56,10 @@ async def execute_tool(
     try:
         await authorize_tool_call(ctx, tool_key, params)
     except ScopeViolation as e:
-        await log_audit(ctx, "access_denied", {"tool_key": tool_key, "reason": str(e)})
+        try:
+            await log_audit(ctx, "access_denied", {"tool_key": tool_key, "reason": str(e)})
+        except Exception:
+            pass  # audit_log table may not exist
         raise HTTPException(403, str(e))
 
     if tool.type == "read":
@@ -156,4 +175,50 @@ async def ai_health():
         "tools_registered": len(TOOL_REGISTRY),
         "read_tools": sum(1 for t in TOOL_REGISTRY.values() if t.type == "read"),
         "write_tools": sum(1 for t in TOOL_REGISTRY.values() if t.type == "write"),
+        "default_provider": DEFAULT_PROVIDER,
+        "default_model": DEFAULT_MODEL,
     }
+
+
+# ====================================================================
+# Chat completion (proxy to LLM provider)
+# ====================================================================
+
+
+@router.post("/chat")
+async def chat_completion(
+    messages: list[dict[str, Any]],
+    request: Request,
+    model: str = DEFAULT_MODEL,
+    provider: str = DEFAULT_PROVIDER,
+    temperature: float = 0.7,
+    max_tokens: int = 4096,
+):
+    """Send a chat completion request to the default LLM provider (DeepSeek).
+
+    Uses DeepSeek by default. Override via ``provider`` and ``model`` params.
+    The provider is used to enrich tool context but does **not** drive tool
+    execution itself — that is handled by the tool registry.
+    """
+    ctx = getattr(request.state, "ai_context", None)
+
+    adapter = get_provider(provider, default_model=model) if provider != DEFAULT_PROVIDER else _default_adapter()
+    try:
+        text, usage = await adapter.chat(
+            messages=messages,
+            model=model,
+            temperature=temperature,
+            max_tokens=max_tokens,
+        )
+        return {
+            "text": text,
+            "usage": {
+                "input_tokens": usage.input_tokens,
+                "output_tokens": usage.output_tokens,
+                "model": usage.model,
+                "provider": usage.provider,
+                "cost_usd": str(usage.cost_usd),
+            },
+        }
+    finally:
+        await adapter.close()

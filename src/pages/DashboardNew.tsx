@@ -9,6 +9,8 @@ import {
   Activity, DollarSign, Layout, Calendar,
 } from 'lucide-react'
 import SlideDrawer from '../components/SlideDrawer'
+import DailyBriefingCard from '../components/DailyBriefingCard'
+import WidgetAskAI from '../components/WidgetAskAI'
 
 interface Task { id: string; title: string; priority: string; status: string; due_date: string | null; area?: string; custom_fields?: Record<string, any> }
 interface Company { id: string; name: string; category?: string; industry?: string }
@@ -118,11 +120,12 @@ const allWidgets: Record<string, WidgetDef> = {
   // ── Business (icon: Activity) ──
   b1: { label: '訂閱狀態', span: 4 },
   b2: { label: '系統用量', span: 4 },
+  ask_ai: { label: 'Ask AI', span: 4 },
 }
 
 const defaultOrder: WidgetKey[] = [
   'kpi_contacts', 'kpi_companies', 'kpi_deals', 'kpi_tasks',
-  'd2', 't1', 'c2', 'co3', 's1', 'te2', 'cal1', 'activity_feed',
+  'd2', 't1', 'ask_ai', 'c2', 'co3', 's1', 'te2', 'cal1', 'activity_feed',
 ]
 
 interface ModuleWidget { key: string; name: string; desc: string }
@@ -194,6 +197,7 @@ const modulesData: ModuleData[] = [
     { key: 'dealvalue', name: 'Total Deal Value', desc: 'Deal總金額' },
     { key: 'aiinsight', name: 'AI Insight', desc: '智能分析摘要' },
     { key: 'activity_feed', name: 'Activity Feed', desc: '完整活動日誌' },
+    { key: 'ask_ai', name: 'Ask AI', desc: '向AI提問獲取即時回答' },
   ]},
 ]
 
@@ -937,6 +941,7 @@ export default function DashboardNew() {
         <div className="stage-row"><div className="stage-label"><span>用戶數</span><span>12/20</span></div><div className="bar-track"><div className="bar-fill" style={{width:'60%'}} /></div></div>
       </div>
     ),
+    ask_ai: () => <WidgetAskAI />,
   }
 
   // Widget icon helper
@@ -953,6 +958,7 @@ export default function DashboardNew() {
     if (k === 'touchpoints') return Activity
     if (k === 'dealvalue') return DollarSign
     if (k === 'aiinsight') return Sparkles
+    if (k === 'ask_ai') return Sparkles
     if (k === 'activity_feed') return Activity
     return LayoutDashboard
   }
@@ -1009,40 +1015,8 @@ export default function DashboardNew() {
         </div>
       </div>
 
-      {/* AI Daily Brief */}
-      <section className={`ai-brief${aiOn ? ' show' : ''}`}
-        style={{display:aiOn ? 'block' : 'none',background:'linear-gradient(135deg,color-mix(in oklch,var(--color-purple)10%,var(--color-surface)),var(--color-surface))',border:'1px solid color-mix(in oklch,var(--color-purple)25%,var(--color-border))',borderRadius:'var(--radius-xl)',padding:'20px 22px',marginBottom:20}}>
-        <div className="ai-brief-head" style={{display:'flex',alignItems:'center',gap:10,marginBottom:14}}>
-          <Sparkles size={20} style={{color:'var(--color-purple)'}} />
-          <h2 style={{fontSize:15,fontWeight:700,margin:0}}>AI 每日簡報</h2>
-          <span style={{fontSize:12,color:'var(--color-text-muted)',marginLeft:'auto'}}>基於即時數據 · 自動更新</span>
-        </div>
-        <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:16}}>
-          <div>
-            <h4 style={{fontSize:12,fontWeight:700,textTransform:'uppercase',letterSpacing:'.04em',color:'var(--color-text-muted)',marginBottom:8}}>今日重點</h4>
-            <ul style={{listStyle:'none',display:'flex',flexDirection:'column',gap:6,padding:0,margin:0}}>
-              <li style={{fontSize:13,display:'flex',gap:6,lineHeight:1.4}}><span style={{color:'var(--color-purple)'}}>•</span>{stats.deals} 個 Deal 進行中,總值 {stats.dealValue}</li>
-              <li style={{fontSize:13,display:'flex',gap:6,lineHeight:1.4}}><span style={{color:'var(--color-purple)'}}>•</span>本日 {stats.tasks} 項待辦任務</li>
-            </ul>
-          </div>
-          <div>
-            <h4 style={{fontSize:12,fontWeight:700,textTransform:'uppercase',letterSpacing:'.04em',color:'var(--color-text-muted)',marginBottom:8}}>會議準備</h4>
-            <ul style={{listStyle:'none',display:'flex',flexDirection:'column',gap:6,padding:0,margin:0}}>
-              {touchpoints.slice(0, 2).map(tp => (
-                <li key={tp.id} style={{fontSize:13,display:'flex',gap:6,lineHeight:1.4}}><span style={{color:'var(--color-purple)'}}>•</span>{tp.title}</li>
-              ))}
-              {touchpoints.length === 0 && <li style={{fontSize:13,color:'var(--color-text-muted)'}}>暫無會議</li>}
-            </ul>
-          </div>
-          <div>
-            <h4 style={{fontSize:12,fontWeight:700,textTransform:'uppercase',letterSpacing:'.04em',color:'var(--color-text-muted)',marginBottom:8}}>風險提示</h4>
-            <ul style={{listStyle:'none',display:'flex',flexDirection:'column',gap:6,padding:0,margin:0}}>
-              <li style={{fontSize:13,display:'flex',gap:6,lineHeight:1.4}}><span style={{color:'var(--color-purple)'}}>•</span>{tasks.filter(t => t.priority === 'P0').length} 件緊急任務需跟進</li>
-              <li style={{fontSize:13,display:'flex',gap:6,lineHeight:1.4}}><span style={{color:'var(--color-purple)'}}>•</span>{stats.companies} 間公司活躍中</li>
-            </ul>
-          </div>
-        </div>
-      </section>
+      {/* AI Daily Brief — full width above widget grid */}
+      <DailyBriefingCard className={aiOn ? '' : 'hidden'} style={aiOn ? { marginBottom: 20 } : { display: 'none' }} />
 
       {/* WIDGET GRID — CSS grid, 12-column, span classes */}
       <div ref={gridRef} style={{display:'grid',gridTemplateColumns:'repeat(12,1fr)',gap:16,alignItems:'start'}}>

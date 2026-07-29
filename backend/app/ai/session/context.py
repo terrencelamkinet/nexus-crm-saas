@@ -50,22 +50,25 @@ async def build_ai_session_context(
     workspace_id: Optional[uuid.UUID] = getattr(request.state, "workspace_id", None)
     if workspace_id is None:
         # Fallback: query the DB for the user's default/current workspace
-        row = await db.execute(
-            text(
-                """
-                SELECT workspace_id FROM workspace_members
-                WHERE user_id = :uid AND tenant_id = :tid
-                ORDER BY is_default DESC NULLS LAST
-                LIMIT 1
-                """
-            ),
-            {"uid": user_id, "tid": tenant_id},
-        )
-        result = row.scalar_one_or_none()
-        if result is not None:
-            workspace_id = uuid.UUID(str(result))
-        else:
-            workspace_id = uuid.UUID(int=0)  # sentinel — no workspace
+        try:
+            row = await db.execute(
+                text(
+                    """
+                    SELECT workspace_id FROM workspace_members
+                    WHERE user_id = :uid AND tenant_id = :tid
+                    ORDER BY is_default DESC NULLS LAST
+                    LIMIT 1
+                    """
+                ),
+                {"uid": user_id, "tid": tenant_id},
+            )
+            result = row.scalar_one_or_none()
+            if result is not None:
+                workspace_id = uuid.UUID(str(result))
+            else:
+                workspace_id = uuid.UUID(int=0)  # sentinel
+        except Exception:
+            workspace_id = uuid.UUID(int=0)  # sentinel on table-missing
 
     # --- resolve optional fields ---------------------------------------------
     team_id: Optional[uuid.UUID] = getattr(request.state, "team_id", None)

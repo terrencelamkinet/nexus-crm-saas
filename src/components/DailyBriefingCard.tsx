@@ -46,6 +46,7 @@ interface BriefingData {
 // ── Props ──
 interface Props {
   className?: string;
+  style?: React.CSSProperties;
 }
 
 // ── Mock fallback data ──
@@ -98,7 +99,7 @@ function BriefingSkeleton() {
 }
 
 // ── Component ──
-export default function DailyBriefingCard({ className = '' }: Props) {
+export default function DailyBriefingCard({ className = '', style }: Props) {
   const [data, setData] = useState<BriefingData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -172,6 +173,7 @@ export default function DailyBriefingCard({ className = '' }: Props) {
         borderRadius: 'var(--radius-lg)',
         boxShadow: 'var(--shadow-sm)',
         padding: '18px 20px',
+        ...style,
       }}>
         <div style={{ textAlign: 'center', padding: '24px 0' }}>
           <p style={{ fontSize: 13, color: 'var(--color-text-muted)', marginBottom: 12 }}>{error}</p>
@@ -201,6 +203,7 @@ export default function DailyBriefingCard({ className = '' }: Props) {
         borderRadius: 'var(--radius-lg)',
         boxShadow: 'var(--shadow-sm)',
         padding: '18px 20px',
+        ...style,
       }}>
         <BriefingSkeleton />
       </div>
@@ -218,6 +221,7 @@ export default function DailyBriefingCard({ className = '' }: Props) {
       display: 'flex',
       flexDirection: 'column',
       gap: 14,
+      ...style,
     }}>
       {/* ── Header ── */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>

@@ -34,8 +34,8 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-app.add_middleware(TenantMiddleware)
 app.add_middleware(AISessionMiddleware)
+app.add_middleware(TenantMiddleware)
 
 # Mount routers
 from app.routers import auth
