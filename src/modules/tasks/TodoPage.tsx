@@ -298,7 +298,7 @@ export default function TodoPage() {
         {/* ── CENTER PANEL ── */}
         <div className="todo-center">
           <div className="todo-list-header">
-            <button className="icon-btn-small" onClick={() => setShowLeft(true)} style={{display:'none'}}><List size={18} /></button>
+            <button className="icon-btn-small mobile-hamburger" onClick={() => setShowLeft(true)}><List size={18} /></button>
             <h2>
               {activeList?.is_smart && <span>{smartIcon(activeList?.name || '')}</span>}
               {!activeList?.is_smart && <span className="lh-color" style={{background:activeList?.color}} />}
