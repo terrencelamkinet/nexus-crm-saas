@@ -19,7 +19,16 @@ const FILTERABLE_TYPES = ['select', 'status', 'text', 'title', 'number', 'date',
 
 export default function GenericListPage({ config, extraData }: Props) {
   const navigate = useNavigate()
-  const [query, setQuery] = useState('')
+  const storageKey = `glp_${config.name}`
+  const loadFilters = (): Record<string, FilterEntry> => {
+    try {
+      const raw = localStorage.getItem(`${storageKey}_filters`)
+      return raw ? JSON.parse(raw) : {}
+    } catch { return {} }
+  }
+  const [query, setQuery] = useState(() => {
+    try { return localStorage.getItem(`${storageKey}_q`) || '' } catch { return '' }
+  })
   const [data, setData] = useState<ListResponse | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -39,12 +48,19 @@ export default function GenericListPage({ config, extraData }: Props) {
   const [page, setPage] = useState(1)
   const pageSize = 50
 
-  const [sortBy, setSortBy] = useState('')
-  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc')
+  const [sortBy, setSortBy] = useState(() => {
+    try { return localStorage.getItem(`${storageKey}_sort`)?.split('|')[0] || '' } catch { return '' }
+  })
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>(() => {
+    try {
+      const v = localStorage.getItem(`${storageKey}_sort`)?.split('|')[1]
+      return (v === 'asc' || v === 'desc') ? v : 'desc'
+    } catch { return 'desc' }
+  })
 
   type FilterOp = 'is' | 'is_not'
 interface FilterEntry { op: FilterOp; value: string }
-const [filters, setFilters] = useState<Record<string, FilterEntry>>({})
+const [filters, setFilters] = useState<Record<string, FilterEntry>>(() => loadFilters())
   const [filterOpen, setFilterOpen] = useState(false)
   const [filterField, setFilterField] = useState('')
   const [filterOp, setFilterOp] = useState<FilterOp>('is')
@@ -138,6 +154,17 @@ const [filters, setFilters] = useState<Record<string, FilterEntry>>({})
     }, 300)
     return () => { clearTimeout(t); if (id === fetchRef.current) fetchQueued.current = false }
   }, [query, page, sortBy, sortOrder, filters])
+
+  // Persist filter/query/sort to localStorage
+  useEffect(() => {
+    try { localStorage.setItem(`${storageKey}_filters`, JSON.stringify(filters)) } catch {}
+  }, [filters, storageKey])
+  useEffect(() => {
+    try { localStorage.setItem(`${storageKey}_q`, query) } catch {}
+  }, [query, storageKey])
+  useEffect(() => {
+    try { localStorage.setItem(`${storageKey}_sort`, sortBy ? `${sortBy}|${sortOrder}` : '') } catch {}
+  }, [sortBy, sortOrder, storageKey])
 
   const items = data?.items ?? []
   const total = data?.total ?? 0
