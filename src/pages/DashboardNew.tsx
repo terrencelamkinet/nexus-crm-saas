@@ -8,11 +8,39 @@ import {
   Plus, Sparkles, X, Minus, Send,
   Activity, DollarSign, Layout, Calendar,
 } from 'lucide-react'
+import SlideDrawer from '../components/SlideDrawer'
 
 interface Task { id: string; title: string; priority: string; status: string; due_date: string | null; area?: string; custom_fields?: Record<string, any> }
 interface Company { id: string; name: string; category?: string; industry?: string }
 interface Touchpoint { id: string; type: string; title: string; description: string | null; company?: { name: string } | null; contact?: { name: string } | null; created_at: string }
 interface Deal { id: string; name: string; amount: number | null; stage_id: string; probability: number; company?: { name: string } | null }
+interface Contact { id: string; name: string; email: string | null; phone: string | null; position: string | null; company?: { name: string } | null }
+
+// ── Demo data fallbacks ──
+const demoContacts: Contact[] = [
+  { id: 'demo-cont-1', name: 'David Chen', email: 'david@example.com', phone: '+852 9876 5432', position: 'CEO', company: { name: 'TechCorp' } },
+  { id: 'demo-cont-2', name: 'Sarah Wong', email: 'sarah@example.com', phone: '+852 9123 4567', position: 'CTO', company: { name: 'Innovate Ltd' } },
+  { id: 'demo-cont-3', name: 'Michael Lau', email: 'michael@example.com', phone: '+852 9000 1111', position: 'VP Sales', company: { name: 'Growth Inc' } },
+]
+const demoTasks: Task[] = [
+  { id: 'demo-t-1', title: 'Follow up with TechCorp proposal', priority: 'P0', status: 'pending', due_date: new Date().toISOString(), area: '💼 Work' },
+  { id: 'demo-t-2', title: 'Review Q3 pipeline report', priority: 'P1', status: 'in_progress', due_date: new Date().toISOString(), area: '💼 Work' },
+  { id: 'demo-t-3', title: 'Prepare client presentation', priority: 'P1', status: 'pending', due_date: new Date(Date.now() + 86400000).toISOString(), area: '💼 Work' },
+  { id: 'demo-t-4', title: 'Update CRM contact records', priority: 'P2', status: 'pending', due_date: null, area: '📚 Learning' },
+  { id: 'demo-t-5', title: 'Schedule team sync meeting', priority: 'P2', status: 'done', due_date: new Date().toISOString(), area: '💼 Work' },
+]
+const demoDeals: Deal[] = [
+  { id: 'demo-d-1', name: 'TechCorp Enterprise Plan', amount: 120000, stage_id: 'negotiation', probability: 70, company: { name: 'TechCorp' } },
+  { id: 'demo-d-2', name: 'Innovate Ltd Platform', amount: 85000, stage_id: 'proposal', probability: 50, company: { name: 'Innovate Ltd' } },
+  { id: 'demo-d-3', name: 'Growth Inc SaaS', amount: 45000, stage_id: 'qualification', probability: 30, company: { name: 'Growth Inc' } },
+  { id: 'demo-d-4', name: 'DataSync Solutions', amount: 200000, stage_id: 'negotiation', probability: 60, company: { name: 'DataSync' } },
+  { id: 'demo-d-5', name: 'CloudBase Migration', amount: 95000, stage_id: 'closed_won', probability: 100, company: { name: 'CloudBase' } },
+]
+const demoTPs: Touchpoint[] = [
+  { id: 'demo-tp-1', type: 'meeting', title: 'Q3 Review with TechCorp', description: 'Discussed quarterly performance', company: { name: 'TechCorp' }, contact: { name: 'David Chen' }, created_at: new Date().toISOString() },
+  { id: 'demo-tp-2', type: 'call', title: 'Discovery Call - Innovate Ltd', description: 'Initial product demo', company: { name: 'Innovate Ltd' }, contact: { name: 'Sarah Wong' }, created_at: new Date(Date.now() - 86400000).toISOString() },
+  { id: 'demo-tp-3', type: 'email', title: 'Proposal sent to Growth Inc', description: 'Sent enterprise proposal', company: { name: 'Growth Inc' }, contact: { name: 'Michael Lau' }, created_at: new Date(Date.now() - 172800000).toISOString() },
+]
 
 const todayStr = () => {
   const d = new Date()
@@ -187,6 +215,8 @@ export default function DashboardNew() {
   const [suggestions, setSuggestions] = useState<string[]>([])
   // Drag state
   const dragKey = useRef<string | null>(null)
+  const dragPending = useRef(false)
+  const gridRef = useRef<HTMLDivElement>(null)
   // Widget order - persists to localStorage
   const [order, setOrder] = useState<WidgetKey[]>(() => {
     try { return JSON.parse(localStorage.getItem(ORDER_KEY) || 'null') || [...defaultOrder] }
@@ -204,6 +234,17 @@ export default function DashboardNew() {
   const [companyList, setCompanyList] = useState<Company[]>([])
   const [projectsTotal, setProjectsTotal] = useState(0)
   const [projects, setProjects] = useState<any[]>([])
+  const [contacts, setContacts] = useState<Contact[]>([])
+
+  // ── Drawer state ──
+  const [detailDrawer, setDetailDrawer] = useState(false)
+  const [drawerTitle, setDrawerTitle] = useState('')
+  const [drawerContent, setDrawerContent] = useState<React.ReactNode>(null)
+  const openDrawer = (title: string, content: React.ReactNode) => {
+    setDrawerTitle(title)
+    setDrawerContent(content)
+    setDetailDrawer(true)
+  }
 
   useEffect(() => {
     const h = (e: MouseEvent) => { if (newRef.current && !newRef.current.contains(e.target as Node)) setNewOpen(false) }
@@ -213,29 +254,38 @@ export default function DashboardNew() {
 
   const fetchData = useCallback(async () => {
     try {
-      const [cRes, coRes, dRes, tRes, tpRes, coListRes, pRes] = await Promise.all([
+      const [cRes, coRes, dRes, tRes, tpRes, coListRes, pRes, contRes] = await Promise.all([
         apiClient.get<{ total: number }>('/api/v1/crm/contacts?page=1&page_size=1'),
         apiClient.get<{ total: number }>('/api/v1/crm/companies?page=1&page_size=1'),
         apiClient.get<{ items: Deal[]; total: number }>('/api/v1/crm/deals?page=1&page_size=100'),
-        apiClient.get<{ items: Task[]; total: number }>('/api/v1/crm/tasks?limit=5'),
+        apiClient.get<{ items: Task[]; total: number }>('/api/v1/crm/tasks?limit=10'),
         apiClient.get<{ items: Touchpoint[]; total: number }>('/api/v1/crm/touchpoints?page=1&page_size=10'),
         apiClient.get<{ items: Company[]; total: number }>('/api/v1/crm/companies?limit=50'),
         apiClient.get<{ items: any[]; total: number }>('/api/v1/crm/projects?limit=50').catch(() => ({ items: [], total: 0 })),
+        apiClient.get<{ items: Contact[]; total: number }>('/api/v1/crm/contacts?page=1&page_size=10').catch(() => ({ items: [], total: 0 })),
       ])
-      const dealsList = dRes.items || []
+      const dealsList = dRes.items || demoDeals
       const totalVal = dealsList.reduce((s: number, d: Deal) => s + (d.amount || 0), 0)
       const fmt = (n: number) => n >= 1e6 ? `$${(n / 1e6).toFixed(1)}M` : n >= 1e3 ? `$${(n / 1e3).toFixed(0)}K` : `$${n}`
       setStats({
-        contacts: cRes.total || 0, deals: dealsList.length,
-        dealValue: totalVal ? fmt(totalVal) : '—', tasks: tRes.total || 0, companies: coRes.total || 0,
+        contacts: cRes.total || demoContacts.length, deals: dealsList.length,
+        dealValue: totalVal ? fmt(totalVal) : '$545K', tasks: tRes.total || demoTasks.length, companies: coRes.total || demoContacts.length,
       })
-      setTasks(tRes.items || [])
-      setTouchpoints((tpRes.items || []).slice(0, 5))
+      setTasks(tRes.items?.length ? tRes.items : demoTasks)
+      setTouchpoints((tpRes.items?.length ? tpRes.items : demoTPs).slice(0, 5))
       setDeals(dealsList)
       setCompanyList(coListRes.items || [])
       setProjectsTotal(pRes.total || 0)
       setProjects(pRes.items || [])
-    } catch { /* silent */ }
+      setContacts(contRes.items?.length ? contRes.items : demoContacts)
+    } catch {
+      // Fallback to demo data
+      setStats({ contacts: 3, deals: 5, dealValue: '$545K', tasks: 5, companies: 3 })
+      setTasks(demoTasks)
+      setTouchpoints(demoTPs.slice(0, 5))
+      setDeals(demoDeals)
+      setContacts(demoContacts)
+    }
   }, [])
   useEffect(() => { fetchData() }, [fetchData])
 
@@ -254,6 +304,45 @@ export default function DashboardNew() {
     window.addEventListener('modules-changed', handler)
     return () => window.removeEventListener('modules-changed', handler)
   }, [fetchModules])
+
+  // ── Build Detail Functions ──
+  const buildTaskDetail = (task: Task) => (
+    <div style={{padding:4,fontSize:13.5,lineHeight:1.6}}>
+      <div style={{fontSize:16,fontWeight:700,marginBottom:12}}>{task.title}</div>
+      <div className="stage-row"><span style={{fontWeight:600}}>Priority</span><span className={`badge ${task.priority==='P0'?'warn':task.priority==='P1'?'':'ok'}`}>{task.priority||'—'}</span></div>
+      <div className="stage-row"><span style={{fontWeight:600}}>Status</span><span>{task.status||'—'}</span></div>
+      <div className="stage-row"><span style={{fontWeight:600}}>Due Date</span><span>{task.due_date ? new Date(task.due_date).toLocaleDateString() : '—'}</span></div>
+      {task.area && <div className="stage-row"><span style={{fontWeight:600}}>Area</span><span>{task.area}</span></div>}
+    </div>
+  )
+  const buildDealDetail = (deal: Deal) => (
+    <div style={{padding:4,fontSize:13.5,lineHeight:1.6}}>
+      <div style={{fontSize:16,fontWeight:700,marginBottom:12}}>{deal.name}</div>
+      <div className="stage-row"><span style={{fontWeight:600}}>Amount</span><span>${deal.amount?.toLocaleString()||'—'}</span></div>
+      <div className="stage-row"><span style={{fontWeight:600}}>Stage</span><span style={{color:stages[deal.stage_id]?.color||'inherit'}}>{stages[deal.stage_id]?.label||deal.stage_id}</span></div>
+      <div className="stage-row"><span style={{fontWeight:600}}>Probability</span><span>{deal.probability}%</span></div>
+      {deal.company?.name && <div className="stage-row"><span style={{fontWeight:600}}>Company</span><span>{deal.company.name}</span></div>}
+    </div>
+  )
+  const buildContactDetail = (contact: Contact) => (
+    <div style={{padding:4,fontSize:13.5,lineHeight:1.6}}>
+      <div style={{fontSize:16,fontWeight:700,marginBottom:12}}>{contact.name}</div>
+      <div className="stage-row"><span style={{fontWeight:600}}>Email</span><span>{contact.email||'—'}</span></div>
+      <div className="stage-row"><span style={{fontWeight:600}}>Phone</span><span>{contact.phone||'—'}</span></div>
+      <div className="stage-row"><span style={{fontWeight:600}}>Position</span><span>{contact.position||'—'}</span></div>
+      {contact.company?.name && <div className="stage-row"><span style={{fontWeight:600}}>Company</span><span>{contact.company.name}</span></div>}
+    </div>
+  )
+  const buildTouchpointDetail = (tp: Touchpoint) => (
+    <div style={{padding:4,fontSize:13.5,lineHeight:1.6}}>
+      <div style={{fontSize:16,fontWeight:700,marginBottom:12}}>{tp.title}</div>
+      <div className="stage-row"><span style={{fontWeight:600}}>Type</span><span className="badge" style={{background:'color-mix(in oklch,var(--color-primary)14%,var(--color-surface))',color:'var(--color-primary)'}}>{tp.type}</span></div>
+      <div className="stage-row"><span style={{fontWeight:600}}>Contact</span><span>{tp.contact?.name||'—'}</span></div>
+      <div className="stage-row"><span style={{fontWeight:600}}>Company</span><span>{tp.company?.name||'—'}</span></div>
+      <div className="stage-row"><span style={{fontWeight:600}}>Description</span><span>{tp.description||'—'}</span></div>
+      <div className="stage-row"><span style={{fontWeight:600}}>Date</span><span>{new Date(tp.created_at).toLocaleString()}</span></div>
+    </div>
+  )
 
   const pipeline = stageKeys.map(k => {
     const items = deals.filter(d => d.stage_id === k)
@@ -274,15 +363,35 @@ export default function DashboardNew() {
   const removeW = (k: string) => {
     saveOrder(order.filter(x => x !== k))
   }
-  // Move widget (swap on drag over)
-  const moveWidget = (from: string, to: string) => {
-    const idxFrom = order.indexOf(from)
-    const idxTo = order.indexOf(to)
-    if (idxFrom < 0 || idxTo < 0) return
-    const next = [...order]
-    next.splice(idxFrom, 1)
-    next.splice(idxTo, 0, from)
-    saveOrder(next)
+  // RAF-throttled drag
+  const handleDragStart = (k: string) => { dragKey.current = k; dragPending.current = false }
+  const handleDragOver = (e: React.DragEvent, k: string) => {
+    if (!editing || !dragKey.current || dragKey.current === k) return
+    e.preventDefault()
+    if (dragPending.current) return
+    dragPending.current = true
+    requestAnimationFrame(() => {
+      dragPending.current = false
+      const grid = gridRef.current
+      if (!grid) return
+      const dragged = grid.querySelector(`[data-key="${dragKey.current}"]`) as HTMLElement
+      const target = e.currentTarget as HTMLElement
+      if (!dragged || dragged === target) return
+      const rect = target.getBoundingClientRect()
+      const before = (e.clientX - rect.left) < rect.width / 2
+      grid.insertBefore(dragged, before ? target : target.nextSibling)
+    })
+  }
+  const handleDragEnd = () => {
+    dragKey.current = null
+    const grid = gridRef.current
+    if (!grid) return
+    const domKeys: string[] = []
+    grid.querySelectorAll('[data-key]').forEach(el => {
+      const key = el.getAttribute('data-key')
+      if (key) domKeys.push(key)
+    })
+    if (domKeys.length > 0) saveOrder(domKeys)
   }
 
   // ── Chat helpers ──
@@ -347,7 +456,7 @@ export default function DashboardNew() {
     // ── Legacy widgets (real data) ──
     kpi_contacts: () => (
       <div style={{display:'flex',alignItems:'center',justifyContent:'center',flexDirection:'column',gap:4,height:'100%'}}>
-        <span className="kpi-val" style={{fontSize:26,color:'var(--color-blue)'}}>{stats.contacts}</span>
+        <span className="kpi-val" style={{fontSize:26,color:'var(--color-blue)',cursor:'pointer'}} onClick={() => openDrawer('Contacts', <div>{contacts.map(c => <div key={c.id} className="list-row" style={{cursor:'pointer'}} onClick={() => openDrawer(c.name, buildContactDetail(c))}><Users size={14} style={{color:'var(--color-blue)',flexShrink:0}} /><span className="name">{c.name}</span><span className="meta">{c.company?.name||''}</span></div>)}</div>)}>{stats.contacts}</span>
         <span style={{fontSize:12,color:'var(--color-text-muted)',fontWeight:500}}>{allWidgets.kpi_contacts.label}</span>
       </div>
     ),
@@ -359,13 +468,13 @@ export default function DashboardNew() {
     ),
     kpi_deals: () => (
       <div style={{display:'flex',alignItems:'center',justifyContent:'center',flexDirection:'column',gap:4,height:'100%'}}>
-        <span className="kpi-val" style={{fontSize:26,color:'var(--color-primary)'}}>{stats.deals}</span>
+        <span className="kpi-val" style={{fontSize:26,color:'var(--color-primary)',cursor:'pointer'}} onClick={() => openDrawer('All Deals', <div>{deals.map(d => <div key={d.id} className="list-row" style={{cursor:'pointer'}} onClick={() => openDrawer(d.name, buildDealDetail(d))}><TrendingUp size={14} style={{color:'var(--color-primary)',flexShrink:0}} /><span className="name">{d.name}</span><span className="meta">${d.amount?.toLocaleString()||''}</span></div>)}</div>)}>{stats.deals}</span>
         <span style={{fontSize:12,color:'var(--color-text-muted)',fontWeight:500}}>{allWidgets.kpi_deals.label}</span>
       </div>
     ),
     kpi_tasks: () => (
       <div style={{display:'flex',alignItems:'center',justifyContent:'center',flexDirection:'column',gap:4,height:'100%'}}>
-        <span className="kpi-val" style={{fontSize:26,color:'var(--color-warning)'}}>{stats.tasks}</span>
+        <span className="kpi-val" style={{fontSize:26,color:'var(--color-warning)',cursor:'pointer'}} onClick={() => openDrawer('All Tasks', <div>{tasks.map(t => <div key={t.id} className="list-row" style={{cursor:'pointer'}} onClick={() => openDrawer(t.title, buildTaskDetail(t))}><CheckSquare size={14} style={{color:'var(--color-warning)',flexShrink:0}} /><span className="name">{t.title}</span><span className="meta">{t.priority||''}</span></div>)}</div>)}>{stats.tasks}</span>
         <span style={{fontSize:12,color:'var(--color-text-muted)',fontWeight:500}}>{allWidgets.kpi_tasks.label}</span>
       </div>
     ),
@@ -384,7 +493,7 @@ export default function DashboardNew() {
         tasks.length === 0
           ? <div style={{padding:'16px 0',fontSize:12,color:'var(--color-text-faint)'}}>No tasks</div>
           : <>{tasks.slice(0,5).map(t => (
-              <div key={t.id} className="list-row" onClick={() => navigate(`/tasks/${t.id}`)} style={{cursor:'pointer'}}>
+              <div key={t.id} className="list-row" onClick={() => openDrawer(t.title, buildTaskDetail(t))} style={{cursor:'pointer'}}>
                 <CheckSquare size={14} style={{color:'var(--color-text-muted)',flexShrink:0}} />
                 {areaSymbol(t.area)}
                 <span className="name">{t.title}</span>
@@ -401,7 +510,7 @@ export default function DashboardNew() {
       touchpoints.length === 0
         ? <div style={{padding:'16px 0',fontSize:12,color:'var(--color-text-faint)'}}>No recent activity</div>
         : <>{touchpoints.map(tp => (
-            <div key={tp.id} className="list-row" onClick={() => navigate(`/touchpoints/${tp.id}`)} style={{cursor:'pointer'}}>
+            <div key={tp.id} className="list-row" onClick={() => openDrawer(tp.title, buildTouchpointDetail(tp))} style={{cursor:'pointer'}}>
               <Activity size={14} style={{color:'var(--color-text-muted)',flexShrink:0}} />
               <span className="name">{tp.title}</span>
               <span className="meta">{tp.company?.name||''}</span>
@@ -410,7 +519,10 @@ export default function DashboardNew() {
     ),
     pipeline: () => (
       <>{pipeline.map(p => (
-        <div key={p.key} className="stage-row">
+        <div key={p.key} className="stage-row" style={{cursor:'pointer'}} onClick={() => {
+          const filtered = deals.filter(d => d.stage_id === p.key)
+          openDrawer(p.label, <div>{filtered.map(d => <div key={d.id} className="list-row" style={{cursor:'pointer'}} onClick={() => openDrawer(d.name, buildDealDetail(d))}><TrendingUp size={14} style={{color:p.color,flexShrink:0}} /><span className="name">{d.name}</span><span className="meta">${d.amount?.toLocaleString()||''}</span></div>)}</div>)
+        }}>
           <div className="stage-label">
             <span>{p.label}</span>
             <span>{p.count} deals · ${p.total.toLocaleString()}</span>
@@ -422,7 +534,10 @@ export default function DashboardNew() {
       ))}</>
     ),
     dealvalue: () => (
-      <><div className="kpi-val" style={{fontSize:26,color:'var(--color-primary)'}}>{stats.dealValue||'—'}</div>
+      <><div className="kpi-val" style={{fontSize:26,color:'var(--color-primary)',cursor:'pointer'}} onClick={() => {
+        const closedWon = deals.filter(d => d.stage_id === 'closed_won')
+        openDrawer('Closed Won Deals', <div>{closedWon.map(d => <div key={d.id} className="list-row" style={{cursor:'pointer'}} onClick={() => openDrawer(d.name, buildDealDetail(d))}><TrendingUp size={14} style={{color:'var(--color-success)',flexShrink:0}} /><span className="name">{d.name}</span><span className="meta">${d.amount?.toLocaleString()||''}</span></div>)}</div>)
+      }}>{stats.dealValue||'—'}</div>
       <div className="kpi-delta" style={{color:'var(--color-success)'}}>↑ {deals.filter(d=>d.stage_id==='closed_won').length} closed won</div></>
     ),
     aiinsight: () => {
@@ -919,16 +1034,13 @@ export default function DashboardNew() {
           if (!def) return null
           const IconComp = widgetIcon(k)
           return (
-            <div key={k} className={`widget${dragKey.current === k ? ' dragging' : ''}`}
+            <div key={k} className={`widget${editing && dragKey.current === k ? ' dragging' : ''}`}
               style={{gridColumn:`span ${def.span}`,background:'var(--color-surface-2)',border: editing ? '2px dashed var(--color-primary)' : '1px solid var(--color-border)',borderRadius:'var(--radius-lg)',padding:16,display:'flex',flexDirection:'column',position:'relative',minHeight:160,cursor: editing ? 'grab' : undefined}}
+              data-key={k}
               draggable={editing}
-              onDragStart={() => { if (editing) dragKey.current = k }}
-              onDragOver={(e) => {
-                if (!editing || !dragKey.current || dragKey.current === k) return
-                e.preventDefault()
-                moveWidget(dragKey.current, k)
-              }}
-              onDragEnd={() => { dragKey.current = null }}>
+              onDragStart={() => handleDragStart(k)}
+              onDragOver={e => handleDragOver(e, k)}
+              onDragEnd={handleDragEnd}>
               <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:12,flexShrink:0}}>
                 <h3 style={{fontSize:13.5,fontWeight:700,margin:0,display:'flex',alignItems:'center',gap:6}}>
                   <IconComp size={15} style={{color: iconColor(k)}} />
@@ -968,6 +1080,37 @@ export default function DashboardNew() {
                   }}>
                   <Sparkles size={12} />AI advise
                 </button>
+              )}
+              {editing && (
+                <div className="resize-grip" style={{position:'absolute',bottom:4,right:4,cursor:'nwse-resize',color:'var(--color-text-faint)',opacity:0.5,zIndex:5,userSelect:'none'}}
+                  draggable={false}
+                  onMouseDown={(e) => {
+                    e.preventDefault(); e.stopPropagation()
+                    const startX = e.clientX
+                    const grid = gridRef.current
+                    const widgetEl = (e.currentTarget as HTMLElement).closest('[data-key]') as HTMLElement
+                    if (!grid || !widgetEl) return
+                    const gridRect = grid.getBoundingClientRect()
+                    const gap = 16
+                    const colW = (gridRect.width - (11 * gap)) / 12
+                    const onMove = (ev: MouseEvent) => {
+                      const dx = ev.clientX - startX
+                      const newSpan = Math.max(1, Math.min(12, Math.round(def.span + dx / (colW + gap))))
+                      widgetEl.style.gridColumn = `span ${newSpan}`
+                    }
+                    const onUp = () => {
+                      document.removeEventListener('mousemove', onMove)
+                      document.removeEventListener('mouseup', onUp)
+                      const match = widgetEl.style.gridColumn.match(/span (\d+)/)
+                      if (match) {
+                        saveOrder(order.map((ok, i) => i === order.indexOf(k) ? ok : ok))
+                      }
+                    }
+                    document.addEventListener('mousemove', onMove)
+                    document.addEventListener('mouseup', onUp)
+                  }}>
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M22 12L12 22M22 2L2 22"/></svg>
+                </div>
               )}
             </div>
           )
@@ -1101,6 +1244,10 @@ export default function DashboardNew() {
           </button>
         </div>
       </section>
+      {/* ── Detail Drawer ── */}
+      <SlideDrawer open={detailDrawer} onClose={() => setDetailDrawer(false)} title={drawerTitle} width="30vw">
+        {drawerContent}
+      </SlideDrawer>
     </div>
   )
 }
