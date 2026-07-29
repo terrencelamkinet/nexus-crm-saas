@@ -67,6 +67,8 @@ const [filters, setFilters] = useState<Record<string, FilterEntry>>(() => loadFi
   const [filterValue, setFilterValue] = useState('')
   const [filterChecked, setFilterChecked] = useState<string[]>([])
   const [filterValueOpen, setFilterValueOpen] = useState(false)
+  const filterBtnRef = useRef<HTMLButtonElement>(null)
+  const [filterPos, setFilterPos] = useState<{ top: number; left: number; width: number } | null>(null)
 
   const [sortOpen, setSortOpen] = useState(false)
   const [sortField, setSortField] = useState('')
@@ -599,7 +601,13 @@ const [filters, setFilters] = useState<Record<string, FilterEntry>>(() => loadFi
                   }
                   return (
                     <div className="pos-relative" style={{ minWidth: 160 }}>
-                      <button onClick={() => setFilterValueOpen(o => !o)}
+                      <button ref={filterBtnRef} onClick={() => {
+                        if (!filterValueOpen && filterBtnRef.current) {
+                          const r = filterBtnRef.current.getBoundingClientRect()
+                          setFilterPos({ top: r.bottom + 4, left: r.left, width: r.width })
+                        }
+                        setFilterValueOpen(o => !o)
+                      }}
                         className="input-field filter-value-input"
                         style={{ textAlign: 'left', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6, width: '100%' }}>
                         <span style={{ color: filterChecked.length ? 'var(--color-text)' : 'var(--color-text-faint)', fontSize: 12 }}>
@@ -607,8 +615,8 @@ const [filters, setFilters] = useState<Record<string, FilterEntry>>(() => loadFi
                         </span>
                         <span style={{ fontSize: 10, opacity: 0.5 }}>{filterValueOpen ? '▲' : '▼'}</span>
                       </button>
-                      {filterValueOpen && (
-                        <div className="sort-panel" style={{ width: 220, maxHeight: 260, overflowY: 'auto', padding: 8, position: 'absolute', left: 0, top: '100%', marginTop: 4, zIndex: 9999, boxShadow: '0 8px 32px rgba(0,0,0,.15)' }}>
+                      {filterValueOpen && filterPos && (
+                        <div style={{ position: 'fixed', top: filterPos.top, left: filterPos.left, width: filterPos.width, maxHeight: 260, overflowY: 'auto', zIndex: 99999, background: 'var(--color-surface)', border: '1px solid var(--color-divider)', borderRadius: 'var(--radius-md)', boxShadow: '0 8px 32px rgba(0,0,0,.15)', padding: 8 }}>
                           {opts.map(o => {
                             const checked = filterChecked.includes(o.value)
                             return (
