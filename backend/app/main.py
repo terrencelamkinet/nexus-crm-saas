@@ -41,12 +41,14 @@ from app.routers import crm_module_b
 from app.routers import crm_module_settings
 from app.routers import crm_module_c
 from app.routers import crm_notifications
+from app.routers import crm_todo
 from app.routers import dashboard_layout
 app.include_router(auth.router)
 app.include_router(crm.router)
 app.include_router(crm_module_b.router)
 app.include_router(crm_module_settings.router)
 app.include_router(crm_notifications.router)
+app.include_router(crm_todo.router)
 app.include_router(dashboard_layout.router)
 app.include_router(crm_module_c.router)
 

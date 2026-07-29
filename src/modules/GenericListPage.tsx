@@ -15,7 +15,7 @@ interface Props {
   extraData?: Record<string, any>
 }
 
-const FILTERABLE_TYPES = ['select', 'status', 'text', 'title', 'number', 'date']
+const FILTERABLE_TYPES = ['select', 'status', 'text', 'title', 'number', 'date', 'relation']
 
 export default function GenericListPage({ config, extraData }: Props) {
   const navigate = useNavigate()
@@ -66,6 +66,23 @@ export default function GenericListPage({ config, extraData }: Props) {
   const [groupBy, setGroupBy] = useState('')
   const [condColor, setCondColor] = useState(true)
   const [selectedId, setSelectedId] = useState<string | null>(null)
+
+  const quickComplete = async (item: EntityRecord) => {
+    if (config.name !== 'task') return
+    const newStatus = item['status'] === 'done' ? 'pending' : 'done'
+    try {
+      await apiClient.patch(`/api/v1/crm/tasks/${item.id}`, { status: newStatus })
+      setData(prev => {
+        if (!prev) return prev
+        return {
+          ...prev,
+          items: prev.items.map(i =>
+            i.id === item.id ? { ...i, status: newStatus } : i
+          ),
+        }
+      })
+    } catch {}
+  }
 
   const fetchRef = useRef(0)
   const fetchQueued = useRef(false)
@@ -597,6 +614,7 @@ export default function GenericListPage({ config, extraData }: Props) {
               <table>
               <thead>
                 <tr>
+                  {config.name === 'task' && <th className="th-complete" style={{width:36,minWidth:36}}></th>}
                   <th className="th-checkbox">
                     <input type="checkbox" className="row-checkbox"
                       checked={items.length > 0 && selectedIds.size === items.length}
@@ -622,6 +640,14 @@ export default function GenericListPage({ config, extraData }: Props) {
               <tbody>
                 {items.map(item => (
                   <tr key={item.id} className={selectedIds.has(item.id) ? 'row-selected' : ''}>
+                    {config.name === 'task' && (
+                      <td className="td-complete" onClick={e => { e.stopPropagation(); quickComplete(item); }}>
+                        <button className={`t-check${item['status'] === 'done' ? ' checked' : ''}`}
+                          title={item['status'] === 'done' ? 'Mark pending' : 'Mark done'}>
+                          {item['status'] === 'done' && <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3"><polyline points="20 6 9 17 4 12"/></svg>}
+                        </button>
+                      </td>
+                    )}
                     <td className="th-checkbox" onClick={e => e.stopPropagation()}>
                       <input type="checkbox" className="row-checkbox"
                         checked={selectedIds.has(item.id)} onChange={() => toggleSelect(item.id)} />

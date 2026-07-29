@@ -1028,14 +1028,14 @@ export default function DashboardNew() {
       </section>
 
       {/* WIDGET GRID — CSS grid, 12-column, span classes */}
-      <div style={{display:'grid',gridTemplateColumns:'repeat(12,1fr)',gap:16,alignItems:'start'}}>
+      <div ref={gridRef} style={{display:'grid',gridTemplateColumns:'repeat(12,1fr)',gap:16,alignItems:'start'}}>
         {order.map((k) => {
           const def = allWidgets[k]
           if (!def) return null
           const IconComp = widgetIcon(k)
           return (
             <div key={k} className={`widget${editing && dragKey.current === k ? ' dragging' : ''}`}
-              style={{gridColumn:`span ${def.span}`,background:'var(--color-surface-2)',border: editing ? '2px dashed var(--color-primary)' : '1px solid var(--color-border)',borderRadius:'var(--radius-lg)',padding:16,display:'flex',flexDirection:'column',position:'relative',minHeight:160,cursor: editing ? 'grab' : undefined}}
+              style={{gridColumn:`span ${def.span}`,background:'var(--color-surface-2)',border: editing ? '2px dashed var(--color-primary)' : '1px solid var(--color-border)',borderRadius:'var(--radius-lg)',padding:16,display:'flex',flexDirection:'column',position:'relative',minHeight:160,transition:'grid-column .12s ease, height .12s ease',cursor: editing ? 'grab' : undefined}}
               data-key={k}
               draggable={editing}
               onDragStart={() => handleDragStart(k)}
@@ -1086,21 +1086,25 @@ export default function DashboardNew() {
                   draggable={false}
                   onMouseDown={(e) => {
                     e.preventDefault(); e.stopPropagation()
-                    const startX = e.clientX
+                    const startX = e.clientX, startY = e.clientY
                     const grid = gridRef.current
                     const widgetEl = (e.currentTarget as HTMLElement).closest('[data-key]') as HTMLElement
                     if (!grid || !widgetEl) return
                     const startSpan = parseInt(widgetEl.style.gridColumn.match(/span (\d+)/)?.[1] || String(def.span))
+                    const startH = widgetEl.offsetHeight
                     const gridRect = grid.getBoundingClientRect()
                     const gapVal = 16
                     const colW = (gridRect.width - (11 * gapVal)) / 12
                     let currentSpan = startSpan
                     const onMove = (ev: MouseEvent) => {
-                      const dx = ev.clientX - startX
+                      const dx = ev.clientX - startX, dy = ev.clientY - startY
                       const newSpan = Math.max(1, Math.min(12, Math.round(startSpan + dx / (colW + gapVal))))
-                      if (newSpan === currentSpan) return
-                      currentSpan = newSpan
-                      widgetEl.style.gridColumn = `span ${currentSpan}`
+                      if (newSpan !== currentSpan) {
+                        currentSpan = newSpan
+                        widgetEl.style.gridColumn = `span ${currentSpan}`
+                      }
+                      const newH = Math.max(120, startH + dy)
+                      widgetEl.style.height = `${newH}px`
                     }
                     const onUp = () => {
                       document.removeEventListener('mousemove', onMove)
@@ -1200,18 +1204,21 @@ export default function DashboardNew() {
           }
         </div>
       </aside>
-      <button className="chat-fab" aria-label="Open AI assistant" onClick={() => {
-        setChatOpen(!chatOpen)
-        if (!chatOpen && !chatOpenedRef.current) {
-          chatOpenedRef.current = true
-          setTimeout(() => sendInitialReport(), 400)
-        }
-      }}>
-        <Sparkles size={24} />
-        <span className="chat-fab-dot" />
-      </button>
+      {aiOn && (
+        <button className="chat-fab" aria-label="Open AI assistant" onClick={() => {
+          setChatOpen(!chatOpen)
+          if (!chatOpen && !chatOpenedRef.current) {
+            chatOpenedRef.current = true
+            setTimeout(() => sendInitialReport(), 400)
+          }
+        }}>
+          <Sparkles size={24} />
+          <span className="chat-fab-dot" />
+        </button>
+      )}
 
       {/* Chat Panel */}
+      {aiOn && (
       <section className={`chat-panel${chatOpen ? ' show' : ''}`} aria-label="AI Assistant Chat">
         <div className="chat-head">
           <div className="chat-avatar"><Sparkles size={17} /></div>
@@ -1244,6 +1251,7 @@ export default function DashboardNew() {
           </button>
         </div>
       </section>
+      )}
       {/* ── Detail Drawer ── */}
       <SlideDrawer open={detailDrawer} onClose={() => setDetailDrawer(false)} title={drawerTitle} width="30vw">
         {drawerContent}

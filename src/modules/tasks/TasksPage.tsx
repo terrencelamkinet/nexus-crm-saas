@@ -1,23 +1,56 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import GenericListPage from '../GenericListPage'
 import taskConfig from './config'
-import { apiClient } from '../../lib/api'
+import TodoPage from './TodoPage'
+
+type ViewMode = 'todo' | 'table'
 
 export default function TasksPage() {
-  const [contacts, setContacts] = useState<{ id: string; name: string }[]>([])
-  const [companies, setCompanies] = useState<{ id: string; name: string }[]>([])
+  const [view, setView] = useState<ViewMode>(() => {
+    const saved = localStorage.getItem('tasks_view_mode')
+    return (saved === 'todo' || saved === 'table') ? saved : 'todo'
+  })
 
-  useEffect(() => {
-    Promise.all([
-      apiClient.get<{ items: { id: string; name: string }[] }>('/api/v1/crm/contacts?page_size=100').then(r => setContacts(r.items || [])).catch(() => {}),
-      apiClient.get<{ items: { id: string; name: string }[] }>('/api/v1/crm/companies?page_size=100').then(r => setCompanies(r.items || [])).catch(() => {}),
-    ])
-  }, [])
+  const switchView = (v: ViewMode) => {
+    setView(v)
+    localStorage.setItem('tasks_view_mode', v)
+  }
 
   return (
-    <GenericListPage
-      config={taskConfig}
-      extraData={{ contacts, companies }}
-    />
+    <>
+      {/* View switcher — floating toggle above the page */}
+      <div style={{
+        display: 'flex', justifyContent: 'flex-end', gap: 6,
+        padding: '8px 12px 0',
+        position: 'relative', zIndex: 10,
+      }}>
+        <button
+          onClick={() => switchView('todo')}
+          style={{
+            padding: '4px 14px', borderRadius: 8, fontSize: 12, fontWeight: 600,
+            border: view === 'todo' ? '2px solid var(--color-primary)' : '1px solid var(--color-border)',
+            background: view === 'todo' ? 'var(--color-primary)' : 'var(--color-surface)',
+            color: view === 'todo' ? '#fff' : 'var(--color-text-muted)',
+            cursor: 'pointer', transition: 'all .15s',
+          }}
+        >
+          📋 To Do
+        </button>
+        <button
+          onClick={() => switchView('table')}
+          style={{
+            padding: '4px 14px', borderRadius: 8, fontSize: 12, fontWeight: 600,
+            border: view === 'table' ? '2px solid var(--color-primary)' : '1px solid var(--color-border)',
+            background: view === 'table' ? 'var(--color-primary)' : 'var(--color-surface)',
+            color: view === 'table' ? '#fff' : 'var(--color-text-muted)',
+            cursor: 'pointer', transition: 'all .15s',
+          }}
+        >
+          📊 Table
+        </button>
+      </div>
+
+      {view === 'todo' ? <TodoPage /> : <GenericListPage config={taskConfig} />}
+    </>
   )
 }

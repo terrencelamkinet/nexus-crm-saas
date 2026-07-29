@@ -9,6 +9,7 @@ export default function Header() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  const [aiEnabled, setAiEnabled] = useState(true); // default show until loaded
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -16,6 +17,19 @@ export default function Header() {
     };
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
+  // Listen for AI module changes
+  const loadModuleState = () => {
+    apiClient.get('/api/v1/crm/module-settings').then((list: any) => {
+      const ai = (list || []).find((m: any) => m.module_key === 'ai_assistant');
+      if (ai) setAiEnabled(ai.enabled);
+    }).catch(() => {});
+  };
+  useEffect(() => {
+    loadModuleState();
+    window.addEventListener('modules-changed', loadModuleState);
+    return () => window.removeEventListener('modules-changed', loadModuleState);
   }, []);
 
   // Mobile sidebar toggle
@@ -102,7 +116,7 @@ export default function Header() {
           {dark ? <Sun /> : <Moon />}
         </button>
         <div className="relative" ref={notifRef}>
-          <button className="icon-btn" onClick={() => setNotifOpen(!notifOpen)}>
+          <button className="icon-btn" onClick={() => setNotifOpen(!notifOpen)} style={{display:aiEnabled?'':'none'}}>
             <Bell />
             {unreadCount > 0 && <span className="notif-badge">{unreadCount > 99 ? '99+' : unreadCount}</span>}
           </button>

@@ -534,3 +534,192 @@ class ProjectCalendarEventResponse(BaseModel):
     updated_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
+
+
+# ===========================================================================
+# Task (MS To Do extension)
+# ===========================================================================
+
+class TaskCreateTodo(BaseModel):
+    title: str
+    list_id: Optional[UUID] = None
+    description: Optional[str] = None
+    due_date: Optional[date] = None
+    priority: str = "medium"
+    status: str = "pending"
+    assignee_id: Optional[UUID] = None
+    contact_id: Optional[UUID] = None
+    company_id: Optional[UUID] = None
+    deal_id: Optional[UUID] = None
+    parent_task_id: Optional[UUID] = None
+    is_important: bool = False
+    my_day_date: Optional[date] = None
+    reminder_at: Optional[datetime] = None
+    recurrence_rule: Optional[str] = None
+    notes_html: Optional[str] = None
+
+
+class TaskUpdateTodo(BaseModel):
+    title: Optional[str] = None
+    list_id: Optional[UUID] = None
+    description: Optional[str] = None
+    due_date: Optional[date] = None
+    priority: Optional[str] = None
+    status: Optional[str] = None
+    assignee_id: Optional[UUID] = None
+    contact_id: Optional[UUID] = None
+    company_id: Optional[UUID] = None
+    deal_id: Optional[UUID] = None
+    parent_task_id: Optional[UUID] = None
+    is_important: Optional[bool] = None
+    my_day_date: Optional[date] = None
+    reminder_at: Optional[datetime] = None
+    recurrence_rule: Optional[str] = None
+    notes_html: Optional[str] = None
+
+
+class TaskResponseTodo(BaseModel):
+    id: UUID
+    tenant_id: UUID
+    title: str
+    description: Optional[str] = None
+    due_date: Optional[date] = None
+    priority: Optional[str] = None
+    status: Optional[str] = None
+    assignee_id: Optional[UUID] = None
+    contact_id: Optional[UUID] = None
+    company_id: Optional[UUID] = None
+    deal_id: Optional[UUID] = None
+    parent_task_id: Optional[UUID] = None
+    list_id: Optional[UUID] = None
+    is_important: bool = False
+    my_day_date: Optional[date] = None
+    reminder_at: Optional[datetime] = None
+    recurrence_rule: Optional[str] = None
+    notes_html: Optional[str] = None
+    created_by: Optional[UUID] = None
+    completed_at: Optional[datetime] = None
+    created_at: datetime
+    updated_at: datetime
+    steps: list[Any] = []
+    categories: list[Any] = []
+    attachments: list[Any] = []
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+# ===========================================================================
+# TaskList
+# ===========================================================================
+
+class TaskListCreate(BaseModel):
+    name: str
+    color: Optional[str] = None
+    icon: Optional[str] = None
+    sort_order: int = 0
+
+
+class TaskListUpdate(BaseModel):
+    name: Optional[str] = None
+    color: Optional[str] = None
+    icon: Optional[str] = None
+    sort_order: Optional[int] = None
+
+
+class TaskListResponse(BaseModel):
+    id: UUID
+    tenant_id: UUID
+    name: str
+    color: Optional[str] = None
+    icon: Optional[str] = None
+    sort_order: int = 0
+    is_smart: bool = False
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+# ===========================================================================
+# TaskStep
+# ===========================================================================
+
+class TaskStepCreate(BaseModel):
+    title: str
+
+
+class TaskStepUpdate(BaseModel):
+    title: Optional[str] = None
+    is_completed: Optional[bool] = None
+
+
+class TaskStepReorder(BaseModel):
+    step_ids: list[UUID]
+
+
+class TaskStepResponse(BaseModel):
+    id: UUID
+    task_id: UUID
+    title: str
+    is_completed: bool = False
+    sort_order: int = 0
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+# ===========================================================================
+# TaskCategory
+# ===========================================================================
+
+class TaskCategoryCreate(BaseModel):
+    name: str
+    color: Optional[str] = None
+
+
+class TaskCategoryResponse(BaseModel):
+    id: UUID
+    tenant_id: UUID
+    name: str
+    color: Optional[str] = None
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class TaskCategoryMapCreate(BaseModel):
+    category_id: UUID
+
+
+# ===========================================================================
+# TaskAttachment
+# ===========================================================================
+
+class TaskAttachmentResponse(BaseModel):
+    id: UUID
+    task_id: UUID
+    filename: str
+    file_size: Optional[int] = None
+    content_type: Optional[str] = None
+    storage_path: Optional[str] = None
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+# ===========================================================================
+# ListShare
+# ===========================================================================
+
+class ListShareCreate(BaseModel):
+    user_id: UUID
+    permission: str = "read"
+
+
+class ListShareResponse(BaseModel):
+    list_id: UUID
+    user_id: UUID
+    permission: str = "read"
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)

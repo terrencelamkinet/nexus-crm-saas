@@ -806,12 +806,7 @@ export default function ContactDetailPage() {
 
           {/* ═══ Tasks Tab ═══ */}
           {tab === 'tasks' && (
-            <div className="panel">
-              <div className="panel-head">
-                <h3>Tasks</h3>
-              </div>
-              <div className="empty-state">No tasks yet</div>
-            </div>
+            <ContactTasksTab contactId={id || ''} onViewAll={() => navigate(`/tasks?contact_id=${id || ''}`)} />
           )}
 
           {/* ═══ Touchpoints Tab ═══ */}
@@ -1136,4 +1131,45 @@ export default function ContactDetailPage() {
       )}
     </div>
   );
+}
+
+/* ── Contact Tasks Tab ── */
+function ContactTasksTab({ contactId, onViewAll }: { contactId: string; onViewAll: () => void }) {
+  const [tasks, setTasks] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    apiClient.get<{ items: any[] }>(`/api/v1/crm/todo/tasks?contact_id=${contactId}&limit=10`)
+      .then(d => setTasks(d.items || [])).catch(() => {}).finally(() => setLoading(false))
+  }, [contactId])
+
+  return (
+    <div className="panel">
+      <div className="panel-head">
+        <h3>Tasks ({tasks.length})</h3>
+        <button className="btn-ghost" onClick={onViewAll}>View All →</button>
+      </div>
+      {loading ? (
+        <div className="p-16" style={{fontSize:12,color:'var(--color-text-faint)'}}>Loading...</div>
+      ) : tasks.length === 0 ? (
+        <div className="empty-state">No tasks yet</div>
+      ) : (
+        <div className="flex-col">
+          {tasks.map((t: any) => (
+            <div key={t.id} className="list-row" style={{cursor:'pointer'}} onClick={onViewAll}>
+              <div className={`t-check-sm${t.status === 'done' ? ' checked' : ''}`} style={{
+                width:16,height:16,borderRadius:'50%',border:`2px solid ${t.status === 'done' ? 'var(--color-success)' : 'var(--color-border)'}`,
+                background:t.status === 'done' ? 'var(--color-success)' : 'transparent',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0
+              }}>
+                {t.status === 'done' && <span style={{color:'#fff',fontSize:10}}>✓</span>}
+              </div>
+              <span className="name" style={{flex:1,fontSize:13.5,textDecoration:t.status === 'done' ? 'line-through' : 'none',color:t.status === 'done' ? 'var(--color-text-faint)' : 'var(--color-text)'}}>{t.title}</span>
+              {t.is_important && <span style={{color:'var(--color-gold)',fontSize:14,marginRight:6}}>★</span>}
+              {t.due_date && <span style={{fontSize:11,color:'var(--color-text-faint)'}}>{new Date(t.due_date).toLocaleDateString('zh-HK',{month:'short',day:'numeric'})}</span>}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
 }

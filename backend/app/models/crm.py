@@ -132,9 +132,101 @@ class Task(Base):
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
+    # --- MS To Do fields ---
+    list_id = Column(UUID(as_uuid=True), ForeignKey("nexus_crm.task_lists.id", ondelete="SET NULL"))
+    is_important = Column(Boolean, default=False)
+    my_day_date = Column(Date)
+    reminder_at = Column(DateTime(timezone=True))
+    recurrence_rule = Column(Text)  # RRULE string
+    notes_html = Column(Text)
+
     parent = relationship("Task", remote_side="Task.id", backref="subtasks")
     contact = relationship("Contact", back_populates="tasks")
     company = relationship("Company", back_populates="tasks")
+    task_list = relationship("TaskList", back_populates="tasks")
+    steps = relationship("TaskStep", back_populates="task", cascade="all, delete-orphan", order_by="TaskStep.sort_order")
+    categories = relationship("TaskCategory", secondary="nexus_crm.task_category_map", back_populates="tasks", lazy="selectin")
+    attachments = relationship("TaskAttachment", back_populates="task", cascade="all, delete-orphan")
+
+
+class TaskList(Base):
+    __tablename__ = "task_lists"
+    __table_args__ = {"schema": "nexus_crm"}
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id = Column(UUID(as_uuid=True), ForeignKey("nexus_auth.nexus_auth_tenants.id", ondelete="CASCADE"), nullable=False)
+    name = Column(Text, nullable=False)
+    color = Column(Text)
+    icon = Column(Text)
+    sort_order = Column(Integer, default=0)
+    is_smart = Column(Boolean, default=False)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+
+    tasks = relationship("Task", back_populates="task_list")
+    shares = relationship("ListShare", back_populates="task_list", cascade="all, delete-orphan")
+
+
+class TaskStep(Base):
+    __tablename__ = "task_steps"
+    __table_args__ = {"schema": "nexus_crm"}
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    task_id = Column(UUID(as_uuid=True), ForeignKey("nexus_crm.tasks.id", ondelete="CASCADE"), nullable=False)
+    title = Column(Text, nullable=False)
+    is_completed = Column(Boolean, default=False)
+    sort_order = Column(Integer, default=0)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+
+    task = relationship("Task", back_populates="steps")
+
+
+class TaskCategory(Base):
+    __tablename__ = "task_categories"
+    __table_args__ = {"schema": "nexus_crm"}
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id = Column(UUID(as_uuid=True), ForeignKey("nexus_auth.nexus_auth_tenants.id", ondelete="CASCADE"), nullable=False)
+    name = Column(Text, nullable=False)
+    color = Column(Text)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+
+    tasks = relationship("Task", secondary="nexus_crm.task_category_map", back_populates="categories", lazy="selectin")
+
+
+class TaskCategoryMap(Base):
+    __tablename__ = "task_category_map"
+    __table_args__ = {"schema": "nexus_crm"}
+
+    task_id = Column(UUID(as_uuid=True), ForeignKey("nexus_crm.tasks.id", ondelete="CASCADE"), primary_key=True)
+    category_id = Column(UUID(as_uuid=True), ForeignKey("nexus_crm.task_categories.id", ondelete="CASCADE"), primary_key=True)
+
+
+class TaskAttachment(Base):
+    __tablename__ = "task_attachments"
+    __table_args__ = {"schema": "nexus_crm"}
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    task_id = Column(UUID(as_uuid=True), ForeignKey("nexus_crm.tasks.id", ondelete="CASCADE"), nullable=False)
+    filename = Column(Text, nullable=False)
+    file_size = Column(Integer)
+    content_type = Column(Text)
+    storage_path = Column(Text)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+
+    task = relationship("Task", back_populates="attachments")
+
+
+class ListShare(Base):
+    __tablename__ = "list_shares"
+    __table_args__ = {"schema": "nexus_crm"}
+
+    list_id = Column(UUID(as_uuid=True), ForeignKey("nexus_crm.task_lists.id", ondelete="CASCADE"), primary_key=True)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("nexus_auth.nexus_auth_users.id", ondelete="CASCADE"), primary_key=True)
+    permission = Column(Text, default="read")  # read, write
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+
+    task_list = relationship("TaskList", back_populates="shares")
 
 
 class NameCard(Base):
