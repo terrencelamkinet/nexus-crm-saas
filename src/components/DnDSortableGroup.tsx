@@ -46,7 +46,6 @@ export default function DnDSortableGroup<T extends string>({ items, onChange, ch
     const target = els[best];
     if (!target) return 0;
     const r = target.getBoundingClientRect();
-    const midY = r.top + r.height / 2;
     // Also check adjacent gap distances
     let gapIdx = cy < r.top + r.height / 2 ? best : best + 1;
     // Clamp

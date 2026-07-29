@@ -88,7 +88,7 @@ export default function Header() {
   useEffect(() => { if (notifOpen) fetchNotifs(); }, [notifOpen]);
 
   const handleNotifClick = async (n: any) => {
-    try { await apiClient.patch(`/api/v1/notifications/${n.id}/read`); } catch {}
+    try { await apiClient.patch(`/api/v1/notifications/${n.id}/read`, {}); } catch {}
     if (n.action_url) navigate(n.action_url);
     setNotifOpen(false);
   };

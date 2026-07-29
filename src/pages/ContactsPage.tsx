@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useRef } from 'react';
 import { Plus, Search, X, Trash2, Edit3, Filter, ArrowUpDown, LayoutGrid, SlidersHorizontal, Download, ChevronRight, MoreHorizontal, GripVertical } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useApi, useSearch, useCreateModal, TableSkeleton, ErrorBox } from '../lib/useApi';

@@ -1,6 +1,5 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { apiClient } from '../lib/api'
+import { useState, useEffect, useRef, useCallback } from 'react';
+import { apiClient } from '../lib/api';
 import {
   CheckSquare, Activity, Sparkles, X, Plus,
   DollarSign, Building2, TrendingUp,
@@ -79,7 +78,6 @@ const demonTouchpoints: Touchpoint[] = [
 ]
 
 export default function DashboardPreview() {
-  const navigate = useNavigate()
   const [stats, setStats] = useState({ contacts: 0, deals: 0, dealValue: '', tasks: 0, companies: 0 })
   const [tasks, setTasks] = useState<Task[]>([])
   const [touchpoints, setTouchpoints] = useState<Touchpoint[]>([])

@@ -5,7 +5,6 @@ import {
   getWeekDates,
   getHourSlots,
   isSameDay,
-  formatDayHeader,
   formatDateKey,
 } from './calendar-utils';
 import type { CalendarEventFormatted, CalendarViewType } from './types';

@@ -68,7 +68,7 @@ export default function EntitySearch({
 
   const wrapperRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
-  const debounceRef = useRef<ReturnType<typeof setTimeout>>()
+  const debounceRef = useRef<ReturnType<typeof setTimeout>>(undefined)
   const abortRef = useRef<AbortController>(null)
 
   // ── Fetch label when value is set ──
@@ -77,7 +77,7 @@ export default function EntitySearch({
       setFetchedLabel(true)
       apiClient.get<SearchItem>(`${searchUrl}/${value}`)
         .then(data => {
-          const lbl = data?.[displayField] || data?.title || data?.email || data?.id || ''
+          const lbl = String(data?.[displayField] ?? '') || data?.title || data?.email || data?.id || ''
           setSelectedLabel(lbl)
         })
         .catch(() => {})
@@ -159,7 +159,7 @@ export default function EntitySearch({
   }
 
   const handleSelect = (item: SearchItem) => {
-    const lbl = item[displayField] || item.title || item.email || item.name || item.id
+    const lbl = String(item[displayField] ?? '') || item.title || item.email || item.name || item.id
     setSelectedLabel(lbl)
     setQuery('')
     setResults([])
@@ -196,7 +196,7 @@ export default function EntitySearch({
         [createTitleField]: createName.trim(),
       })
       const newId = created.id
-      const newLabel = created[displayField] || created.title || created.name || newId
+      const newLabel = String(created[displayField] ?? '') || created.title || created.name || newId
       setSelectedLabel(newLabel)
       setQuery('')
       setFetchedLabel(true)
@@ -223,8 +223,8 @@ export default function EntitySearch({
         maxHeight: 200, overflowY: 'auto',
       }}>
         {results.map(item => {
-          const name = item[displayField] || item.title || item.email || item.name || item.id
-          const subtitle = item.email || item.industry || (item.job_title ? `at ${item.job_title}` : '')
+          const name = String(item[displayField] ?? '') || item.title || item.email || item.name || item.id
+          const subtitle = String(item.email ?? '') || String(item.industry ?? '') || (item.job_title ? `at ${item.job_title}` : '')
           return (
             <div key={item.id} className="entity-search-item"
               onClick={() => handleSelect(item)}

@@ -16,9 +16,6 @@ const MIN_DAYS = 30;
 /** Width per day column in pixels */
 const DAY_WIDTH = 32;
 
-/** Height per project row in pixels */
-const ROW_HEIGHT = 48;
-
 /** Get event type color or fallback */
 function getEventColor(ev: CalendarEventFormatted): string {
   if (ev.eventType && TYPE_COLORS[ev.eventType]) return TYPE_COLORS[ev.eventType];

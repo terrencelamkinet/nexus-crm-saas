@@ -21,7 +21,7 @@ export default function QuickAddTouchpoint({ open, onClose, onCreated }: Props) 
   const [results, setResults] = useState<ContactRef[]>([]);
   const [saving, setSaving] = useState(false);
   const [done, setDone] = useState(false);
-  const searchRef = useRef<ReturnType<typeof setTimeout>>();
+  const searchRef = useRef<ReturnType<typeof setTimeout>>(undefined);
   const [focused, setFocused] = useState(false);
 
   useEffect(() => {

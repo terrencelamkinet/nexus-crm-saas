@@ -1,9 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
-import { NavLink, Link } from 'react-router-dom';
-import { LayoutDashboard, Users, Building2, TrendingUp,
-  CheckSquare, Activity, ScanLine, Settings, BarChart3,
-  Sparkles, UserCog, FolderKanban, Bell, Truck,
-} from 'lucide-react';
+import { NavLink } from 'react-router-dom';
+import { LayoutDashboard, Users, Building2, TrendingUp, CheckSquare, Activity, ScanLine, Settings, BarChart3, Sparkles, UserCog, FolderKanban, Bell, Truck } from 'lucide-react';
 import { apiClient } from '../lib/api';
 
 export interface ModuleSetting {

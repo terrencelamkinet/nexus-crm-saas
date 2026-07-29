@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Bell, CheckCheck, ArrowLeft, RefreshCw } from 'lucide-react';
+import { Bell, CheckCheck, RefreshCw } from 'lucide-react';
 import { apiClient } from '../lib/api';
 
 interface NotificationItem {
@@ -15,8 +15,6 @@ interface NotificationItem {
   created_at?: string;
   action_url?: string;
 }
-
-const PRIORITY_ORDER: Record<string, number> = { CRITICAL: 0, HIGH: 1, NORMAL: 2, LOW: 3 };
 
 export default function NotificationsPage() {
   const [items, setItems] = useState<NotificationItem[]>([]);
@@ -41,7 +39,7 @@ export default function NotificationsPage() {
   useEffect(() => { fetchData(page, filter); }, [page, filter]);
 
   const handleMarkRead = async (id: string) => {
-    try { await apiClient.patch(`/api/v1/notifications/${id}/read`); setItems(prev => prev.map(i => i.id === id ? { ...i, status: 'READ' } : i)); } catch {}
+    try { await apiClient.patch(`/api/v1/notifications/${id}/read`, {}); setItems(prev => prev.map(i => i.id === id ? { ...i, status: 'READ' } : i)); } catch {}
   };
 
   const handleMarkAllRead = async () => {

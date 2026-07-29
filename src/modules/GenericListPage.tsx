@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { Plus, Search, X, Trash2, Edit3, ChevronRight, MoreHorizontal, Download, ArrowUpDown } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { apiClient } from '../lib/api'
@@ -19,7 +19,6 @@ const FILTERABLE_TYPES = ['select', 'status', 'text', 'title', 'number', 'date',
 
 export default function GenericListPage({ config, extraData }: Props) {
   const navigate = useNavigate()
-  const storageKey = `glp_${config.name}`
   const [query, setQuery] = useState('')
   const [data, setData] = useState<ListResponse | null>(null)
   const [loading, setLoading] = useState(true)
@@ -635,11 +634,6 @@ const [filters, setFilters] = useState<Record<string, FilterEntry>>({})
                 const f = filterField ? filterableFields.find(x => x.key === filterField) : null
                 const opts = f?.options
                 if (f && opts && opts.length > 0) {
-                  const toggleVal = (val: string) => {
-                    setFilterChecked(prev =>
-                      prev.includes(val) ? prev.filter(v => v !== val) : [...prev, val]
-                    )
-                  }
                   return (
                     <div className="pos-relative" style={{ minWidth: 160 }}>
                       <button ref={filterBtnRef} onClick={() => {
@@ -744,7 +738,7 @@ const [filters, setFilters] = useState<Record<string, FilterEntry>>({})
             })}
           </div>
         ) : view === 'board' || view === 'kanban' ? (
-          <BoardView items={items} config={config} onSelect={setSelectedId} groupBy={view === 'board' ? 'status' : 'contact_type'} />
+                <BoardView items={items} onSelect={setSelectedId} groupBy={view === 'board' ? 'status' : 'contact_type'} />
         ) : (
           <>
             <div className="table-scroll">
@@ -999,8 +993,8 @@ const [filters, setFilters] = useState<Record<string, FilterEntry>>({})
 /* ═══════════════════════════════════════════
    Board / Kanban View Component
    ═══════════════════════════════════════════ */
-function BoardView({ items, config, onSelect, groupBy }: {
-  items: any[]; config: ModuleConfig; onSelect: (id: string) => void; groupBy: string
+function BoardView({ items, onSelect, groupBy }: {
+  items: any[]; onSelect: (id: string) => void; groupBy: string
 }) {
   const groups: Record<string, any[]> = {}
   for (const item of items) {

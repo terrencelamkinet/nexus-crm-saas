@@ -101,7 +101,7 @@ export function CellRenderer({ value, field, onNavigate }: { value: any; field: 
 }
 
 // ═══ DETAIL / FORM FIELD RENDERER ═══
-export function FieldsRenderer({ field, entity, form, onChange, editOpen, relationData, onNavigate }: Props) {
+export function FieldsRenderer({ field, entity, form, onChange, editOpen, onNavigate }: Props) {
   const label = <div className="field-label">{field.label}{field.required ? ' *' : ''}</div>
   const isReadonly = !editOpen || field.editable === false
     || ['rollup', 'formula', 'created_time', 'last_edited_time', 'created_by', 'last_edited_by', 'unique_id'].includes(field.type)
