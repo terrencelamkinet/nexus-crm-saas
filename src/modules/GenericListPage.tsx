@@ -534,24 +534,31 @@ export default function GenericListPage({ config, extraData }: Props) {
         {filterOpen && (
           <div className="filter-panel">
             <div className="filter-row">
-              <select value={filterField} onChange={e => setFilterField(e.target.value)} className="input-field filter-field-select">
+              <select value={filterField} onChange={e => { setFilterField(e.target.value); setFilterValue(''); }} className="input-field filter-field-select">
                 <option value="">— Field —</option>
                 {filterableFields.map(f => (
                   <option key={f.key} value={f.key}>{f.label}</option>
                 ))}
               </select>
-              {filterField && filterableFields.find(f => f.key === filterField)?.options ? (
-                <select value={filterValue} onChange={e => setFilterValue(e.target.value)} className="input-field filter-value-input">
-                  <option value="">— All —</option>
-                  {filterableFields.find(f => f.key === filterField)?.options?.map(o => (
-                    <option key={o.value} value={o.value}>{o.label}</option>
-                  ))}
-                </select>
-              ) : (
-                <input type="text" value={filterValue} onChange={e => setFilterValue(e.target.value)}
-                  placeholder="Value" className="input-field filter-value-input" disabled={!filterField}
-                  onKeyDown={e => e.key === 'Enter' && addFilter()} />
-              )}
+              {(() => {
+                const f = filterField ? filterableFields.find(x => x.key === filterField) : null
+                const opts = f?.options
+                if (f && opts && opts.length > 0) {
+                  return (
+                    <select value={filterValue} onChange={e => setFilterValue(e.target.value)} className="input-field filter-value-input">
+                      <option value="">— All —</option>
+                      {opts.map(o => (
+                        <option key={o.value} value={o.value}>{o.label}</option>
+                      ))}
+                    </select>
+                  )
+                }
+                return (
+                  <input type="text" value={filterValue} onChange={e => setFilterValue(e.target.value)}
+                    placeholder="Value" className="input-field filter-value-input" disabled={!filterField}
+                    onKeyDown={e => e.key === 'Enter' && addFilter()} />
+                )
+              })()}
               <button onClick={addFilter} disabled={!filterField || !filterValue} className="btn-primary filter-apply">Apply</button>
               <button onClick={() => setFilterOpen(false)} className="btn-ghost filter-cancel">Cancel</button>
             </div>
