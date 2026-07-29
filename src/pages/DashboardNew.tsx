@@ -1082,7 +1082,7 @@ export default function DashboardNew() {
                 </button>
               )}
               {editing && (
-                <div className="resize-grip" style={{position:'absolute',bottom:4,right:4,cursor:'nwse-resize',color:'var(--color-text-faint)',opacity:0.5,zIndex:5,userSelect:'none'}}
+                <div className="resize-grip" style={{position:'absolute',bottom:4,right:4,cursor:'nwse-resize',color:'var(--color-primary)',opacity:0.8,zIndex:5,userSelect:'none',background:'var(--color-surface-2)',borderRadius:'4px',padding:2,display:'flex',alignItems:'center',justifyContent:'center',width:20,height:20,boxShadow:'0 1px 3px rgba(0,0,0,0.15)'}}
                   draggable={false}
                   onMouseDown={(e) => {
                     e.preventDefault(); e.stopPropagation()
@@ -1090,21 +1090,21 @@ export default function DashboardNew() {
                     const grid = gridRef.current
                     const widgetEl = (e.currentTarget as HTMLElement).closest('[data-key]') as HTMLElement
                     if (!grid || !widgetEl) return
+                    const startSpan = parseInt(widgetEl.style.gridColumn.match(/span (\d+)/)?.[1] || String(def.span))
                     const gridRect = grid.getBoundingClientRect()
-                    const gap = 16
-                    const colW = (gridRect.width - (11 * gap)) / 12
+                    const gapVal = 16
+                    const colW = (gridRect.width - (11 * gapVal)) / 12
+                    let currentSpan = startSpan
                     const onMove = (ev: MouseEvent) => {
                       const dx = ev.clientX - startX
-                      const newSpan = Math.max(1, Math.min(12, Math.round(def.span + dx / (colW + gap))))
-                      widgetEl.style.gridColumn = `span ${newSpan}`
+                      const newSpan = Math.max(1, Math.min(12, Math.round(startSpan + dx / (colW + gapVal))))
+                      if (newSpan === currentSpan) return
+                      currentSpan = newSpan
+                      widgetEl.style.gridColumn = `span ${currentSpan}`
                     }
                     const onUp = () => {
                       document.removeEventListener('mousemove', onMove)
                       document.removeEventListener('mouseup', onUp)
-                      const match = widgetEl.style.gridColumn.match(/span (\d+)/)
-                      if (match) {
-                        saveOrder(order.map((ok, i) => i === order.indexOf(k) ? ok : ok))
-                      }
                     }
                     document.addEventListener('mousemove', onMove)
                     document.addEventListener('mouseup', onUp)
