@@ -2,12 +2,14 @@
 //  NEXUS CRM — Enabled Modules Registry
 //  ═══════════════════════════════════════════
 //  Tenant-level feature toggle for modules.
-//  Fields with dependsOnModule set will be
-//  hidden when the module is not in this list.
+//  Fetched from backend DB (tenant_modules table)
+//  via the /module-settings API endpoint.
 //  ═══════════════════════════════════════════
 
-// Currently active modules — update per tenant
-const enabledModules: string[] = [
+import { apiClient } from '../lib/api'
+
+/** All known module keys */
+const KNOWN_MODULES = [
   'contacts',
   'companies',
   'tasks',
@@ -17,12 +19,44 @@ const enabledModules: string[] = [
   'shipping',
 ]
 
+let enabledModules: string[] = [...KNOWN_MODULES]
+let hasInitialised = false
+
+async function loadFromApi(): Promise<void> {
+  if (hasInitialised) return
+  hasInitialised = true
+  try {
+    const settings = await apiClient.get<{ module_key: string; enabled: boolean }[]>('/api/v1/crm/module-settings')
+    if (Array.isArray(settings) && settings.length > 0) {
+      enabledModules = KNOWN_MODULES.filter(mk => {
+        const s = settings.find(s => s.module_key === mk)
+        // Default to enabled if no setting exists
+        return s ? s.enabled : true
+      })
+    }
+  } catch {
+    // Fallback: all modules enabled
+    enabledModules = [...KNOWN_MODULES]
+  }
+}
+
+// Start loading immediately but don't block
+if (typeof window !== 'undefined') {
+  loadFromApi()
+}
+
 export function isModuleEnabled(name: string): boolean {
   return enabledModules.includes(name)
 }
 
 export function getEnabledModules(): string[] {
   return [...enabledModules]
+}
+
+/** Force reload from API (e.g. after toggling in Settings) */
+export async function refreshModules(): Promise<void> {
+  hasInitialised = false
+  await loadFromApi()
 }
 
 export default enabledModules

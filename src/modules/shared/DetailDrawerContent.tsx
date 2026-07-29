@@ -172,9 +172,13 @@ export default function DetailDrawerContent({ config, id, onClose, tabRenderers,
           </div>
         )}
         {entity['company'] && (
-          <div className="drawer-info-row">
+          <div className="drawer-info-row" style={{ cursor: 'pointer' }}
+            onClick={() => {
+              const companyId = (entity['company'] as any).id
+              if (companyId) navigate(`/companies/${companyId}`)
+            }}>
             <Building2 className="icon-14" />
-            <span>{(entity['company'] as any).name}</span>
+            <span style={{ color: 'var(--color-primary)', textDecoration: 'none' }}>{(entity['company'] as any).name || (entity['company'] as any).id || ''}</span>
           </div>
         )}
         <div className="drawer-info-row">

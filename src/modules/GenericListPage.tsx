@@ -20,15 +20,7 @@ const FILTERABLE_TYPES = ['select', 'status', 'text', 'title', 'number', 'date',
 export default function GenericListPage({ config, extraData }: Props) {
   const navigate = useNavigate()
   const storageKey = `glp_${config.name}`
-  const loadFilters = (): Record<string, FilterEntry> => {
-    try {
-      const raw = localStorage.getItem(`${storageKey}_filters`)
-      return raw ? JSON.parse(raw) : {}
-    } catch { return {} }
-  }
-  const [query, setQuery] = useState(() => {
-    try { return localStorage.getItem(`${storageKey}_q`) || '' } catch { return '' }
-  })
+  const [query, setQuery] = useState('')
   const [data, setData] = useState<ListResponse | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -48,19 +40,12 @@ export default function GenericListPage({ config, extraData }: Props) {
   const [page, setPage] = useState(1)
   const pageSize = 50
 
-  const [sortBy, setSortBy] = useState(() => {
-    try { return localStorage.getItem(`${storageKey}_sort`)?.split('|')[0] || '' } catch { return '' }
-  })
-  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>(() => {
-    try {
-      const v = localStorage.getItem(`${storageKey}_sort`)?.split('|')[1]
-      return (v === 'asc' || v === 'desc') ? v : 'desc'
-    } catch { return 'desc' }
-  })
+  const [sortBy, setSortBy] = useState('')
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc')
 
   type FilterOp = 'is' | 'is_not'
 interface FilterEntry { op: FilterOp; value: string }
-const [filters, setFilters] = useState<Record<string, FilterEntry>>(() => loadFilters())
+const [filters, setFilters] = useState<Record<string, FilterEntry>>({})
   const [filterOpen, setFilterOpen] = useState(false)
   const [filterField, setFilterField] = useState('')
   const [filterOp, setFilterOp] = useState<FilterOp>('is')
@@ -157,16 +142,46 @@ const [filters, setFilters] = useState<Record<string, FilterEntry>>(() => loadFi
     return () => { clearTimeout(t); if (id === fetchRef.current) fetchQueued.current = false }
   }, [query, page, sortBy, sortOrder, filters])
 
-  // Persist filter/query/sort to localStorage
+  // ─── Server-side filter preset (tenant-level, not device) ───
+  const filterModuleKey = config.name === 'task' ? 'tasks' : config.name + 's'
+  
+  const loadFilterPreset = useCallback(async () => {
+    try {
+      const settings = await apiClient.get<{ settings?: any }[]>('/api/v1/crm/module-settings')
+      const ms = settings?.find(s => s.module_key === filterModuleKey)
+      if (ms?.settings?.filterPreset) {
+        const p = ms.settings.filterPreset
+        if (p.filters) setFilters(p.filters)
+        if (p.query) setQuery(p.query)
+        if (p.sortBy) { setSortBy(p.sortBy); setSortOrder(p.sortOrder || 'desc') }
+      }
+    } catch { /* no-op — use defaults */ }
+  }, [filterModuleKey])
+
+  useEffect(() => { loadFilterPreset() }, [loadFilterPreset])
+
+  const saveFilterPreset = useRef<() => void>()
+  saveFilterPreset.current = () => {
+    const payload = {
+      module_key: filterModuleKey,
+      enabled: true,
+      settings: {
+        filterPreset: {
+          filters,
+          query,
+          sortBy,
+          sortOrder,
+        },
+      },
+    }
+    apiClient.put(`/api/v1/crm/module-settings/${filterModuleKey}`, payload)
+      .catch(() => {})
+  }
+
   useEffect(() => {
-    try { localStorage.setItem(`${storageKey}_filters`, JSON.stringify(filters)) } catch {}
-  }, [filters, storageKey])
-  useEffect(() => {
-    try { localStorage.setItem(`${storageKey}_q`, query) } catch {}
-  }, [query, storageKey])
-  useEffect(() => {
-    try { localStorage.setItem(`${storageKey}_sort`, sortBy ? `${sortBy}|${sortOrder}` : '') } catch {}
-  }, [sortBy, sortOrder, storageKey])
+    const t = setTimeout(() => saveFilterPreset.current?.(), 1500)
+    return () => clearTimeout(t)
+  }, [filters, query, sortBy, sortOrder])
 
   const items = data?.items ?? []
   const total = data?.total ?? 0
@@ -304,6 +319,15 @@ const [filters, setFilters] = useState<Record<string, FilterEntry>>(() => loadFi
     finally { setBulkSaving(false) }
   }
 
+  const RELATION_ROUTES: Record<string, string> = {
+    contacts: '/contacts',
+    companies: '/companies',
+    projects: '/projects',
+    tasks: '/tasks',
+    touchpoints: '/touchpoints',
+    users: '',
+  }
+
   const renderCell = (item: EntityRecord, fieldKey: string) => {
     if (fieldKey === 'name' || fieldKey === config.titleField || (!config.titleField && fieldKey === config.fields[0]?.key)) {
       const val = item[fieldKey] || item['name'] || ''
@@ -318,7 +342,24 @@ const [filters, setFilters] = useState<Record<string, FilterEntry>>(() => loadFi
       )
     }
     const field = config.fields.find(f => f.key === fieldKey)
-    if (field) return <CellRenderer value={item[fieldKey]} field={field} />
+    if (field) {
+      // Relation fields → clickable link to related detail page
+      if (field.type === 'relation' && typeof item[fieldKey] === 'object' && item[fieldKey]?.id) {
+        const resource = field.relation?.resource || ''
+        const route = RELATION_ROUTES[resource]
+        const href = route ? `${route}/${item[fieldKey].id}` : ''
+        if (href) {
+          return (
+            <a href={href} onClick={e => { e.preventDefault(); e.stopPropagation(); navigate(href) }}
+              className="relation-link"
+              style={{ color: 'var(--color-primary)', textDecoration: 'none', cursor: 'pointer' }}>
+              {item[fieldKey].name || item[fieldKey].title || item[fieldKey].id}
+            </a>
+          )
+        }
+      }
+      return <CellRenderer value={item[fieldKey]} field={field} />
+    }
     return <span>{item[fieldKey] ?? '—'}</span>
   }
 
