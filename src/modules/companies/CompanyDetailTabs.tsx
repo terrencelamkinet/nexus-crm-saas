@@ -47,8 +47,8 @@ export function ContactsTab({ entity: company }: { entity: EntityRecord; moduleC
 
   useEffect(() => {
     setLoading(true)
-    apiClient.get<{ items: LinkRow[] }>('/api/v1/crm/contacts?page_size=500')
-      .then(r => setContacts((r.items || []).filter(c => c.company_id === company.id)))
+    apiClient.get<{ items: LinkRow[] }>(`/api/v1/crm/contacts?company_id=${company.id}&page_size=500`)
+      .then(r => setContacts(r.items || []))
       .catch(() => {})
       .finally(() => setLoading(false))
   }, [company.id])
@@ -266,8 +266,8 @@ export function TouchpointsTab({ entity: company, refresh }: { entity: EntityRec
   const [saving, setSaving] = useState(false)
 
   useEffect(() => {
-    apiClient.get<{ items: Touchpoint[] }>('/api/v1/crm/touchpoints?page_size=200')
-      .then(r => setTouchpoints((r.items || []).filter(tp => tp.company_id === company.id)))
+    apiClient.get<{ items: Touchpoint[] }>(`/api/v1/crm/touchpoints?company_id=${company.id}&page_size=200`)
+      .then(r => setTouchpoints(r.items || []))
       .catch(() => {})
   }, [company.id])
 
@@ -362,8 +362,8 @@ export function NotesTab({ entity: company, refresh }: { entity: EntityRecord; m
   const [saving, setSaving] = useState(false)
 
   useEffect(() => {
-    apiClient.get<{ items: Note[] }>('/api/v1/crm/notes?page_size=200')
-      .then(r => setNotes((r.items || []).filter(n => n.company_id === company.id)))
+    apiClient.get<{ items: Note[] }>(`/api/v1/crm/notes?company_id=${company.id}&page_size=200`)
+      .then(r => setNotes(r.items || []))
       .catch(() => {})
   }, [company.id])
 

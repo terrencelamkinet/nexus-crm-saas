@@ -416,6 +416,7 @@ async def list_contacts(
     status: str | None = None,
     contact_type: str | None = None,
     grade: str | None = None,
+    company_id: UUID | None = None,
     sort_by: str = "created_at",
     sort_order: str = "desc",
     db: AsyncSession = Depends(get_tenant_session),
@@ -436,6 +437,8 @@ async def list_contacts(
         base = base.where(Contact.contact_type == contact_type)
     if grade:
         base = base.where(Contact.grade == grade)
+    if company_id:
+        base = base.where(Contact.company_id == company_id)
 
     count_q = select(func.count()).select_from(base.subquery())
     total = (await db.execute(count_q)).scalar() or 0
@@ -783,6 +786,7 @@ async def list_touchpoints(
     offset: int = 0,
     search: str | None = None,
     contact_id: UUID | None = None,
+    company_id: UUID | None = None,
     db: AsyncSession = Depends(get_tenant_session),
 ):
     tenant_id = _get_tenant_id(request)
@@ -797,6 +801,9 @@ async def list_touchpoints(
                 )
             )
         )
+
+    if company_id:
+        base = base.where(Touchpoint.company_id == company_id)
 
     if search:
         base = base.where(Touchpoint.title.ilike(f"%{search}%"))
@@ -1388,6 +1395,7 @@ async def list_notes(
     limit: int = 50,
     offset: int = 0,
     search: str | None = None,
+    company_id: UUID | None = None,
     db: AsyncSession = Depends(get_tenant_session),
 ):
     tenant_id = _get_tenant_id(request)
@@ -1400,6 +1408,9 @@ async def list_notes(
                 Note.content.ilike(f"%{search}%"),
             )
         )
+
+    if company_id:
+        base = base.where(Note.company_id == company_id)
 
     count_q = select(func.count()).select_from(base.subquery())
     total = (await db.execute(count_q)).scalar() or 0
