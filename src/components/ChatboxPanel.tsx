@@ -24,8 +24,15 @@ interface SessionItem {
 // Constants
 // ---------------------------------------------------------------------------
 
-const PANEL_WIDTH = 380
+const PANEL_WIDTH = 420
 const ANIMATION_DURATION = 220
+
+const emptyPrompts = [
+  '📊 總結今日 CRM 重點',
+  '🔍 搵最近跟進嘅客戶',
+  '📋 今日待辦事項',
+  '🎯 最需要關注嘅 Deal',
+]
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -42,6 +49,23 @@ function userMessage(content: string): ChatMessage {
 }
 function assistantMessage(content: string): ChatMessage {
   return { id: nextId(), role: 'assistant', content, timestamp: Date.now() }
+}
+
+function formatTime(ts: number): string {
+  const d = new Date(ts)
+  const h = d.getHours().toString().padStart(2, '0')
+  const m = d.getMinutes().toString().padStart(2, '0')
+  return `${h}:${m}`
+}
+
+function formatDateLabel(ts: number): string {
+  const today = new Date()
+  const d = new Date(ts)
+  if (d.toDateString() === today.toDateString()) return 'Today'
+  const yesterday = new Date(today)
+  yesterday.setDate(yesterday.getDate() - 1)
+  if (d.toDateString() === yesterday.toDateString()) return 'Yesterday'
+  return `${d.getMonth() + 1}/${d.getDate()}`
 }
 
 // ---------------------------------------------------------------------------
@@ -80,7 +104,7 @@ export function ChatboxToggleButton({ onClick, visible }: ToggleButtonProps) {
 }
 
 // ---------------------------------------------------------------------------
-// ChatboxPanel
+// ChatboxPanel — Notion AI style
 // ---------------------------------------------------------------------------
 
 export default function ChatboxPanel() {
@@ -254,7 +278,7 @@ export default function ChatboxPanel() {
     setInput(e.target.value)
     const ta = e.target
     ta.style.height = 'auto'
-    ta.style.height = `${Math.min(ta.scrollHeight, 120)}px`
+    ta.style.height = `${Math.min(ta.scrollHeight, 160)}px`
   }, [])
 
   // ── Render ──
@@ -278,55 +302,59 @@ export default function ChatboxPanel() {
           overflow: 'hidden',
         }}
       >
-        {/* ── Header: design01 style ── */}
+        {/* ── Header: Notion AI style ── */}
         <div
-          className="chat-head"
           style={{
             display: 'flex',
             alignItems: 'center',
-            justifyContent: 'space-between',
+            gap: 10,
             flexShrink: 0,
             height: 'var(--topbar-h, 56px)',
-            padding: '0 16px',
+            padding: '0 14px',
             borderBottom: '1px solid var(--color-border)',
             background: 'var(--color-surface-2)',
           }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0, flex: 1 }}>
-            <button onClick={() => setShowSessionList(prev => !prev)} aria-label="Session history" title="Session history"
-              style={{ width: 28, height: 28, borderRadius: 'var(--radius-sm)', color: 'var(--color-text-faint)', background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="12" cy="12" r="10" />
-                <polyline points="12 6 12 12 16 14" />
-              </svg>
-            </button>
-            <div className="chat-avatar" style={{
-              width: 32, height: 32, borderRadius: 'var(--radius-md)',
-              background: 'var(--color-surface-offset)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              color: 'var(--color-purple)', flexShrink: 0,
-            }}>
-              <Sparkles size={16} />
+          <div
+            style={{
+              width: 28, height: 28, borderRadius: 8,
+              background: 'linear-gradient(135deg, var(--color-primary), #5c9df0)',
+              color: '#fff',
+              display: 'grid', placeItems: 'center',
+              fontSize: 14, fontWeight: 600, flexShrink: 0,
+            }}
+          >
+            <Sparkles size={14} />
+          </div>
+          <div style={{ minWidth: 0, flex: 1 }}>
+            <div style={{ fontWeight: 600, fontSize: 13.5, color: 'var(--color-text)' }}>
+              NEXUS AI
             </div>
-            <div className="chat-title" style={{ minWidth: 0, flex: 1 }}>
-              <strong style={{ fontSize: 14, fontWeight: 700, color: 'var(--color-text)', display: 'block' }}>
-                AI 私人秘書
-              </strong>
-              <span style={{ fontSize: 11, color: 'var(--color-text-faint)' }}>在線</span>
+            <div style={{ color: 'var(--color-text-muted)', fontSize: 11.5 }}>
+              CRM Assistant · online
             </div>
           </div>
-          <div className="chat-head-actions" style={{ display: 'flex', gap: 2 }}>
-            {messages.length > 0 && !loadingSession && (
-              <button onClick={createNewSession} aria-label="New chat" title="New chat"
-                style={{ width: 28, height: 28, borderRadius: 'var(--radius-sm)', color: 'var(--color-text-faint)', background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <Plus size={15} />
-              </button>
-            )}
-            <button onClick={() => setIsOpen(false)} aria-label="Close chat"
-              style={{ width: 28, height: 28, borderRadius: 'var(--radius-sm)', color: 'var(--color-text-faint)', background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <X size={16} />
-            </button>
-          </div>
+          <button onClick={() => setShowSessionList(prev => !prev)} aria-label="History" title="History"
+            style={{
+              width: 28, height: 28, borderRadius: 6, display: 'grid', placeItems: 'center',
+              background: 'transparent', border: 0, color: 'var(--color-text-muted)',
+              cursor: 'pointer', fontSize: 15,
+            }}
+          >
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="12" r="10" />
+              <polyline points="12 6 12 12 16 14" />
+            </svg>
+          </button>
+          <button onClick={() => setIsOpen(false)} aria-label="Close"
+            style={{
+              width: 28, height: 28, borderRadius: 6, display: 'grid', placeItems: 'center',
+              background: 'transparent', border: 0, color: 'var(--color-text-muted)',
+              cursor: 'pointer', fontSize: 17,
+            }}
+          >
+            <X size={16} />
+          </button>
         </div>
 
         {/* Session dropdown */}
@@ -341,7 +369,7 @@ export default function ChatboxPanel() {
               border: '1px solid var(--color-border)',
               borderRadius: '0 0 var(--radius-md) var(--radius-md)',
               boxShadow: 'var(--shadow-lg)',
-              maxHeight: 240,
+              maxHeight: 280,
               overflowY: 'auto',
               zIndex: 100,
             }}
@@ -351,7 +379,7 @@ export default function ChatboxPanel() {
               style={{
                 width: '100%', padding: '10px 14px', border: 'none',
                 borderBottom: '1px solid var(--color-border)',
-                background: 'var(--color-surface-2)', color: 'var(--color-primary)',
+                background: 'transparent', color: 'var(--color-primary)',
                 fontWeight: 600, fontSize: 13, cursor: 'pointer', textAlign: 'left',
                 display: 'flex', alignItems: 'center', gap: 6,
               }}
@@ -377,10 +405,10 @@ export default function ChatboxPanel() {
           </div>
         )}
 
-        {/* ── Messages: design01 bubble style ── */}
-        <div ref={scrollRef} className="chat-body" style={{
+        {/* ── Messages Area: Notion AI style ── */}
+        <div ref={scrollRef} style={{
           flex: 1, overflowY: 'auto',
-          padding: '12px 16px',
+          padding: messages.length === 0 && !loadingSession ? '0' : '20px 20px',
           scrollBehavior: 'smooth',
           background: 'var(--color-surface)',
         }}>
@@ -389,64 +417,114 @@ export default function ChatboxPanel() {
               <span style={{ fontSize: 12, color: 'var(--color-text-faint)' }}>Loading...</span>
             </div>
           ) : messages.length === 0 ? (
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', flexDirection: 'column', gap: 8 }}>
-              <div style={{ width: 40, height: 40, borderRadius: 'var(--radius-lg)', background: 'var(--color-surface-offset)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--color-purple)' }}>
-                <Sparkles size={20} />
+            /* ── Empty state: Notion AI hero ── */
+            <div style={{
+              textAlign: 'center',
+              padding: '48px 24px 24px',
+              display: 'flex', flexDirection: 'column', alignItems: 'center',
+            }}>
+              <div style={{
+                width: 56, height: 56, margin: '0 auto 16px',
+                borderRadius: 14,
+                background: 'linear-gradient(135deg, var(--color-primary), #5c9df0)',
+                color: '#fff', display: 'grid', placeItems: 'center',
+                fontSize: 24, boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+              }}>
+                ✏️
               </div>
-              <span style={{ fontSize: 12.5, color: 'var(--color-text-faint)' }}>Start a new conversation</span>
+              <h1 style={{ fontSize: 20, fontWeight: 600, margin: '0 0 6px', color: 'var(--color-text)' }}>
+                今日想做啲咩？
+              </h1>
+              <p style={{ color: 'var(--color-text-muted)', fontSize: 13, margin: '0 0 24px' }}>
+                問問題、搵 CRM 資料、或者整理今日重點。
+              </p>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, justifyContent: 'center', maxWidth: 320 }}>
+                {emptyPrompts.map(p => (
+                  <button key={p} onClick={() => { setInput(p); inputRef.current?.focus() }}
+                    style={{
+                      padding: '6px 14px', border: '1px solid var(--color-border)',
+                      background: 'var(--color-surface-2)', borderRadius: 999,
+                      fontSize: 12.5, color: 'var(--color-text)', cursor: 'pointer',
+                      transition: 'background .12s, border-color .12s',
+                    }}>
+                    {p}
+                  </button>
+                ))}
+              </div>
             </div>
           ) : (
-            <div ref={scrollRef} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              {messages.map(msg => (
-                <div key={msg.id} style={{
-                  display: 'flex',
-                  justifyContent: msg.role === 'user' ? 'flex-end' : 'flex-start',
-                  gap: 8,
-                }}>
-                  {msg.role === 'assistant' && (
-                    <div style={{
-                      width: 28, height: 28, borderRadius: 'var(--radius-md)',
-                      background: 'var(--color-surface-offset)',
-                      display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      color: 'var(--color-purple)', flexShrink: 0, marginTop: 4,
-                    }}>
-                      <Sparkles size={13} />
-                    </div>
-                  )}
-                  <div style={{
-                    maxWidth: '80%',
-                    padding: '10px 14px',
-                    borderRadius: msg.role === 'user' ? '16px 16px 4px 16px' : '16px 16px 16px 4px',
-                    fontSize: 13,
-                    lineHeight: 1.6,
-                    whiteSpace: 'pre-wrap',
-                    wordBreak: 'break-word',
-                    backgroundColor: msg.role === 'user' ? 'var(--color-primary)' : 'var(--color-surface-offset)',
-                    color: msg.role === 'user' ? '#fff' : 'var(--color-text)',
-                  }}>
-                    {msg.content}
+            /* ── Messages with Notion bubble style ── */
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+              {messages.map((msg, idx) => {
+                const showDivider = idx === 0 || formatDateLabel(msg.timestamp) !== formatDateLabel(messages[idx - 1].timestamp)
+                return (
+                  <div key={msg.id}>
+                    {showDivider && (
+                      <div style={{
+                        display: 'flex', alignItems: 'center', gap: 10,
+                        color: 'var(--color-text-faint)', fontSize: 11.5,
+                        padding: '0 4px', marginBottom: 16,
+                      }}>
+                        <div style={{ flex: 1, height: 1, background: 'var(--color-border)' }} />
+                        <span>{formatDateLabel(msg.timestamp)} · {formatTime(msg.timestamp)}</span>
+                        <div style={{ flex: 1, height: 1, background: 'var(--color-border)' }} />
+                      </div>
+                    )}
+                    {msg.role === 'user' ? (
+                      <div style={{
+                        alignSelf: 'flex-end',
+                        maxWidth: '82%',
+                        padding: '8px 12px',
+                        background: 'var(--color-surface-offset)',
+                        borderRadius: '14px 14px 4px 14px',
+                        whiteSpace: 'pre-wrap',
+                        fontSize: 13.5,
+                        lineHeight: 1.55,
+                        color: 'var(--color-text)',
+                        marginLeft: 'auto',
+                      }}>
+                        {msg.content}
+                      </div>
+                    ) : (
+                      <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+                        <div style={{
+                          width: 24, height: 24, borderRadius: '50%',
+                          background: 'linear-gradient(135deg, var(--color-primary), #5c9df0)',
+                          color: '#fff', display: 'grid', placeItems: 'center',
+                          fontSize: 11, flexShrink: 0, marginTop: 2,
+                        }}>
+                          <Sparkles size={11} />
+                        </div>
+                        <div style={{
+                          flex: 1, minWidth: 0,
+                          fontSize: 13.5, lineHeight: 1.6,
+                          color: 'var(--color-text)',
+                          whiteSpace: 'pre-wrap',
+                          wordBreak: 'break-word',
+                        }}>
+                          {msg.content}
+                        </div>
+                      </div>
+                    )}
                   </div>
-                </div>
-              ))}
+                )
+              })}
               {isLoading && (
-                <div style={{ display: 'flex', justifyContent: 'flex-start', gap: 8 }}>
+                <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
                   <div style={{
-                    width: 28, height: 28, borderRadius: 'var(--radius-md)',
-                    background: 'var(--color-surface-offset)',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    color: 'var(--color-purple)', flexShrink: 0, marginTop: 4,
+                    width: 24, height: 24, borderRadius: '50%',
+                    background: 'linear-gradient(135deg, var(--color-primary), #5c9df0)',
+                    color: '#fff', display: 'grid', placeItems: 'center',
+                    fontSize: 11, flexShrink: 0,
                   }}>
-                    <Sparkles size={13} />
+                    <Sparkles size={11} />
                   </div>
-                  <div style={{
-                    padding: '12px 18px',
-                    borderRadius: '16px 16px 16px 4px',
-                    backgroundColor: 'var(--color-surface-offset)',
-                    display: 'flex', alignItems: 'center', gap: 4,
-                  }}>
-                    <span className="inline-block w-2 h-2 rounded-full animate-pulse" style={{ backgroundColor: 'var(--color-primary)', animationDelay: '0ms' }} />
-                    <span className="inline-block w-2 h-2 rounded-full animate-pulse" style={{ backgroundColor: 'var(--color-primary)', animationDelay: '150ms' }} />
-                    <span className="inline-block w-2 h-2 rounded-full animate-pulse" style={{ backgroundColor: 'var(--color-primary)', animationDelay: '300ms' }} />
+                  <div style={{ padding: '6px 0' }}>
+                    <div className="typing-dots" style={{ display: 'inline-flex', gap: 4 }}>
+                      <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--color-text-muted)', display: 'inline-block', animation: 'blink 1.4s infinite both' }} />
+                      <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--color-text-muted)', display: 'inline-block', animation: 'blink 1.4s infinite both', animationDelay: '.2s' }} />
+                      <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--color-text-muted)', display: 'inline-block', animation: 'blink 1.4s infinite both', animationDelay: '.4s' }} />
+                    </div>
                   </div>
                 </div>
               )}
@@ -463,57 +541,84 @@ export default function ChatboxPanel() {
           }}>
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" /></svg>
             <span style={{ flex: 1 }}>{error}</span>
-            <button onClick={() => setError(null)}
-              style={{ border: 'none', background: 'none', cursor: 'pointer', color: 'var(--color-notification)', padding: 0 }}>
+            <button onClick={() => setError(null)} style={{ border: 'none', background: 'none', cursor: 'pointer', color: 'var(--color-notification)', padding: 0, display: 'grid', placeItems: 'center' }}>
               <X size={12} />
             </button>
           </div>
         )}
 
-        {/* ── Input: design01 style ── */}
-        <div className="chat-input-row" style={{
-          flexShrink: 0, padding: '12px 16px',
+        {/* ── Composer: Notion AI style ── */}
+        <div style={{
           borderTop: '1px solid var(--color-border)',
-          backgroundColor: 'var(--color-surface-2)',
+          padding: '10px 14px 12px',
+          background: 'var(--color-surface-2)',
         }}>
           <div style={{
             display: 'flex', alignItems: 'flex-end', gap: 8,
-            borderRadius: 'var(--radius-md)',
-            padding: '8px 12px',
-            backgroundColor: 'var(--color-surface-offset)',
+            padding: '6px 8px',
             border: '1px solid var(--color-border)',
+            borderRadius: 10,
+            background: 'var(--color-surface)',
+            transition: 'border-color .15s, box-shadow .15s',
           }}>
+            <button aria-label="Attach"
+              style={{
+                width: 26, height: 26, borderRadius: 6, display: 'grid', placeItems: 'center',
+                background: 'transparent', border: 0, color: 'var(--color-text-muted)',
+                cursor: 'pointer', flexShrink: 0, fontSize: 16,
+              }}>
+              ＋
+            </button>
             <textarea ref={inputRef} value={input} onChange={handleInputChange} onKeyDown={handleKeyDown}
-              placeholder="Ask NEXUS AI..." rows={1} disabled={isLoading || loadingSession}
+              placeholder="Ask NEXUS AI anything…" rows={1} disabled={isLoading || loadingSession}
               aria-label="Chat input"
               style={{
-                flex: 1, resize: 'none', border: 'none', background: 'none', outline: 'none',
-                fontSize: 13, lineHeight: 1.5, color: 'var(--color-text)',
-                fontFamily: 'var(--font-body)', maxHeight: 120,
+                flex: 1, border: 0, outline: 'none', resize: 'none',
+                background: 'transparent',
+                font: 'inherit', color: 'inherit',
+                maxHeight: 160, fontSize: 13.5, lineHeight: 1.5,
+                padding: '4px 2px',
                 opacity: isLoading || loadingSession ? 0.5 : 1,
               }}
             />
             <button onClick={sendMessage} disabled={!input.trim() || isLoading || loadingSession}
               aria-label="Send message"
               style={{
-                width: 30, height: 30, border: 'none', borderRadius: 'var(--radius-sm)',
-                cursor: 'pointer', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
-                backgroundColor: input.trim() && !isLoading && !loadingSession ? 'var(--color-primary)' : 'var(--color-surface-offset-2)',
+                width: 28, height: 28, border: 0, borderRadius: 6,
+                display: 'grid', placeItems: 'center',
+                cursor: input.trim() && !isLoading && !loadingSession ? 'pointer' : 'default',
+                background: input.trim() && !isLoading && !loadingSession ? 'var(--color-primary)' : 'var(--color-surface-offset-2)',
                 color: input.trim() && !isLoading && !loadingSession ? '#fff' : 'var(--color-text-faint)',
-                opacity: isLoading || loadingSession ? 0.5 : 1,
+                flexShrink: 0,
               }}
             >
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <line x1="22" y1="2" x2="11" y2="13" />
-                <polygon points="22 2 15 22 11 13 2 9 22 2" />
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="12" y1="19" x2="12" y2="5" />
+                <polyline points="5 12 12 5 19 12" />
               </svg>
             </button>
           </div>
-          <div style={{ textAlign: 'center', marginTop: 6, fontSize: 10, color: 'var(--color-text-faint)' }}>
-            Enter to send · Shift+Enter for new line
+          <div style={{
+            display: 'flex', justifyContent: 'space-between',
+            color: 'var(--color-text-faint)', fontSize: 10.5,
+            marginTop: 5, padding: '0 4px',
+          }}>
+            <span><kbd style={{ fontFamily: 'inherit', fontSize: 10, padding: '1px 4px', background: 'var(--color-surface-offset)', border: '1px solid var(--color-border)', borderRadius: 3 }}>⏎</kbd> send · <kbd style={{ fontFamily: 'inherit', fontSize: 10, padding: '1px 4px', background: 'var(--color-surface-offset)', border: '1px solid var(--color-border)', borderRadius: 3 }}>⇧</kbd>+<kbd style={{ fontFamily: 'inherit', fontSize: 10, padding: '1px 4px', background: 'var(--color-surface-offset)', border: '1px solid var(--color-border)', borderRadius: 3 }}>⏎</kbd> new line</span>
           </div>
         </div>
       </div>
+
+      {/* Typing animation keyframes */}
+      <style>{`
+        @keyframes blink {
+          0%, 80%, 100% { opacity: .2; transform: translateY(0); }
+          40% { opacity: 1; transform: translateY(-2px); }
+        }
+        .composer-focus-within:focus-within {
+          border-color: var(--color-primary);
+          box-shadow: 0 0 0 3px rgba(35, 131, 226, 0.15);
+        }
+      `}</style>
     </>
   )
 }
