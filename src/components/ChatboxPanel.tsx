@@ -120,11 +120,14 @@ export default function ChatboxPanel() {
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [input, setInput] = useState('')
   const [isLoading, setIsLoading] = useState(false)
+  const [isStreaming, setIsStreaming] = useState(false)
+  const [streamingContent, setStreamingContent] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [sessionId, setSessionId] = useState<string | null>(null)
   const [sessionList, setSessionList] = useState<SessionItem[]>([])
   const [showSessionList, setShowSessionList] = useState(false)
   const [loadingSession, setLoadingSession] = useState(false)
+  const abortRef = useRef<AbortController | null>(null)
 
   // ── Refs ──
   const scrollRef = useRef<HTMLDivElement>(null)
@@ -136,7 +139,7 @@ export default function ChatboxPanel() {
     const el = scrollRef.current
     if (!el) return
     requestAnimationFrame(() => { el.scrollTop = el.scrollHeight })
-  }, [messages, isLoading])
+  }, [messages, isStreaming, streamingContent, isLoading])
 
   // ── Focus input when panel opens ──
   useEffect(() => {
@@ -236,7 +239,17 @@ export default function ChatboxPanel() {
     setError(null)
   }, [])
 
-  // ── Send message ──
+  // ── Abort streaming ──
+  const abortStreaming = useCallback(() => {
+    if (abortRef.current) {
+      abortRef.current.abort()
+      abortRef.current = null
+    }
+    setIsStreaming(false)
+    setIsLoading(false)
+  }, [])
+
+  // ── Send message (streaming) ──
   const sendMessage = useCallback(async () => {
     const text = input.trim()
     if (!text || isLoading || loadingSession) return
@@ -246,29 +259,105 @@ export default function ChatboxPanel() {
     setInput('')
     setError(null)
     setIsLoading(true)
+    setIsStreaming(true)
+    setStreamingContent('')
+
+    const controller = new AbortController()
+    abortRef.current = controller
 
     try {
       const url = sessionId
-        ? `/api/v1/ai/chat?session_id=${sessionId}&provider=deepseek&model=deepseek-chat`
-        : '/api/v1/ai/chat?provider=deepseek&model=deepseek-chat'
+        ? `/api/v1/ai/chat/stream`
+        : '/api/v1/ai/chat/stream'
 
-      const body = await apiClient.post(url, [{ role: 'user', content: text }])
+      const resp = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('auth_token') || ''}`,
+        },
+        body: JSON.stringify({
+          messages: [{ role: 'user', content: text }],
+          session_id: sessionId || null,
+        }),
+        signal: controller.signal,
+      })
 
-      if (body?.session_id && body.session_id !== sessionId) {
-        setSessionId(body.session_id)
+      if (!resp.ok) {
+        const errBody = await resp.json().catch(() => ({ detail: `HTTP ${resp.status}` }))
+        throw new Error(errBody.detail || `Request failed with status ${resp.status}`)
       }
 
-      const replyText = body?.text || body?.result || JSON.stringify(body)
-      const reply = assistantMessage(replyText)
-      setMessages(prev => [...prev, reply])
+      const reader = resp.body?.getReader()
+      if (!reader) throw new Error('No response body')
 
+      const decoder = new TextDecoder()
+      let buffer = ''
+      let fullReply = ''
+      let newSessionId: string | null = null
+
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+
+        buffer += decoder.decode(value, { stream: true })
+        const lines = buffer.split('\n')
+        buffer = lines.pop() || ''
+
+        for (const line of lines) {
+          if (line.startsWith('event: ')) {
+            continue // we handle data lines
+          }
+              if (line.startsWith('data: ')) {
+            try {
+              const data = JSON.parse(line.slice(6))
+
+              if (data.text !== undefined) {
+                fullReply += data.text
+                setStreamingContent(fullReply)
+              }
+              if (data.session_id) {
+                newSessionId = data.session_id
+              }
+              if (data.input_tokens !== undefined) {
+                // usage event — store for reference
+              }
+              if (data.message) {
+                // error event
+                setError(data.message)
+              }
+            } catch {
+              // skip unparseable lines
+            }
+          }
+        }
+      }
+
+      // Streaming complete — save the final message
+      if (fullReply) {
+        const reply = assistantMessage(fullReply)
+        setMessages(prev => [...prev, reply])
+      }
+
+      if (newSessionId && newSessionId !== sessionId) {
+        setSessionId(newSessionId)
+      }
+
+      setStreamingContent('')
       loadSessions()
     } catch (err: any) {
-      const errorText = err?.detail || err?.message || 'Something went wrong. Please try again.'
-      setError(errorText)
-      setMessages(prev => [...prev, assistantMessage(`Error: ${errorText}`)])
+      if (err.name === 'AbortError') {
+        setError('Generation stopped')
+      } else {
+        const errorText = err?.detail || err?.message || 'Something went wrong. Please try again.'
+        setError(errorText)
+        setMessages(prev => [...prev, assistantMessage(`Error: ${errorText}`)])
+      }
     } finally {
+      setIsStreaming(false)
       setIsLoading(false)
+      setStreamingContent('')
+      abortRef.current = null
     }
   }, [input, isLoading, loadingSession, sessionId, loadSessions])
 
@@ -516,7 +605,35 @@ export default function ChatboxPanel() {
                   </div>
                 )
               })}
-              {isLoading && (
+              {isStreaming ? (
+                <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+                  <div style={{
+                    width: 24, height: 24, borderRadius: '50%',
+                    background: 'linear-gradient(135deg, var(--color-primary), #5c9df0)',
+                    color: '#fff', display: 'grid', placeItems: 'center',
+                    fontSize: 11, flexShrink: 0, marginTop: 2,
+                  }}>
+                    <Sparkles size={11} />
+                  </div>
+                  <div style={{
+                    flex: 1, minWidth: 0,
+                    fontSize: 13.5, lineHeight: 1.6,
+                    color: 'var(--color-text)',
+                    whiteSpace: 'pre-wrap',
+                    wordBreak: 'break-word',
+                  }}>
+                    {streamingContent}
+                    <span className="streaming-caret" style={{
+                      display: 'inline-block',
+                      width: 2, height: 14,
+                      background: 'var(--color-primary)',
+                      marginLeft: 1,
+                      verticalAlign: 'text-bottom',
+                      animation: 'streaming-blink 0.8s infinite',
+                    }} />
+                  </div>
+                </div>
+              ) : isLoading && (
                 <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
                   <div style={{
                     width: 24, height: 24, borderRadius: '50%',
@@ -581,6 +698,23 @@ export default function ChatboxPanel() {
               }}
             />
             <span className="send-btn-hitarea" style={{ display: 'inline-flex', padding: 0, lineHeight: 0 }}>
+            {isStreaming ? (
+              <button onClick={abortStreaming}
+                aria-label="Stop generating"
+                style={{
+                  width: 28, height: 28, border: 0, borderRadius: 6,
+                  display: 'grid', placeItems: 'center',
+                  cursor: 'pointer',
+                  background: 'var(--color-notification)',
+                  color: '#fff',
+                  flexShrink: 0,
+                }}
+              >
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor">
+                  <rect x="4" y="4" width="16" height="16" rx="2" />
+                </svg>
+              </button>
+            ) : (
             <button onClick={sendMessage} disabled={!input.trim() || isLoading || loadingSession}
               aria-label="Send message"
               style={{
@@ -597,6 +731,7 @@ export default function ChatboxPanel() {
                 <polyline points="5 12 12 5 19 12" />
               </svg>
             </button>
+            )}
             </span>
           </div>
           <div style={{
@@ -614,6 +749,10 @@ export default function ChatboxPanel() {
         @keyframes blink {
           0%, 80%, 100% { opacity: .2; transform: translateY(0); }
           40% { opacity: 1; transform: translateY(-2px); }
+        }
+        @keyframes streaming-blink {
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0; }
         }
         .composer__box:focus-within {
           border-color: var(--color-primary) !important;

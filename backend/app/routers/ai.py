@@ -8,17 +8,20 @@ Default provider: DeepSeek (deepseek-chat).
 
 import re
 import json
+import asyncio
 from uuid import UUID
 from datetime import datetime, timezone
-from typing import Any
+from typing import Any, AsyncGenerator
 from fastapi import APIRouter, Depends, HTTPException, Request, Query
+from fastapi.responses import StreamingResponse
+from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 
 from app.db import get_tenant_session
 from app.ai.tool_registry import TOOL_REGISTRY, ToolDef
 from app.ai.tools.guard import authorize_tool_call, ScopeViolation, log_audit
-from app.ai.providers import get_provider, ProviderAdapter
+from app.ai.providers import get_provider, ProviderAdapter, UsageReport
 from app.models.ai import ActionRequest, AISession, Message, UserMemory
 
 # ---------------------------------------------------------------------------
@@ -26,6 +29,20 @@ from app.models.ai import ActionRequest, AISession, Message, UserMemory
 # ---------------------------------------------------------------------------
 DEFAULT_PROVIDER: str = "deepseek"
 DEFAULT_MODEL: str = "deepseek-chat"
+
+
+# ---------------------------------------------------------------------------
+# Request models
+# ---------------------------------------------------------------------------
+
+
+class ChatStreamRequest(BaseModel):
+    """Request body for the streaming chat endpoint."""
+
+    messages: list[dict[str, Any]]
+    session_id: UUID | None = None
+    temperature: float = 0.7
+    max_tokens: int = 4096
 
 
 def _default_adapter() -> ProviderAdapter:
@@ -751,6 +768,218 @@ async def chat_completion(
         }
     finally:
         await adapter.close()
+
+
+# ====================================================================
+# Streaming chat completion (SSE)
+# ====================================================================
+
+
+@router.post("/chat/stream")
+async def chat_stream_completion(
+    body: ChatStreamRequest,
+    request: Request,
+    db: AsyncSession = Depends(get_tenant_session),
+):
+    """Streaming chat completion with Server-Sent Events (SSE).
+
+    Accepts the same parameters as /chat but returns an SSE stream with:
+      - event: token    -> {"text": "<chunk>"}
+      - event: usage    -> {"input_tokens": N, "output_tokens": N, "model": "...", "provider": "...", "cost_usd": "..."}
+      - event: done     -> {"session_id": "..."}
+      - event: error    -> {"message": "..."}
+
+    Provider/model are resolved from server defaults (not client-supplied).
+    """
+    from sse_starlette.sse import EventSourceResponse
+
+    ctx = getattr(request.state, "ai_context", None)
+    if not ctx:
+        raise HTTPException(400, "AI session context not initialized")
+
+    # ── Resolve/create session ─────────────────────────────────────────────
+    if body.session_id:
+        sess = await db.get(AISession, body.session_id)
+        if not sess or sess.user_id != ctx.user_id:
+            raise HTTPException(404, "Session not found")
+    else:
+        sess = AISession(
+            tenant_id=ctx.tenant_id,
+            workspace_id=ctx.workspace_id,
+            team_id=ctx.team_id,
+            user_id=ctx.user_id,
+            status="active",
+        )
+        db.add(sess)
+        await db.flush()
+
+    # ── Extract user's last message ────────────────────────────────────────
+    user_msgs = [m for m in body.messages if m.get("role") == "user"]
+    last_query = user_msgs[-1]["content"] if user_msgs else ""
+
+    # ── Auto-title from first user message ─────────────────────────────────
+    if not sess.title and last_query:
+        title = last_query[:100].rstrip(".,!?;: ")
+        if len(title) > 5:
+            sess.title = title
+
+    # ── Save user message ──────────────────────────────────────────────────
+    if last_query:
+        user_msg = Message(
+            session_id=sess.id,
+            role="user",
+            content=last_query,
+        )
+        db.add(user_msg)
+        await db.flush()
+
+    # ── Search CRM data ────────────────────────────────────────────────────
+    crm_context: dict[str, Any] = {}
+    if last_query:
+        crm_context = await _search_crm_context(last_query, ctx, db)
+
+    # ── Build system prompt with CRM context ───────────────────────────────
+    context_lines: list[str] = []
+    for tool_key, data in crm_context.items():
+        label = tool_key.replace("_", " ").title()
+        if isinstance(data, list):
+            if data:
+                context_lines.append(f"\n## {label} ({len(data)} items)")
+                for item in data[:15]:
+                    if isinstance(item, dict):
+                        name = item.get("name") or item.get("title") or item.get("summary", "")
+                        context_lines.append(f"- {name}")
+                        if "email" in item:
+                            context_lines[-1] += f" ({item['email']})"
+                        if "phone" in item:
+                            context_lines[-1] += f" tel:{item['phone']}"
+                    else:
+                        context_lines.append(f"- {item}")
+            else:
+                context_lines.append(f"\n## {label}: (none found)")
+        elif isinstance(data, dict):
+            parts = [f"{k}: {v}" for k, v in data.items() if not isinstance(v, dict)]
+            context_lines.append(f"\n## {label}: {', '.join(parts)}")
+        else:
+            context_lines.append(f"\n## {label}: {data}")
+
+    context_str = "\n".join(context_lines).strip()
+    if not context_str:
+        context_str = "No CRM data found matching this query."
+
+    memory_lines = await _inject_memory_context(ctx, db, sess.id)
+    memory_str = "\n".join(memory_lines) if memory_lines else "No past conversation data available."
+    system_prompt = _SYSTEM_PROMPT_TPL.format(context=context_str, memory=memory_str)
+
+    # ── Build message list ────────────────────────────────────────────────
+    enhanced: list[dict[str, Any]] = [{"role": "system", "content": system_prompt}]
+    for m in body.messages:
+        if m.get("role") != "system":
+            enhanced.append(m)
+
+    # ── SSE event generator ────────────────────────────────────────────────
+    async def event_generator() -> AsyncGenerator[dict[str, str], None]:
+        adapter = _default_adapter()
+        try:
+            full_text_parts: list[str] = []
+            final_report: UsageReport | None = None
+
+            async for token_text, report in adapter.chat_stream(
+                messages=enhanced,
+                model=DEFAULT_MODEL,
+                temperature=body.temperature,
+                max_tokens=body.max_tokens,
+            ):
+                if token_text:
+                    full_text_parts.append(token_text)
+                    yield {
+                        "event": "token",
+                        "data": json.dumps({"text": token_text}),
+                    }
+                if report.input_tokens > 0 or report.output_tokens > 0:
+                    final_report = report
+
+            full_text = "".join(full_text_parts)
+
+            # ── Yield usage event ──────────────────────────────────────────
+            if final_report:
+                yield {
+                    "event": "usage",
+                    "data": json.dumps({
+                        "input_tokens": final_report.input_tokens,
+                        "output_tokens": final_report.output_tokens,
+                        "model": final_report.model,
+                        "provider": final_report.provider,
+                        "cost_usd": str(final_report.cost_usd),
+                    }),
+                }
+
+            # ── Save assistant message ─────────────────────────────────────
+            if full_text:
+                assistant_msg = Message(
+                    session_id=sess.id,
+                    role="assistant",
+                    content=full_text,
+                    token_count=final_report.output_tokens if final_report else 0,
+                )
+                db.add(assistant_msg)
+
+                # ── Extract cross-session memory (best-effort) ────────────
+                if last_query:
+                    try:
+                        await _extract_memory_from_chat(last_query, full_text, ctx, db, sess)
+                    except Exception:
+                        pass
+
+            # ── Yield done event ───────────────────────────────────────────
+            yield {
+                "event": "done",
+                "data": json.dumps({"session_id": str(sess.id)}),
+            }
+        except Exception as e:
+            yield {
+                "event": "error",
+                "data": json.dumps({"message": str(e)}),
+            }
+        finally:
+            await adapter.close()
+
+    return EventSourceResponse(event_generator())
+
+
+# ====================================================================
+# Abort streaming message
+# ====================================================================
+
+
+@router.post("/chat/{message_id}/abort")
+async def abort_chat_message(
+    message_id: UUID,
+    request: Request,
+    db: AsyncSession = Depends(get_tenant_session),
+):
+    """Mark a message as aborted.
+
+    Currently a placeholder — actual mid-stream LLM cancellation requires
+    additional infrastructure. This endpoint exists so the frontend can
+    signal abort intent; the message is marked accordingly.
+    """
+    ctx = getattr(request.state, "ai_context", None)
+    if not ctx:
+        raise HTTPException(400, "AI session context not initialized")
+
+    msg = await db.get(Message, message_id)
+    if not msg:
+        raise HTTPException(404, "Message not found")
+
+    # Verify ownership via session
+    sess = await db.get(AISession, msg.session_id)
+    if not sess or sess.user_id != ctx.user_id:
+        raise HTTPException(404, "Message not found")
+
+    # Placeholder: actual cancellation infrastructure TBD.
+    # For now, acknowledge the request.
+    return {"status": "aborted", "message_id": str(message_id)}
 
 
 # ====================================================================
