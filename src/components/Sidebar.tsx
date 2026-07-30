@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { NavLink } from 'react-router-dom';
-import { LayoutDashboard, Users, Building2, TrendingUp, CheckSquare, Activity, ScanLine, Settings, BarChart3, Sparkles, UserCog, FolderKanban, Bell, Truck } from 'lucide-react';
+import { LayoutDashboard, Users, Building2, TrendingUp, CheckSquare, Activity, ScanLine, Settings, BarChart3, Sparkles, UserCog, FolderKanban, Bell, Truck, Bot } from 'lucide-react';
 import { apiClient } from '../lib/api';
 
 export interface ModuleSetting {
@@ -93,6 +93,17 @@ export default function Sidebar() {
             <span>{item.label}</span>
           </NavLink>
         ))}
+        <button
+          onClick={() => {
+            closeMobileMenu();
+            window.dispatchEvent(new CustomEvent('toggle-ai-chat'));
+          }}
+          className="nav-item"
+          style={{ width: '100%', border: 0, textAlign: 'left', cursor: 'pointer', background: 'none', fontFamily: 'inherit', fontSize: 'inherit', color: 'inherit' }}
+        >
+          <Bot />
+          <span>AI Chat</span>
+        </button>
         <NavLink to="/notifications" onClick={closeMobileMenu} className={({ isActive }) => `nav-item${isActive ? ' active' : ''}`}>
           <Bell />
           <span>Notifications</span>

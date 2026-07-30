@@ -12,7 +12,7 @@ class ActionRequest(Base):
     __table_args__ = {"schema": "nexus_ai"}
 
     id: Mapped[UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()"))
-    session_id: Mapped[UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("nexus_ai.sessions.id", ondelete="CASCADE"), nullable=False, index=True)
+    session_id: Mapped[UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("nexus_ai.sessions.id", ondelete="CASCADE"), nullable=True, index=True)
     tenant_id: Mapped[UUID] = mapped_column(UUID(as_uuid=True), nullable=False, index=True)
     workspace_id: Mapped[UUID] = mapped_column(UUID(as_uuid=True), nullable=True)
     user_id: Mapped[UUID] = mapped_column(UUID(as_uuid=True), nullable=False, index=True)

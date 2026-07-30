@@ -495,6 +495,7 @@ async def _create_task_draft(
     if mode == "execute":
         task = Task(
             tenant_id=ctx.tenant_id,
+            workspace_id=ctx.workspace_id,
             title=params["title"],
             description=params.get("description"),
             assignee_id=UUID(params["assignee_id"]) if params.get("assignee_id") else None,
@@ -545,6 +546,7 @@ async def _create_touchpoint_draft(
     if mode == "execute":
         touchpoint = Touchpoint(
             tenant_id=ctx.tenant_id,
+            workspace_id=ctx.workspace_id,
             title=params["summary"],
             type=params["type"],
             description=params.get("summary"),

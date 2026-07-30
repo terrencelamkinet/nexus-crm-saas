@@ -68,7 +68,24 @@ async def build_ai_session_context(
             else:
                 workspace_id = uuid.UUID(int=0)  # sentinel
         except Exception:
-            workspace_id = uuid.UUID(int=0)  # sentinel on table-missing
+            # First query failed (table missing / aborted transaction)
+            # Rollback the aborted transaction before trying fallback
+            await db.rollback()
+            # Fallback: first workspace for this tenant
+            try:
+                row = await db.execute(
+                    text("""
+                        SELECT id FROM nexus_auth.workspaces
+                        WHERE tenant_id = :tid
+                        ORDER BY created_at ASC
+                        LIMIT 1
+                    """),
+                    {"tid": tenant_id},
+                )
+                result = row.scalar_one_or_none()
+                workspace_id = uuid.UUID(str(result)) if result else uuid.UUID(int=0)
+            except Exception:
+                workspace_id = uuid.UUID(int=0)  # sentinel
 
     # --- resolve optional fields ---------------------------------------------
     team_id: Optional[uuid.UUID] = getattr(request.state, "team_id", None)

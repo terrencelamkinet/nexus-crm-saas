@@ -92,6 +92,7 @@ class Touchpoint(Base):
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     tenant_id = Column(UUID(as_uuid=True), ForeignKey("nexus_auth.nexus_auth_tenants.id", ondelete="CASCADE"), nullable=False)
+    workspace_id = Column(UUID(as_uuid=True), nullable=False)
     contact_id = Column(UUID(as_uuid=True), ForeignKey("nexus_crm.contacts.id", ondelete="SET NULL"))
     company_id = Column(UUID(as_uuid=True), ForeignKey("nexus_crm.companies.id", ondelete="SET NULL"))
     type = Column(Text, nullable=False)  # meeting, call, email, note, social, lunch, other
@@ -115,6 +116,7 @@ class Task(Base):
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     tenant_id = Column(UUID(as_uuid=True), ForeignKey("nexus_auth.nexus_auth_tenants.id", ondelete="CASCADE"), nullable=False)
+    workspace_id = Column(UUID(as_uuid=True), nullable=False)
     title = Column(Text, nullable=False)
     description = Column(Text)
     due_date = Column(Date)

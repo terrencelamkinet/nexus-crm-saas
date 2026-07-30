@@ -6,6 +6,8 @@ Provider-agnostic: no LLM imports, pure REST.
 Default provider: DeepSeek (deepseek-chat).
 """
 
+import re
+import json
 from uuid import UUID
 from datetime import datetime, timezone
 from typing import Any
@@ -72,7 +74,7 @@ async def execute_tool(
             tenant_id=ctx.tenant_id,
             workspace_id=ctx.workspace_id,
             user_id=ctx.user_id,
-            session_id=ctx.session_id,
+            session_id=None,
             tool_key=tool_key,
             target_module=tool.module,
             payload_preview=preview,
@@ -181,7 +183,84 @@ async def ai_health():
 
 
 # ====================================================================
-# Chat completion (proxy to LLM provider)
+# CRM context retrieval — search user's data before calling LLM
+# ====================================================================
+
+_INTENT_PATTERNS: dict[str, list[str]] = {
+    "search_companies": [r"compan(y|ies)", r"organization", r"vendor", r"supplier"],
+    "search_contacts": [r"contact", r"person", r"people", r"who\s"],
+    "list_tasks": [r"task", r"(?:to-)?do", r"assign", r"deadline", r"overdue"],
+    "search_deals": [r"deal", r"opportunity", r"pipeline", r"sale"],
+    "search_projects": [r"project", r"engagement"],
+    "list_touchpoints": [r"touchpoint", r"meeting", r"call", r"email"],
+    "get_dashboard_summary": [r"summar", r"overview", r"dashboard", r"(?:how\s)?many"],
+    "get_upcoming_events": [r"upcoming", r"schedule", r"calendar", r"event"],
+}
+
+
+async def _search_crm_context(
+    query: str,
+    ctx: Any,
+    db: AsyncSession,
+) -> dict[str, Any]:
+    """Search CRM data relevant to the user's query.
+
+    Returns a dict mapping tool keys to their results.
+    """
+    context: dict[str, Any] = {}
+    msg_lower = query.lower()
+
+    # Determine which tools match the query intent
+    tools_to_call: set[str] = set()
+    for tool_key, patterns in _INTENT_PATTERNS.items():
+        if any(re.search(p, msg_lower) for p in patterns):
+            tools_to_call.add(tool_key)
+
+    # Always include a dashboard overview for baseline context
+    tools_to_call.add("get_dashboard_summary")
+
+    for tool_key in tools_to_call:
+        tool = TOOL_REGISTRY.get(tool_key)
+        if not tool or not tool.handler:
+            continue
+        try:
+            if tool_key in ("search_companies", "search_contacts", "search_deals", "search_projects"):
+                result = await tool.handler(ctx, {"query": query, "limit": 25}, db)
+            elif tool_key == "list_tasks":
+                result = await tool.handler(ctx, {"limit": 30}, db)
+            elif tool_key == "list_touchpoints":
+                result = await tool.handler(ctx, {"limit": 30}, db)
+            elif tool_key == "get_dashboard_summary":
+                result = await tool.handler(ctx, {"period": "30d"}, db)
+            elif tool_key == "get_upcoming_events":
+                result = await tool.handler(ctx, {"days_ahead": 30, "limit": 20}, db)
+            else:
+                result = await tool.handler(ctx, {}, db)
+
+            if result is not None and not (isinstance(result, list) and len(result) == 0):
+                context[tool_key] = result
+        except Exception:
+            pass  # Silently skip tools that error
+
+    return context
+
+
+_SYSTEM_PROMPT_TPL = """\
+You are NEXUS AI, the intelligent assistant for NEXUS CRM. \
+You help users manage their customer relationships.
+
+**RULES:**
+1. Answer FIRST from the CRM data provided below. Be specific — mention names, counts, dates.
+2. If the CRM data has nothing relevant, say "I don't have that information in your CRM yet."
+3. Only suggest web search if the user explicitly asks about external information.
+4. Keep responses concise. Use bullet points for lists.
+5. If the user asks to create/update something, guide them to the appropriate CRM section.
+
+**CRM DATA (your data, tenant-scoped):\n{context}**"""
+
+
+# ====================================================================
+# Chat completion (CRM-aware — searches data before calling LLM)
 # ====================================================================
 
 
@@ -189,23 +268,71 @@ async def ai_health():
 async def chat_completion(
     messages: list[dict[str, Any]],
     request: Request,
+    db: AsyncSession = Depends(get_tenant_session),
     model: str = DEFAULT_MODEL,
     provider: str = DEFAULT_PROVIDER,
     temperature: float = 0.7,
     max_tokens: int = 4096,
 ):
-    """Send a chat completion request to the default LLM provider (DeepSeek).
+    """Chat completion with automatic CRM context retrieval.
 
-    Uses DeepSeek by default. Override via ``provider`` and ``model`` params.
-    The provider is used to enrich tool context but does **not** drive tool
-    execution itself — that is handled by the tool registry.
+    Before calling the LLM, searches CRM data relevant to the user's
+    query and includes it as context in the system prompt.
     """
     ctx = getattr(request.state, "ai_context", None)
+    if not ctx:
+        raise HTTPException(400, "AI session context not initialized")
 
-    adapter = get_provider(provider, default_model=model) if provider != DEFAULT_PROVIDER else _default_adapter()
+    # Extract user's last message
+    user_msgs = [m for m in messages if m.get("role") == "user"]
+    last_query = user_msgs[-1]["content"] if user_msgs else ""
+
+    # Search CRM data
+    crm_context: dict[str, Any] = {}
+    if last_query:
+        crm_context = await _search_crm_context(last_query, ctx, db)
+
+    # Format CRM context as readable text
+    context_lines: list[str] = []
+    for tool_key, data in crm_context.items():
+        label = tool_key.replace("_", " ").title()
+        if isinstance(data, list):
+            if data:
+                context_lines.append(f"\n## {label} ({len(data)} items)")
+                for item in data[:15]:
+                    if isinstance(item, dict):
+                        name = item.get("name") or item.get("title") or item.get("summary", "")
+                        context_lines.append(f"- {name}")
+                        if "email" in item:
+                            context_lines[-1] += f" ({item['email']})"
+                        if "phone" in item:
+                            context_lines[-1] += f" tel:{item['phone']}"
+                    else:
+                        context_lines.append(f"- {item}")
+            else:
+                context_lines.append(f"\n## {label}: (none found)")
+        elif isinstance(data, dict):
+            parts = [f"{k}: {v}" for k, v in data.items() if not isinstance(v, dict)]
+            context_lines.append(f"\n## {label}: {', '.join(parts)}")
+        else:
+            context_lines.append(f"\n## {label}: {data}")
+
+    context_str = "\n".join(context_lines).strip()
+    if not context_str:
+        context_str = "No CRM data found matching this query."
+
+    system_prompt = _SYSTEM_PROMPT_TPL.format(context=context_str)
+
+    # Build message list: system prompt + original messages (skip any existing system msg)
+    enhanced = [{"role": "system", "content": system_prompt}]
+    for m in messages:
+        if m.get("role") != "system":
+            enhanced.append(m)
+
+    adapter = _default_adapter()
     try:
         text, usage = await adapter.chat(
-            messages=messages,
+            messages=enhanced,
             model=model,
             temperature=temperature,
             max_tokens=max_tokens,

@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
-import { api } from '../lib/api'
+import { apiClient } from '../lib/api'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -12,17 +12,10 @@ interface ChatMessage {
   timestamp: number
 }
 
-interface ExecuteResponse {
-  result: string
-  tool: string
-  conversation_id?: string
-}
-
 // ---------------------------------------------------------------------------
 // Constants
 // ---------------------------------------------------------------------------
 
-const AI_TOOL = 'chat' // default tool name; override via env / config if needed
 const PANEL_WIDTH = 380
 const ANIMATION_DURATION = 220
 
@@ -123,6 +116,13 @@ export default function ChatboxPanel() {
     }
   }, [isOpen])
 
+  // ── Listen for toggle event from sidebar ────────────────────────────
+  useEffect(() => {
+    const handler = () => setIsOpen(prev => !prev);
+    window.addEventListener('toggle-ai-chat', handler);
+    return () => window.removeEventListener('toggle-ai-chat', handler);
+  }, []);
+
   // ── Escape key to close ────────────────────────────────────────────────
   useEffect(() => {
     if (!isOpen) return
@@ -146,15 +146,13 @@ export default function ChatboxPanel() {
     setIsLoading(true)
 
     try {
-      const body = await apiClient<ExecuteResponse>(
-        `/api/v1/ai/tools/${AI_TOOL}/execute`,
-        {
-          method: 'POST',
-          body: JSON.stringify({ input: text }),
-        },
+      const body = await apiClient.post(
+        `/api/v1/ai/chat?provider=deepseek&model=deepseek-chat`,
+        [{ role: 'user', content: text }],
       )
 
-      const reply = assistantMessage(body.result || 'No response received.')
+      const replyText = body?.text || body?.result || JSON.stringify(body)
+      const reply = assistantMessage(replyText)
       setMessages(prev => [...prev, reply])
     } catch (err: any) {
       const errorText = err?.detail || err?.message || 'Something went wrong. Please try again.'
