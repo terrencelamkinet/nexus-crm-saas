@@ -292,7 +292,14 @@ export default function ChatboxPanel() {
             background: 'var(--color-surface-2)',
           }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0, flex: 1 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0, flex: 1 }}>
+            <button onClick={() => setShowSessionList(prev => !prev)} aria-label="Session history" title="Session history"
+              style={{ width: 28, height: 28, borderRadius: 'var(--radius-sm)', color: 'var(--color-text-faint)', background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="10" />
+                <polyline points="12 6 12 12 16 14" />
+              </svg>
+            </button>
             <div className="chat-avatar" style={{
               width: 32, height: 32, borderRadius: 'var(--radius-md)',
               background: 'var(--color-surface-offset)',
