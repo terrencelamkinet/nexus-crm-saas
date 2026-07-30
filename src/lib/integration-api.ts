@@ -32,12 +32,12 @@ export async function getIntegration(id: string): Promise<IntegrationRecord> {
   return apiClient.get(`/api/v1/integrations/${id}`);
 }
 
-export async function startOAuth(provider: string, redirectUri: string): Promise<OAuthStartResponse> {
-  return apiClient.post('/api/v1/integrations/oauth/start', { provider, redirect_uri: redirectUri });
+export async function startOAuth(provider: string): Promise<OAuthStartResponse> {
+  return apiClient.post('/api/v1/integrations/oauth/start', { provider, origin: window.location.origin });
 }
 
-export async function completeOAuth(provider: string, code: string, state: string): Promise<IntegrationRecord> {
-  return apiClient.post('/api/v1/integrations/oauth/callback', { provider, code, state });
+export async function completeOAuth(code: string, state: string): Promise<IntegrationRecord> {
+  return apiClient.post('/api/v1/integrations/oauth/callback', { code, state });
 }
 
 export async function disconnectIntegration(id: string): Promise<void> {

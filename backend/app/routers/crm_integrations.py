@@ -150,11 +150,14 @@ async def oauth_start(
 ):
     """
     Start OAuth flow for a provider.
-    Body: { "provider": "google_calendar", "redirect_uri": "/marketplace/google-calendar" }
+    Body: { "provider": "google_calendar", "origin": "https://nexus-crm.kinet-poc.com" }
+    The origin (frontend URL) is used as the OAuth redirect_uri so the
+    provider sends the user back to a frontend page, not the backend.
     """
     body = await request.json()
     provider = body.get("provider", "")
-    redirect_uri = body.get("redirect_uri", "/marketplace")
+    # Derive frontend origin from request Origin header or body.origin
+    frontend_origin = body.get("origin", "") or request.headers.get("origin", "http://localhost:5173")
 
     if not provider:
         raise HTTPException(400, "provider is required")
@@ -170,13 +173,13 @@ async def oauth_start(
         user_id=user_id,
         provider=provider,
         state=state,
-        redirect_uri=redirect_uri,
+        redirect_uri=frontend_origin,  # store origin for callback context
     )
     db.add(oauth)
     await db.flush()
 
-    # Build provider-specific OAuth URL
-    oauth_url = _build_oauth_url(provider, state)
+    # Build provider-specific OAuth URL — redirect_uri points to frontend
+    oauth_url = _build_oauth_url(provider, state, frontend_origin)
 
     return {
         "state": state,
@@ -195,30 +198,30 @@ async def oauth_callback(
 ):
     """
     Complete OAuth flow.
-    Provider calls this with { provider, code, state }.
-    We validate state, exchange code for tokens, save integration.
+    Body: { code, state } — provider is looked up from the OAuthState table.
+    Called by the frontend OAuthCallbackPage after the provider redirects.
     """
     body = await request.json()
-    provider = body.get("provider", "")
     code = body.get("code", "")
     state = body.get("state", "")
 
-    if not provider or not code or not state:
-        raise HTTPException(400, "Missing provider, code, or state")
+    if not code or not state:
+        raise HTTPException(400, "Missing code or state")
 
     tenant_id = _tid(request)
     user_id = _uid(request)
 
-    # Validate state
+    # Look up OAuthState by state to get provider
     q = select(OAuthState).where(
         OAuthState.state == state,
         OAuthState.tenant_id == tenant_id,
         OAuthState.user_id == user_id,
-        OAuthState.provider == provider,
     )
-    row = (await db.execute(q)).scalar_one_or_none()
-    if not row:
+    state_row = (await db.execute(q)).scalar_one_or_none()
+    if not state_row:
         raise HTTPException(400, "Invalid or expired OAuth state")
+
+    provider = state_row.provider
 
     # Exchange code for tokens (provider-specific)
     token_data = await _exchange_code(provider, code)
@@ -258,7 +261,7 @@ async def oauth_callback(
         result = integration
 
     # Clean up OAuth state
-    await db.delete(row)
+    await db.delete(state_row)
 
     return IntegrationResponse.model_validate(result)
 
@@ -313,16 +316,18 @@ PROVIDER_DISPLAY = {
 }
 
 
-def _build_oauth_url(provider: str, state: str) -> str:
-    """Build OAuth authorization URL for a given provider."""
+def _build_oauth_url(provider: str, state: str, frontend_origin: str = "") -> str:
+    """Build OAuth authorization URL for a given provider.
+    The redirect_uri points to the frontend OAuth callback page so the
+    provider sends users back to our UI, not directly to the backend.
+    """
     from app.config import settings
 
     template = OAUTH_URLS.get(provider, "")
     if not template:
-        # webhook-based — no OAuth
         return ""
 
-    callback_url = f"{settings.api_base_url}/api/v1/integrations/oauth/callback"
+    callback_url = f"{frontend_origin or 'http://localhost:5173'}/marketplace/oauth/callback"
     client_id = settings.integration_client_ids.get(provider, "PLACEHOLDER")
 
     return template.format(

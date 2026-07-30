@@ -1,5 +1,5 @@
 import { useParams, Link } from 'react-router-dom';
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { Check, AlertCircle, RefreshCw } from 'lucide-react';
 import { integrations } from '../data/integrations';
 import { fetchIntegrations, startOAuth, disconnectIntegration } from '../lib/integration-api';
@@ -12,6 +12,7 @@ export default function IntegrationDetailPage() {
   const [connection, setConnection] = useState<IntegrationRecord | null>(null);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const popupRef = useRef<Window | null>(null);
 
   const loadConnection = useCallback(async () => {
     if (!id) return;
@@ -25,6 +26,18 @@ export default function IntegrationDetailPage() {
   }, [id]);
 
   useEffect(() => { loadConnection(); }, [loadConnection]);
+
+  // Listen for OAuth popup completion
+  useEffect(() => {
+    const handler = (event: MessageEvent) => {
+      if (event.data?.type === 'nexus-oauth-complete') {
+        setActionLoading(null);
+        loadConnection();
+      }
+    };
+    window.addEventListener('message', handler);
+    return () => window.removeEventListener('message', handler);
+  }, [loadConnection]);
 
   if (!integration) {
     return (
@@ -43,29 +56,25 @@ export default function IntegrationDetailPage() {
   const isConnected = !!connection;
 
   const handleConnect = async () => {
+    if (actionLoading) return;
     setActionLoading('connect');
     try {
-      const res = await startOAuth(providerKey, `/marketplace/${integration.id}`);
+      const res = await startOAuth(providerKey);
       if (res.oauth_url) {
-        window.open(res.oauth_url, '_blank', 'noopener,noreferrer');
-        // Poll for connection after OAuth redirect
-        const poll = setInterval(async () => {
-          try {
-            const list = await fetchIntegrations();
-            const found = list.find(c => c.provider === providerKey);
-            if (found) {
-              setConnection(found);
-              clearInterval(poll);
-            }
-          } catch { /* continue polling */ }
-        }, 2000);
-        // Stop polling after 2 minutes
-        setTimeout(() => clearInterval(poll), 120_000);
+        const w = 600;
+        const h = 700;
+        const left = window.screenX + (window.outerWidth - w) / 2;
+        const top = window.screenY + (window.outerHeight - h) / 2;
+        popupRef.current = window.open(
+          res.oauth_url,
+          'nexus-oauth',
+          `width=${w},height=${h},left=${left},top=${top},popup=1`,
+        );
       }
     } catch (err) {
       console.error('OAuth start failed', err);
+      setActionLoading(null);
     }
-    setActionLoading(null);
   };
 
   const handleDisconnect = async () => {
@@ -83,16 +92,13 @@ export default function IntegrationDetailPage() {
   const statusColor = isConnected ? '#22c55e' : loading ? '#a0aec0' : '#a0aec0';
   const statusText = isConnected
     ? 'Active'
-    : loading
-      ? 'Checking...'
-      : 'Not connected';
+    : loading ? 'Checking...' : 'Not connected';
   const lastSync = connection?.last_sync_at
     ? new Date(connection.last_sync_at).toLocaleString()
     : null;
 
   return (
     <div className="mkt-detail">
-      {/* Breadcrumb */}
       <div className="mkt-detail-breadcrumb">
         <Link to="/marketplace">Marketplace</Link>
         <span>›</span>
@@ -101,7 +107,6 @@ export default function IntegrationDetailPage() {
         <span>{integration.name}</span>
       </div>
 
-      {/* Header */}
       <div className="mkt-detail-header">
         <div className="mkt-detail-icon" style={{ background: integration.color }}>
           {integration.icon}
@@ -129,7 +134,7 @@ export default function IntegrationDetailPage() {
             <button
               className="mkt-detail-btn connect"
               onClick={handleConnect}
-              disabled={actionLoading === 'connect'}
+              disabled={!!actionLoading}
             >
               {actionLoading === 'connect' ? 'Connecting...' : 'Connect'}
             </button>
@@ -137,19 +142,16 @@ export default function IntegrationDetailPage() {
         </div>
       </div>
 
-      {/* Description */}
       <div className="mkt-detail-section">
         <h2>About this integration</h2>
         <p>{integration.longDesc}</p>
       </div>
 
-      {/* How it works */}
       <div className="mkt-detail-section">
         <h2>How it works</h2>
         <p>{integration.howItWorks}</p>
       </div>
 
-      {/* Features */}
       <div className="mkt-detail-section">
         <h2>Key features</h2>
         <div className="mkt-detail-features">
@@ -162,14 +164,10 @@ export default function IntegrationDetailPage() {
         </div>
       </div>
 
-      {/* Connection status */}
       <div className="mkt-detail-section">
         <h2>Connection status</h2>
         <div className="mkt-detail-status">
-          <span
-            className="dot"
-            style={{ background: statusColor }}
-          />
+          <span className="dot" style={{ background: statusColor }} />
           <span>
             {statusText}
             {isConnected && (

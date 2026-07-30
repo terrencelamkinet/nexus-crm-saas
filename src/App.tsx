@@ -17,6 +17,7 @@ import TouchpointsPage from './modules/touchpoints/TouchpointsPage';
 import TouchpointDetailPage from './modules/touchpoints/TouchpointDetailPage';
 import MarketplacePage from './pages/MarketplacePage';
 import IntegrationDetailPage from './pages/IntegrationDetailPage';
+import OAuthCallbackPage from './pages/OAuthCallbackPage';
 import NameCardsPage from './pages/NameCardsPage';
 import SettingsPage from './pages/SettingsPage';
 import NotificationsPage from './pages/NotificationsPage';
@@ -29,6 +30,9 @@ function App() {
       <Routes>
         {/* Public routes — no auth needed */}
         <Route path="/sign-in" element={<LoginPage />} />
+
+        {/* OAuth callback — standalone, no layout (runs in popup) */}
+        <Route path="/marketplace/oauth/callback" element={<OAuthCallbackPage />} />
 
         {/* Protected routes — wrapped in AuthGuard */}
         <Route

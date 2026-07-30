@@ -1,11 +1,10 @@
-import { useState, useMemo, useEffect, useCallback } from 'react';
+import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Search, PackageOpen } from 'lucide-react';
 import { integrations, integrationTypes } from '../data/integrations';
 import { fetchIntegrations, startOAuth, disconnectIntegration } from '../lib/integration-api';
 import type { IntegrationRecord } from '../lib/integration-api';
 
-/** Provider ID → IntegrationRecord lookup */
 type ConnectionMap = Record<string, IntegrationRecord>;
 
 export default function MarketplacePage() {
@@ -14,8 +13,10 @@ export default function MarketplacePage() {
   const [activeType, setActiveType] = useState('All');
   const [connections, setConnections] = useState<ConnectionMap>({});
   const [loading, setLoading] = useState(true);
+  const [connectingProvider, setConnectingProvider] = useState<string | null>(null);
+  const popupRef = useRef<Window | null>(null);
 
-  // Fetch user's connected integrations on mount
+  // Fetch user's connected integrations
   const load = useCallback(async () => {
     try {
       const list = await fetchIntegrations();
@@ -28,37 +29,62 @@ export default function MarketplacePage() {
 
   useEffect(() => { load(); }, [load]);
 
-  // Merge static catalog with live connection status
+  // Listen for OAuth popup messages
+  useEffect(() => {
+    const handler = (event: MessageEvent) => {
+      if (event.data?.type === 'nexus-oauth-complete') {
+        setConnectingProvider(null);
+        load(); // refresh integrations list
+      }
+    };
+    window.addEventListener('message', handler);
+    return () => window.removeEventListener('message', handler);
+  }, [load]);
+
   const filtered = useMemo(() => {
-    return integrations.filter(i => {
-      const matchSearch =
-        !search ||
-        i.name.toLowerCase().includes(search.toLowerCase()) ||
-        i.shortDesc.toLowerCase().includes(search.toLowerCase());
-      const matchType = activeType === 'All' || i.type === activeType;
-      return matchSearch && matchType;
-    }).map(i => ({
-      ...i,
-      isConnected: !!connections[i.id.replace('-', '_')] || !!connections[i.id],
-      _connection: connections[i.id.replace('-', '_')] || connections[i.id],
-    }));
+    return integrations
+      .filter(i => {
+        const matchSearch =
+          !search ||
+          i.name.toLowerCase().includes(search.toLowerCase()) ||
+          i.shortDesc.toLowerCase().includes(search.toLowerCase());
+        const matchType = activeType === 'All' || i.type === activeType;
+        return matchSearch && matchType;
+      })
+      .map(i => ({
+        ...i,
+        isConnected: !!connections[i.id.replace('-', '_')] || !!connections[i.id],
+        _connection: connections[i.id.replace('-', '_')] || connections[i.id],
+      }));
   }, [search, activeType, connections]);
 
-  const renderStars = (n: number) => {
-    return Array.from({ length: 5 }, (_, i) => (
+  const renderStars = (n: number) =>
+    Array.from({ length: 5 }, (_, i) => (
       <span key={i} className={i < n ? 'filled' : ''}>★</span>
     ));
-  };
 
-  const handleConnect = async (e: React.MouseEvent, integrationId: string, providerKey: string) => {
+  const handleConnect = async (e: React.MouseEvent, providerKey: string) => {
     e.stopPropagation();
+    if (connectingProvider) return; // prevent double-click
+    setConnectingProvider(providerKey);
+
     try {
-      const res = await startOAuth(providerKey, `/marketplace/${integrationId}`);
+      const res = await startOAuth(providerKey);
       if (res.oauth_url) {
-        window.open(res.oauth_url, '_blank', 'noopener,noreferrer');
+        // Open popup — user only needs to login on provider side
+        const w = 600;
+        const h = 700;
+        const left = window.screenX + (window.outerWidth - w) / 2;
+        const top = window.screenY + (window.outerHeight - h) / 2;
+        popupRef.current = window.open(
+          res.oauth_url,
+          'nexus-oauth',
+          `width=${w},height=${h},left=${left},top=${top},popup=1`,
+        );
       }
     } catch (err) {
       console.error('OAuth start failed', err);
+      setConnectingProvider(null);
     }
   };
 
@@ -80,7 +106,6 @@ export default function MarketplacePage() {
 
   return (
     <div className="mkt-page">
-      {/* Search bar */}
       <div className="mkt-search-wrap">
         <div className="mkt-search">
           <Search size={18} />
@@ -94,7 +119,6 @@ export default function MarketplacePage() {
         </div>
       </div>
 
-      {/* Category filters */}
       <div className="mkt-filters">
         <button
           className={`mkt-filter${activeType === 'All' ? ' active' : ''}`}
@@ -109,7 +133,6 @@ export default function MarketplacePage() {
         ))}
       </div>
 
-      {/* Grid */}
       {loading ? (
         <div className="mkt-empty"><p>Loading integrations...</p></div>
       ) : filtered.length === 0 ? (
@@ -122,6 +145,7 @@ export default function MarketplacePage() {
           {filtered.map(integration => {
             const providerKey = integration.id.replace('-', '_');
             const isConnected = integration.isConnected;
+            const isConnecting = connectingProvider === providerKey;
             return (
               <div
                 key={integration.id}
@@ -158,8 +182,9 @@ export default function MarketplacePage() {
                   ) : (
                     <button
                       className="mkt-card-btn connect"
-                      onClick={e => handleConnect(e, integration.id, providerKey)}
-                    >Connect</button>
+                      onClick={e => handleConnect(e, providerKey)}
+                      disabled={!!connectingProvider}
+                    >{isConnecting ? 'Connecting...' : 'Connect'}</button>
                   )}
                 </div>
               </div>
