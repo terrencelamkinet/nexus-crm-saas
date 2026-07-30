@@ -10,13 +10,13 @@ import re
 import json
 import asyncio
 from uuid import UUID
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from typing import Any, AsyncGenerator
 from fastapi import APIRouter, Depends, HTTPException, Request, Query
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func
+from sqlalchemy import select, func, text
 
 from app.db import get_tenant_session
 from app.ai.tool_registry import TOOL_REGISTRY, ToolDef
@@ -30,7 +30,7 @@ from app.ai.tool_registry import (
 )
 from app.ai.tools.guard import authorize_tool_call, ScopeViolation, log_audit
 from app.ai.providers import get_provider, ProviderAdapter, UsageReport
-from app.models.ai import ActionRequest, AISession, Message, UserMemory
+from app.models.ai import ActionRequest, AISession, Message, UserMemory, UsageEvent
 
 # ---------------------------------------------------------------------------
 # Default provider configuration
@@ -659,6 +659,33 @@ async def _inject_memory_context(
     return lines
 
 
+# -------------------------------------------------------------------
+# Usage recording helper
+# -------------------------------------------------------------------
+
+
+async def _record_usage_event(
+    db: AsyncSession,
+    ctx: Any,
+    session_id: UUID,
+    report: UsageReport,
+    result_status: str = "success",
+) -> None:
+    """Write a UsageEvent row after each LLM call."""
+    ev = UsageEvent(
+        session_id=session_id,
+        user_id=ctx.user_id,
+        tenant_id=ctx.tenant_id,
+        provider=report.provider or DEFAULT_PROVIDER,
+        model=report.model or DEFAULT_MODEL,
+        input_tokens=report.input_tokens,
+        output_tokens=report.output_tokens,
+        cost_estimate=float(report.cost_usd) if report.cost_usd else None,
+        result_status=result_status,
+    )
+    db.add(ev)
+
+
 # ====================================================================
 # Chat completion (CRM-aware + memory-aware)
 # ====================================================================
@@ -809,6 +836,12 @@ async def chat_completion(
                 await _extract_memory_from_chat(last_query, text, ctx, db, sess)
             except Exception:
                 pass
+
+        # ── Record usage event ─────────────────────────────────────────
+        try:
+            await _record_usage_event(db, ctx, UUID(str(sess.id)), usage)
+        except Exception:
+            pass  # usage recording is best-effort
 
         return {
             "text": text,
@@ -1016,6 +1049,13 @@ async def chat_stream_completion(
                 if last_query:
                     try:
                         await _extract_memory_from_chat(last_query, full_text, ctx, db, sess)
+                    except Exception:
+                        pass
+
+                # ── Record usage event ─────────────────────────────────
+                if final_report:
+                    try:
+                        await _record_usage_event(db, ctx, UUID(str(sess.id)), final_report)
                     except Exception:
                         pass
 
@@ -1407,4 +1447,119 @@ async def daily_summary(
     return {
         "session_id": str(session.id),
         "summary": summary,
+    }
+
+
+# ====================================================================
+# Usage / Observability
+# ====================================================================
+
+
+@router.get("/usage/daily")
+async def usage_daily(
+    request: Request,
+    db: AsyncSession = Depends(get_tenant_session),
+    days: int = Query(30, ge=1, le=365),
+):
+    """Aggregated daily usage stats for this tenant (last N days)."""
+    ctx = getattr(request.state, "ai_context", None)
+    if not ctx:
+        raise HTTPException(400, "AI session context not initialized")
+
+    cutoff = datetime.now(timezone.utc) - timedelta(days=days)
+
+    result = await db.execute(
+        select(
+            func.date_trunc("day", UsageEvent.created_at).label("day"),
+            func.sum(UsageEvent.input_tokens).label("input_tokens"),
+            func.sum(UsageEvent.output_tokens).label("output_tokens"),
+            func.count(UsageEvent.id).label("calls"),
+            func.sum(UsageEvent.cost_estimate).label("cost"),
+            func.count(func.nullif(UsageEvent.result_status, "success")).label("errors"),
+        )
+        .where(
+            UsageEvent.tenant_id == ctx.tenant_id,
+            UsageEvent.created_at >= cutoff,
+        )
+        .group_by(text("day"))
+        .order_by(text("day desc"))
+    )
+    rows = result.fetchall()
+
+    return {
+        "days": days,
+        "daily": [
+            {
+                "date": str(r.day.date()),
+                "calls": r.calls,
+                "input_tokens": r.input_tokens or 0,
+                "output_tokens": r.output_tokens or 0,
+                "cost_usd": float(r.cost) if r.cost else 0.0,
+                "errors": r.errors or 0,
+            }
+            for r in rows
+        ],
+    }
+
+
+@router.get("/usage/summary")
+async def usage_summary(
+    request: Request,
+    db: AsyncSession = Depends(get_tenant_session),
+):
+    """Live aggregate totals for this tenant (all time + today)."""
+    ctx = getattr(request.state, "ai_context", None)
+    if not ctx:
+        raise HTTPException(400, "AI session context not initialized")
+
+    today_start = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
+
+    # All-time totals
+    all_time = await db.execute(
+        select(
+            func.count(UsageEvent.id).label("total_calls"),
+            func.sum(UsageEvent.input_tokens).label("total_input"),
+            func.sum(UsageEvent.output_tokens).label("total_output"),
+            func.sum(UsageEvent.cost_estimate).label("total_cost"),
+        )
+        .where(UsageEvent.tenant_id == ctx.tenant_id)
+    )
+    at = all_time.one()
+
+    # Today's usage
+    today = await db.execute(
+        select(
+            func.count(UsageEvent.id).label("today_calls"),
+            func.sum(UsageEvent.input_tokens).label("today_input"),
+            func.sum(UsageEvent.output_tokens).label("today_output"),
+            func.sum(UsageEvent.cost_estimate).label("today_cost"),
+        )
+        .where(
+            UsageEvent.tenant_id == ctx.tenant_id,
+            UsageEvent.created_at >= today_start,
+        )
+    )
+    td = today.one()
+
+    # Last 7 days cost
+    week_ago = today_start - timedelta(days=7)
+    week_cost = await db.execute(
+        select(func.sum(UsageEvent.cost_estimate))
+        .where(
+            UsageEvent.tenant_id == ctx.tenant_id,
+            UsageEvent.created_at >= week_ago,
+        )
+    )
+    wc = week_cost.scalar() or 0
+
+    return {
+        "total_calls": at.total_calls or 0,
+        "total_input_tokens": at.total_input or 0,
+        "total_output_tokens": at.total_output or 0,
+        "total_cost_usd": float(at.total_cost) if at.total_cost else 0.0,
+        "today_calls": td.today_calls or 0,
+        "today_input_tokens": td.today_input or 0,
+        "today_output_tokens": td.today_output or 0,
+        "today_cost_usd": float(td.today_cost) if td.today_cost else 0.0,
+        "last_7d_cost_usd": float(wc),
     }
