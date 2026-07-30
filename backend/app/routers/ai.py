@@ -13,13 +13,13 @@ from datetime import datetime, timezone
 from typing import Any
 from fastapi import APIRouter, Depends, HTTPException, Request, Query
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, func
 
 from app.db import get_tenant_session
 from app.ai.tool_registry import TOOL_REGISTRY, ToolDef
 from app.ai.tools.guard import authorize_tool_call, ScopeViolation, log_audit
 from app.ai.providers import get_provider, ProviderAdapter
-from app.models.ai import ActionRequest, AISession, Message
+from app.models.ai import ActionRequest, AISession, Message, UserMemory
 
 # ---------------------------------------------------------------------------
 # Default provider configuration
@@ -460,6 +460,134 @@ async def _search_crm_context(
     return context
 
 
+# ====================================================================
+# Cross-Thread Memory — extract facts & inject into new sessions
+# ====================================================================
+
+_MEMORY_CATEGORIES = frozenset({
+    "preference", "fact", "interest", "contact_pref", "project_pref", "workflow"
+})
+
+_MEMORY_EXTRACT_SYSTEM = """\
+You are a memory extraction system. From the conversation below, extract 0-3 \
+key facts that would be useful for future conversations with this user. \
+Focus on: user preferences, important entities they work with, their role/industry, \
+recurring needs or workflows.
+
+Return ONLY a JSON array. Each item: {"category": "preference|fact|interest", "content": "..."}
+If nothing useful, return []"""
+
+
+async def _extract_memory_from_chat(
+    user_message: str,
+    ai_response: str,
+    ctx: Any,
+    db: AsyncSession,
+    session: AISession,
+) -> None:
+    """Extract key facts from the last exchange and store as UserMemory."""
+    # Only extract every 4th message (save tokens)
+    msg_count = await db.execute(
+        select(func.count()).select_from(
+            select(Message).where(Message.session_id == session.id).subquery()
+        )
+    )
+    count = msg_count.scalar() or 0
+    if count % 4 != 0:
+        return
+
+    try:
+        adapter = _default_adapter()
+        try:
+            text, _ = await adapter.chat(
+                messages=[
+                    {"role": "system", "content": _MEMORY_EXTRACT_SYSTEM},
+                    {"role": "user", "content": f"User: {user_message}\nAI: {ai_response}"},
+                ],
+                model=DEFAULT_MODEL,
+                temperature=0.1,
+                max_tokens=512,
+            )
+        finally:
+            await adapter.close()
+
+        # Parse JSON response
+        text = text.strip()
+        if text.startswith("```"):
+            text = text.split("\n", 1)[-1].rsplit("\n", 1)[0]
+        entries = json.loads(text)
+        if not isinstance(entries, list):
+            return
+
+        for entry in entries:
+            if not isinstance(entry, dict):
+                continue
+            cat = entry.get("category", "fact")
+            if cat not in _MEMORY_CATEGORIES:
+                cat = "fact"
+
+            # Avoid duplicates — check if similar memory exists
+            existing = await db.execute(
+                select(UserMemory).where(
+                    UserMemory.user_id == ctx.user_id,
+                    UserMemory.tenant_id == ctx.tenant_id,
+                    UserMemory.content == entry["content"],
+                ).limit(1)
+            )
+            if existing.scalar_one_or_none():
+                continue
+
+            mem = UserMemory(
+                tenant_id=ctx.tenant_id,
+                user_id=ctx.user_id,
+                session_id=session.id,
+                category=cat,
+                content=entry["content"],
+                source=f"Session {session.title or session.id}",
+                confidence=0.7,
+            )
+            db.add(mem)
+        await db.flush()
+    except Exception:
+        pass  # Memory extraction is best-effort
+
+
+async def _inject_memory_context(
+    ctx: Any,
+    db: AsyncSession,
+    current_session_id: UUID | None = None,
+) -> list[str]:
+    """Load recent cross-session memory entries for this user."""
+    result = await db.execute(
+        select(UserMemory)
+        .where(
+            UserMemory.user_id == ctx.user_id,
+            UserMemory.tenant_id == ctx.tenant_id,
+        )
+        .order_by(UserMemory.last_accessed.desc())
+        .limit(20)
+    )
+    memories = result.scalars().all()
+
+    if not memories:
+        return []
+
+    # Update last_accessed
+    for m in memories:
+        m.last_accessed = datetime.now(timezone.utc)
+
+    lines = []
+    for m in memories:
+        label = m.category.replace("_", " ").title()
+        lines.append(f"- [{label}] {m.content}")
+    return lines
+
+
+# ====================================================================
+# Chat completion (CRM-aware + memory-aware)
+# ====================================================================
+
+
 _SYSTEM_PROMPT_TPL = """\
 You are NEXUS AI, the intelligent assistant for NEXUS CRM. \
 You help users manage their customer relationships.
@@ -470,8 +598,10 @@ You help users manage their customer relationships.
 3. Only suggest web search if the user explicitly asks about external information.
 4. Keep responses concise. Use bullet points for lists.
 5. If the user asks to create/update something, guide them to the appropriate CRM section.
+6. Remember user preferences and facts from past conversations (see MEMORY below).
 
-**CRM DATA (your data, tenant-scoped):\n{context}**"""
+**CRM DATA (your data, tenant-scoped):\n{context}**
+**ABOUT THIS USER (learned from past conversations):\n{memory}**"""
 
 
 # ====================================================================
@@ -572,7 +702,9 @@ async def chat_completion(
     if not context_str:
         context_str = "No CRM data found matching this query."
 
-    system_prompt = _SYSTEM_PROMPT_TPL.format(context=context_str)
+    memory_lines = await _inject_memory_context(ctx, db, session_id)
+    memory_str = "\n".join(memory_lines) if memory_lines else "No past conversation data available."
+    system_prompt = _SYSTEM_PROMPT_TPL.format(context=context_str, memory=memory_str)
 
     # ── Build message list ──────────────────────────────────────────────
     enhanced = [{"role": "system", "content": system_prompt}]
@@ -598,6 +730,13 @@ async def chat_completion(
             token_count=usage.output_tokens,
         )
         db.add(assistant_msg)
+
+        # ── Extract cross-session memory (best-effort) ────────────────────
+        if last_query and text:
+            try:
+                await _extract_memory_from_chat(last_query, text, ctx, db, sess)
+            except Exception:
+                pass
 
         return {
             "text": text,

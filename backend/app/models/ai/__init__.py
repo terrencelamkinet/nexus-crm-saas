@@ -7,6 +7,7 @@ from app.models.ai.usage import Quota, UsageEvent
 from app.models.ai.model_profile import ModelProfile
 from app.models.ai.provider import ProviderCredential, ProviderHealth
 from app.models.ai.vector import VectorDocument, VectorDocumentChunk
+from app.models.ai.user_memory import UserMemory
 
 __all__ = [
     "Agent",
@@ -21,4 +22,5 @@ __all__ = [
     "ProviderHealth",
     "VectorDocument",
     "VectorDocumentChunk",
+    "UserMemory",
 ]

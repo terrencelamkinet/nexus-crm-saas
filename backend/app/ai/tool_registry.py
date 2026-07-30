@@ -12,7 +12,7 @@ from datetime import datetime, timezone, timedelta
 from typing import Any, Callable, Coroutine
 from uuid import UUID
 
-from sqlalchemy import func, select, or_
+from sqlalchemy import func, select, or_, text
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -73,10 +73,11 @@ async def _search_companies(
     params: dict[str, Any],
     db: AsyncSession,
 ) -> list[dict[str, Any]]:
-    """Search companies by name or domain, tenant-scoped."""
+    """Search companies by name or domain, tenant-scoped. Fuzzy fallback via pg_trgm."""
     query = params.get("query", "")
     limit = min(params.get("limit", 20), 100)
 
+    # Step 1: ILIKE exact/substring match
     base = select(Company).where(Company.tenant_id == ctx.tenant_id)
     if query:
         base = base.where(
@@ -87,7 +88,29 @@ async def _search_companies(
         )
     base = base.order_by(Company.created_at.desc()).limit(limit)
     rows = (await db.execute(base)).scalars().all()
-    return [_row_to_dict(r) for r in rows]
+
+    if rows:
+        return [_row_to_dict(r) for r in rows]
+
+    # Step 2: Fuzzy trigram fallback (handles typos like "systexx" → "SYSTEX")
+    if query:
+        fuzzy = await db.execute(
+            text("""
+                SELECT id FROM nexus_crm.companies
+                WHERE tenant_id = :tid
+                AND (similarity(name, :q) > 0.2 OR similarity(domain, :q) > 0.2)
+                ORDER BY similarity(name, :q) DESC
+                LIMIT :lim
+            """),
+            {"tid": ctx.tenant_id, "q": query, "lim": limit},
+        )
+        fids = [r[0] for r in fuzzy.fetchall()]
+        if fids:
+            base = select(Company).where(Company.id.in_(fids)).order_by(Company.created_at.desc())
+            rows = (await db.execute(base)).scalars().all()
+            return [_row_to_dict(r) for r in rows]
+
+    return []
 
 
 async def _get_company_detail(
@@ -113,11 +136,12 @@ async def _search_contacts(
     params: dict[str, Any],
     db: AsyncSession,
 ) -> list[dict[str, Any]]:
-    """Search contacts by name, email or phone, tenant-scoped."""
+    """Search contacts by name, email or phone, tenant-scoped. Fuzzy fallback via pg_trgm."""
     query = params.get("query", "")
     limit = min(params.get("limit", 20), 100)
     company_id = params.get("company_id")
 
+    # Step 1: ILIKE match
     base = select(Contact).where(Contact.tenant_id == ctx.tenant_id)
 
     if query:
@@ -133,7 +157,29 @@ async def _search_contacts(
 
     base = base.order_by(Contact.created_at.desc()).limit(limit)
     rows = (await db.execute(base)).scalars().all()
-    return [_row_to_dict(r) for r in rows]
+
+    if rows:
+        return [_row_to_dict(r) for r in rows]
+
+    # Step 2: Fuzzy trigram fallback
+    if query:
+        fuzzy = await db.execute(
+            text("""
+                SELECT id FROM nexus_crm.contacts
+                WHERE tenant_id = :tid
+                AND (similarity(name, :q) > 0.2 OR similarity(email, :q) > 0.2)
+                ORDER BY similarity(name, :q) DESC
+                LIMIT :lim
+            """),
+            {"tid": ctx.tenant_id, "q": query, "lim": limit},
+        )
+        fids = [r[0] for r in fuzzy.fetchall()]
+        if fids:
+            base = select(Contact).where(Contact.id.in_(fids)).order_by(Contact.created_at.desc())
+            rows = (await db.execute(base)).scalars().all()
+            return [_row_to_dict(r) for r in rows]
+
+    return []
 
 
 async def _get_contact_detail(
