@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
-import { Sparkles, X, Plus } from 'lucide-react'
+import { Sparkles, X, Plus, MoreHorizontal, Search, Pin, Pencil, Trash2, Download } from 'lucide-react'
 import { apiClient, getStoredAuth } from '../lib/api'
 
 // ---------------------------------------------------------------------------
@@ -27,6 +27,7 @@ interface SessionItem {
   title: string
   status: string
   created_at: string | null
+  is_pinned?: boolean
 }
 
 // ---------------------------------------------------------------------------
@@ -145,6 +146,10 @@ export default function ChatboxPanel() {
   const [sessionList, setSessionList] = useState<SessionItem[]>([])
   const [showSessionList, setShowSessionList] = useState(false)
   const [loadingSession, setLoadingSession] = useState(false)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [renameId, setRenameId] = useState<string | null>(null)
+  const [renameText, setRenameText] = useState('')
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; session: SessionItem } | null>(null)
   const abortRef = useRef<AbortController | null>(null)
   const [hoveredMsgId, setHoveredMsgId] = useState<string | null>(null)
   const [feedbackMap, setFeedbackMap] = useState<Record<string, 'up' | 'down'>>({})
@@ -258,6 +263,60 @@ export default function ChatboxPanel() {
     setShowSessionList(false)
     setError(null)
   }, [])
+
+  // ── Session actions: rename, pin, delete, export ──
+  const renameSession = useCallback(async (sessionId: string, title: string) => {
+    try {
+      await apiClient.patch(`/api/v1/ai/sessions/${sessionId}`, { title })
+      setSessionList(prev => prev.map(s => s.session_id === sessionId ? { ...s, title } : s))
+    } catch { /* ignore */ }
+    setRenameId(null)
+  }, [])
+
+  const togglePin = useCallback(async (sessionId: string, pinned: boolean) => {
+    try {
+      await apiClient.patch(`/api/v1/ai/sessions/${sessionId}`, { is_pinned: pinned })
+      setSessionList(prev => prev.map(s =>
+        s.session_id === sessionId ? { ...s, is_pinned: pinned } : s
+      ))
+      // Re-fetch to get correct pin sort order
+      const resp = await apiClient.get<{ sessions: SessionItem[] }>('/api/v1/ai/sessions')
+      if (resp?.sessions) setSessionList(resp.sessions)
+    } catch { /* ignore */ }
+  }, [])
+
+  const deleteSession = useCallback(async (sid: string) => {
+    try {
+      await apiClient.delete(`/api/v1/ai/sessions/${sid}`)
+      setSessionList(prev => {
+        const next = prev.filter(s => s.session_id !== sid)
+        // If current session was deleted, switch to another
+        if (sid === sessionId) {
+          const active = next.find(s => s.status === 'active') || next[0]
+          if (active) switchSession(active.session_id)
+          else createNewSession()
+        }
+        return next
+      })
+    } catch { /* ignore */ }
+  }, [sessionId])
+
+  const exportSession = useCallback(async (sessionId: string) => {
+    try {
+      const resp = await apiClient.get<{ messages: any[] }>(`/api/v1/ai/sessions/${sessionId}/messages`)
+      const msgs = resp?.messages || []
+      const md = msgs.map((m: any) => `**${m.role}**: ${m.content}`).join('\n\n---\n\n')
+      await navigator.clipboard.writeText(`# Chat Export\n\n${md}`)
+    } catch { /* ignore */ }
+  }, [])
+
+  // ── Context menu close on click outside ──
+  useEffect(() => {
+    if (!contextMenu) return
+    const handler = () => setContextMenu(null)
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [contextMenu])
 
   // ── Abort streaming ──
   const abortStreaming = useCallback(() => {
@@ -534,7 +593,7 @@ export default function ChatboxPanel() {
               border: '1px solid var(--color-border)',
               borderRadius: '0 0 var(--radius-md) var(--radius-md)',
               boxShadow: 'var(--shadow-lg)',
-              maxHeight: 280,
+              maxHeight: 320,
               overflowY: 'auto',
               zIndex: 100,
             }}
@@ -552,23 +611,166 @@ export default function ChatboxPanel() {
               <Plus size={14} />
               New Chat
             </button>
-            {sessionList.slice(0, 20).map(s => (
-              <button
-                key={s.session_id}
-                onClick={() => switchSession(s.session_id)}
+
+            {/* ── Search field (shown when >5 sessions) ── */}
+            {sessionList.length > 5 && (
+              <div style={{ padding: '6px 10px', borderBottom: '1px solid var(--color-border)' }}>
+                <div style={{
+                  display: 'flex', alignItems: 'center', gap: 6,
+                  background: 'var(--color-surface)', borderRadius: 6,
+                  padding: '4px 8px', border: '1px solid var(--color-border)',
+                }}>
+                  <Search size={13} style={{ color: 'var(--color-text-faint)', flexShrink: 0 }} />
+                  <input
+                    value={searchQuery}
+                    onChange={e => setSearchQuery(e.target.value)}
+                    placeholder="Search sessions..."
+                    style={{
+                      flex: 1, border: 0, outline: 'none',
+                      background: 'transparent',
+                      font: 'inherit', color: 'inherit',
+                      fontSize: 12, lineHeight: '28px',
+                    }}
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* ── Session list ── */}
+            {(searchQuery
+              ? sessionList.filter(s => s.title.toLowerCase().includes(searchQuery.toLowerCase()))
+              : sessionList
+            ).slice(0, 20).map(s => (
+              <div key={s.session_id} style={{ position: 'relative' }}>
+                {renameId === s.session_id ? (
+                  <div style={{
+                    display: 'flex', alignItems: 'center', gap: 4,
+                    padding: '6px 10px', borderBottom: '1px solid var(--color-border)',
+                  }}>
+                    <input
+                      value={renameText}
+                      onChange={e => setRenameText(e.target.value)}
+                      onKeyDown={e => {
+                        if (e.key === 'Enter') renameSession(s.session_id, renameText)
+                        if (e.key === 'Escape') setRenameId(null)
+                      }}
+                      autoFocus
+                      style={{
+                        flex: 1, border: '1px solid var(--color-primary)', outline: 'none',
+                        borderRadius: 4, padding: '4px 6px',
+                        font: 'inherit', fontSize: 12.5,
+                        background: 'var(--color-surface)', color: 'inherit',
+                      }}
+                    />
+                    <button onClick={() => renameSession(s.session_id, renameText)}
+                      style={{ border: 0, background: 'var(--color-primary)', color: '#fff', borderRadius: 4, padding: '2px 8px', fontSize: 11, cursor: 'pointer', fontWeight: 600 }}>
+                      Save
+                    </button>
+                  </div>
+                ) : (
+                  <div
+                    onClick={() => { setContextMenu(null); switchSession(s.session_id) }}
+                    onContextMenu={e => {
+                      e.preventDefault()
+                      setContextMenu({ x: e.clientX, y: e.clientY, session: s })
+                    }}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 4,
+                      width: '100%', padding: '8px 10px', border: 'none',
+                      borderBottom: '1px solid var(--color-border)',
+                      background: s.session_id === sessionId ? 'var(--color-surface-offset)' : 'transparent',
+                      color: 'var(--color-text)', fontSize: 12.5, cursor: 'pointer',
+                      textAlign: 'left',
+                    }}
+                  >
+                    <span style={{
+                      flex: 1, minWidth: 0,
+                      whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                    }}>
+                      {s.title}
+                    </span>
+                    {s.is_pinned && (
+                      <Pin size={11} style={{ color: 'var(--color-primary)', flexShrink: 0 }} />
+                    )}
+                    <button
+                      onClick={e => {
+                        e.stopPropagation()
+                        setContextMenu(ctx =>
+                          ctx?.session.session_id === s.session_id ? null
+                            : { x: e.clientX - 100, y: e.clientY, session: s }
+                        )
+                      }}
+                      style={{
+                        width: 22, height: 22, border: 0, borderRadius: 4,
+                        background: 'transparent', color: 'var(--color-text-faint)',
+                        cursor: 'pointer', display: 'grid', placeItems: 'center',
+                        flexShrink: 0, opacity: 0, transition: 'opacity .1s',
+                      }}
+                      className="session-more-btn"
+                    >
+                      <MoreHorizontal size={12} />
+                    </button>
+                  </div>
+                )}
+              </div>
+            ))}
+
+            {/* ── Context menu popup ── */}
+            {contextMenu && (
+              <div
                 style={{
-                  width: '100%', padding: '10px 14px', border: 'none',
-                  borderBottom: '1px solid var(--color-border)',
-                  background: s.session_id === sessionId ? 'var(--color-surface-offset)' : 'transparent',
-                  color: 'var(--color-text)', fontSize: 12.5, cursor: 'pointer',
-                  textAlign: 'left', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                  position: 'fixed',
+                  left: Math.min(contextMenu.x, window.innerWidth - 140),
+                  top: Math.min(contextMenu.y, window.innerHeight - 200),
+                  background: 'var(--color-surface-2)',
+                  border: '1px solid var(--color-border)',
+                  borderRadius: 'var(--radius-md)',
+                  boxShadow: 'var(--shadow-lg)',
+                  zIndex: 999,
+                  padding: '4px 0',
+                  minWidth: 130,
                 }}
               >
-                {s.title}
-              </button>
-            ))}
+                <CtxBtn onClick={() => {
+                  setRenameId(contextMenu.session.session_id)
+                  setRenameText(contextMenu.session.title)
+                  setContextMenu(null)
+                }}>
+                  <Pencil size={12} /> Rename
+                </CtxBtn>
+                <CtxBtn onClick={() => {
+                  togglePin(contextMenu.session.session_id, !contextMenu.session.is_pinned)
+                  setContextMenu(null)
+                }}>
+                  <Pin size={12} /> {contextMenu.session.is_pinned ? 'Unpin' : 'Pin'}
+                </CtxBtn>
+                <CtxBtn onClick={() => {
+                  exportSession(contextMenu.session.session_id)
+                  setContextMenu(null)
+                }}>
+                  <Download size={12} /> Export
+                </CtxBtn>
+                <div style={{ borderTop: '1px solid var(--color-border)', margin: '4px 0' }} />
+                <CtxBtn
+                  danger
+                  onClick={() => {
+                    if (confirm('Delete this chat and all its messages?')) {
+                      deleteSession(contextMenu.session.session_id)
+                    }
+                    setContextMenu(null)
+                  }}
+                >
+                  <Trash2 size={12} /> Delete
+                </CtxBtn>
+              </div>
+            )}
           </div>
         )}
+
+        <style>{`
+          .session-more-btn { display: none; }
+          div:hover > .session-more-btn { display: grid; }
+        `}</style>
 
         {/* ── Messages Area: Notion AI style ── */}
         <div ref={scrollRef} style={{
@@ -931,5 +1133,25 @@ export default function ChatboxPanel() {
         }
       `}</style>
     </>
+  )
+}
+
+// ── Context Menu Button ──
+function CtxBtn({ children, onClick, danger }: { children: React.ReactNode; onClick: () => void; danger?: boolean }) {
+  return (
+    <button onClick={onClick}
+      style={{
+        width: '100%', padding: '6px 12px', border: 'none',
+        background: 'transparent',
+        color: danger ? 'var(--color-notification)' : 'var(--color-text)',
+        fontSize: 12, cursor: 'pointer', textAlign: 'left',
+        display: 'flex', alignItems: 'center', gap: 8,
+        transition: 'background .1s',
+      }}
+      onMouseEnter={e => { e.currentTarget.style.background = 'var(--color-surface-offset)' }}
+      onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}
+    >
+      {children}
+    </button>
   )
 }

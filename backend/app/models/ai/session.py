@@ -23,6 +23,7 @@ class AISession(Base):
     title: Mapped[str | None] = mapped_column(String(200), nullable=True)
     memory_summary: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
+    is_pinned: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     ended_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=True)
 
     messages = relationship("Message", back_populates="session", cascade="all, delete-orphan")

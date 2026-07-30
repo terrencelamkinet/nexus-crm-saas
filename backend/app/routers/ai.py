@@ -107,19 +107,20 @@ async def list_sessions(
             AISession.title,
             AISession.status,
             AISession.created_at,
+            AISession.is_pinned,
         )
         .where(
             AISession.user_id == ctx.user_id,
             AISession.tenant_id == ctx.tenant_id,
         )
-        .order_by(AISession.created_at.desc())
+        .order_by(AISession.is_pinned.desc(), AISession.created_at.desc())
         .limit(limit)
     )
     rows = result.fetchall()
 
     items = []
     for row in rows:
-        sid, title, status, created_at = row
+        sid, title, status, created_at, is_pinned = row
         # Get last message for preview
         last_msg = await db.execute(
             select(Message.content)
@@ -137,6 +138,7 @@ async def list_sessions(
             "title": title or "New Chat",
             "status": status,
             "created_at": created_at.isoformat() if created_at else None,
+            "is_pinned": is_pinned or False,
         })
 
     return {"sessions": items}
@@ -205,6 +207,8 @@ async def update_session(
         sess.status = body["status"]
         if body["status"] in ("archived", "deleted"):
             sess.ended_at = datetime.now(timezone.utc)
+    if "is_pinned" in body:
+        sess.is_pinned = bool(body["is_pinned"])
 
     await db.flush()
     return {"status": "updated"}
@@ -227,6 +231,53 @@ async def delete_session(
 
     await db.delete(sess)
     return {"status": "deleted"}
+
+
+@router.get("/sessions/search")
+async def search_sessions(
+    request: Request,
+    q: str = Query("", max_length=200),
+    limit: int = Query(20, ge=1, le=100),
+    db: AsyncSession = Depends(get_tenant_session),
+):
+    """Search session titles by query string."""
+    ctx = getattr(request.state, "ai_context", None)
+    if not ctx:
+        raise HTTPException(400, "AI session context not initialized")
+
+    if not q.strip():
+        return {"sessions": []}
+
+    result = await db.execute(
+        select(
+            AISession.id,
+            AISession.title,
+            AISession.status,
+            AISession.created_at,
+            AISession.is_pinned,
+        )
+        .where(
+            AISession.user_id == ctx.user_id,
+            AISession.tenant_id == ctx.tenant_id,
+            AISession.title.ilike(f"%{q}%"),
+        )
+        .order_by(AISession.is_pinned.desc(), AISession.created_at.desc())
+        .limit(limit)
+    )
+    rows = result.fetchall()
+
+    return {
+        "sessions": [
+            {
+                "session_id": str(sid),
+                "title": title or "New Chat",
+                "status": status,
+                "created_at": created_at.isoformat() if created_at else None,
+                "is_pinned": is_pinned or False,
+            }
+            for sid, title, status, created_at, is_pinned in rows
+        ],
+    }
 
 
 # ====================================================================
