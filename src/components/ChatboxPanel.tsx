@@ -83,11 +83,9 @@ export function ChatboxToggleButton({ onClick, visible }: ToggleButtonProps) {
       onClick={onClick}
       aria-label="Toggle AI chat"
       aria-expanded={visible}
-      className={`fixed z-50 flex items-center justify-center border-0 cursor-pointer
-        transition-all duration-[${ANIMATION_DURATION}ms] ease-out
-        ${visible ? 'opacity-0 pointer-events-none scale-75' : 'opacity-100 pointer-events-auto scale-100'}
-      `}
       style={{
+        position: 'fixed',
+        zIndex: 50,
         bottom: 24,
         right: 24,
         width: 48,
@@ -96,6 +94,15 @@ export function ChatboxToggleButton({ onClick, visible }: ToggleButtonProps) {
         backgroundColor: 'var(--color-primary)',
         color: '#fff',
         boxShadow: '0 4px 16px rgba(0,0,0,0.2), 0 2px 6px rgba(0,0,0,0.12)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        border: 'none',
+        cursor: 'pointer',
+        transition: `all ${ANIMATION_DURATION}ms ease-out`,
+        opacity: visible ? 0 : 1,
+        pointerEvents: visible ? 'none' : 'auto',
+        transform: visible ? 'scale(0.75)' : 'scale(1)',
       }}
     >
       <Sparkles size={22} />
@@ -613,10 +620,6 @@ export default function ChatboxPanel() {
         @keyframes blink {
           0%, 80%, 100% { opacity: .2; transform: translateY(0); }
           40% { opacity: 1; transform: translateY(-2px); }
-        }
-        .composer-focus-within:focus-within {
-          border-color: var(--color-primary);
-          box-shadow: 0 0 0 3px rgba(35, 131, 226, 0.15);
         }
       `}</style>
     </>
