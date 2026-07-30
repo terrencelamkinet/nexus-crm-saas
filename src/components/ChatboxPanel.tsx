@@ -53,6 +53,26 @@ const actionBtnStyle = {
   transition: 'color .12s',
 }
 
+const SLASH_COMMANDS = [
+  { key: 'summarize', label: 'Summarize today', icon: '📊' },
+  { key: 'find', label: 'Find CRM records', icon: '🔍' },
+  { key: 'create-task', label: 'Create a task', icon: '📋' },
+  { key: 'draft-email', label: 'Draft an email', icon: '✉️' },
+  { key: 'pipeline', label: 'Show pipeline', icon: '📈' },
+  { key: 'reset', label: 'Reset session', icon: '🔄' },
+]
+
+const SLASH_TRIGGER_PROMPTS: Record<string, string> = {
+  summarize: 'Summarize today\'s CRM activity',
+  find: 'Find ',
+  'create-task': 'Create a task: ',
+  'draft-email': 'Draft an email about ',
+  pipeline: 'Show me the sales pipeline',
+  reset: 'Reset our conversation',
+}
+
+// ── Helpers ──
+
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
@@ -150,6 +170,11 @@ export default function ChatboxPanel() {
   const [renameId, setRenameId] = useState<string | null>(null)
   const [renameText, setRenameText] = useState('')
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; session: SessionItem } | null>(null)
+  // ── Slash + mention menu state ──
+  const [menuType, setMenuType] = useState<'slash' | 'mention' | null>(null)
+  const [menuIndex, setMenuIndex] = useState(0)
+  const [menuQuery, setMenuQuery] = useState('')
+  const [mentionResults, setMentionResults] = useState<{ id: string; label: string; type: string; sub: string }[]>([])
   const abortRef = useRef<AbortController | null>(null)
   const [hoveredMsgId, setHoveredMsgId] = useState<string | null>(null)
   const [feedbackMap, setFeedbackMap] = useState<Record<string, 'up' | 'down'>>({})
@@ -463,17 +488,8 @@ export default function ChatboxPanel() {
       setStreamingContent('')
       abortRef.current = null
     }
-  }, [input, isLoading, loadingSession, sessionId, loadSessions])
+  }, [messages])
 
-  // ── Key down ──
-  const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault()
-      sendMessage()
-    }
-  }, [sendMessage])
-
-  // ── Message actions ──
   const copyMessage = useCallback(async (content: string) => {
     try {
       await navigator.clipboard.writeText(content)
@@ -497,13 +513,38 @@ export default function ChatboxPanel() {
     // Send will be triggered by user pressing Enter
   }, [messages])
 
-  // ── Input change ──
-  const handleInputChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    setInput(e.target.value)
-    const ta = e.target
-    ta.style.height = 'auto'
-    ta.style.height = `${Math.min(ta.scrollHeight, 160)}px`
-  }, [])
+  const handleKeyDown2 = useCallback((e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    // ── Menu keyboard nav ──
+    if (menuType) {
+      const items = menuType === 'slash' ? SLASH_COMMANDS : mentionResults
+      if (e.key === 'ArrowDown') { e.preventDefault(); setMenuIndex(prev => Math.min(prev + 1, items.length - 1)); return }
+      if (e.key === 'ArrowUp') { e.preventDefault(); setMenuIndex(prev => Math.max(prev - 1, 0)); return }
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault()
+        if (menuType === 'slash') setInput(SLASH_TRIGGER_PROMPTS[SLASH_COMMANDS[menuIndex].key])
+        else { const item = mentionResults[menuIndex]; if (item) { const at = input.indexOf('@', inputRef.current?.selectionStart ?? input.length); setInput(input.slice(0, at) + `@${item.label}`) } }
+        setMenuType(null); setMentionResults([]); return
+      }
+      if (e.key === 'Escape') { setMenuType(null); setMentionResults([]); e.preventDefault(); return }
+    }
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage() }
+  }, [menuType, menuIndex, mentionResults, input, sendMessage])
+
+  const handleInputChange2 = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const val = e.target.value; setInput(val)
+    const ta = e.target; ta.style.height = 'auto'; ta.style.height = `${Math.min(ta.scrollHeight, 160)}px`
+    const selStart = ta.selectionStart ?? val.length
+    const m = val.slice(0, selStart).match(/(?:^|\s)([/@])(\w*)$/)
+    if (m) {
+      setMenuQuery(m[2]); setMenuIndex(0)
+      if (m[1] === '/') { setMenuType('slash'); setMentionResults([]) }
+      else if (m[2].length >= 1) {
+        setMenuType('mention')
+        apiClient.get<{ results: any[] }>(`/api/v1/ai/mentions/search?q=${encodeURIComponent(m[2])}`)
+          .then(r => setMentionResults(r?.results || [])).catch(() => setMentionResults([]))
+      }
+    } else if (menuType) { setMenuType(null); setMentionResults([]) }
+  }, [menuType])
 
   // ── Render ──
   return (
@@ -1035,11 +1076,77 @@ export default function ChatboxPanel() {
           </div>
         )}
 
+        {/* ── Slash / Mention floating menu ── */}
+        {menuType && (
+          <div style={{
+            position: 'absolute', bottom: '100%', left: 14, right: 14,
+            maxHeight: 200, overflowY: 'auto',
+            background: 'var(--color-surface-2)',
+            border: '1px solid var(--color-border)',
+            borderRadius: 'var(--radius-md) var(--radius-md) 0 0',
+            boxShadow: '0 -4px 12px rgba(0,0,0,0.1)',
+            zIndex: 200, marginBottom: 4,
+          }}>
+            {menuType === 'slash' ? (
+              SLASH_COMMANDS.filter(c => c.key.includes(menuQuery)).map((cmd, i) => (
+                <div key={cmd.key}
+                  onClick={() => { setInput(SLASH_TRIGGER_PROMPTS[cmd.key]); setMenuType(null); inputRef.current?.focus() }}
+                  onMouseEnter={() => setMenuIndex(i)}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 8,
+                    padding: '8px 12px', cursor: 'pointer', fontSize: 12.5,
+                    background: i === menuIndex ? 'var(--color-surface-offset)' : 'transparent',
+                    color: 'var(--color-text)',
+                    borderBottom: '1px solid var(--color-border)',
+                  }}
+                >
+                  <span style={{ fontSize: 14 }}>{cmd.icon}</span>
+                  <span style={{ fontWeight: 500 }}>/{cmd.key}</span>
+                  <span style={{ marginLeft: 'auto', color: 'var(--color-text-faint)', fontSize: 11 }}>{cmd.label}</span>
+                </div>
+              ))
+            ) : (
+              mentionResults.length === 0 ? (
+                <div style={{ padding: '8px 12px', fontSize: 12, color: 'var(--color-text-faint)' }}>Type to search contacts, companies, deals...</div>
+              ) : (
+                mentionResults.map((item, i) => (
+                  <div key={`${item.type}-${item.id}`}
+                    onClick={() => {
+                      const at = input.lastIndexOf('@', inputRef.current?.selectionStart ?? input.length)
+                      setInput(input.slice(0, at) + `@${item.label}`)
+                      setMenuType(null)
+                      inputRef.current?.focus()
+                    }}
+                    onMouseEnter={() => setMenuIndex(i)}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 8,
+                      padding: '8px 12px', cursor: 'pointer', fontSize: 12.5,
+                      background: i === menuIndex ? 'var(--color-surface-offset)' : 'transparent',
+                      color: 'var(--color-text)',
+                      borderBottom: '1px solid var(--color-border)',
+                    }}
+                  >
+                    <span style={{
+                      width: 18, height: 18, borderRadius: 4, fontSize: 9, fontWeight: 700,
+                      display: 'grid', placeItems: 'center', flexShrink: 0,
+                      background: item.type === 'contact' ? 'var(--color-blue)' : item.type === 'company' ? 'var(--color-purple)' : 'var(--color-green)',
+                      color: '#fff', textTransform: 'uppercase',
+                    }}>{item.type[0]}</span>
+                    <span style={{ fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.label}</span>
+                    {item.sub && <span style={{ marginLeft: 'auto', color: 'var(--color-text-faint)', fontSize: 11, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 120 }}>{item.sub}</span>}
+                  </div>
+                ))
+              )
+            )}
+          </div>
+        )}
+
         {/* ── Composer: Notion AI style ── */}
         <div style={{
           borderTop: '1px solid var(--color-border)',
           padding: '10px 14px 12px',
           background: 'var(--color-surface-2)',
+          position: 'relative',
         }}>
           <div className="composer__box" style={{
             display: 'flex', alignItems: 'flex-end', gap: 0,
@@ -1049,7 +1156,7 @@ export default function ChatboxPanel() {
             background: 'var(--color-surface)',
             transition: 'border-color .15s, box-shadow .15s',
           }}>
-            <textarea ref={inputRef} value={input} onChange={handleInputChange} onKeyDown={handleKeyDown}
+            <textarea ref={inputRef} value={input} onChange={handleInputChange2} onKeyDown={handleKeyDown2}
               placeholder="Ask NEXUS AI anything…" rows={1} disabled={isLoading || loadingSession}
               aria-label="Chat input"
               style={{

@@ -24,6 +24,9 @@ from app.ai.tool_registry import (
     _get_upcoming_events,
     _list_tasks,
     _get_dashboard_summary,
+    _search_contacts,
+    _search_companies,
+    _search_deals,
 )
 from app.ai.tools.guard import authorize_tool_call, ScopeViolation, log_audit
 from app.ai.providers import get_provider, ProviderAdapter, UsageReport
@@ -1231,6 +1234,54 @@ async def get_briefing(
 
 
 _DEFAULT_TIP = "Review your dashboard for today's priorities — check pending tasks and upcoming events."
+
+
+@router.get("/mentions/search")
+async def search_mentions(
+    request: Request,
+    q: str = Query("", max_length=100),
+    limit: int = Query(8, ge=1, le=20),
+    db: AsyncSession = Depends(get_tenant_session),
+):
+    ctx = getattr(request.state, "ai_context", None)
+    if not ctx or not q.strip():
+        return {"results": []}
+
+    results: list[dict[str, Any]] = []
+
+    try:
+        contacts = await _search_contacts(ctx, {"query": q.strip(), "limit": limit}, db)
+        for c in contacts[:3]:
+            results.append({"id": str(c.get("id", "")), "label": c.get("name", ""), "type": "contact", "sub": c.get("email", "")})
+    except Exception:
+        pass
+
+    try:
+        companies = await _search_companies(ctx, {"query": q.strip(), "limit": limit}, db)
+        for c in companies[:3]:
+            results.append({"id": str(c.get("id", "")), "label": c.get("name", ""), "type": "company", "sub": c.get("domain", "")})
+    except Exception:
+        pass
+
+    try:
+        deals = await _search_deals(ctx, {"query": q.strip(), "limit": limit}, db)
+        for d in deals[:2]:
+            results.append({"id": str(d.get("id", "")), "label": d.get("name", ""), "type": "deal", "sub": ""})
+    except Exception:
+        pass
+
+    try:
+        tasks = await _list_tasks(ctx, {"limit": limit}, db)
+        for t in tasks:
+            if q.strip().lower() in t.get("title", "").lower():
+                results.append({"id": str(t.get("id", "")), "label": t.get("title", ""), "type": "task", "sub": t.get("status", "")})
+                if len(results) >= limit:
+                    break
+    except Exception:
+        pass
+
+    return {"results": results[:limit]}
+
 
 # ====================================================================
 # Daily Summary Cron Endpoint
