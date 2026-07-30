@@ -80,10 +80,22 @@ async def embed_query(
 ) -> list[float]:
     """Generate embedding vector for a text query.
 
-    Tries OpenAI first, falls back to Gemini's text-embedding-004,
-    then returns a zero vector if neither is available.
+    Priority:
+    1. Local tf-idf embedder (zero-dependency, always available)
+    2. OpenAI (text-embedding-3-small, if OPENAI_API_KEY set)
+    3. Gemini (text-embedding-004, if GEMINI_API_KEY set)
+    4. Deterministic hash fallback (always works)
     """
-    # Try OpenAI (text-embedding-3-small)
+    # 1. Local embedder — always available, no API key needed
+    try:
+        from app.ai.rag.local_embed import local_embed
+        vectors = local_embed([query])
+        if vectors and vectors[0] and any(v != 0.0 for v in vectors[0]):
+            return vectors[0]
+    except Exception:
+        pass
+
+    # 2. Try OpenAI
     try:
         adapter = get_provider("openai")
         try:
@@ -97,7 +109,7 @@ async def embed_query(
     except Exception:
         pass
 
-    # Fall back to Gemini (text-embedding-004)
+    # 3. Fall back to Gemini
     try:
         adapter = get_provider("gemini")
         try:
@@ -111,7 +123,7 @@ async def embed_query(
     except Exception:
         pass
 
-    logger.warning("No embedding provider available; returning zero vector")
+    logger.warning("All embedding providers unavailable; returning zero vector")
     return [0.0] * DEFAULT_EMBEDDING_DIMS
 
 
@@ -153,7 +165,7 @@ async def vector_search(
             c.id              AS chunk_id,
             c.document_id     AS document_id,
             c.chunk_text      AS chunk_text,
-            1 - (c.embedding <=> :query_vector::vector) AS score,
+            1 - (c.embedding <=> (:query_vector)::vector) AS score,
             d.source_module   AS source_module,
             d.source_record_id AS source_record_id,
             c.visibility_scope AS visibility_scope
@@ -161,7 +173,7 @@ async def vector_search(
         JOIN nexus_ai.vector_documents d ON d.id = c.document_id
         WHERE {where_clause}
           AND c.embedding IS NOT NULL
-        ORDER BY c.embedding <=> :query_vector::vector
+        ORDER BY c.embedding <=> (:query_vector)::vector
         LIMIT :top_k
     """)
 

@@ -33,69 +33,62 @@ ENTITY_QUERIES: list[tuple[str, str, str]] = [
         "company",
         "nexus_crm.companies",
         """
-        SELECT id, name, description, industry, notes
+        SELECT id, name, industry, notes, status
         FROM nexus_crm.companies
         WHERE tenant_id = :tenant_id
-          AND deleted_at IS NULL
         """,
     ),
     (
         "contact",
         "nexus_crm.contacts",
         """
-        SELECT id, name, email, phone, position, notes
+        SELECT id, name, email, phone, job_title, notes, status
         FROM nexus_crm.contacts
         WHERE tenant_id = :tenant_id
-          AND deleted_at IS NULL
         """,
     ),
     (
         "deal",
         "nexus_crm.deals",
         """
-        SELECT id, name, value, stage, notes
+        SELECT id, name, amount, notes, status
         FROM nexus_crm.deals
         WHERE tenant_id = :tenant_id
-          AND deleted_at IS NULL
         """,
     ),
     (
         "task",
         "nexus_crm.tasks",
         """
-        SELECT id, title, description
+        SELECT id, title, description, status
         FROM nexus_crm.tasks
         WHERE tenant_id = :tenant_id
-          AND deleted_at IS NULL
         """,
     ),
     (
         "touchpoint",
         "nexus_crm.touchpoints",
         """
-        SELECT id, title, notes, summary
+        SELECT id, title, description
         FROM nexus_crm.touchpoints
         WHERE tenant_id = :tenant_id
-          AND deleted_at IS NULL
         """,
     ),
     (
         "project",
         "nexus_crm.projects",
         """
-        SELECT id, name, description
+        SELECT id, name, description, status
         FROM nexus_crm.projects
         WHERE tenant_id = :tenant_id
-          AND deleted_at IS NULL
         """,
     ),
 ]
 
 NOTES_QUERY = """
-    SELECT n.id AS note_id, n.content, n.entity_type, n.entity_id
+    SELECT n.id AS note_id, n.content, n.company_id, n.contact_id, n.title
     FROM nexus_crm.notes n
     WHERE n.tenant_id = :tenant_id
-      AND n.deleted_at IS NULL
 """
 
 
@@ -112,8 +105,6 @@ def _format_row(module: str, row: dict[str, Any]) -> str:
         parts.append(f"Company: {row.get('name', '')}")
         if row.get("industry"):
             parts.append(f"Industry: {row['industry']}")
-        if row.get("description"):
-            parts.append(f"Description: {row['description']}")
         if row.get("notes"):
             parts.append(f"Notes: {row['notes']}")
 
@@ -123,17 +114,15 @@ def _format_row(module: str, row: dict[str, Any]) -> str:
             parts.append(f"Email: {row['email']}")
         if row.get("phone"):
             parts.append(f"Phone: {row['phone']}")
-        if row.get("position"):
-            parts.append(f"Position: {row['position']}")
+        if row.get("job_title"):
+            parts.append(f"Position: {row['job_title']}")
         if row.get("notes"):
             parts.append(f"Notes: {row['notes']}")
 
     elif module == "deal":
         parts.append(f"Deal: {row.get('name', '')}")
-        if row.get("value"):
-            parts.append(f"Value: {row['value']}")
-        if row.get("stage"):
-            parts.append(f"Stage: {row['stage']}")
+        if row.get("amount"):
+            parts.append(f"Value: {row['amount']}")
         if row.get("notes"):
             parts.append(f"Notes: {row['notes']}")
 
@@ -144,10 +133,8 @@ def _format_row(module: str, row: dict[str, Any]) -> str:
 
     elif module == "touchpoint":
         parts.append(f"Touchpoint: {row.get('title', '')}")
-        if row.get("notes"):
-            parts.append(f"Notes: {row['notes']}")
-        if row.get("summary"):
-            parts.append(f"Summary: {row['summary']}")
+        if row.get("description"):
+            parts.append(f"Description: {row['description']}")
 
     elif module == "project":
         parts.append(f"Project: {row.get('name', '')}")
@@ -156,7 +143,7 @@ def _format_row(module: str, row: dict[str, Any]) -> str:
 
     elif module == "note":
         parts.append(f"Note: {row.get('content', '')}")
-        parts.append(f"On: {row.get('entity_type', '')}/{row.get('entity_id', '')}")
+        parts.append(f"On: {row.get('company_id', '')} / {row.get('contact_id', '')}")
 
     return "\n".join(parts)
 
@@ -203,6 +190,9 @@ async def reindex_tenant(
     now = datetime.now(timezone.utc)
     stats: dict[str, Any] = {"total_docs": 0, "total_chunks": 0}
     module_summary: dict[str, int] = {}
+
+    # Set RLS context for the connection (needed after any commit)
+    await db.execute(text("SELECT set_config('app.tenant_id', :tid, true)"), {"tid": str(tenant_id)})
 
     # ── Process each entity type ───────────────────────────────────
     for module_name, source_table, query_sql in ENTITY_QUERIES:
@@ -262,7 +252,7 @@ async def reindex_tenant(
                             (id, document_id, chunk_text, embedding,
                              tenant_id, workspace_id, visibility_scope)
                         VALUES
-                            (:id, :document_id, :chunk_text, :embedding::vector,
+                            (:id, :document_id, :chunk_text, CAST(:embedding AS vector),
                              :tenant_id, :workspace_id, 'workspace')
                         ON CONFLICT (id) DO NOTHING
                     """),
@@ -282,6 +272,8 @@ async def reindex_tenant(
 
         module_summary[module_name] = module_count
         await db.commit()
+        # Re-set RLS context after commit (transaction ended)
+        await db.execute(text("SELECT set_config('app.tenant_id', :tid, true)"), {"tid": str(tenant_id)})
 
     # ── Process notes separately ───────────────────────────────────
     if not source_modules or "note" in source_modules:
@@ -328,7 +320,7 @@ async def reindex_tenant(
                             (id, document_id, chunk_text, embedding,
                              tenant_id, workspace_id, visibility_scope)
                         VALUES
-                            (:id, :document_id, :chunk_text, :embedding::vector,
+                            (:id, :document_id, :chunk_text, CAST(:embedding AS vector),
                              :tenant_id, :workspace_id, 'workspace')
                         ON CONFLICT (id) DO NOTHING
                     """),
@@ -349,6 +341,7 @@ async def reindex_tenant(
         if note_count > 0:
             module_summary["note"] = note_count
             await db.commit()
+            await db.execute(text("SELECT set_config('app.tenant_id', :tid, true)"), {"tid": str(tenant_id)})
 
     stats["modules"] = module_summary
     return stats
@@ -397,4 +390,7 @@ async def delete_tenant_vectors(
         doc_count = result.rowcount
 
     await db.commit()
+
+    # Re-set RLS context after commit (transaction ended)
+    await db.execute(text("SELECT set_config('app.tenant_id', :tid, true)"), {"tid": str(tenant_id)})
     return chunk_count + doc_count
