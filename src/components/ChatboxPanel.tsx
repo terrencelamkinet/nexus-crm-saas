@@ -626,12 +626,12 @@ export default function ChatboxPanel() {
                     )}
                     {msg.role === 'user' ? (
                       <div style={{
-                        alignSelf: 'flex-end',
                         maxWidth: '82%',
                         padding: '8px 12px',
                         background: 'var(--color-surface-offset)',
                         borderRadius: '14px 14px 4px 14px',
                         whiteSpace: 'pre-wrap',
+                        wordBreak: 'break-word',
                         fontSize: 13.5,
                         lineHeight: 1.55,
                         color: 'var(--color-text)',
