@@ -1010,6 +1010,8 @@ export default function ChatboxPanel() {
             <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
               {messages.map((msg, idx) => {
                 const showDivider = idx === 0 || formatDateLabel(msg.timestamp) !== formatDateLabel(messages[idx - 1].timestamp)
+                const prev = idx > 0 ? messages[idx - 1] : null
+                const isGrouped = !showDivider && prev && prev.role === msg.role && (msg.timestamp - prev.timestamp) < 180000
                 return (
                   <div key={msg.id}>
                     {showDivider && (
@@ -1035,6 +1037,7 @@ export default function ChatboxPanel() {
                         lineHeight: 1.55,
                         color: 'var(--color-text)',
                         marginLeft: 'auto',
+                        marginTop: isGrouped ? -14 : 0,
                       }}>
                         {msg.content}
                       </div>
@@ -1044,15 +1047,15 @@ export default function ChatboxPanel() {
                         onMouseLeave={() => setHoveredMsgId(null)}
                         style={{ position: 'relative' }}
                       >
-                        <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
-                          <div style={{
+                        <div style={{ display: 'flex', gap: isGrouped ? 0 : 10, alignItems: 'flex-start' }}>
+                          {!isGrouped && <div style={{
                             width: 24, height: 24, borderRadius: '50%',
                             background: 'linear-gradient(135deg, var(--color-primary), #5c9df0)',
                             color: '#fff', display: 'grid', placeItems: 'center',
                             fontSize: 11, flexShrink: 0, marginTop: 2,
                           }}>
                             <Sparkles size={11} />
-                          </div>
+                          </div>}
                           <div style={{
                             flex: 1, minWidth: 0,
                             fontSize: 13.5, lineHeight: 1.6,
@@ -1103,8 +1106,13 @@ export default function ChatboxPanel() {
                                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M10 15v4a3 3 0 0 0 3 3l4-9V2H5.72a2 2 0 0 0-2 1.7l-1.38 9a2 2 0 0 0 2 2.3zm7-13h2.67A2.31 2.31 0 0 1 22 4v7a2.31 2.31 0 0 1-2.33 2H17"/></svg>
                               </button>
                             ) : null}
-                            <button onClick={() => copyMessage(msg.content)}
-                              title="Share" aria-label="Share"
+                            <button onClick={() => {
+                              const url = sessionId
+                                ? `https://nexus-crm.kinet-poc.com/chat/${sessionId}?msg=${msg.id}`
+                                : `https://nexus-crm.kinet-poc.com/chat?msg=${msg.id}`
+                              navigator.clipboard.writeText(url)
+                            }}
+                              title="Share permalink" aria-label="Share permalink"
                               style={actionBtnStyle}>
                               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
                             </button>
