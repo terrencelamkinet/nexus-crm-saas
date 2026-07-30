@@ -30,6 +30,7 @@ from app.ai.tool_registry import (
 )
 from app.ai.tools.guard import authorize_tool_call, ScopeViolation, log_audit
 from app.ai.providers import get_provider, ProviderAdapter, UsageReport
+from app.ai.quota.service import QuotaService, QuotaExceeded, TIER_LIMITS
 from app.models.ai import ActionRequest, AISession, Message, UserMemory, UsageEvent
 
 # ---------------------------------------------------------------------------
@@ -37,6 +38,18 @@ from app.models.ai import ActionRequest, AISession, Message, UserMemory, UsageEv
 # ---------------------------------------------------------------------------
 DEFAULT_PROVIDER: str = "deepseek"
 DEFAULT_MODEL: str = "deepseek-chat"
+
+# -------------------------------------------------------------------
+# Quota service (Redis-backed, lazy init)
+# -------------------------------------------------------------------
+_quota_service: QuotaService | None = None
+
+
+def _get_quota() -> QuotaService:
+    global _quota_service
+    if _quota_service is None:
+        _quota_service = QuotaService(redis_host="127.0.0.1", redis_port=6379)
+    return _quota_service
 
 
 # ---------------------------------------------------------------------------
@@ -812,6 +825,20 @@ async def chat_completion(
             enhanced.append(m)
 
     # ── Call LLM ─────────────────────────────────────────────────────────
+    # Quota check — light-weight Redis GET before spending tokens
+    try:
+        quota = _get_quota()
+        await quota.check(
+            f"tenant:{ctx.tenant_id}",
+            tier=getattr(ctx, "tier", "pro"),
+            estimated_tokens=sum(len(m.get("content", "")) for m in messages) // 2,
+        )
+    except QuotaExceeded as e:
+        return {
+            "error": "quota_exceeded",
+            "message": f"Quota exceeded for {e.window}: {e.current}/{e.limit}",
+        }
+
     adapter = _default_adapter()
     try:
         text, usage = await adapter.chat(
@@ -842,6 +869,17 @@ async def chat_completion(
             await _record_usage_event(db, ctx, UUID(str(sess.id)), usage)
         except Exception:
             pass  # usage recording is best-effort
+
+        # ── Record quota counters ──────────────────────────────────────
+        try:
+            await quota.record(
+                f"tenant:{ctx.tenant_id}",
+                tokens=usage.input_tokens + usage.output_tokens,
+                cost=usage.cost_usd,
+                tier=getattr(ctx, "tier", "pro"),
+            )
+        except Exception:
+            pass
 
         return {
             "text": text,
@@ -994,6 +1032,7 @@ async def chat_stream_completion(
     # ── SSE event generator ────────────────────────────────────────────────
     async def event_generator() -> AsyncGenerator[dict[str, str], None]:
         adapter = _default_adapter()
+        final_report: UsageReport | None = None
         try:
             # ── Yield citation events before streaming ──
             for cit in citations:
@@ -1003,7 +1042,6 @@ async def chat_stream_completion(
                 }
 
             full_text_parts: list[str] = []
-            final_report: UsageReport | None = None
 
             async for token_text, report in adapter.chat_stream(
                 messages=enhanced,
@@ -1088,6 +1126,28 @@ async def chat_stream_completion(
             }
         finally:
             await adapter.close()
+            # ── Record quota counters after streaming ─────────────────
+            if final_report:
+                try:
+                    await _get_quota().record(
+                        f"tenant:{ctx.tenant_id}",
+                        tokens=final_report.input_tokens + final_report.output_tokens,
+                        cost=final_report.cost_usd,
+                        tier=getattr(ctx, "tier", "pro"),
+                    )
+                except Exception:
+                    pass
+
+    # ── Quota check before streaming ──────────────────────────────────────
+    try:
+        quota = _get_quota()
+        await quota.check(
+            f"tenant:{ctx.tenant_id}",
+            tier=getattr(ctx, "tier", "pro"),
+            estimated_tokens=sum(len(m.get("content", "")) for m in body.messages) // 2,
+        )
+    except QuotaExceeded as e:
+        raise HTTPException(429, f"Quota exceeded for {e.window}: {e.current}/{e.limit}")
 
     return EventSourceResponse(event_generator())
 
