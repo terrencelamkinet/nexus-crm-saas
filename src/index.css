@@ -1682,28 +1682,41 @@ textarea.input-field{resize:vertical;min-height:60px}
 .msg-md-body img { max-width: 100%; border-radius: 6px; }
 .msg-md-body hr { border: 0; border-top: 1px solid var(--color-border); margin: 12px 0; }
 
-/* MobileAgendaView */
+/* MobileAgendaView — Apple HIG visual upgrades */
 .mobile-agenda{display:flex;flex-direction:column;height:100%}
 .mobile-agenda-strip{position:sticky;top:0;z-index:10;background:var(--color-bg);border-bottom:1px solid var(--color-divider);padding:12px 16px 8px}
-.mobile-agenda-header{font-size:22px;font-weight:700;color:var(--color-text);font-family:var(--font-display);margin-bottom:10px;letter-spacing:-.02em}
+.mobile-agenda-header{font-size:28px;font-weight:700;color:var(--color-text);font-family:var(--font-display);margin-bottom:10px;letter-spacing:-.02em}
 .mobile-agenda-dates{display:flex;gap:6px;overflow-x:auto;padding-bottom:4px}
 .mobile-agenda-dates::-webkit-scrollbar{display:none}
-.mobile-agenda-date{display:flex;flex-direction:column;align-items:center;justify-content:center;min-width:48px;height:64px;border-radius:var(--radius-lg);transition:all .15s;cursor:pointer;border:none;background:transparent;gap:2px;flex-shrink:0;padding:4px 2px}
+.mobile-agenda-date{display:flex;flex-direction:column;align-items:center;justify-content:center;min-width:52px;height:64px;border-radius:var(--radius-lg);transition:all .15s;cursor:pointer;border:none;background:transparent;gap:2px;flex-shrink:0;padding:4px 2px}
 .mobile-agenda-date:hover{background:var(--color-surface-offset)}
 .mobile-agenda-date.active{background:var(--color-primary);box-shadow:0 2px 8px color-mix(in oklch, var(--color-primary) 30%, transparent)}
 .mobile-agenda-date.active .m-date-day{color:#fff}
 .mobile-agenda-date.active .m-date-num{color:#fff;font-weight:700}
 .m-date-day{font-size:10px;color:var(--color-text-muted);text-transform:uppercase;font-weight:600;letter-spacing:.04em}
 .m-date-num{font-size:17px;font-weight:600;color:var(--color-text)}
-.mobile-agenda-list{flex:1;overflow-y:auto;padding:12px 16px 24px;display:flex;flex-direction:column;gap:8px}
-.mobile-agenda-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:60px 20px;color:var(--color-text-faint);gap:8px}
-.mobile-agenda-empty svg{width:40px;height:40px;opacity:.4}
-.mobile-agenda-empty p{font-size:15px}
-.mobile-agenda-card{display:flex;align-items:flex-start;gap:12px;padding:12px 14px;background:var(--color-surface);border-radius:var(--radius-lg);border:1px solid var(--color-divider);transition:all .15s}
-.mobile-agenda-card:active{transform:scale(.98)}
-.mobile-agenda-dot{width:10px;height:10px;border-radius:50%;margin-top:4px;flex-shrink:0}
-.mobile-agenda-info{flex:1;min-width:0}
-.mobile-agenda-title{font-size:15px;font-weight:600;color:var(--color-text);line-height:1.3}
-.mobile-agenda-time{font-size:12px;color:var(--color-text-muted);margin-top:2px}
-.mobile-agenda-location{font-size:12px;color:var(--color-text-faint);margin-top:1px;display:flex;align-items:center;gap:4px}
-.mobile-agenda-date-header{font-size:16px;font-weight:600;color:var(--color-text);font-family:var(--font-display);padding:4px 0;letter-spacing:-.01em}
+.mobile-agenda-date.today .m-date-num{color:var(--color-primary)}
+/* MobileAgendaList — Apple HIG card style */
+.ma-list-header{position:sticky;top:0;z-index:10;background:var(--color-bg);border-bottom:1px solid var(--color-divider);padding:12px 16px}
+.ma-list-header h2{font-size:17px;font-weight:600;color:var(--color-text)}
+.ma-list-body{padding:8px 16px 24px;display:flex;flex-direction:column;gap:10px}
+.ma-card{display:flex;align-items:flex-start;gap:12px;padding:14px 16px;background:var(--color-surface);border-radius:var(--radius-lg);border:1px solid var(--color-divider);transition:transform .15s}
+.ma-card:active{transform:scale(.98)}
+.ma-dot{width:12px;height:12px;border-radius:50%;margin-top:3px;flex-shrink:0}
+.ma-info{flex:1;min-width:0}
+.ma-title{font-size:17px;font-weight:500;color:var(--color-text);line-height:1.35}
+.ma-meta{font-size:15px;color:var(--color-text-muted);margin-top:2px}
+.ma-location{font-size:15px;color:var(--color-text-faint);margin-top:1px;display:flex;align-items:center;gap:4px}
+.ma-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:60px 20px;color:var(--color-text-faint);gap:8px}
+.ma-empty svg{width:48px;height:48px;opacity:.4}
+.ma-empty p{font-size:15px}
+
+/* Month dots for mobile (Apple HIG dot indicators) */
+.month-dots{display:none}
+.month-dot{width:6px;height:6px;border-radius:50%;display:inline-block}
+.month-dot-more{font-size:9px;color:var(--color-text-faint);line-height:1}
+@media(max-width:768px){
+  .month-cell .month-event{display:none}
+  .month-cell .month-more{display:none}
+  .month-dots{display:flex;flex-wrap:wrap;gap:3px;margin-top:2px;padding:0 2px}
+}

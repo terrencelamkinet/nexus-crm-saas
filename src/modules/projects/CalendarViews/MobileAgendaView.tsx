@@ -9,101 +9,43 @@ import {
 import type { CalendarEventFormatted } from './types';
 import { TYPE_COLORS } from './types';
 
-interface MobileAgendaViewProps {
-  events: CalendarEventFormatted[];
-  date: Date;
-  onDateChange: (d: Date) => void;
+/* ── Shared helpers ── */
+
+function formatTime(ev: CalendarEventFormatted): string {
+  if (ev.allDay) return 'All day';
+  const startStr = ev.start.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  const endStr = ev.end.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  return `${startStr} – ${endStr}`;
 }
 
-export default function MobileAgendaView({ events, date, onDateChange }: MobileAgendaViewProps) {
-  const [selectedDate, setSelectedDate] = useState<Date>(date);
-  const stripRef = useRef<HTMLDivElement>(null);
+function eventColor(ev: CalendarEventFormatted): string {
+  if (ev.color) return ev.color;
+  return ev.eventType && TYPE_COLORS[ev.eventType] ? TYPE_COLORS[ev.eventType] : '#6B7280';
+}
 
-  // Generate a 7-day window centered on the current date
-  const weekDates = useMemo(() => {
-    const today = new Date();
-    // Build a range of 7 days: 3 before + today + 3 after
-    const days: Date[] = [];
-    for (let i = -3; i <= 3; i++) {
-      const d = new Date(today);
-      d.setDate(today.getDate() + i);
-      days.push(d);
-    }
-    return days;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+/* ── MobileAgendaList — Apple HIG style event list for a given date ── */
 
-  // Scroll today's date into view on mount
-  useEffect(() => {
-    if (stripRef.current) {
-      const activeEl = stripRef.current.querySelector('.mobile-agenda-date.active') as HTMLElement | null;
-      if (activeEl) {
-        activeEl.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
-      }
-    }
-  }, []);
+interface MobileAgendaListProps {
+  events: CalendarEventFormatted[];
+  date: Date;
+}
 
-  // Filter events by selected date
-  const dayEvents = useMemo(() => {
-    return events.filter((ev) => isSameDay(ev.start, selectedDate));
-  }, [events, selectedDate]);
-
-  const handleDateSelect = useCallback(
-    (d: Date) => {
-      setSelectedDate(d);
-      onDateChange(d);
-    },
-    [onDateChange],
+export function MobileAgendaList({ events, date }: MobileAgendaListProps) {
+  const dayEvents = useMemo(
+    () => events.filter((ev) => isSameDay(ev.start, date)),
+    [events, date],
   );
 
-  // Format time range for an event
-  const formatTime = (ev: CalendarEventFormatted): string => {
-    if (ev.allDay) return 'All day';
-    const startStr = ev.start.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    const endStr = ev.end.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    return `${startStr} – ${endStr}`;
-  };
-
-  // Determine color for event dot
-  const eventColor = (ev: CalendarEventFormatted): string => {
-    if (ev.color) return ev.color;
-    return ev.eventType && TYPE_COLORS[ev.eventType] ? TYPE_COLORS[ev.eventType] : '#6B7280';
-  };
-
   return (
-    <div className="mobile-agenda">
-      {/* ── Top: Month + Year header ── */}
-      <div className="mobile-agenda-strip">
-        <div className="mobile-agenda-header">{formatMonthYear(selectedDate)}</div>
-
-        {/* ── Horizontal date strip ── */}
-        <div className="mobile-agenda-dates" ref={stripRef}>
-          {weekDates.map((d) => {
-            const dayName = d.toLocaleDateString('en-US', { weekday: 'short' }).slice(0, 3);
-            const dayNum = d.getDate();
-            const active = isSameDay(d, selectedDate);
-            const today = isToday(d);
-
-            return (
-              <button
-                key={formatDateKey(d)}
-                className={`mobile-agenda-date${active ? ' active' : ''}${today && !active ? ' today' : ''}`}
-                onClick={() => handleDateSelect(d)}
-              >
-                <span className="m-date-day">{dayName}</span>
-                <span className="m-date-num">{dayNum}</span>
-              </button>
-            );
-          })}
-        </div>
+    <div className="mobile-agenda-list">
+      {/* Liquid glass sticky header */}
+      <div className="ma-list-header">
+        <h2>{formatDayHeader(date)}</h2>
       </div>
 
-      {/* ── Agenda list ── */}
-      <div className="mobile-agenda-list">
-        <div className="mobile-agenda-date-header">{formatDayHeader(selectedDate)}</div>
-
+      <div className="ma-list-body">
         {dayEvents.length === 0 ? (
-          <div className="mobile-agenda-empty">
+          <div className="ma-empty">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
               <line x1="16" y1="2" x2="16" y2="6" />
@@ -114,16 +56,16 @@ export default function MobileAgendaView({ events, date, onDateChange }: MobileA
           </div>
         ) : (
           dayEvents.map((ev) => (
-            <div key={ev.id} className="mobile-agenda-card">
+            <div key={ev.id} className="ma-card">
               <div
-                className="mobile-agenda-dot"
+                className="ma-dot"
                 style={{ backgroundColor: eventColor(ev) }}
               />
-              <div className="mobile-agenda-info">
-                <div className="mobile-agenda-title">{ev.title}</div>
-                <div className="mobile-agenda-time">{formatTime(ev)}</div>
+              <div className="ma-info">
+                <div className="ma-title">{ev.title}</div>
+                <div className="ma-meta">{formatTime(ev)}</div>
                 {ev.location && (
-                  <div className="mobile-agenda-location">
+                  <div className="ma-location">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ width: 12, height: 12 }}>
                       <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
                       <circle cx="12" cy="10" r="3" />
@@ -136,6 +78,74 @@ export default function MobileAgendaView({ events, date, onDateChange }: MobileA
           ))
         )}
       </div>
+    </div>
+  );
+}
+
+/* ── Full MobileAgendaView — date strip + event list ── */
+
+interface MobileAgendaViewProps {
+  events: CalendarEventFormatted[];
+  date: Date;
+  onDateChange: (d: Date) => void;
+}
+
+export default function MobileAgendaView({ events, date, onDateChange }: MobileAgendaViewProps) {
+  const [selectedDate, setSelectedDate] = useState<Date>(date);
+  const stripRef = useRef<HTMLDivElement>(null);
+
+  const weekDates = useMemo(() => {
+    const today = new Date();
+    const days: Date[] = [];
+    for (let i = -3; i <= 3; i++) {
+      const d = new Date(today);
+      d.setDate(today.getDate() + i);
+      days.push(d);
+    }
+    return days;
+  }, []);
+
+  useEffect(() => {
+    if (stripRef.current) {
+      const activeEl = stripRef.current.querySelector('.mobile-agenda-date.active') as HTMLElement | null;
+      if (activeEl) {
+        activeEl.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+      }
+    }
+  }, []);
+
+  const handleDateSelect = useCallback(
+    (d: Date) => {
+      setSelectedDate(d);
+      onDateChange(d);
+    },
+    [onDateChange],
+  );
+
+  return (
+    <div className="mobile-agenda">
+      <div className="mobile-agenda-strip">
+        <div className="mobile-agenda-header">{formatMonthYear(selectedDate)}</div>
+        <div className="mobile-agenda-dates" ref={stripRef}>
+          {weekDates.map((d) => {
+            const dayName = d.toLocaleDateString('en-US', { weekday: 'short' }).slice(0, 3);
+            const dayNum = d.getDate();
+            const active = isSameDay(d, selectedDate);
+            const cellToday = isToday(d);
+            return (
+              <button
+                key={formatDateKey(d)}
+                className={`mobile-agenda-date${active ? ' active' : ''}${cellToday && !active ? ' today' : ''}`}
+                onClick={() => handleDateSelect(d)}
+              >
+                <span className="m-date-day">{dayName}</span>
+                <span className="m-date-num">{dayNum}</span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+      <MobileAgendaList events={events} date={selectedDate} />
     </div>
   );
 }

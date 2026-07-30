@@ -17,7 +17,7 @@ import WeekView from './WeekView';
 import DayView from './DayView';
 import DeadlineView from './DeadlineView';
 import GanttView from './GanttView';
-import MobileAgendaView from './MobileAgendaView';
+import MobileAgendaView, { MobileAgendaList } from './MobileAgendaView';
 
 /** Simple hook that tracks a CSS media query match state. */
 function useMediaQuery(query: string): boolean {
@@ -86,7 +86,12 @@ export default function CalendarViews({ events, loading, onRefresh }: CalendarVi
   const renderView = () => {
     switch (viewType) {
       case 'month':
-        if (isMobile) return <MobileAgendaView events={events} date={date} onDateChange={handleDateChange} />;
+        if (isMobile) return (
+          <div>
+            <MonthView events={events} date={date} onDateChange={handleDateChange} />
+            <MobileAgendaList events={events} date={date} />
+          </div>
+        );
         return <MonthView events={events} date={date} onDateChange={handleDateChange} />;
       case 'week': return <WeekView events={events} date={date} onDateChange={handleDateChange} viewType={viewType} onViewChange={handleViewChange} showWeekends={showWeekends} />;
       case 'day': return <DayView events={events} date={date} onDateChange={handleDateChange} />;

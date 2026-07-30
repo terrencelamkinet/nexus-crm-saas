@@ -15,6 +15,7 @@ interface MonthViewProps {
 }
 
 const MAX_EVENTS_PER_CELL = 3;
+const MAX_DOTS = 6;
 
 export default function MonthView({ events, date, onDateChange }: MonthViewProps) {
   const year = date.getFullYear();
@@ -73,7 +74,21 @@ export default function MonthView({ events, date, onDateChange }: MonthViewProps
                 >
                   <div className="month-date">{day}</div>
 
-                  {/* Event blocks */}
+                  {/* Dot indicators (visible on mobile via CSS) */}
+                  <div className="month-dots">
+                    {dayEvents.slice(0, MAX_DOTS).map((ev) => (
+                      <div
+                        key={ev.id}
+                        className="month-dot"
+                        style={{ backgroundColor: ev.color || '#6B7280' }}
+                      />
+                    ))}
+                    {dayEvents.length > MAX_DOTS && (
+                      <span className="month-dot-more">+{dayEvents.length - MAX_DOTS}</span>
+                    )}
+                  </div>
+
+                  {/* Event blocks (visible on desktop via CSS) */}
                   {dayEvents.slice(0, MAX_EVENTS_PER_CELL).map((ev) => (
                     <div
                       key={ev.id}
