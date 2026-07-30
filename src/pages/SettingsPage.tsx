@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
 import { Users, CreditCard, Puzzle, Monitor, ChevronRight } from 'lucide-react'
 import { apiClient } from '../lib/api'
@@ -20,6 +21,7 @@ const providerModels: Record<string, string[]> = {
 }
 
 export default function SettingsPage() {
+  const { t } = useTranslation();
   const navigate = useNavigate()
   const [active, setActive] = useState('profile')
   const [modules, setModules] = useState<Record<string, boolean>>({})
@@ -114,10 +116,10 @@ export default function SettingsPage() {
       <div className="breadcrumb">
         <span className="breadcrumb-link" onClick={() => navigate('/dashboard')}>Home</span>
         <ChevronRight />
-        <span className="breadcrumb-current">Settings</span>
+        <span className="breadcrumb-current">{t('settings.title')}</span>
       </div>
       <div className="page-header">
-        <h1>Settings</h1>
+        <h1>{t('settings.title')}</h1>
       </div>
 
       <div className="stg-layout">
@@ -127,7 +129,7 @@ export default function SettingsPage() {
               className={`stg-tab${active === tab.id ? ' active' : ''}`}
               onClick={() => setActive(tab.id)}>
               <tab.icon className="w-4 h-4" />
-              {tab.label}
+              {t('settings.tabs.' + tab.id)}
             </button>
           ))}
         </div>
@@ -135,42 +137,42 @@ export default function SettingsPage() {
         <div className="stg-content">
           {active === 'profile' && (
             <div className="stg-panel">
-              <h2>Profile</h2>
+              <h2>{t('settings.tabs.profile')}</h2>
               <div className="stg-avatar-section">
                 <div className="avatar-lg">TL</div>
                 <button className="btn-ghost">Change avatar</button>
               </div>
               <div className="stg-fields">
                 <div className="stg-field-row">
-                  <label>Name</label>
+                  <label>{t('settings.profile.name')}</label>
                   <input type="text" value="Terrence Lam" readOnly className="input-field" />
                 </div>
                 <div className="stg-field-row">
-                  <label>Email</label>
+                  <label>{t('settings.profile.email')}</label>
                   <input type="email" value="terrence@kinetix.com" readOnly className="input-field" />
                 </div>
                 <div className="stg-field-row">
-                  <label>Phone</label>
+                  <label>{t('settings.profile.phone')}</label>
                   <input type="text" value="+852 9553 5371" readOnly className="input-field" />
                 </div>
                 <div className="stg-field-row">
-                  <label>Timezone</label>
+                  <label>{t('settings.profile.timezone')}</label>
                   <select className="input-field">
                     <option>Asia/Hong_Kong (UTC+8)</option>
                   </select>
                 </div>
                 <div className="stg-field-row">
-                  <label>Language</label>
+                  <label>{t('settings.profile.language')}</label>
                   <LanguageSwitcher />
                 </div>
               </div>
-              <button className="btn-primary">Save Changes</button>
+              <button className="btn-primary">{t('settings.profile.save')}</button>
             </div>
           )}
 
           {active === 'team' && (
             <div className="stg-panel">
-              <h2>Team Members</h2>
+              <h2>{t('settings.tabs.team')}</h2>
               <div className="stg-team-list">
                 {[
                   { name: 'Terrence Lam', email: 'terrence@k.com', role: 'Admin' },
@@ -192,10 +194,10 @@ export default function SettingsPage() {
 
           {active === 'modules' && (
             <div className="stg-panel">
-              <h2>Module Settings</h2>
+              <h2>{t('settings.tabs.modules')}</h2>
               <p className="stg-subtitle">Enable or disable CRM modules. Disabling a module hides its navigation and pages.</p>
               {loading ? (
-                <div className="stg-loading">Loading module settings...</div>
+                <div className="stg-loading">{t('settings.loading')}</div>
               ) : (
                 <div className="stg-module-list">
                   {moduleDefs.map(def => (
@@ -235,18 +237,18 @@ export default function SettingsPage() {
 
           {active === 'billing' && (
             <div className="stg-panel">
-              <h2>Billing</h2>
+              <h2>{t('settings.tabs.billing')}</h2>
               <p className="stg-subtitle stg-coming">Coming soon</p>
             </div>
           )}
 
           {active === 'ai' && (
             <div className="stg-panel">
-              <h2>AI Settings</h2>
+              <h2>{t('settings.tabs.ai')}</h2>
               <p className="stg-subtitle">Configure AI provider, model, and API settings for the AI assistant features.</p>
               <div className="stg-fields">
                 <div className="stg-field-row">
-                  <label>AI Provider</label>
+                  <label>{t('settings.tabs.ai')}</label>
                   <select className="input-field" value={aiProvider}
                     onChange={e => handleProviderChange(e.target.value)}>
                     <option value="deepseek">DeepSeek</option>

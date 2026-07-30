@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Activity, Trash2, X } from 'lucide-react'
 import { apiClient } from '../../lib/api'
 import type { EntityRecord, ModuleConfig } from '../module-types'
@@ -8,6 +9,7 @@ interface TaskItem {
 }
 
 export function TasksTab({ entity }: { entity: EntityRecord; moduleConfig: ModuleConfig; refresh: () => void }) {
+  const { t } = useTranslation()
   const [tasks, setTasks] = useState<TaskItem[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -19,15 +21,15 @@ export function TasksTab({ entity }: { entity: EntityRecord; moduleConfig: Modul
       .finally(() => setLoading(false))
   }, [entity.id])
 
-  if (loading) return <div className="panel"><div className="panel-head"><h3>Tasks</h3></div><div className="empty-state">Loading...</div></div>
+  if (loading) return <div className="panel"><div className="panel-head"><h3>{t('pages.contacts.detail.tasks')}</h3></div><div className="empty-state">{t('common.loading')}</div></div>
 
   return (
     <div className="panel">
       <div className="panel-head">
-        <h3>Tasks ({tasks.length})</h3>
+        <h3>{t('pages.contacts.detail.tasks')} ({tasks.length})</h3>
       </div>
       {tasks.length === 0 ? (
-        <div className="empty-state">No tasks linked</div>
+        <div className="empty-state">{t('pages.contacts.detail.noTasks')}</div>
       ) : (
         <div className="flex-col">
           {tasks.map(t => (
@@ -85,6 +87,7 @@ function formatAmount(v: number | null): string {
 }
 
 export function TimelineTab({ entity, refresh }: { entity: EntityRecord; moduleConfig: ModuleConfig; refresh: () => void }) {
+  const { t } = useTranslation()
   const [activities, setActivities] = useState<ActivityItem[]>([])
   const [touchpoints, setTouchpoints] = useState<Touchpoint[]>([])
   const [open, setOpen] = useState(false)
@@ -125,11 +128,11 @@ export function TimelineTab({ entity, refresh }: { entity: EntityRecord; moduleC
     <>
       <div className="panel">
         <div className="panel-head">
-          <h3>Activity</h3>
-          <button onClick={() => setOpen(true)} className="btn-ghost">+ Log activity</button>
+          <h3>{t('pages.contacts.detail.activity')}</h3>
+          <button onClick={() => setOpen(true)} className="btn-ghost">{t('pages.contacts.detail.logActivity')}</button>
         </div>
         {timelineItems.length === 0 ? (
-          <div className="empty-state">No activity recorded yet</div>
+          <div className="empty-state">{t('pages.contacts.detail.noActivity')}</div>
         ) : (
           <div className="timeline p-16">
             {timelineItems.map(item => (
@@ -152,29 +155,29 @@ export function TimelineTab({ entity, refresh }: { entity: EntityRecord; moduleC
         <div className="modal-overlay" onClick={e => { if (e.target === e.currentTarget) setOpen(false) }}>
           <div className="modal">
             <div className="modal-head">
-              <h2>Log Activity</h2>
+              <h2>{t('pages.contacts.detail.modalLogActivity')}</h2>
               <button onClick={() => setOpen(false)} className="modal-x"><X className="icon-16" /></button>
             </div>
             <div className="modal-body form-body">
               <div className="form-row-1">
                 <div>
-                  <label className="field-label">Action *</label>
+                  <label className="field-label">{t('pages.contacts.detail.actionRequired')}</label>
                   <input type="text" value={form.action} onChange={e => setForm(f => ({ ...f, action: e.target.value }))}
-                    placeholder="e.g. Called, Emailed, Meeting" className="input-field" />
+                    placeholder={t('pages.contacts.detail.actionPlaceholder')} className="input-field" />
                 </div>
               </div>
               <div className="form-row-1">
                 <div>
-                  <label className="field-label">Description</label>
+                  <label className="field-label">{t('pages.contacts.detail.description')}</label>
                   <textarea value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
-                    rows={3} placeholder="Brief description..." className="input-field" />
+                    rows={3} placeholder={t('pages.contacts.detail.activityDescriptionPlaceholder')} className="input-field" />
                 </div>
               </div>
             </div>
             <div className="modal-foot">
-              <button onClick={() => setOpen(false)} className="btn-secondary">Cancel</button>
+              <button onClick={() => setOpen(false)} className="btn-secondary">{t('common.cancel')}</button>
               <button onClick={handleLog} disabled={saving || !form.action.trim()}
-                className="btn-primary">{saving ? 'Saving...' : 'Log'}</button>
+                className="btn-primary">{saving ? t('common.saving') : t('pages.contacts.detail.log')}</button>
             </div>
           </div>
         </div>
@@ -184,6 +187,7 @@ export function TimelineTab({ entity, refresh }: { entity: EntityRecord; moduleC
 }
 
 export function DealsTab({ entity }: { entity: EntityRecord; moduleConfig: ModuleConfig; refresh: () => void }) {
+  const { t } = useTranslation()
   const [deals, setDeals] = useState<Deal[]>([])
   useEffect(() => {
     apiClient.get<{ items: Deal[] }>(`/api/v1/crm/deals?contact_id=${entity.id}&page_size=200`)
@@ -193,9 +197,9 @@ export function DealsTab({ entity }: { entity: EntityRecord; moduleConfig: Modul
 
   return (
     <div className="panel">
-      <div className="panel-head"><h3>Deals</h3></div>
+      <div className="panel-head"><h3>{t('pages.contacts.detail.deals')}</h3></div>
       {deals.length === 0 ? (
-        <div className="empty-state">No deals linked</div>
+        <div className="empty-state">{t('pages.contacts.detail.noDeals')}</div>
       ) : (
         <div className="flex-col">
           {deals.map(d => (
@@ -217,6 +221,7 @@ export function DealsTab({ entity }: { entity: EntityRecord; moduleConfig: Modul
 }
 
 export function TouchpointsTab({ entity, refresh }: { entity: EntityRecord; moduleConfig: ModuleConfig; refresh: () => void }) {
+  const { t } = useTranslation()
   const [touchpoints, setTouchpoints] = useState<Touchpoint[]>([])
   const [open, setOpen] = useState(false)
   const [form, setForm] = useState({ title: '', type: 'meeting', description: '' })
@@ -246,11 +251,11 @@ export function TouchpointsTab({ entity, refresh }: { entity: EntityRecord; modu
     <>
       <div className="panel">
         <div className="panel-head">
-          <h3>Touchpoints</h3>
-          <button onClick={() => setOpen(true)} className="btn-ghost">+ Add Touchpoint</button>
+          <h3>{t('pages.contacts.detail.touchpoints')}</h3>
+          <button onClick={() => setOpen(true)} className="btn-ghost">{t('pages.contacts.detail.addTouchpoint')}</button>
         </div>
         {touchpoints.length === 0 ? (
-          <div className="empty-state">No touchpoints yet</div>
+          <div className="empty-state">{t('pages.contacts.detail.noTouchpoints')}</div>
         ) : (
           <div className="flex-col">
             {touchpoints.map(tp => (
@@ -275,17 +280,17 @@ export function TouchpointsTab({ entity, refresh }: { entity: EntityRecord; modu
         <div className="modal-overlay" onClick={e => { if (e.target === e.currentTarget) setOpen(false) }}>
           <div className="modal">
             <div className="modal-head">
-              <h2>Add Touchpoint</h2>
+              <h2>{t('pages.contacts.detail.modalAddTouchpoint')}</h2>
               <button onClick={() => setOpen(false)} className="modal-x"><X className="icon-16" /></button>
             </div>
             <div className="modal-body form-body">
               <div className="form-row-1">
-                <label className="field-label">Title *</label>
+                <label className="field-label">{t('pages.contacts.detail.titleRequired')}</label>
                 <input type="text" value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
-                  placeholder="e.g. Discovery call" className="input-field" />
+                  placeholder={t('pages.contacts.detail.titlePlaceholder')} className="input-field" />
               </div>
               <div className="form-row-1">
-                <label className="field-label">Type</label>
+                <label className="field-label">{t('pages.contacts.detail.type')}</label>
                 <select value={form.type} onChange={e => setForm(f => ({ ...f, type: e.target.value }))} className="input-field">
                   <option value="meeting">Meeting</option>
                   <option value="call">Call</option>
@@ -294,15 +299,15 @@ export function TouchpointsTab({ entity, refresh }: { entity: EntityRecord; modu
                 </select>
               </div>
               <div className="form-row-1">
-                <label className="field-label">Description</label>
+                <label className="field-label">{t('pages.contacts.detail.description')}</label>
                 <textarea value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
-                  rows={2} placeholder="Brief description" className="input-field" />
+                  rows={2} placeholder={t('pages.contacts.detail.descriptionPlaceholder')} className="input-field" />
               </div>
             </div>
             <div className="modal-foot">
-              <button onClick={() => setOpen(false)} className="btn-secondary">Cancel</button>
+              <button onClick={() => setOpen(false)} className="btn-secondary">{t('common.cancel')}</button>
               <button onClick={handleAdd} disabled={saving || !form.title.trim()}
-                className="btn-primary">{saving ? 'Saving...' : 'Add'}</button>
+                className="btn-primary">{saving ? t('common.saving') : t('pages.contacts.detail.add')}</button>
             </div>
           </div>
         </div>
@@ -312,6 +317,7 @@ export function TouchpointsTab({ entity, refresh }: { entity: EntityRecord; modu
 }
 
 export function NotesTab({ entity, refresh }: { entity: EntityRecord; moduleConfig: ModuleConfig; refresh: () => void }) {
+  const { t } = useTranslation()
   const [notes, setNotes] = useState<Note[]>([])
   const [open, setOpen] = useState(false)
   const [form, setForm] = useState({ title: '', content: '' })
@@ -341,18 +347,18 @@ export function NotesTab({ entity, refresh }: { entity: EntityRecord; moduleConf
     <>
       <div className="panel">
         <div className="panel-head">
-          <h3>Notes</h3>
-          <button onClick={() => setOpen(true)} className="btn-ghost">+ Add Note</button>
+          <h3>{t('pages.contacts.detail.notes')}</h3>
+          <button onClick={() => setOpen(true)} className="btn-ghost">{t('pages.contacts.detail.addNote')}</button>
         </div>
         {notes.length === 0 ? (
-          <div className="empty-state">No notes yet</div>
+          <div className="empty-state">{t('pages.contacts.detail.noNotes')}</div>
         ) : (
           <div className="flex-col">
             {notes.map(n => (
               <div key={n.id} className="list-row flex-col items-stretch px-5 py-3">
                 <div className="flex items-start justify-between gap-2">
                   <div className="list-title">{n.title}</div>
-                  {n.pinned && <span className="badge badge-p1">Pinned</span>}
+                  {n.pinned && <span className="badge badge-p1">{t('pages.contacts.detail.pinned')}</span>}
                 </div>
                 {n.content && <p className="list-sub mt-1 whitespace-pre-wrap">{n.content}</p>}
                 <p className="list-sub mt-1 text-xs">{timeAgo(n.created_at)}</p>
@@ -366,25 +372,25 @@ export function NotesTab({ entity, refresh }: { entity: EntityRecord; moduleConf
         <div className="modal-overlay" onClick={e => { if (e.target === e.currentTarget) setOpen(false) }}>
           <div className="modal">
             <div className="modal-head">
-              <h2>Add Note</h2>
+              <h2>{t('pages.contacts.detail.modalAddNote')}</h2>
               <button onClick={() => setOpen(false)} className="modal-x"><X className="icon-16" /></button>
             </div>
             <div className="modal-body form-body">
               <div className="form-row-1">
-                <label className="field-label">Title *</label>
+                <label className="field-label">{t('pages.contacts.detail.titleRequired')}</label>
                 <input type="text" value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
-                  placeholder="Note title" className="input-field" />
+                  placeholder={t('pages.contacts.detail.noteTitlePlaceholder')} className="input-field" />
               </div>
               <div className="form-row-1">
-                <label className="field-label">Content</label>
+                <label className="field-label">{t('pages.contacts.detail.description')}</label>
                 <textarea value={form.content} onChange={e => setForm(f => ({ ...f, content: e.target.value }))}
-                  rows={4} placeholder="Write your notes here..." className="input-field" />
+                  rows={4} placeholder={t('pages.contacts.detail.noteContentPlaceholder')} className="input-field" />
               </div>
             </div>
             <div className="modal-foot">
-              <button onClick={() => setOpen(false)} className="btn-secondary">Cancel</button>
+              <button onClick={() => setOpen(false)} className="btn-secondary">{t('common.cancel')}</button>
               <button onClick={handleAdd} disabled={saving || !form.title.trim()}
-                className="btn-primary">{saving ? 'Saving...' : 'Add'}</button>
+                className="btn-primary">{saving ? t('common.saving') : t('pages.contacts.detail.add')}</button>
             </div>
           </div>
         </div>
@@ -394,6 +400,7 @@ export function NotesTab({ entity, refresh }: { entity: EntityRecord; moduleConf
 }
 
 export function ProjectsTab({ entity, refresh }: { entity: EntityRecord; moduleConfig: ModuleConfig; refresh: () => void }) {
+  const { t } = useTranslation()
   const [projects, setProjects] = useState<ProjectLink[]>([])
   const [dealOptions, setDealOptions] = useState<{ id: string; name: string; amount: number | null }[]>([])
   const [open, setOpen] = useState(false)
@@ -419,7 +426,7 @@ export function ProjectsTab({ entity, refresh }: { entity: EntityRecord; moduleC
   }
 
   const handleRemove = async (linkId: string) => {
-    if (!confirm('Remove this project from contact?')) return
+    if (!confirm(t('common.removeProject'))) return
     try {
       await apiClient.delete(`/api/v1/crm/contacts/${entity.id}/projects/${linkId}`)
       refresh()
@@ -430,17 +437,17 @@ export function ProjectsTab({ entity, refresh }: { entity: EntityRecord; moduleC
     <>
       <div className="panel">
         <div className="panel-head">
-          <h3>Projects</h3>
+          <h3>{t('pages.contacts.detail.projects')}</h3>
           <button onClick={async () => {
             try {
               const res = await apiClient.get<{ items: { id: string; name: string; amount: number | null }[] }>('/api/v1/crm/deals?page_size=200')
               setDealOptions(res.items || [])
               setOpen(true)
             } catch (e: any) { alert(e.detail || e.message) }
-          }} className="btn-ghost">+ Link Project</button>
+          }} className="btn-ghost">{t('pages.contacts.detail.linkProject')}</button>
         </div>
         {projects.length === 0 ? (
-          <div className="empty-state">No projects linked</div>
+          <div className="empty-state">{t('pages.contacts.detail.noProjects')}</div>
         ) : (
           <div className="flex-col">
             {projects.map(p => (
@@ -454,7 +461,7 @@ export function ProjectsTab({ entity, refresh }: { entity: EntityRecord; moduleC
                     <div className="list-title">{p.project_amount ? formatAmount(p.project_amount) : '$0'}</div>
                     <div className="list-sub">{p.probability ?? 0}%</div>
                   </div>
-                  <button onClick={() => handleRemove(p.id)} className="icon-btn text-notification" title="Remove">
+                  <button onClick={() => handleRemove(p.id)} className="icon-btn text-notification" title={t('common.delete')}>
                     <Trash2 className="icon-16" />
                   </button>
                 </div>
@@ -468,14 +475,14 @@ export function ProjectsTab({ entity, refresh }: { entity: EntityRecord; moduleC
         <div className="modal-overlay" onClick={e => { if (e.target === e.currentTarget) setOpen(false) }}>
           <div className="modal">
             <div className="modal-head">
-              <h2>Link Project</h2>
+              <h2>{t('pages.contacts.detail.modalLinkProject')}</h2>
               <button onClick={() => setOpen(false)} className="modal-x"><X className="icon-16" /></button>
             </div>
             <div className="modal-body form-body">
               <div className="form-row-1">
-                <label className="field-label">Select Project</label>
+                <label className="field-label">{t('pages.contacts.detail.selectProject')}</label>
                 <select value={selected} onChange={e => setSelected(e.target.value)} className="input-field">
-                  <option value="">-- Choose a project --</option>
+                  <option value="">{t('pages.contacts.detail.chooseProject')}</option>
                   {dealOptions.map(d => (
                     <option key={d.id} value={d.id}>{d.name} {d.amount ? `($${d.amount})` : ''}</option>
                   ))}
@@ -483,9 +490,9 @@ export function ProjectsTab({ entity, refresh }: { entity: EntityRecord; moduleC
               </div>
             </div>
             <div className="modal-foot">
-              <button onClick={() => setOpen(false)} className="btn-secondary">Cancel</button>
+              <button onClick={() => setOpen(false)} className="btn-secondary">{t('common.cancel')}</button>
               <button onClick={handleLink} disabled={saving || !selected}
-                className="btn-primary">{saving ? 'Linking...' : 'Link'}</button>
+                className="btn-primary">{saving ? t('common.saving') : t('pages.contacts.detail.link')}</button>
             </div>
           </div>
         </div>

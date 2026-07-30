@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { apiClient } from '../lib/api';
 import BottomSheet from './BottomSheet';
 
@@ -11,6 +12,7 @@ interface Props {
 const PRIORITIES = ['P0', 'P1', 'P2', 'P3'];
 
 export default function QuickAddTask({ open, onClose, onCreated }: Props) {
+  const { t } = useTranslation();
   const [title, setTitle] = useState('');
   const [priority, setPriority] = useState('P2');
   const [description, setDescription] = useState('');
@@ -43,20 +45,20 @@ export default function QuickAddTask({ open, onClose, onCreated }: Props) {
     (done ? ' quick-submit--done' : saving ? ' quick-submit--saving' : '');
 
   return (
-    <BottomSheet open={open} onClose={onClose} title="New Task">
+    <BottomSheet open={open} onClose={onClose} title={t('quickAdd.task')}>
       <div className="quick-field">
-        <label>Title *</label>
-        <input value={title} onChange={e => setTitle(e.target.value)} placeholder="What needs to be done?" />
+        <label>{t('pages.tasks.taskTitle')} *</label>
+        <input value={title} onChange={e => setTitle(e.target.value)} placeholder={t('quickAdd.taskPlaceholder')} />
       </div>
       <div className="quick-field">
-        <label>Priority</label>
+        <label>{t('pages.tasks.priority')}</label>
         <select value={priority} onChange={e => setPriority(e.target.value)}>
           {PRIORITIES.map(p => <option key={p} value={p}>{p}</option>)}
         </select>
       </div>
       <div className="quick-field">
-        <label>Description</label>
-        <textarea value={description} onChange={e => setDescription(e.target.value)} placeholder="Details…" rows={3} />
+        <label>{t('pages.tasks.description')}</label>
+        <textarea value={description} onChange={e => setDescription(e.target.value)} placeholder={t('quickAdd.details')} rows={3} />
       </div>
       <button className={btnClass} onClick={handleSubmit} disabled={saving || !title.trim()}>
         {done ? '✓ Saved' : saving ? 'Saving…' : 'Create Task'}

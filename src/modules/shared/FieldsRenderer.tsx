@@ -3,6 +3,7 @@ import { optionColorToClass } from '../module-types'
 import { formatDate, formatRelativeDate, formatAmount } from './field-utils'
 import EntitySearch from './EntitySearch'
 import { isModuleEnabled } from '../enabled-modules'
+import { useTranslation } from 'react-i18next'
 
 const RELATION_ROUTES: Record<string, string> = {
   contacts: '/contacts',
@@ -26,6 +27,7 @@ interface Props {
 
 // ═══ TABLE CELL RENDERER ═══
 export function CellRenderer({ value, field, onNavigate }: { value: any; field: FieldConfig; onNavigate?: (url: string) => void }) {
+  const { t } = useTranslation()
   if (field.dependsOnModule && !isModuleEnabled(field.dependsOnModule)) return null
   if (value == null) return <span className="text-faint">—</span>
 
@@ -93,7 +95,7 @@ export function CellRenderer({ value, field, onNavigate }: { value: any; field: 
     }
     case 'files': {
       const arr = Array.isArray(value) ? value : []
-      return <span>{arr.length} file{arr.length !== 1 ? 's' : ''}</span>
+      return <span>{t('common.fileCount', { count: arr.length })}</span>
     }
     default:
       return <span>{String(value)}</span>
@@ -102,6 +104,7 @@ export function CellRenderer({ value, field, onNavigate }: { value: any; field: 
 
 // ═══ DETAIL / FORM FIELD RENDERER ═══
 export function FieldsRenderer({ field, entity, form, onChange, editOpen, onNavigate }: Props) {
+  const { t } = useTranslation()
   const label = <div className="field-label">{field.label}{field.required ? ' *' : ''}</div>
   const isReadonly = !editOpen || field.editable === false
     || ['rollup', 'formula', 'created_time', 'last_edited_time', 'created_by', 'last_edited_by', 'unique_id'].includes(field.type)
@@ -204,7 +207,7 @@ export function FieldsRenderer({ field, entity, form, onChange, editOpen, onNavi
           searchUrl={searchUrl}
           value={currentVal}
           onChange={(id) => onChange?.(field.key, id)}
-          placeholder={`Search ${resource}...`}
+          placeholder={t('common.searchResource', { resource })}
           label={field.label}
           required={field.required}
           displayField={field.relation?.displayField || 'name'}

@@ -1,4 +1,5 @@
 import { useState, useRef } from 'react'
+import { useTranslation } from 'react-i18next'
 import { apiClient } from '../lib/api'
 
 interface Props {
@@ -7,6 +8,7 @@ interface Props {
 }
 
 export default function WidgetAskAI({ onExpand, className }: Props) {
+  const { t } = useTranslation()
   const [query, setQuery] = useState('')
   const [response, setResponse] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
@@ -30,10 +32,10 @@ export default function WidgetAskAI({ onExpand, className }: Props) {
       } else if (result) {
         setResponse(JSON.stringify(result, null, 2))
       } else {
-        setResponse('No response returned.')
+        setResponse(t('common.noData'))
       }
     } catch (e: any) {
-      setError(e?.detail || e?.message || 'Request failed. Try again.')
+      setError(e?.detail || e?.message || t('common.error'))
     } finally {
       setLoading(false)
     }
@@ -72,7 +74,7 @@ export default function WidgetAskAI({ onExpand, className }: Props) {
           value={query}
           onChange={e => setQuery(e.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder="Ask AI anything..."
+          placeholder={t('chat.placeholder')}
           disabled={loading}
           style={{
             flex: 1,
@@ -175,14 +177,14 @@ export default function WidgetAskAI({ onExpand, className }: Props) {
                 <line x1="18" y1="6" x2="6" y2="18" />
                 <line x1="6" y1="6" x2="18" y2="18" />
               </svg>
-              Clear
+              {t('common.clear')}
             </button>
           )}
         </div>
         {onExpand && (
           <button
             onClick={onExpand}
-            title="Open full chat"
+            title={t('greeting.openFullChat')}
             style={{
               display: 'inline-flex',
               alignItems: 'center',
@@ -201,7 +203,7 @@ export default function WidgetAskAI({ onExpand, className }: Props) {
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
             </svg>
-            Expand
+            {t('greeting.openFullChat')}
           </button>
         )}
       </div>

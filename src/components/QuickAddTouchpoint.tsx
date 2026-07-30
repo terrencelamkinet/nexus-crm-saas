@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import { apiClient } from '../lib/api';
 import BottomSheet from './BottomSheet';
 
@@ -13,6 +14,7 @@ const TYPES = ['meeting', 'call', 'email', 'demo', 'follow-up', 'quote', 'other'
 interface ContactRef { id: string; name: string }
 
 export default function QuickAddTouchpoint({ open, onClose, onCreated }: Props) {
+  const { t } = useTranslation();
   const [type, setType] = useState('meeting');
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
@@ -75,26 +77,26 @@ export default function QuickAddTouchpoint({ open, onClose, onCreated }: Props) 
     (done ? ' quick-submit--done' : saving ? ' quick-submit--saving' : '');
 
   return (
-    <BottomSheet open={open} onClose={onClose} title="New Touchpoint">
+    <BottomSheet open={open} onClose={onClose} title={t('touchpoint.new')}>
       <div className="quick-field">
-        <label>Type</label>
+        <label>{t('touchpoint.type')}</label>
         <select value={type} onChange={e => setType(e.target.value)}>
           {TYPES.map(t => <option key={t} value={t}>{t}</option>)}
         </select>
       </div>
       <div className="quick-field">
-        <label>Title *</label>
-        <input value={title} onChange={e => setTitle(e.target.value)} placeholder="e.g. Discovery call" />
+        <label>{t('touchpoint.title')} *</label>
+        <input value={title} onChange={e => setTitle(e.target.value)} placeholder={t('touchpoint.placeholder')} />
       </div>
       <div className="quick-field pos-relative">
-        <label>Participants</label>
+        <label>{t('touchpoint.participants')}</label>
         <div className="tp-chips">
           {contacts.map(c => (
             <span key={c.id} className="tp-chip">{c.name}<button className="tp-chip-x" onClick={() => removeContact(c.id)}>✕</button></span>
           ))}
           <input value={search} onChange={e => setSearch(e.target.value)}
             onFocus={() => setFocused(true)} onBlur={() => setTimeout(() => setFocused(false), 200)}
-            placeholder="Search contacts…" style={{ flex: 1, minWidth: 120, border: 'none', outline: 'none', fontSize: 13, padding: '4px 0', background: 'transparent' }} />
+            placeholder={t('touchpoint.searchPlaceholder')} style={{ flex: 1, minWidth: 120, border: 'none', outline: 'none', fontSize: 13, padding: '4px 0', background: 'transparent' }} />
         </div>
         {focused && results.length > 0 && (
           <div className="tp-dropdown">
@@ -108,8 +110,8 @@ export default function QuickAddTouchpoint({ open, onClose, onCreated }: Props) 
         )}
       </div>
       <div className="quick-field">
-        <label>Notes</label>
-        <textarea value={description} onChange={e => setDescription(e.target.value)} placeholder="Brief notes…" rows={3} />
+        <label>{t('touchpoint.notes')}</label>
+        <textarea value={description} onChange={e => setDescription(e.target.value)} placeholder={t('touchpoint.notesPlaceholder')} rows={3} />
       </div>
       <button className={btnClass} onClick={handleSubmit} disabled={saving || !title.trim()}>
         {done ? '✓ Saved' : saving ? 'Saving…' : 'Create Touchpoint'}

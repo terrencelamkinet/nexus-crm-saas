@@ -2,6 +2,7 @@ import '../../styles/todo.css'
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useSearchParams, useNavigate } from 'react-router-dom'
 import { apiClient } from '../../lib/api'
+import { useTranslation } from 'react-i18next'
 import {
   Plus, X, Check, Sun, Calendar, Bell, Repeat, FileText,
   Share2, ChevronRight, Trash2, List,
@@ -27,6 +28,7 @@ interface TaskAttachment { id: string; filename: string; file_size?: number; con
 export default function TodoPage() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
+  const { t } = useTranslation()
   const [lists, setLists] = useState<TaskList[]>([])
   const [activeListId, setActiveListId] = useState<string | null>(null)
   const [tasks, setTasks] = useState<Task[]>([])
@@ -238,7 +240,7 @@ export default function TodoPage() {
     const tom = new Date(today); tom.setDate(tom.getDate() + 1)
     const diff = Math.ceil((dt.getTime() - today.getTime()) / 86400000)
     const cls = diff < 0 ? 'overdue' : diff === 0 ? 'today' : 'future'
-    const label = diff === 0 ? 'Today' : diff === 1 ? 'Tomorrow' : diff < 0 ? `${Math.abs(diff)}d overdue` : dt.toLocaleDateString('zh-HK', { month: 'short', day: 'numeric' })
+    const label = diff === 0 ? t('pages.tasks.today') : diff === 1 ? t('pages.tasks.tomorrow') : diff < 0 ? t('pages.tasks.daysOverdue', { count: Math.abs(diff) }) : dt.toLocaleDateString('zh-HK', { month: 'short', day: 'numeric' })
     return <span className={`t-due ${cls}`}>{label}</span>
   }
 
@@ -253,7 +255,7 @@ export default function TodoPage() {
       <div className={`todo-page${selectedTask ? ' detail-open' : ''}`}>
         {/* ── LEFT PANEL ── */}
         <aside className={`todo-left${showLeft ? ' show' : ''}`}>
-          <div className="todo-left-head">Lists</div>
+          <div className="todo-left-head">{t('pages.tasks.lists')}</div>
           <div className="todo-list-group">
             {lists.filter(l => l.is_smart).map(l => (
               <div key={l.id} className={`todo-list-item${activeListId === l.id ? ' active' : ''}`} onClick={() => selectList(l)}>
@@ -264,7 +266,7 @@ export default function TodoPage() {
             ))}
           </div>
           <div className="todo-list-sep" />
-          <div className="todo-left-head">My Lists</div>
+          <div className="todo-left-head">{t('pages.tasks.myLists')}</div>
           <div className="todo-list-group">
             {lists.filter(l => !l.is_smart).map(l => (
               <div key={l.id} className={`todo-list-item${activeListId === l.id ? ' active' : ''}`} onClick={() => selectList(l)}>
@@ -275,11 +277,11 @@ export default function TodoPage() {
             ))}
           </div>
           <button className="todo-add-list" onClick={() => setShowNewList(!showNewList)}>
-            <Plus size={14} /> New List
+            <Plus size={14} /> {t('pages.tasks.newList')}
           </button>
           {showNewList && (
             <div style={{display:'flex',gap:6,padding:'4px 10px'}}>
-              <input type="text" placeholder="List name" value={newListName}
+              <input type="text" placeholder={t('pages.tasks.listNamePlaceholder')} value={newListName}
                 onChange={e => setNewListName(e.target.value)}
                 style={{flex:1,border:'1px solid var(--color-border)',borderRadius:'var(--radius-sm)',padding:'4px 8px',fontSize:12,outline:'none',background:'var(--color-surface)'}}
                 onKeyDown={async e => {
@@ -302,22 +304,22 @@ export default function TodoPage() {
             <h2>
               {activeList?.is_smart && <span>{smartIcon(activeList?.name || '')}</span>}
               {!activeList?.is_smart && <span className="lh-color" style={{background:activeList?.color}} />}
-              {activeList?.name?.replace(/^[^\s]+\s/, '') || 'Tasks'}
+              {activeList?.name?.replace(/^[^\s]+\s/, '') || t('pages.tasks.title')}
             </h2>
-            <span className="lh-count">{tasks.filter(t => t.status !== 'done').length} remaining</span>
+            <span className="lh-count">{t('pages.tasks.remaining', { count: tasks.filter(t => t.status !== 'done').length })}</span>
             <div className="lh-actions">
               {!activeList?.is_smart && activeList && (
-                <button className="icon-btn-small" onClick={() => setShowShare(true)} title="Share list"><Share2 size={15} /></button>
+                <button className="icon-btn-small" onClick={() => setShowShare(true)} title={t('pages.tasks.shareList')}><Share2 size={15} /></button>
               )}
             </div>
           </div>
 
           <div className="todo-tasks">
             {loading ? (
-              <div style={{padding:40,textAlign:'center',color:'var(--color-text-faint)',fontSize:13}}>Loading...</div>
+              <div style={{padding:40,textAlign:'center',color:'var(--color-text-faint)',fontSize:13}}>{t('common.loading')}</div>
             ) : tasks.length === 0 ? (
               <div style={{padding:40,textAlign:'center',color:'var(--color-text-faint)',fontSize:13}}>
-                {contactFilter ? 'No tasks for this contact' : 'Add a task to get started'}
+                {contactFilter ? t('pages.tasks.emptyForContact') : t('pages.tasks.addToGetStarted')}
               </div>
             ) : tasks.map(task => (
               <div key={task.id}
@@ -327,7 +329,7 @@ export default function TodoPage() {
                   {task.status === 'done' && <Check size={11} strokeWidth={3} />}
                 </button>
                 <span className="t-title">{task.title}</span>
-                {task.my_day_date && <span className="t-myday">My Day</span>}
+                {task.my_day_date && <span className="t-myday">{t('pages.tasks.myDay')}</span>}
                 {task.step_count ? <span className="t-step-count">{task.step_done || 0}/{task.step_count}</span> : null}
                 {dueLabel(task.due_date)}
                 <button className={`t-imp${task.is_important ? ' important' : ''}`} onClick={e => { e.stopPropagation(); toggleImportant(task) }}>
@@ -338,7 +340,7 @@ export default function TodoPage() {
           </div>
 
           <div className="todo-add-task">
-            <input ref={inputRef} className="at-input" type="text" placeholder="Add a task..." value={newTitle}
+            <input ref={inputRef} className="at-input" type="text" placeholder={t('pages.tasks.taskPlaceholder')} value={newTitle}
               onChange={e => setNewTitle(e.target.value)}
               onKeyDown={e => { if (e.key === 'Enter') createTask() }} />
             <button className="at-btn" onClick={createTask}><Plus size={16} /></button>
@@ -358,7 +360,7 @@ export default function TodoPage() {
 
               {/* Steps */}
               <div className="dt-section">
-                <h4>Steps</h4>
+                <h4>{t('pages.tasks.steps')}</h4>
                 {selectedTask.steps?.map(s => (
                   <div key={s.id} className={`dt-step${s.is_completed ? ' done' : ''}`}>
                     <button className={`s-check${s.is_completed ? ' checked' : ''}`} onClick={() => toggleStep(selectedTask.id, s)}>
@@ -371,19 +373,19 @@ export default function TodoPage() {
                   </div>
                 ))}
                 <button className="dt-add-step" onClick={() => {
-                  const title = prompt('Step name:')
+                  const title = prompt(t('pages.tasks.stepNamePrompt'))
                   if (title?.trim()) addStep(selectedTask.id, title.trim())
-                }}><Plus size={13} /> Add step</button>
+                }}><Plus size={13} /> {t('pages.tasks.addStep')}</button>
               </div>
 
               {/* Fields */}
               <div className="dt-section">
-                <h4>Details</h4>
+                <h4>{t('pages.tasks.details')}</h4>
 
                 {/* My Day */}
                 <div className="dt-field">
                   <Sun size={15} className="f-label-icon" style={{color:'var(--color-text-muted)',flexShrink:0}} />
-                  <span className="f-label">My Day</span>
+                  <span className="f-label">{t('pages.tasks.myDay')}</span>
                   <div className={`f-toggle${selectedTask.my_day_date ? ' on' : ''}`} onClick={() => toggleMyDay(selectedTask)}>
                     <div className="f-knob" />
                   </div>
@@ -392,7 +394,7 @@ export default function TodoPage() {
                 {/* Due Date */}
                 <div className="dt-field">
                   <Calendar size={15} style={{color:'var(--color-text-muted)',flexShrink:0}} />
-                  <span className="f-label">Due</span>
+                  <span className="f-label">{t('pages.tasks.due')}</span>
                   <div className="f-value">
                     <input type="date" value={selectedTask.due_date?.split('T')[0] || ''}
                       onChange={e => updateTask(selectedTask.id, { due_date: e.target.value || null })} />
@@ -402,7 +404,7 @@ export default function TodoPage() {
                 {/* Reminder */}
                 <div className="dt-field">
                   <Bell size={15} style={{color:'var(--color-text-muted)',flexShrink:0}} />
-                  <span className="f-label">Remind</span>
+                  <span className="f-label">{t('pages.tasks.remind')}</span>
                   <div className="f-value">
                     <input type="datetime-local" value={selectedTask.reminder_at?.slice(0, 16) || ''}
                       onChange={e => updateTask(selectedTask.id, { reminder_at: e.target.value ? new Date(e.target.value).toISOString() : null })} />
@@ -412,17 +414,17 @@ export default function TodoPage() {
                 {/* Repeat */}
                 <div className="dt-field">
                   <Repeat size={15} style={{color:'var(--color-text-muted)',flexShrink:0}} />
-                  <span className="f-label">Repeat</span>
+                  <span className="f-label">{t('pages.tasks.repeat')}</span>
                   <div className="f-value">
                     <select value={selectedTask.recurrence_rule || ''}
                       onChange={e => updateTask(selectedTask.id, { recurrence_rule: e.target.value || null })}>
-                      <option value="">Does not repeat</option>
-                      <option value="daily">Daily</option>
-                      <option value="weekdays">Weekdays</option>
-                      <option value="weekly">Weekly</option>
-                      <option value="biweekly">Every 2 weeks</option>
-                      <option value="monthly">Monthly</option>
-                      <option value="yearly">Yearly</option>
+                      <option value="">{t('pages.tasks.recurrence.doesNotRepeat')}</option>
+                      <option value="daily">{t('pages.tasks.recurrence.daily')}</option>
+                      <option value="weekdays">{t('pages.tasks.recurrence.weekdays')}</option>
+                      <option value="weekly">{t('pages.tasks.recurrence.weekly')}</option>
+                      <option value="biweekly">{t('pages.tasks.recurrence.biweekly')}</option>
+                      <option value="monthly">{t('pages.tasks.recurrence.monthly')}</option>
+                      <option value="yearly">{t('pages.tasks.recurrence.yearly')}</option>
                     </select>
                   </div>
                 </div>
@@ -430,7 +432,7 @@ export default function TodoPage() {
                 {/* Categories */}
                 <div className="dt-field">
                   <FileText size={15} style={{color:'var(--color-text-muted)',flexShrink:0}} />
-                  <span className="f-label">Category</span>
+                  <span className="f-label">{t('pages.tasks.category')}</span>
                   <div className="f-value cat-pos-rel">
                     <div className="f-tag-row">
                       {selectedTask.categories?.map(c => (
@@ -464,22 +466,22 @@ export default function TodoPage() {
                 <div className="dt-field" style={{flexDirection:'column',alignItems:'stretch',gap:6,borderBottom:'none'}}>
                   <div style={{display:'flex',alignItems:'center',gap:8}}>
                     <FileText size={15} style={{color:'var(--color-text-muted)',flexShrink:0}} />
-                    <span className="f-label">Notes</span>
+                    <span className="f-label">{t('pages.tasks.notes')}</span>
                   </div>
                   <textarea value={selectedTask.notes_html || ''}
                     onChange={e => setSelectedTask({ ...selectedTask, notes_html: e.target.value })}
                     onBlur={e => updateTask(selectedTask.id, { notes_html: e.target.value || null })}
-                    placeholder="Add notes..."
+                    placeholder={t('pages.tasks.addNotes')}
                     style={{width:'100%',minHeight:60,border:'1px solid var(--color-border)',borderRadius:'var(--radius-md)',padding:'8px 10px',fontSize:13,resize:'vertical',background:'var(--color-surface-offset)',color:'var(--color-text)',fontFamily:'inherit',outline:'none'}} />
                 </div>
               </div>
 
               {/* Actions */}
               <div style={{borderTop:'1px solid var(--color-divider)',paddingTop:12,marginTop:4,display:'flex',gap:8}}>
-                <button className="icon-btn-small" onClick={() => deleteTask(selectedTask.id)} title="Delete task" style={{color:'var(--color-notification)'}}>
+                <button className="icon-btn-small" onClick={() => deleteTask(selectedTask.id)} title={t('common.delete')} style={{color:'var(--color-notification)'}}>
                   <Trash2 size={15} />
                 </button>
-                <button className="icon-btn-small" onClick={() => navigate(`/tasks/${selectedTask.id}`)} title="Open standalone" style={{marginLeft:'auto'}}>
+                <button className="icon-btn-small" onClick={() => navigate(`/tasks/${selectedTask.id}`)} title={t('pages.tasks.openStandalone')} style={{marginLeft:'auto'}}>
                   <ChevronRight size={15} />
                 </button>
               </div>
@@ -498,6 +500,7 @@ export default function TodoPage() {
 
 /* ── Share Dialog Component ── */
 function ShareDialog({ listId, onClose }: { listId: string; onClose: () => void }) {
+  const { t } = useTranslation()
   const [email, setEmail] = useState('')
   const [permission, setPermission] = useState('read')
   const [shares, setShares] = useState<{ user_email: string; permission: string }[]>([])
@@ -518,14 +521,14 @@ function ShareDialog({ listId, onClose }: { listId: string; onClose: () => void 
   return (
     <div className="share-overlay" onClick={onClose}>
       <div className="share-dialog" onClick={e => e.stopPropagation()}>
-        <h3>Share List</h3>
+        <h3>{t('pages.tasks.shareListTitle')}</h3>
         <div className="sd-field">
-          <input type="text" placeholder="Email address" value={email} onChange={e => setEmail(e.target.value)} />
+          <input type="text" placeholder={t('pages.tasks.shareEmailPlaceholder')} value={email} onChange={e => setEmail(e.target.value)} />
           <select value={permission} onChange={e => setPermission(e.target.value)}>
-            <option value="read">Read</option>
-            <option value="write">Write</option>
+            <option value="read">{t('pages.tasks.sharePermissionRead')}</option>
+            <option value="write">{t('pages.tasks.sharePermissionWrite')}</option>
           </select>
-          <button className="btn-primary" style={{height:36,fontSize:12}} onClick={addShare}>Add</button>
+          <button className="btn-primary" style={{height:36,fontSize:12}} onClick={addShare}>{t('pages.tasks.shareAdd')}</button>
         </div>
         {shares.length > 0 && (
           <div className="sd-shared">
@@ -538,7 +541,7 @@ function ShareDialog({ listId, onClose }: { listId: string; onClose: () => void 
           </div>
         )}
         <div style={{textAlign:'right'}}>
-          <button className="btn-secondary" onClick={onClose}>Close</button>
+          <button className="btn-secondary" onClick={onClose}>{t('common.close')}</button>
         </div>
       </div>
     </div>

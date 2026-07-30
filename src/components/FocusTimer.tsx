@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
+import { useTranslation } from 'react-i18next'
 import { apiClient } from '../lib/api'
 
 interface Task { id: string; title: string; priority: string; status: string }
@@ -7,6 +8,7 @@ const WORK_MIN = 25
 const BREAK_MIN = 5
 
 export default function FocusTimer() {
+  const { t } = useTranslation();
   const [mode, setMode] = useState<'work' | 'break'>('work')
   const [status, setStatus] = useState<'idle' | 'running' | 'paused'>('idle')
   const [elapsed, setElapsed] = useState(0)        // seconds elapsed in current session
@@ -55,7 +57,7 @@ export default function FocusTimer() {
           localStorage.setItem('focus_sessions', String(n))
           return n
         })
-        setNotif('🎉 Focus session complete! Take a break.')
+        setNotif(t('pages.tasks.focusComplete'))
         setTimeout(() => setNotif(null), 4000)
         return 0
       }
@@ -67,7 +69,7 @@ export default function FocusTimer() {
         setMode('work')
         setElapsed(0)
         setTotal(WORK_MIN * 60)
-        setNotif('☕ Break over — time to focus!')
+        setNotif(t('pages.tasks.breakOver'))
         setTimeout(() => setNotif(null), 4000)
         return 0
       }
@@ -126,8 +128,8 @@ export default function FocusTimer() {
       {notif && <div className="focus-notif">{notif}</div>}
 
       {/* Task name */}
-      <div className="task-name">{currentTask || 'Focus session'}</div>
-      <div className="task-sub">{mode === 'work' ? 'Focus time' : 'Break time'}</div>
+      <div className="task-name">{currentTask || t('pages.tasks.focusSession')}</div>
+      <div className="task-sub">{mode === 'work' ? t('pages.tasks.focusTime') : t('pages.tasks.breakTime')}</div>
 
       {/* Circular progress */}
       <div className="focus-ring-svg">
@@ -150,7 +152,7 @@ export default function FocusTimer() {
         <button
           className={`play-btn ${status === 'running' ? 'is-pause' : ''}`}
           onClick={status === 'running' ? pauseTimer : startTimer}
-          aria-label={status === 'running' ? 'Pause' : 'Start'}
+          aria-label={status === 'running' ? t('pages.tasks.paused') : t('pages.tasks.ready')}
         >
           {status === 'running' ? (
             <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
@@ -169,20 +171,20 @@ export default function FocusTimer() {
       <div className="focus-meta">
         <div>
           <div className="v tabular">{displayTime}</div>
-          <div className="l">{status === 'idle' ? 'Ready' : status === 'paused' ? 'Paused' : 'Remaining'}</div>
+          <div className="l">{status === 'idle' ? t('pages.tasks.ready') : status === 'paused' ? t('pages.tasks.paused') : t('pages.tasks.remaining')}</div>
         </div>
         <div>
-          <button className="focus-reset" onClick={resetTimer} aria-label="Reset timer">
+          <button className="focus-reset" onClick={resetTimer} aria-label={t('pages.tasks.reset')}>
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <path d="M1 4v6h6M23 20v-6h-6" />
               <path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 0 1 3.51 15" />
             </svg>
           </button>
-          <div className="l">Reset</div>
+          <div className="l">{t('pages.tasks.reset')}</div>
         </div>
         <div>
           <div className="v">{sessionsCompleted}</div>
-          <div className="l">Sessions</div>
+          <div className="l">{t('pages.tasks.sessions')}</div>
         </div>
       </div>
 
@@ -192,13 +194,13 @@ export default function FocusTimer() {
           className={`focus-mode-btn ${mode === 'work' ? 'active' : ''}`}
           onClick={() => { resetTimer(); setMode('work'); setTotal(WORK_MIN * 60) }}
         >
-          Focus {WORK_MIN}m
+          {t('pages.tasks.focusSession')} {WORK_MIN}m
         </button>
         <button
           className={`focus-mode-btn ${mode === 'break' ? 'active' : ''}`}
           onClick={() => { resetTimer(); setMode('break'); setTotal(BREAK_MIN * 60) }}
         >
-          Break {BREAK_MIN}m
+          {t('pages.tasks.breakTime')} {BREAK_MIN}m
         </button>
       </div>
     </div>

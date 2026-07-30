@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import { apiClient } from '../lib/api';
 import {
   Sun,
@@ -100,6 +101,7 @@ function BriefingSkeleton() {
 
 // ── Component ──
 export default function DailyBriefingCard({ className = '', style }: Props) {
+  const { t } = useTranslation();
   const [data, setData] = useState<BriefingData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -205,13 +207,13 @@ export default function DailyBriefingCard({ className = '', style }: Props) {
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <Sparkles size={16} style={{ color: 'var(--color-purple)' }} />
           <h3 style={{ fontSize: 15, fontWeight: 700, letterSpacing: '-0.01em' }}>
-            Today's Briefing
+            {t('pages.briefing.title')}
           </h3>
         </div>
         <button
           onClick={fetchBriefing}
           disabled={loading}
-          title="Refresh"
+          title={t('pages.briefing.refresh')}
           style={{
             width: 32, height: 32, display: 'flex', alignItems: 'center',
             justifyContent: 'center', borderRadius: 'var(--radius-md)',
@@ -231,7 +233,7 @@ export default function DailyBriefingCard({ className = '', style }: Props) {
         {/* Weather */}
         <SectionRow
           icon={<Sun size={15} style={{ color: 'var(--color-warning)' }} />}
-          label="Weather"
+          label={t('pages.briefing.weather')}
           onClick={() => {/* navigate to weather page */}}
         >
           <span style={{ fontSize: 15, fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>
@@ -245,11 +247,11 @@ export default function DailyBriefingCard({ className = '', style }: Props) {
         {/* Schedule */}
         <SectionRow
           icon={<Calendar size={15} style={{ color: 'var(--color-blue)' }} />}
-          label="Schedule"
+          label={t('pages.briefing.schedule')}
           onClick={() => {/* navigate to calendar */}}
         >
           {data!.schedule.length === 0 ? (
-            <span style={{ fontSize: 12.5, color: 'var(--color-text-faint)' }}>No upcoming events</span>
+            <span style={{ fontSize: 12.5, color: 'var(--color-text-faint)' }}>{t('pages.briefing.noEvents')}</span>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 4, flex: 1 }}>
               {data!.schedule.slice(0, 3).map(ev => (
@@ -274,11 +276,11 @@ export default function DailyBriefingCard({ className = '', style }: Props) {
         {/* Tasks */}
         <SectionRow
           icon={<CheckSquare size={15} style={{ color: 'var(--color-notification)' }} />}
-          label="Tasks"
+          label={t('pages.briefing.tasks')}
           onClick={() => {/* navigate to tasks */}}
         >
           {data!.tasks.length === 0 ? (
-            <span style={{ fontSize: 12.5, color: 'var(--color-text-faint)' }}>No P0-P1 tasks due today</span>
+            <span style={{ fontSize: 12.5, color: 'var(--color-text-faint)' }}>{t('pages.briefing.noTasks')}</span>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 4, flex: 1 }}>
               {data!.tasks.slice(0, 5).map(t => (
@@ -305,7 +307,7 @@ export default function DailyBriefingCard({ className = '', style }: Props) {
         {/* AI Tip */}
         <SectionRow
           icon={<Lightbulb size={15} style={{ color: 'var(--color-purple)' }} />}
-          label="AI Tip"
+          label={t('pages.briefing.aiTip')}
           onClick={() => {/* navigate to AI insights */}}
         >
           <span style={{ fontSize: 12.5, color: 'var(--color-text-muted)', lineHeight: 1.5 }}>
@@ -322,7 +324,7 @@ export default function DailyBriefingCard({ className = '', style }: Props) {
         paddingTop: 10, marginTop: 2,
       }}>
         <Clock size={11} />
-        <span>Updated {formatLastUpdated(lastUpdated)}</span>
+        <span>{t('pages.briefing.updated', { time: formatLastUpdated(lastUpdated) })}</span>
       </div>
 
       {/* ── Keyframes for spin animation ── */}

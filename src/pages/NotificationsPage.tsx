@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Bell, CheckCheck, RefreshCw } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { apiClient } from '../lib/api';
 
 interface NotificationItem {
@@ -17,6 +18,7 @@ interface NotificationItem {
 }
 
 export default function NotificationsPage() {
+  const { t } = useTranslation();
   const [items, setItems] = useState<NotificationItem[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -53,11 +55,11 @@ export default function NotificationsPage() {
     if (!d) return '';
     const diff = Date.now() - new Date(d).getTime();
     const mins = Math.floor(diff / 60000);
-    if (mins < 1) return 'just now';
-    if (mins < 60) return `${mins}m ago`;
+    if (mins < 1) return t('time.justNow');
+    if (mins < 60) return t('time.minutesAgo', { count: mins });
     const hrs = Math.floor(mins / 60);
-    if (hrs < 24) return `${hrs}h ago`;
-    return `${Math.floor(hrs / 24)}d ago`;
+    if (hrs < 24) return t('time.hoursAgo', { count: hrs });
+    return t('time.daysAgo', { count: Math.floor(hrs / 24) });
   };
 
   return (
@@ -65,20 +67,20 @@ export default function NotificationsPage() {
       <div className="page-header">
         <div>
           <div className="breadcrumb">
-            <span>Workspace</span>
+            <span>{t('nav.workspace')}</span>
             <span className="bc-sep">/</span>
-            <span className="breadcrumb-current">Notifications</span>
+            <span className="breadcrumb-current">{t('nav.notifications')}</span>
           </div>
           <h1 style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <Bell /> Notifications
+            <Bell /> {t('pages.notifications.title')}
             {unreadCount > 0 && <span className="notif-badge" style={{ position: 'static', border: 'none' }}>{unreadCount}</span>}
           </h1>
-          <p>{total} total · {unreadCount} unread</p>
+          <p>{t('pages.notifications.summary', { total, unread: unreadCount })}</p>
         </div>
         <div className="header-actions">
           {unreadCount > 0 && (
             <button onClick={handleMarkAllRead} className="btn-secondary">
-              <CheckCheck className="w-4 h-4" /> Mark all read
+              <CheckCheck className="w-4 h-4" /> {t('pages.notifications.markAllRead')}
             </button>
           )}
           <button onClick={() => fetchData(page, filter)} className="btn-secondary">
@@ -92,18 +94,18 @@ export default function NotificationsPage() {
         {['', 'UNREAD', 'READ'].map(f => (
           <div key={f} className={`tab ${filter === f ? 'active' : ''}`}
             onClick={() => { setFilter(f); setPage(1); }}>
-            {f || 'All'}
+            {f === '' ? t('pages.notifications.all') : f === 'UNREAD' ? t('pages.notifications.unread') : t('pages.notifications.read')}
           </div>
         ))}
       </div>
 
       {/* List */}
       {loading ? (
-        <div style={{ padding: 40, textAlign: 'center', color: 'var(--color-text-faint)' }}>Loading...</div>
+        <div style={{ padding: 40, textAlign: 'center', color: 'var(--color-text-faint)' }}>{t('common.loading')}</div>
       ) : items.length === 0 ? (
         <div className="panel" style={{ padding: 48, textAlign: 'center' }}>
           <Bell className="w-8 h-8" style={{ color: 'var(--color-text-faint)', margin: '0 auto 12px' }} />
-          <p style={{ color: 'var(--color-text-muted)', fontSize: 14 }}>No notifications yet</p>
+          <p style={{ color: 'var(--color-text-muted)', fontSize: 14 }}>{t('pages.notifications.empty')}</p>
         </div>
       ) : (
         <div className="panel">
@@ -128,7 +130,7 @@ export default function NotificationsPage() {
                 </div>
                 {n.status === 'UNREAD' && (
                   <button onClick={() => handleMarkRead(n.id)} className="btn-ghost" style={{ flexShrink: 0, height: 28, padding: '0 8px', fontSize: 11 }}>
-                    Read
+                    {t('pages.notifications.markRead')}
                   </button>
                 )}
               </div>
@@ -140,11 +142,11 @@ export default function NotificationsPage() {
       {/* Pagination */}
       {totalPages > 1 && (
         <div className="pagination" style={{ marginTop: 16 }}>
-          <span>{total} notifications</span>
+          <span>{t('pages.notifications.total', { count: total })}</span>
           <div style={{ display: 'flex', gap: 6 }}>
-            <button disabled={page <= 1} onClick={() => setPage(p => p - 1)} className="btn-secondary" style={{ height: 32, fontSize: 12 }}>← Prev</button>
+            <button disabled={page <= 1} onClick={() => setPage(p => p - 1)} className="btn-secondary" style={{ height: 32, fontSize: 12 }}>← {t('common.previous')}</button>
             <span style={{ display: 'flex', alignItems: 'center', fontSize: 13, color: 'var(--color-text-muted)', padding: '0 8px' }}>{page} / {totalPages}</span>
-            <button disabled={page >= totalPages} onClick={() => setPage(p => p + 1)} className="btn-secondary" style={{ height: 32, fontSize: 12 }}>Next →</button>
+            <button disabled={page >= totalPages} onClick={() => setPage(p => p + 1)} className="btn-secondary" style={{ height: 32, fontSize: 12 }}>{t('common.next')} →</button>
           </div>
         </div>
       )}

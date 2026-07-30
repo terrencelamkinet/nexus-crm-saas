@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import GenericListPage from '../GenericListPage'
 import taskConfig from './config'
 import TodoPage from './TodoPage'
@@ -6,6 +7,7 @@ import TodoPage from './TodoPage'
 type ViewMode = 'todo' | 'table'
 
 export default function TasksPage() {
+  const { t } = useTranslation()
   const [view, setView] = useState<ViewMode>(() => {
     const saved = localStorage.getItem('tasks_view_mode')
     return (saved === 'todo' || saved === 'table') ? saved : 'todo'
@@ -34,7 +36,7 @@ export default function TasksPage() {
             cursor: 'pointer', transition: 'all .15s',
           }}
         >
-          📋 To Do
+          📋 {t('pages.tasks.title')}
         </button>
         <button
           onClick={() => switchView('table')}
@@ -46,7 +48,7 @@ export default function TasksPage() {
             cursor: 'pointer', transition: 'all .15s',
           }}
         >
-          📊 Table
+          📊 {t('pages.tasks.table')}
         </button>
       </div>
 

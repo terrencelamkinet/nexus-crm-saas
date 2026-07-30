@@ -5,6 +5,7 @@
 // ═══════════════════════════════════════════
 
 import { useEffect, useState, useCallback } from 'react'
+import { useTranslation } from 'react-i18next'
 import { createPortal } from 'react-dom'
 import { X, Loader2, CheckCircle, AlertCircle, ArrowRight } from 'lucide-react'
 
@@ -25,9 +26,9 @@ interface ActionPreviewModalProps {
 type ExecutionStatus = 'idle' | 'executing' | 'success' | 'error'
 
 /** Pretty-print a param value for display */
-function formatParamValue(value: unknown): string {
+function formatParamValue(value: unknown, t: (key: string) => string): string {
   if (value === null || value === undefined) return '—'
-  if (typeof value === 'boolean') return value ? 'Yes' : 'No'
+  if (typeof value === 'boolean') return value ? t('actionPreview.yes') : t('actionPreview.no')
   if (typeof value === 'object') {
     try {
       return JSON.stringify(value, null, 1)
@@ -52,6 +53,7 @@ export default function ActionPreviewModal({
   onConfirm,
   onReject,
 }: ActionPreviewModalProps) {
+  const { t } = useTranslation();
   const [status, setStatus] = useState<ExecutionStatus>('idle')
   const [feedback, setFeedback] = useState<string>('')
 
@@ -152,13 +154,13 @@ export default function ActionPreviewModal({
         <div className="modal-head">
           <h2 className="flex items-center gap-2">
             <span className="w-2 h-2 rounded-full bg-primary inline-block" />
-            AI Action Preview
+            {t('actionPreview.title')}
           </h2>
           <button
             className="modal-x"
             onClick={handleClose}
             disabled={status === 'executing'}
-            aria-label="Close"
+            aria-label={t('common.close')}
           >
             <X className="w-4 h-4" />
           </button>
@@ -176,7 +178,7 @@ export default function ActionPreviewModal({
           >
             <div className="text-xs font-semibold uppercase tracking-wider mb-1"
               style={{ color: 'var(--color-text-faint)' }}>
-              Tool
+              {t('actionPreview.tool')}
             </div>
             <div className="text-base font-semibold" style={{ color: 'var(--color-text)' }}>
               {toolLabel(tool_key)}
@@ -188,11 +190,11 @@ export default function ActionPreviewModal({
             <div>
               <div className="text-xs font-semibold uppercase tracking-wider mb-3"
                 style={{ color: 'var(--color-text-faint)' }}>
-                Parameters
+                {t('actionPreview.parameters')}
               </div>
               <div className="grid gap-3">
                 {paramEntries.map(([key, value]) => {
-                  const formatted = formatParamValue(value)
+                  const formatted = formatParamValue(value, t)
                   const isLong = formatted.length > 80
                   return (
                     <div
@@ -227,7 +229,7 @@ export default function ActionPreviewModal({
           ) : (
             <div className="text-sm py-4 text-center"
               style={{ color: 'var(--color-text-faint)' }}>
-              No parameters required.
+              {t('actionPreview.noParams')}
             </div>
           )}
 
@@ -261,7 +263,7 @@ export default function ActionPreviewModal({
             onClick={handleReject}
             disabled={status === 'executing'}
           >
-            Cancel
+            {t('actionPreview.cancel')}
           </button>
           <button
             className="btn-primary"
@@ -271,11 +273,11 @@ export default function ActionPreviewModal({
             {status === 'executing' ? (
               <>
                 <Loader2 className="w-4 h-4 animate-spin" />
-                Executing…
+                {t('actionPreview.executing')}
               </>
             ) : (
               <>
-                Execute
+                {t('actionPreview.execute')}
                 <ArrowRight className="w-4 h-4" />
               </>
             )}

@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, Suspense } from 'react'
 import { useParams, useNavigate, useLocation, Link } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { ArrowLeft, Phone, Mail, Building2, Edit3, Trash2, User, Clock } from 'lucide-react'
 import { apiClient } from '../lib/api'
 import { FieldsRenderer } from './shared/FieldsRenderer'
@@ -21,6 +22,7 @@ interface Props {
 }
 
 export default function GenericDetailPage({ config, tabRenderers, extraData }: Props) {
+  const { t } = useTranslation()
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const location = useLocation()
@@ -124,11 +126,11 @@ export default function GenericDetailPage({ config, tabRenderers, extraData }: P
       <div className="contact-detail-page">
         <button onClick={() => navigate(`/${config.routePrefix || config.name + 's'}`)}
           className="flex items-center gap-1 text-sm hover:underline mb-4 back-link">
-          <ArrowLeft className="w-4 h-4" /> Back to {config.labelPlural}
+          <ArrowLeft className="w-4 h-4" /> {t('common.backToLabel', { label: config.labelPlural })}
         </button>
         <div className="error-box">
-          <span className="error-text">{error || `${config.label} not found`}</span>
-          <button onClick={fetchEntity} className="error-retry-btn">Retry</button>
+          <span className="error-text">{error || t('common.notFound', { label: config.label })}</span>
+          <button onClick={fetchEntity} className="error-retry-btn">{t('common.retry')}</button>
         </div>
       </div>
     )
@@ -139,9 +141,9 @@ export default function GenericDetailPage({ config, tabRenderers, extraData }: P
   const nameField = config.fields.find(f => f.type === 'title')?.key || config.titleField || 'name'
   const entityName = String(entity[nameField] || entity.id || '')
 
-  const visibleTabs = config.detailTabs?.filter(t => !t.condition || t.condition(entity)) || []
+  const visibleTabs = config.detailTabs?.filter(c => !c.condition || c.condition(entity)) || []
 
-  const detailsTab = config.detailTabs?.find(t => t.id === 'details')
+  const detailsTab = config.detailTabs?.find(c => c.id === 'details')
   const detailFields = (detailsTab?.fields
     ? config.fields.filter(f => detailsTab.fields!.includes(f.key))
     : config.fields
@@ -152,7 +154,7 @@ export default function GenericDetailPage({ config, tabRenderers, extraData }: P
       <nav className="breadcrumb">
         {pathParts.map((part, i) => {
           const isLast = i === pathParts.length - 1
-          const label = part === 'dashboard' ? 'Home' : part.charAt(0).toUpperCase() + part.slice(1)
+          const label = part === 'dashboard' ? t('common.home') : part.charAt(0).toUpperCase() + part.slice(1)
           const to = '/' + pathParts.slice(0, i + 1).join('/')
           return isLast ? (
             <span key={part} className="cur">{entityName || part}</span>
@@ -172,18 +174,18 @@ export default function GenericDetailPage({ config, tabRenderers, extraData }: P
         <div className="header-actions">
           {editOpen ? (
             <>
-              <button onClick={cancelEdit} disabled={saving} className="btn-ghost">Cancel</button>
+              <button onClick={cancelEdit} disabled={saving} className="btn-ghost">{t('common.cancel')}</button>
               <button onClick={handleSave} disabled={saving} className="btn-primary">
-                {saving ? 'Saving...' : 'Save changes'}
+                {saving ? t('common.saving') : t('common.saveChanges')}
               </button>
             </>
           ) : (
             <>
               <button onClick={handleDeleteClick} className="btn-danger">
-                <Trash2 className="icon-16" /> Delete
+                <Trash2 className="icon-16" /> {t('common.delete')}
               </button>
               <button onClick={openEdit} className="btn-primary">
-                <Edit3 className="icon-16" /> Edit
+                <Edit3 className="icon-16" /> {t('common.edit')}
               </button>
             </>
           )}
@@ -195,7 +197,7 @@ export default function GenericDetailPage({ config, tabRenderers, extraData }: P
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <path d="M12 20h9M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4L16.5 3.5z" />
           </svg>
-          Editing mode active. Make changes to the fields below and click Save.
+          {t('common.editingMode')}
         </div>
       )}
 
@@ -219,10 +221,10 @@ export default function GenericDetailPage({ config, tabRenderers, extraData }: P
               </div>
             )}
             <div className="profile-field">
-              <User className="w-3.5 h-3.5" /> Owner: {entity['contact_type'] || 'Unassigned'}
+              <User className="w-3.5 h-3.5" /> {t('common.ownerLabel', { name: entity['contact_type'] || t('common.unassigned') })}
             </div>
             <div className="profile-field">
-              <Clock className="w-3.5 h-3.5" /> Last touch: {lastTouchDate}
+              <Clock className="w-3.5 h-3.5" /> {t('common.lastTouch', { date: lastTouchDate })}
             </div>
             {entity['company'] && (
               <div className="profile-field">
@@ -233,7 +235,7 @@ export default function GenericDetailPage({ config, tabRenderers, extraData }: P
           </div>
 
           <div className="tag-row">
-            <span className={`select-tag ${statusColors[entity['status']] || 'tag-default'}`}>{entity['status'] || 'Active'}</span>
+            <span className={`select-tag ${statusColors[entity['status']] || 'tag-default'}`}>{entity['status'] || t('status.active')}</span>
             {Array.isArray(entity['tags']) && entity['tags'].map((t: string) => <span key={t} className="tag">{t}</span>)}
             {entity['contact_type'] && entity['contact_type'] !== 'Unassigned' && <span className="tag">{entity['contact_type']}</span>}
           </div>
@@ -244,13 +246,13 @@ export default function GenericDetailPage({ config, tabRenderers, extraData }: P
           {isMobile && showFullTab ? (
             <>
               <button onClick={() => setShowFullTab(null)} className="btn-ghost" style={{ marginBottom: '10px', fontSize: '12px' }}>
-                ← Back to all sections
+                {t('common.backToAll')}
               </button>
-              {visibleTabs.filter(t => t.id === showFullTab).map(t => {
-                if (t.id === 'details') {
+              {visibleTabs.filter(c => c.id === showFullTab).map(c => {
+                if (c.id === 'details') {
                   return (
                     <div className="panel" key="details">
-                      <div className="panel-head"><h3>{config.label} Information</h3></div>
+                      <div className="panel-head"><h3>{t('common.infoSection', { label: config.label })}</h3></div>
                       <div className="detail-form-grid p-16">
                         {detailFields.map(f => (
                           <FieldsRenderer key={f.key} field={f} entity={entity} form={form}
@@ -260,18 +262,18 @@ export default function GenericDetailPage({ config, tabRenderers, extraData }: P
                     </div>
                   )
                 }
-                const CustomRenderer = t.render || tabRenderers?.[t.id]
+                const CustomRenderer = c.render || tabRenderers?.[c.id]
                 if (CustomRenderer) {
                   return (
-                    <Suspense key={t.id} fallback={<div className="panel"><div className="panel-head"><h3>{t.label}</h3></div><div className="empty-state">Loading {t.label.toLowerCase()}...</div></div>}>
+                    <Suspense key={c.id} fallback={<div className="panel"><div className="panel-head"><h3>{c.label}</h3></div><div className="empty-state">Loading {t('common.loadingTab', { label: c.label.toLowerCase() })}</div></div>}>
                       <CustomRenderer entity={entity} moduleConfig={config} refresh={fetchEntity} />
                     </Suspense>
                   )
                 }
                 return (
-                  <div className="panel" key={t.id}>
-                    <div className="panel-head"><h3>{t.label}</h3></div>
-                    <div className="empty-state">No {t.label.toLowerCase()} yet</div>
+                  <div className="panel" key={c.id}>
+                    <div className="panel-head"><h3>{c.label}</h3></div>
+                    <div className="empty-state">{t('common.noDataTab', { label: c.label.toLowerCase() })}</div>
                   </div>
                 )
               })}
@@ -280,10 +282,10 @@ export default function GenericDetailPage({ config, tabRenderers, extraData }: P
           ) : !isMobile && (
             <>
               <div className="tabs">
-                {visibleTabs.map(t => (
-                  <div key={t.id} className={`tab ${tab === t.id ? 'active' : ''}`}
-                    onClick={() => setTab(t.id)}>
-                    {t.label}
+                {visibleTabs.map(c => (
+                  <div key={c.id} className={`tab ${tab === c.id ? 'active' : ''}`}
+                    onClick={() => setTab(c.id)}>
+                    {c.label}
                   </div>
                 ))}
               </div>
@@ -291,7 +293,7 @@ export default function GenericDetailPage({ config, tabRenderers, extraData }: P
               {tab === 'details' && (
                 <div className="panel">
                   <div className="panel-head">
-                    <h3>{config.label} Information</h3>
+                    <h3>{t('common.infoSection', { label: config.label })}</h3>
                   </div>
                   <div className="detail-form-grid p-16">
                     {detailFields.map(f => (
@@ -302,22 +304,22 @@ export default function GenericDetailPage({ config, tabRenderers, extraData }: P
                 </div>
               )}
 
-              {visibleTabs.filter(t => t.id !== 'details').map(t => {
-                if (tab === t.id) {
-                  const CustomRenderer = t.render || tabRenderers?.[t.id]
+              {visibleTabs.filter(cfg => cfg.id !== 'details').map(cfg => {
+                if (tab === cfg.id) {
+                  const CustomRenderer = cfg.render || tabRenderers?.[cfg.id]
                   if (CustomRenderer) {
                     return (
-                      <Suspense key={t.id} fallback={<div className="panel"><div className="panel-head"><h3>{t.label}</h3></div><div className="empty-state">Loading {t.label.toLowerCase()}...</div></div>}>
+                      <Suspense key={cfg.id} fallback={<div className="panel"><div className="panel-head"><h3>{cfg.label}</h3></div><div className="empty-state">Loading {t('common.loadingTab', { label: cfg.label.toLowerCase() })}</div></div>}>
                         <CustomRenderer entity={entity} moduleConfig={config} refresh={fetchEntity} />
                       </Suspense>
                     )
                   }
                   return (
-                    <div className="panel" key={t.id}>
+                    <div className="panel" key={cfg.id}>
                       <div className="panel-head">
-                        <h3>{t.label}</h3>
+                        <h3>{cfg.label}</h3>
                       </div>
-                      <div className="empty-state">No {t.label.toLowerCase()} yet</div>
+                      <div className="empty-state">{cfg.label} {t('common.noDataTab', { label: cfg.label.toLowerCase() })}</div>
                     </div>
                   )
                 }
@@ -327,14 +329,14 @@ export default function GenericDetailPage({ config, tabRenderers, extraData }: P
           )}
 
           {/* Mobile stacked sections */}
-          {isMobile && !showFullTab && visibleTabs.map(t => {
-            if (t.id === 'details') {
+          {isMobile && !showFullTab && visibleTabs.map(c => {
+            if (c.id === 'details') {
               const fieldCount = detailFields.length
               return (
                 <MobileSection key="details" label="fields" total={fieldCount}
                   onViewAll={() => setShowFullTab('details')}>
                   <div className="panel">
-                    <div className="panel-head"><h3>{config.label} Information</h3></div>
+                    <div className="panel-head"><h3>{t('common.infoSection', { label: config.label })}</h3></div>
                     <div className="detail-form-grid p-16">
                       {detailFields.map(f => (
                         <FieldsRenderer key={f.key} field={f} entity={entity} form={form}
@@ -345,21 +347,21 @@ export default function GenericDetailPage({ config, tabRenderers, extraData }: P
                 </MobileSection>
               )
             }
-            const CustomRenderer = tabRenderers?.[t.id]
+            const CustomRenderer = tabRenderers?.[c.id]
             if (CustomRenderer) {
               return (
-                <MobileSection key={t.id} label={t.label.toLowerCase()} total={0}
-                  onViewAll={() => setShowFullTab(t.id)}>
-                  <Suspense fallback={<div className="empty-state">Loading {t.label.toLowerCase()}...</div>}>
+                <MobileSection key={c.id} label={c.label.toLowerCase()} total={0}
+                  onViewAll={() => setShowFullTab(c.id)}>
+                  <Suspense fallback={<div className="empty-state">{t('common.loadingTab', { label: c.label.toLowerCase() })}</div>}>
                     <CustomRenderer entity={entity} moduleConfig={config} refresh={fetchEntity} />
                   </Suspense>
                 </MobileSection>
               )
             }
             return (
-              <div className="panel" key={t.id}>
-                <div className="panel-head"><h3>{t.label}</h3></div>
-                <div className="empty-state">No {t.label.toLowerCase()} yet</div>
+              <div className="panel" key={c.id}>
+                <div className="panel-head"><h3>{c.label}</h3></div>
+                <div className="empty-state">{t('common.noDataTab', { label: c.label.toLowerCase() })}</div>
               </div>
             )
           })}
@@ -371,13 +373,13 @@ export default function GenericDetailPage({ config, tabRenderers, extraData }: P
           <div className="modal modal-sm">
             <div className="delete-body">
               <div className="delete-icon-wrap"><Trash2 /></div>
-              <h3 className="delete-heading">Delete {entityName}?</h3>
-              <p className="delete-text">This action cannot be undone.</p>
+              <h3 className="delete-heading">{t('common.deleteConfirm', { name: entityName })}</h3>
+              <p className="delete-text">{t('common.cannotUndo')}</p>
             </div>
             <div className="modal-foot">
-              <button onClick={() => setDeleteModalOpen(false)} className="btn-secondary">Cancel</button>
+              <button onClick={() => setDeleteModalOpen(false)} className="btn-secondary">{t('common.cancel')}</button>
               <button onClick={handleDeleteConfirm} disabled={deleteLoading}
-                className="btn-notification">{deleteLoading ? 'Deleting...' : 'Delete'}</button>
+                className="btn-notification">{deleteLoading ? t('common.deleting') : t('common.delete')}</button>
             </div>
           </div>
         </div>

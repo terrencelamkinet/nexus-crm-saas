@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Plus, Search, X, Trash2, Edit3, ChevronRight, MoreHorizontal, Download, ArrowUpDown } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { apiClient } from '../lib/api'
@@ -18,6 +19,7 @@ interface Props {
 const FILTERABLE_TYPES = ['select', 'status', 'text', 'title', 'number', 'date', 'relation']
 
 export default function GenericListPage({ config, extraData }: Props) {
+  const { t } = useTranslation();
   const navigate = useNavigate()
   const [query, setQuery] = useState('')
   const [data, setData] = useState<ListResponse | null>(null)
@@ -375,22 +377,22 @@ const [filters, setFilters] = useState<Record<string, FilterEntry>>({})
   return (
     <div>
       <div className="breadcrumb">
-        <span>Home</span>
+        <span>{t('common.home')}</span>
         <ChevronRight />
-        <span className="breadcrumb-current">{config.labelPlural}</span>
+        <span className="breadcrumb-current">{t('pages.' + config.name + '.title')}</span>
       </div>
 
       <div className="page-header">
         <div>
-          <h1>{config.labelPlural}</h1>
-          <p>{total} {config.labelPlural.toLowerCase()}</p>
+          <h1>{t('pages.' + config.name + '.title')}</h1>
+          <p>{total} {t('pages.' + config.name + '.title').toLowerCase()}</p>
         </div>
         <div className="header-actions">
           <button className="btn-secondary">
-            <Download className="w-4 h-4" /> Export
+            <Download className="w-4 h-4" /> {t('common.export')}
           </button>
           <button onClick={openCreate} className="btn-primary">
-            <Plus className="w-4 h-4" /> New {config.label}
+            <Plus className="w-4 h-4" /> {t('pages.' + config.name + '.new')}
           </button>
         </div>
       </div>
@@ -399,15 +401,15 @@ const [filters, setFilters] = useState<Record<string, FilterEntry>>({})
         <div className="db-toolbar">
           <div className="db-search">
             <Search className="w-4 h-4" />
-            <input type="text" placeholder={`Search ${config.labelPlural.toLowerCase()}...`}
+            <input type="text" placeholder={t('pages.' + config.name + '.searchPlaceholder') || (t('common.search') + ' ' + t('pages.' + config.name + '.title').toLowerCase() + '...')}
               value={query} onChange={e => setQuery(e.target.value)} />
           </div>
           <div className="toolbar-actions">
-            <button className={`toolbar-btn ${filterCount > 0 ? 'active' : ''}`} title="Filter"
+            <button className={`toolbar-btn ${filterCount > 0 ? 'active' : ''}`} title={t('common.filter')}
               onClick={() => setFilterOpen(!filterOpen)}>
               <Search className="w-4 h-4" />{filterCount > 0 ? ` (${filterCount})` : ''}
             </button>
-            <button className={`toolbar-btn ${sortBy ? 'active' : ''}`} title="Sort" onClick={() => {
+            <button className={`toolbar-btn ${sortBy ? 'active' : ''}`} title={t('filter.sortBy')} onClick={() => {
               setSortField(sortBy)
               setSortOpen(!sortOpen)
             }}>
@@ -415,20 +417,20 @@ const [filters, setFilters] = useState<Record<string, FilterEntry>>({})
             </button>
             <div className="toolbar-sep" />
             <div className="pos-relative">
-              <button className={`toolbar-btn ${view !== 'table' ? 'active' : ''}`} title="View"
+              <button className={`toolbar-btn ${view !== 'table' ? 'active' : ''}`} title={t('common.seeMore')}
                 onClick={() => setViewOpen(!viewOpen)}>
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="12" y1="3" x2="12" y2="21"/><line x1="3" y1="12" x2="21" y2="12"/></svg>
               </button>
             </div>
             <div className="toolbar-sep" />
             <div className="pos-relative">
-              <button className={`toolbar-btn ${propsOpen ? 'active' : ''}`} title="Properties" onClick={() => setPropsOpen(!propsOpen)}>
+              <button className={`toolbar-btn ${propsOpen ? 'active' : ''}`} title={t('filter.title')} onClick={() => setPropsOpen(!propsOpen)}>
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="9"/><path d="M12 8v4l3 2"/></svg>
               </button>
             </div>
             <div className="toolbar-sep" />
             <div className="pos-relative">
-              <button className={`toolbar-btn ${settingsOpen ? 'active' : ''}`} title="Settings"
+              <button className={`toolbar-btn ${settingsOpen ? 'active' : ''}`} title={t('nav.settings')}
                 onClick={() => setSettingsOpen(!settingsOpen)}>
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
               </button>
@@ -440,26 +442,26 @@ const [filters, setFilters] = useState<Record<string, FilterEntry>>({})
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                   <select value={sortField} onChange={e => setSortField(e.target.value)} className="input-field"
                     style={{ fontSize: '12px', padding: '6px 8px' }}>
-                    <option value="">— Select a field —</option>
+                    <option value="">{t('filter.sortBy')}</option>
                     {config.fields.filter(f => f.sortable !== false).map(f => (
                       <option key={f.key} value={f.key}>{f.label}</option>
                     ))}
                   </select>
                   <div style={{ display: 'flex', gap: '6px' }}>
                     <button className={`${sortOrder === 'asc' ? 'btn-primary' : 'btn-ghost'}`}
-                      onClick={() => setSortOrder('asc')} style={{ flex: 1, height: '30px', fontSize: '12px', padding: '0 8px' }}>↑ Ascending</button>
+                      onClick={() => setSortOrder('asc')} style={{ flex: 1, height: '30px', fontSize: '12px', padding: '0 8px' }}>{t('filter.ascending')}</button>
                     <button className={`${sortOrder === 'desc' ? 'btn-primary' : 'btn-ghost'}`}
-                      onClick={() => setSortOrder('desc')} style={{ flex: 1, height: '30px', fontSize: '12px', padding: '0 8px' }}>↓ Descending</button>
+                      onClick={() => setSortOrder('desc')} style={{ flex: 1, height: '30px', fontSize: '12px', padding: '0 8px' }}>{t('filter.descending')}</button>
                   </div>
                   <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end', borderTop: '1px solid var(--color-divider)', paddingTop: '8px' }}>
                     <button className="btn-ghost" style={{ fontSize: '12px', padding: '4px 10px' }}
                       onClick={() => { setSortBy(''); setSortOrder('desc'); setSortField(''); setSortOpen(false); setPage(1) }}>
-                      Clear
+                      {t('common.clear')}
                     </button>
                     <button className="btn-primary" style={{ fontSize: '12px', padding: '4px 10px' }}
                       disabled={!sortField}
                       onClick={() => { setSortBy(sortField); setSortOrder(sortOrder); setSortOpen(false); setPage(1) }}>
-                      Apply
+                      {t('common.apply')}
                     </button>
                   </div>
                 </div>
@@ -473,7 +475,7 @@ const [filters, setFilters] = useState<Record<string, FilterEntry>>({})
                     <span className="view-icon">{
                       v === 'table' ? '▦' : v === 'gallery' ? '⊞' : v === 'board' ? '📋' : '📌'
                     }</span>
-                    {v === 'table' ? 'Table' : v === 'gallery' ? 'Gallery' : v === 'board' ? 'Board' : 'Kanban'}
+                    {v === 'table' ? t('pages.' + config.name + '.title') : v === 'gallery' ? 'Gallery' : v === 'board' ? 'Board' : 'Kanban'}
                   </button>
                 ))}
               </div>
@@ -501,7 +503,7 @@ const [filters, setFilters] = useState<Record<string, FilterEntry>>({})
             {settingsOpen && (
               <div className="settings-panel">
                 <div className="settings-section">
-                  <div className="settings-section-title">View</div>
+                  <div className="settings-section-title">{t('common.seeMore')}</div>
 
                   <div className="settings-row">
                     <span className="settings-label">Layout</span>
@@ -517,21 +519,21 @@ const [filters, setFilters] = useState<Record<string, FilterEntry>>({})
                   </div>
 
                   <div className="settings-row">
-                    <span className="settings-label">Properties</span>
+                    <span className="settings-label">{t('filter.title')}</span>
                     <button className="settings-action-btn" onClick={() => { setPropsOpen(true); setSettingsOpen(false) }}>
                       {visibleCols.length} fields visible <span className="settings-chevron">→</span>
                     </button>
                   </div>
 
                   <div className="settings-row">
-                    <span className="settings-label">Filter</span>
+                    <span className="settings-label">{t('common.filter')}</span>
                     <button className="settings-action-btn" onClick={() => { setFilterOpen(!filterOpen); setSettingsOpen(false) }}>
                       {filterCount > 0 ? `${filterCount} active` : 'None'} <span className="settings-chevron">→</span>
                     </button>
                   </div>
 
                   <div className="settings-row">
-                    <span className="settings-label">Sort</span>
+                    <span className="settings-label">{t('filter.sortBy')}</span>
                     <button className="settings-action-btn" onClick={() => { setSortOpen(!sortOpen); setSettingsOpen(false) }}>
                       {sortBy ? `${sortBy} ${sortOrder === 'asc' ? '↑' : '↓'}` : 'None'} <span className="settings-chevron">→</span>
                     </button>
@@ -618,7 +620,7 @@ const [filters, setFilters] = useState<Record<string, FilterEntry>>({})
           <div className="filter-panel">
             <div className="filter-row">
               <select value={filterField} onChange={e => { setFilterField(e.target.value); setFilterValue(''); setFilterOp('is'); setFilterChecked([]); }} className="input-field filter-field-select">
-                <option value="">— Field —</option>
+                <option value="">— {t('filter.title')} —</option>
                 {filterableFields.map(f => (
                   <option key={f.key} value={f.key}>{f.label}</option>
                 ))}
@@ -678,7 +680,7 @@ const [filters, setFilters] = useState<Record<string, FilterEntry>>({})
                 setFilterOpen(false)
                 setPage(1)
               }} disabled={!filterField || (filterChecked.length === 0 && !filterValue)} className="btn-primary filter-apply">Apply ({filterChecked.length > 0 ? filterChecked.length : '✓'})</button>
-              <button onClick={() => setFilterOpen(false)} className="btn-ghost filter-cancel">Cancel</button>
+              <button onClick={() => setFilterOpen(false)} className="btn-ghost filter-cancel">{t('common.cancel')}</button>
             </div>
           </div>
         )}
@@ -705,19 +707,19 @@ const [filters, setFilters] = useState<Record<string, FilterEntry>>({})
                 </span>
               )
             })}
-            <button onClick={() => { setFilters({}); setPage(1) }} className="btn-ghost filter-clear">Clear all</button>
+            <button onClick={() => { setFilters({}); setPage(1) }} className="btn-ghost filter-clear">{t('filter.clear')}</button>
           </div>
         )}
 
         {loading ? (
-          <div style={{ padding: '32px', textAlign: 'center', color: 'var(--color-text-faint)' }}>Loading...</div>
+          <div style={{ padding: '32px', textAlign: 'center', color: 'var(--color-text-faint)' }}>{t('common.loading')}</div>
         ) : error ? (
           <div className="error-box p-20">
             <span className="error-text">{error}</span>
-            <button onClick={() => fetchDataRef.current()} className="error-retry-btn">Retry</button>
+            <button onClick={() => fetchDataRef.current()} className="error-retry-btn">{t('common.retry')}</button>
           </div>
         ) : items.length === 0 ? (
-          <div className="empty-state">No {config.labelPlural.toLowerCase()} found</div>
+          <div className="empty-state">{t('pages.' + config.name + '.empty') || ('No ' + t('pages.' + config.name + '.title').toLowerCase() + ' found')}</div>
         ) : view === 'gallery' ? (
           <div className="contact-grid">
             {items.map(item => {
@@ -793,15 +795,15 @@ const [filters, setFilters] = useState<Record<string, FilterEntry>>({})
                     ))}
                     <td className="col-menu" onClick={e => e.stopPropagation()}>
                       <div className="menu-wrap">
-                        <button className="menu-dots" title="More actions">
+                        <button className="menu-dots" title={t('common.seeMore')}>
                           <MoreHorizontal className="w-4 h-4" />
                         </button>
                         <div className="menu-dropdown">
                           <button className="menu-item" onClick={() => openEdit(item)}>
-                            <Edit3 /> Edit
+                            <Edit3 /> {t('common.edit')}
                           </button>
                           <button className="menu-item text-notification" onClick={() => setDeleteTarget(item)}>
-                            <Trash2 /> Delete
+                            <Trash2 /> {t('common.delete')}
                           </button>
                         </div>
                       </div>
@@ -815,14 +817,14 @@ const [filters, setFilters] = useState<Record<string, FilterEntry>>({})
             {selectedIds.size > 0 && (
               <div className="bulk-bar">
                 <span className="count">{selectedIds.size} selected</span>
-                <button className="btn-secondary" onClick={openBulkUpdate}>Bulk Update</button>
-                <button className="btn-secondary">Add Tag</button>
-                <button className="btn-secondary">Export</button>
+                <button className="btn-secondary" onClick={openBulkUpdate}>{t('common.bulkUpdate')}</button>
+                <button className="btn-secondary">{t('common.addTag')}</button>
+                <button className="btn-secondary">{t('common.export')}</button>
                 <button className="btn-notification" onClick={() => {
                   const first = items.find(i => selectedIds.has(i.id))
                   if (first) setDeleteTarget(first)
                 }}>
-                  <Trash2 className="w-4 h-4" /> Delete
+                  <Trash2 className="w-4 h-4" /> {t('common.delete')}
                 </button>
               </div>
             )}
@@ -832,16 +834,16 @@ const [filters, setFilters] = useState<Record<string, FilterEntry>>({})
 
       {totalPages > 1 && (
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginTop: 14, padding: '10px 0' }}>
-          <span className="text-faint" style={{ fontSize: 12 }}>{total} {config.labelPlural.toLowerCase()}</span>
+          <span className="text-faint" style={{ fontSize: 12 }}>{total} {t('pages.' + config.name + '.title').toLowerCase()}</span>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
             <button className="toolbar-btn" disabled={page <= 1} onClick={() => setPage(p => Math.max(1, p - 1))}>
-              ← Prev
+              {t('common.previous')}
             </button>
             <span style={{ fontSize: 12, color: 'var(--color-text-muted)', padding: '0 8px' }}>
               Page {page} of {totalPages}
             </span>
             <button className="toolbar-btn" disabled={page >= totalPages} onClick={() => setPage(p => p + 1)}>
-              Next →
+              {t('common.next')}
             </button>
           </div>
         </div>
@@ -851,7 +853,7 @@ const [filters, setFilters] = useState<Record<string, FilterEntry>>({})
         <div className="modal-overlay" onClick={e => { if (e.target === e.currentTarget) setCreateOpen(false) }}>
           <div className="modal">
             <div className="modal-head">
-              <h2>New {config.label}</h2>
+              <h2>{t('pages.' + config.name + '.new')}</h2>
               <button onClick={() => setCreateOpen(false)} className="modal-x"><X className="icon-16" /></button>
             </div>
             <div className="modal-body form-body">
@@ -863,9 +865,9 @@ const [filters, setFilters] = useState<Record<string, FilterEntry>>({})
               </div>
             </div>
             <div className="modal-foot">
-              <button onClick={() => setCreateOpen(false)} className="btn-secondary">Cancel</button>
+              <button onClick={() => setCreateOpen(false)} className="btn-secondary">{t('common.cancel')}</button>
               <button onClick={handleCreate} disabled={saving || (nameField ? !form[nameField.key]?.toString().trim() : false)}
-                className="btn-primary">{saving ? 'Saving...' : 'Create'}</button>
+                className="btn-primary">{saving ? t('common.processing') : t('common.create')}</button>
             </div>
           </div>
         </div>
@@ -875,7 +877,7 @@ const [filters, setFilters] = useState<Record<string, FilterEntry>>({})
         <div className="modal-overlay" onClick={e => { if (e.target === e.currentTarget) setEditTarget(null) }}>
           <div className="modal">
             <div className="modal-head">
-              <h2>Edit {config.label}</h2>
+              <h2>{t('common.edit')} {t('pages.' + config.name + '.title')}</h2>
               <button onClick={() => setEditTarget(null)} className="modal-x"><X className="icon-16" /></button>
             </div>
             <div className="modal-body form-body">
@@ -887,9 +889,9 @@ const [filters, setFilters] = useState<Record<string, FilterEntry>>({})
               </div>
             </div>
             <div className="modal-foot">
-              <button onClick={() => setEditTarget(null)} className="btn-secondary">Cancel</button>
+              <button onClick={() => setEditTarget(null)} className="btn-secondary">{t('common.cancel')}</button>
               <button onClick={handleEdit} disabled={saving || (nameField ? !form[nameField.key]?.toString().trim() : false)}
-                className="btn-primary">{saving ? 'Saving...' : 'Save'}</button>
+                className="btn-primary">{saving ? t('common.processing') : t('common.save')}</button>
             </div>
           </div>
         </div>
@@ -900,15 +902,15 @@ const [filters, setFilters] = useState<Record<string, FilterEntry>>({})
           <div className="modal modal-sm">
             <div className="delete-body">
               <div className="delete-icon-wrap"><Trash2 /></div>
-              <h2 className="delete-heading">Delete {config.label}</h2>
+              <h2 className="delete-heading">{t('common.delete')} {t('pages.' + config.name + '.title')}</h2>
               <p className="delete-text">
                 Are you sure you want to delete <strong>{deleteTarget['name'] || deleteTarget.id}</strong>?
               </p>
             </div>
             <div className="modal-foot">
-              <button onClick={() => setDeleteTarget(null)} className="btn-secondary">Cancel</button>
+              <button onClick={() => setDeleteTarget(null)} className="btn-secondary">{t('common.cancel')}</button>
               <button onClick={handleDelete} disabled={deleting}
-                className="btn-notification">{deleting ? 'Deleting...' : 'Delete'}</button>
+                className="btn-notification">{deleting ? t('common.processing') : t('common.delete')}</button>
             </div>
           </div>
         </div>
@@ -918,7 +920,7 @@ const [filters, setFilters] = useState<Record<string, FilterEntry>>({})
         <div className="modal-overlay" onClick={e => { if (e.target === e.currentTarget) setBulkOpen(false) }}>
           <div className="modal">
             <div className="modal-head">
-              <h2>Bulk Update {config.labelPlural}</h2>
+              <h2>{t('common.bulkUpdate')} {t('pages.' + config.name + '.title')}</h2>
               <button onClick={() => setBulkOpen(false)} className="modal-x"><X className="icon-16" /></button>
             </div>
             <div className="modal-body form-body">
@@ -936,16 +938,16 @@ const [filters, setFilters] = useState<Record<string, FilterEntry>>({})
               )}
             </div>
             <div className="modal-foot">
-              <button onClick={() => setBulkOpen(false)} className="btn-secondary">Cancel</button>
+              <button onClick={() => setBulkOpen(false)} className="btn-secondary">{t('common.cancel')}</button>
               <button onClick={handleBulkUpdate} disabled={bulkSaving}
-                className="btn-primary">{bulkSaving ? 'Updating...' : `Update ${selectedIds.size} records`}</button>
+                className="btn-primary">{bulkSaving ? t('common.processing') : `${t('common.bulkUpdate')} ${selectedIds.size} records`}</button>
             </div>
           </div>
         </div>
       )}
 
       {/* ─── Right-side Detail Drawer ─── */}
-      <SlideDrawer open={!!selectedId} onClose={() => setSelectedId(null)} title={`${config.label} Details`}>
+      <SlideDrawer open={!!selectedId} onClose={() => setSelectedId(null)} title={`${t('pages.' + config.name + '.title')} Details`}>
         {selectedId && (
           <DetailDrawerContent
             config={config}

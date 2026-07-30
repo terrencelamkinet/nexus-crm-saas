@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
 import { Activity, X, ChevronRight } from 'lucide-react'
 import { apiClient } from '../../lib/api'
@@ -42,6 +43,7 @@ const typeEmoji: Record<string, string> = {
 
 /** Contacts tab — list all contacts belonging to this company */
 export function ContactsTab({ entity: company }: { entity: EntityRecord; moduleConfig: ModuleConfig; refresh: () => void }) {
+  const { t } = useTranslation()
   const [contacts, setContacts] = useState<LinkRow[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -53,15 +55,15 @@ export function ContactsTab({ entity: company }: { entity: EntityRecord; moduleC
       .finally(() => setLoading(false))
   }, [company.id])
 
-  if (loading) return <div className="panel"><div className="panel-head"><h3>Contacts</h3></div><div className="empty-state">Loading...</div></div>
+  if (loading) return <div className="panel"><div className="panel-head"><h3>{t('pages.companies.detail.contacts')}</h3></div><div className="empty-state">{t('common.loading')}</div></div>
 
   return (
     <div className="panel">
       <div className="panel-head">
-        <h3>Contacts ({contacts.length})</h3>
+        <h3>{t('pages.companies.detail.contacts')} ({contacts.length})</h3>
       </div>
       {contacts.length === 0 ? (
-        <div className="empty-state">No contacts linked to this company</div>
+        <div className="empty-state">{t('pages.companies.detail.noContacts')}</div>
       ) : (
         <div className="flex-col">
           {contacts.map(c => (
@@ -82,6 +84,7 @@ export function ContactsTab({ entity: company }: { entity: EntityRecord; moduleC
 
 /** Deals tab — list deals under this company */
 export function DealsTab({ entity: company }: { entity: EntityRecord; moduleConfig: ModuleConfig; refresh: () => void }) {
+  const { t } = useTranslation()
   const [deals, setDeals] = useState<LinkRow[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -95,15 +98,15 @@ export function DealsTab({ entity: company }: { entity: EntityRecord; moduleConf
 
   const fmt = (n: number | null) => n ? `$${n.toLocaleString()}` : '$0'
 
-  if (loading) return <div className="panel"><div className="panel-head"><h3>Deals</h3></div><div className="empty-state">Loading...</div></div>
+  if (loading) return <div className="panel"><div className="panel-head"><h3>{t('pages.companies.detail.deals')}</h3></div><div className="empty-state">{t('common.loading')}</div></div>
 
   return (
     <div className="panel">
       <div className="panel-head">
-        <h3>Deals ({deals.length})</h3>
+        <h3>{t('pages.companies.detail.deals')} ({deals.length})</h3>
       </div>
       {deals.length === 0 ? (
-        <div className="empty-state">No deals for this company</div>
+        <div className="empty-state">{t('pages.companies.detail.noDeals')}</div>
       ) : (
         <div className="flex-col">
           {deals.map(d => (
@@ -129,6 +132,7 @@ export function DealsTab({ entity: company }: { entity: EntityRecord; moduleConf
 
 /** Projects tab — projects belonging to this company */
 export function ProjectsTab({ entity: company }: { entity: EntityRecord; moduleConfig: ModuleConfig; refresh: () => void }) {
+  const { t } = useTranslation()
   const [projects, setProjects] = useState<LinkRow[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -142,15 +146,15 @@ export function ProjectsTab({ entity: company }: { entity: EntityRecord; moduleC
 
   const fmt = (n: number | null) => n ? `$${n.toLocaleString()}` : '$0'
 
-  if (loading) return <div className="panel"><div className="panel-head"><h3>Projects</h3></div><div className="empty-state">Loading...</div></div>
+  if (loading) return <div className="panel"><div className="panel-head"><h3>{t('pages.companies.detail.projects')}</h3></div><div className="empty-state">{t('common.loading')}</div></div>
 
   return (
     <div className="panel">
       <div className="panel-head">
-        <h3>Projects ({projects.length})</h3>
+        <h3>{t('pages.companies.detail.projects')} ({projects.length})</h3>
       </div>
       {projects.length === 0 ? (
-        <div className="empty-state">No projects yet</div>
+        <div className="empty-state">{t('pages.companies.detail.noProjects')}</div>
       ) : (
         <div className="flex-col">
           {projects.map(p => (
@@ -176,6 +180,7 @@ export function ProjectsTab({ entity: company }: { entity: EntityRecord; moduleC
 
 /** Products tab — products in use & proposed products */
 export function ProductsTab({ entity: company }: { entity: EntityRecord; moduleConfig: ModuleConfig; refresh: () => void }) {
+  const { t } = useTranslation()
   const [inUse, setInUse] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [products, setProducts] = useState<Record<string, string>>({})
@@ -193,20 +198,20 @@ export function ProductsTab({ entity: company }: { entity: EntityRecord; moduleC
     }).catch(() => {}).finally(() => setLoading(false))
   }, [company.id])
 
-  if (loading) return <div className="panel"><div className="panel-head"><h3>Products</h3></div><div className="empty-state">Loading...</div></div>
+  if (loading) return <div className="panel"><div className="panel-head"><h3>{t('pages.companies.detail.productsInUse')}</h3></div><div className="empty-state">{t('common.loading')}</div></div>
 
   return (
     <div className="panel">
-      <div className="panel-head"><h3>Products In Use ({inUse.length})</h3></div>
+      <div className="panel-head"><h3>{t('pages.companies.detail.productsInUse')} ({inUse.length})</h3></div>
       {inUse.length === 0 ? (
-        <div className="empty-state">No products in use</div>
+        <div className="empty-state">{t('pages.companies.detail.noProducts')}</div>
       ) : (
         <div className="flex-col">
           {inUse.map((p: any, i: number) => (
             <div key={p.product_id || i} className="list-row">
               <div className="list-main">
                 <div className="list-title">{products[p.product_id] || p.product_id.slice(0, 8)}</div>
-                {p.since_date && <div className="list-sub">Since {new Date(p.since_date).toLocaleDateString()}</div>}
+                {p.since_date && <div className="list-sub">{t('pages.companies.detail.since')}{new Date(p.since_date).toLocaleDateString()}</div>}
               </div>
             </div>
           ))}
@@ -218,6 +223,7 @@ export function ProductsTab({ entity: company }: { entity: EntityRecord; moduleC
 
 /** Partners tab — distributor partners */
 export function PartnersTab({ entity: company }: { entity: EntityRecord; moduleConfig: ModuleConfig; refresh: () => void }) {
+  const { t } = useTranslation()
   const [partners, setPartners] = useState<any[]>([])
   const [companyNames, setCompanyNames] = useState<Record<string, string>>({})
   const [loading, setLoading] = useState(true)
@@ -235,20 +241,20 @@ export function PartnersTab({ entity: company }: { entity: EntityRecord; moduleC
     }).catch(() => {}).finally(() => setLoading(false))
   }, [company.id])
 
-  if (loading) return <div className="panel"><div className="panel-head"><h3>Partners</h3></div><div className="empty-state">Loading...</div></div>
+  if (loading) return <div className="panel"><div className="panel-head"><h3>{t('pages.companies.detail.partners')}</h3></div><div className="empty-state">{t('common.loading')}</div></div>
 
   return (
     <div className="panel">
-      <div className="panel-head"><h3>Partners ({partners.length})</h3></div>
+      <div className="panel-head"><h3>{t('pages.companies.detail.partners')} ({partners.length})</h3></div>
       {partners.length === 0 ? (
-        <div className="empty-state">No distributor partners</div>
+        <div className="empty-state">{t('pages.companies.detail.noPartners')}</div>
       ) : (
         <div className="flex-col">
           {partners.map((p: any, i: number) => (
             <div key={`${p.partner_company_id}-${i}`} className="list-row">
               <div className="list-main">
                 <div className="list-title">{companyNames[p.partner_company_id] || p.partner_company_id.slice(0, 8)}</div>
-                <div className="list-sub">Relation: {p.relation_type || 'Partner'}</div>
+                <div className="list-sub">{t('pages.companies.detail.relationPartner')}{p.relation_type && p.relation_type !== 'Partner' ? p.relation_type : ''}</div>
               </div>
             </div>
           ))}
@@ -260,6 +266,7 @@ export function PartnersTab({ entity: company }: { entity: EntityRecord; moduleC
 
 /** Touchpoints tab */
 export function TouchpointsTab({ entity: company, refresh }: { entity: EntityRecord; moduleConfig: ModuleConfig; refresh: () => void }) {
+  const { t } = useTranslation()
   const [touchpoints, setTouchpoints] = useState<Touchpoint[]>([])
   const [open, setOpen] = useState(false)
   const [form, setForm] = useState({ title: '', type: 'meeting', description: '' })
@@ -290,11 +297,11 @@ export function TouchpointsTab({ entity: company, refresh }: { entity: EntityRec
     <>
       <div className="panel">
         <div className="panel-head">
-          <h3>Touchpoints ({touchpoints.length})</h3>
-          <button onClick={() => setOpen(true)} className="btn-ghost">+ Add Touchpoint</button>
+          <h3>{t('pages.companies.detail.touchpoints')} ({touchpoints.length})</h3>
+          <button onClick={() => setOpen(true)} className="btn-ghost">{t('pages.companies.detail.addTouchpoint')}</button>
         </div>
         {touchpoints.length === 0 ? (
-          <div className="empty-state">No touchpoints yet</div>
+          <div className="empty-state">{t('pages.companies.detail.noTouchpoints')}</div>
         ) : (
           <div className="flex-col">
             {touchpoints.map(tp => (
@@ -318,34 +325,34 @@ export function TouchpointsTab({ entity: company, refresh }: { entity: EntityRec
         <div className="modal-overlay" onClick={e => { if (e.target === e.currentTarget) setOpen(false) }}>
           <div className="modal">
             <div className="modal-head">
-              <h2>Add Touchpoint</h2>
+              <h2>{t('pages.companies.detail.modalAddTouchpoint')}</h2>
               <button onClick={() => setOpen(false)} className="modal-x"><X className="icon-16" /></button>
             </div>
             <div className="modal-body form-body">
               <div className="form-row-1">
-                <label className="field-label">Title *</label>
+                <label className="field-label">{t('pages.companies.detail.titleRequired')}</label>
                 <input type="text" value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
-                  placeholder="e.g. Quarterly review" className="input-field" />
+                  placeholder={t('pages.companies.detail.titlePlaceholder')} className="input-field" />
               </div>
               <div className="form-row-1">
-                <label className="field-label">Type</label>
+                <label className="field-label">{t('pages.companies.detail.type')}</label>
                 <select value={form.type} onChange={e => setForm(f => ({ ...f, type: e.target.value }))} className="input-field">
-                  <option value="meeting">Meeting</option>
+                  <option value="meeting">{t('touchpoint.type')}</option>
                   <option value="call">Call</option>
                   <option value="email">Email</option>
                   <option value="namecard">NameCard</option>
                 </select>
               </div>
               <div className="form-row-1">
-                <label className="field-label">Description</label>
+                <label className="field-label">{t('pages.companies.detail.description')}</label>
                 <textarea value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
-                  rows={2} placeholder="Brief description" className="input-field" />
+                  rows={2} placeholder={t('pages.companies.detail.descriptionPlaceholder')} className="input-field" />
               </div>
             </div>
             <div className="modal-foot">
-              <button onClick={() => setOpen(false)} className="btn-secondary">Cancel</button>
+              <button onClick={() => setOpen(false)} className="btn-secondary">{t('common.cancel')}</button>
               <button onClick={handleAdd} disabled={saving || !form.title.trim()}
-                className="btn-primary">{saving ? 'Saving...' : 'Add'}</button>
+                className="btn-primary">{saving ? t('common.saving') : t('pages.companies.detail.add')}</button>
             </div>
           </div>
         </div>
@@ -356,6 +363,7 @@ export function TouchpointsTab({ entity: company, refresh }: { entity: EntityRec
 
 /** Notes tab */
 export function NotesTab({ entity: company, refresh }: { entity: EntityRecord; moduleConfig: ModuleConfig; refresh: () => void }) {
+  const { t } = useTranslation()
   const [notes, setNotes] = useState<Note[]>([])
   const [open, setOpen] = useState(false)
   const [form, setForm] = useState({ title: '', content: '' })
@@ -385,18 +393,18 @@ export function NotesTab({ entity: company, refresh }: { entity: EntityRecord; m
     <>
       <div className="panel">
         <div className="panel-head">
-          <h3>Notes ({notes.length})</h3>
-          <button onClick={() => setOpen(true)} className="btn-ghost">+ Add Note</button>
+          <h3>{t('pages.companies.detail.notes')} ({notes.length})</h3>
+          <button onClick={() => setOpen(true)} className="btn-ghost">{t('pages.companies.detail.addNote')}</button>
         </div>
         {notes.length === 0 ? (
-          <div className="empty-state">No notes yet</div>
+          <div className="empty-state">{t('pages.companies.detail.noNotes')}</div>
         ) : (
           <div className="flex-col">
             {notes.map(n => (
               <div key={n.id} className="list-row flex-col items-stretch px-5 py-3">
                 <div className="flex items-start justify-between gap-2">
                   <div className="list-title">{n.title}</div>
-                  {n.pinned && <span className="badge badge-p1">Pinned</span>}
+                  {n.pinned && <span className="badge badge-p1">{t('pages.companies.detail.pinned')}</span>}
                 </div>
                 {n.content && <p className="list-sub mt-1 whitespace-pre-wrap">{n.content}</p>}
                 <p className="list-sub mt-1 text-xs">{timeAgo(n.created_at)}</p>
@@ -410,25 +418,25 @@ export function NotesTab({ entity: company, refresh }: { entity: EntityRecord; m
         <div className="modal-overlay" onClick={e => { if (e.target === e.currentTarget) setOpen(false) }}>
           <div className="modal">
             <div className="modal-head">
-              <h2>Add Note</h2>
+              <h2>{t('pages.companies.detail.modalAddNote')}</h2>
               <button onClick={() => setOpen(false)} className="modal-x"><X className="icon-16" /></button>
             </div>
             <div className="modal-body form-body">
               <div className="form-row-1">
-                <label className="field-label">Title *</label>
+                <label className="field-label">{t('pages.companies.detail.titleRequired')}</label>
                 <input type="text" value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
-                  placeholder="Note title" className="input-field" />
+                  placeholder={t('pages.companies.detail.noteTitlePlaceholder')} className="input-field" />
               </div>
               <div className="form-row-1">
-                <label className="field-label">Content</label>
+                <label className="field-label">{t('pages.companies.detail.description')}</label>
                 <textarea value={form.content} onChange={e => setForm(f => ({ ...f, content: e.target.value }))}
-                  rows={4} placeholder="Write your notes here..." className="input-field" />
+                  rows={4} placeholder={t('pages.companies.detail.noteContentPlaceholder')} className="input-field" />
               </div>
             </div>
             <div className="modal-foot">
-              <button onClick={() => setOpen(false)} className="btn-secondary">Cancel</button>
+              <button onClick={() => setOpen(false)} className="btn-secondary">{t('common.cancel')}</button>
               <button onClick={handleAdd} disabled={saving || !form.title.trim()}
-                className="btn-primary">{saving ? 'Saving...' : 'Add'}</button>
+                className="btn-primary">{saving ? t('common.saving') : t('pages.companies.detail.add')}</button>
             </div>
           </div>
         </div>
@@ -439,6 +447,7 @@ export function NotesTab({ entity: company, refresh }: { entity: EntityRecord; m
 
 /** Timeline tab — activity + touchpoints for this company */
 export function TimelineTab({ entity: company, refresh }: { entity: EntityRecord; moduleConfig: ModuleConfig; refresh: () => void }) {
+  const { t } = useTranslation()
   const [activities, setActivities] = useState<ActivityItem[]>([])
   const [touchpoints, setTouchpoints] = useState<Touchpoint[]>([])
   const [open, setOpen] = useState(false)
@@ -479,11 +488,11 @@ export function TimelineTab({ entity: company, refresh }: { entity: EntityRecord
     <>
       <div className="panel">
         <div className="panel-head">
-          <h3>Activity</h3>
-          <button onClick={() => setOpen(true)} className="btn-ghost">+ Log activity</button>
+          <h3>{t('pages.companies.detail.activity')}</h3>
+          <button onClick={() => setOpen(true)} className="btn-ghost">{t('pages.companies.detail.logActivity')}</button>
         </div>
         {timelineItems.length === 0 ? (
-          <div className="empty-state">No activity recorded yet</div>
+          <div className="empty-state">{t('pages.companies.detail.noActivity')}</div>
         ) : (
           <div className="timeline p-16">
             {timelineItems.map(item => (
@@ -506,25 +515,25 @@ export function TimelineTab({ entity: company, refresh }: { entity: EntityRecord
         <div className="modal-overlay" onClick={e => { if (e.target === e.currentTarget) setOpen(false) }}>
           <div className="modal">
             <div className="modal-head">
-              <h2>Log Activity</h2>
+              <h2>{t('pages.companies.detail.modalLogActivity')}</h2>
               <button onClick={() => setOpen(false)} className="modal-x"><X className="icon-16" /></button>
             </div>
             <div className="modal-body form-body">
               <div className="form-row-1">
-                <label className="field-label">Action *</label>
+                <label className="field-label">{t('pages.companies.detail.actionRequired')}</label>
                 <input type="text" value={form.action} onChange={e => setForm(f => ({ ...f, action: e.target.value }))}
-                  placeholder="e.g. Called, Emailed, Meeting" className="input-field" />
+                  placeholder={t('pages.companies.detail.actionPlaceholder')} className="input-field" />
               </div>
               <div className="form-row-1">
-                <label className="field-label">Description</label>
+                <label className="field-label">{t('pages.companies.detail.description')}</label>
                 <textarea value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
-                  rows={3} placeholder="Brief description..." className="input-field" />
+                  rows={3} placeholder={t('pages.companies.detail.activityDescriptionPlaceholder')} className="input-field" />
               </div>
             </div>
             <div className="modal-foot">
-              <button onClick={() => setOpen(false)} className="btn-secondary">Cancel</button>
+              <button onClick={() => setOpen(false)} className="btn-secondary">{t('common.cancel')}</button>
               <button onClick={handleLog} disabled={saving || !form.action.trim()}
-                className="btn-primary">{saving ? 'Saving...' : 'Log'}</button>
+                className="btn-primary">{saving ? t('common.saving') : t('pages.companies.detail.log')}</button>
             </div>
           </div>
         </div>
@@ -540,6 +549,7 @@ interface TaskItem {
 }
 
 export function TasksTab({ entity: company }: { entity: EntityRecord; moduleConfig: ModuleConfig; refresh: () => void }) {
+  const { t } = useTranslation()
   const [tasks, setTasks] = useState<TaskItem[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -551,15 +561,15 @@ export function TasksTab({ entity: company }: { entity: EntityRecord; moduleConf
       .finally(() => setLoading(false))
   }, [company.id])
 
-  if (loading) return <div className="panel"><div className="panel-head"><h3>Tasks</h3></div><div className="empty-state">Loading...</div></div>
+  if (loading) return <div className="panel"><div className="panel-head"><h3>{t('pages.companies.detail.tasks')}</h3></div><div className="empty-state">{t('common.loading')}</div></div>
 
   return (
     <div className="panel">
       <div className="panel-head">
-        <h3>Tasks ({tasks.length})</h3>
+        <h3>{t('pages.companies.detail.tasks')} ({tasks.length})</h3>
       </div>
       {tasks.length === 0 ? (
-        <div className="empty-state">No tasks linked</div>
+        <div className="empty-state">{t('pages.companies.detail.noTasks')}</div>
       ) : (
         <div className="flex-col">
           {tasks.map(t => (

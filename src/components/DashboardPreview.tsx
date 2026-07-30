@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import { apiClient } from '../lib/api';
 import {
   CheckSquare, Activity, Sparkles, X, Plus,
@@ -78,6 +79,7 @@ const demonTouchpoints: Touchpoint[] = [
 ]
 
 export default function DashboardPreview() {
+  const { t } = useTranslation()
   const [stats, setStats] = useState({ contacts: 0, deals: 0, dealValue: '', tasks: 0, companies: 0 })
   const [tasks, setTasks] = useState<Task[]>([])
   const [touchpoints, setTouchpoints] = useState<Touchpoint[]>([])
@@ -228,7 +230,7 @@ export default function DashboardPreview() {
         </div>
         <div className="list-row">
           <div className="list-main">
-            <div className="list-title"><FileText size={14} /> Status</div>
+            <div className="list-title"><FileText size={14} /> {t('tasks.status')}</div>
             <div className="list-sub">{task.status || 'pending'}</div>
           </div>
         </div>
@@ -236,7 +238,7 @@ export default function DashboardPreview() {
           <div className="list-row">
             <Calendar size={14} />
             <div className="list-main">
-              <div className="list-title">Due Date</div>
+              <div className="list-title">{t('tasks.dueDate')}</div>
               <div className="list-sub">{new Date(task.due_date).toLocaleDateString()}</div>
             </div>
           </div>
@@ -262,13 +264,13 @@ export default function DashboardPreview() {
         <div className="list-row">
           <Tag size={14} />
           <div className="list-main">
-            <div className="list-title">Stage</div>
+            <div className="list-title">{t('deals.stage')}</div>
             <div className="list-sub">{stages[deal.stage_id]?.label || deal.stage_id}</div>
           </div>
         </div>
         <div className="list-row">
           <div className="list-main">
-            <div className="list-title">Probability</div>
+            <div className="list-title">{t('pages.deals.probability')}</div>
             <div className="list-sub">{deal.probability}%</div>
           </div>
         </div>
@@ -292,7 +294,7 @@ export default function DashboardPreview() {
           <div className="list-row">
             <Mail size={14} />
             <div className="list-main">
-              <div className="list-title">Email</div>
+              <div className="list-title">{t('contacts.email')}</div>
               <div className="list-sub">{contact.email}</div>
             </div>
           </div>
@@ -301,7 +303,7 @@ export default function DashboardPreview() {
           <div className="list-row">
             <Phone size={14} />
             <div className="list-main">
-              <div className="list-title">Phone</div>
+              <div className="list-title">{t('contacts.phone')}</div>
               <div className="list-sub">{contact.phone}</div>
             </div>
           </div>
@@ -310,7 +312,7 @@ export default function DashboardPreview() {
           <div className="list-row">
             <Building2 size={14} />
             <div className="list-main">
-              <div className="list-title">Company</div>
+              <div className="list-title">{t('contacts.company')}</div>
               <div className="list-sub">{contact.company.name}</div>
             </div>
           </div>
@@ -337,7 +339,7 @@ export default function DashboardPreview() {
           <div className="list-row">
             <FileText size={14} />
             <div className="list-main">
-              <div className="list-title">Description</div>
+              <div className="list-title">{t('touchpoint.notes')}</div>
               <div className="list-sub">{tp.description}</div>
             </div>
           </div>
@@ -345,7 +347,7 @@ export default function DashboardPreview() {
         <div className="list-row">
           <Clock size={14} />
           <div className="list-main">
-            <div className="list-title">Date</div>
+            <div className="list-title">{t('touchpoint.type')}</div>
             <div className="list-sub">{new Date(tp.created_at).toLocaleString()}</div>
           </div>
         </div>
@@ -358,7 +360,7 @@ export default function DashboardPreview() {
       {/* Toolbar — design01 .dash-toolbar pattern */}
       <div className="dash-toolbar">
         <div>
-          <h1>早晨,Terrence 👋</h1>
+          <h1>{t('greeting.morning', { name: 'Terrence' })}</h1>
           <p>{todayStr()}</p>
         </div>
         <div style={{display:'flex', gap:10, alignItems:'center'}}>
@@ -370,7 +372,7 @@ export default function DashboardPreview() {
           </div>
           <button className={`dash-btn${editing ? ' primary' : ''}`} onClick={() => setEditing(!editing)}>
             <Layout size={15} />
-            {editing ? '完成' : '自訂版面'}
+            {editing ? t('common.done') : t('dashboard.editMode')}
           </button>
         </div>
       </div>
@@ -380,29 +382,29 @@ export default function DashboardPreview() {
         <section className="ai-brief-card">
           <div className="brief-head">
             <Sparkles size={20} />
-            <h2>AI 每日簡報</h2>
-            <span>基於即時數據 · 自動更新</span>
+            <h2>{t('greeting.aiBriefing')}</h2>
+            <span>{t('pages.briefing.title')}</span>
           </div>
           <div className="brief-grid">
             <div>
-              <h4>今日重點</h4>
+              <h4>{t('greeting.todayHighlights')}</h4>
               <ul>
-                <li>{stats.deals} 個 Deal 進行中,總值 {stats.dealValue}</li>
-                <li>本日 {stats.tasks} 項待辦任務</li>
+                <li>{stats.deals} {t('pages.tasks.inProgress')} {t('deals.title').toLowerCase()}, {t('deals.amount').toLowerCase()} {stats.dealValue}</li>
+                <li>{t('dashboard.widgets.tasksDue')}: {stats.tasks}</li>
               </ul>
             </div>
             <div>
-              <h4>會議準備</h4>
+              <h4>{t('greeting.meetingPrep')}</h4>
               <ul>
                 {touchpoints.slice(0,2).map(tp => <li key={tp.id}>{tp.title}</li>)}
-                {touchpoints.length === 0 && <li className="muted">暫無會議</li>}
+                {touchpoints.length === 0 && <li className="muted">{t('calendar.noEvents')}</li>}
               </ul>
             </div>
             <div>
-              <h4>風險提示</h4>
+              <h4>{t('greeting.riskAlerts')}</h4>
               <ul>
-                <li>{tasks.filter(t=>t.priority==='P0').length} 件緊急任務需跟進</li>
-                <li>{stats.companies} 間公司活躍中</li>
+                <li>{tasks.filter(t=>t.priority==='P0').length} {t('priority.urgent')} {t('pages.tasks.taskTitle').toLowerCase()}</li>
+                <li>{stats.companies} {t('companies.title').toLowerCase()} {t('status.active')}</li>
               </ul>
             </div>
           </div>
@@ -425,18 +427,18 @@ export default function DashboardPreview() {
               <div className="w-head">
                 <h3>
                   {k.startsWith('kpi_') ? def.label :
-                   k === 'tasks' ? <><CheckSquare size={14} style={{color:'var(--color-text-muted)'}} /> Today's Tasks <span className="dash-badge" style={{background:'color-mix(in oklch,var(--color-primary)18%,var(--color-surface))',color:'var(--color-primary)'}}>{stats.tasks}</span></> :
-                   k === 'touchpoints' ? <><Activity size={14} style={{color:'var(--color-text-muted)'}} /> Recent Touchpoints</> :
-                   k === 'pipeline' ? <><TrendingUp size={14} style={{color:'var(--color-text-muted)'}} /> Deal Pipeline</> :
-                   k === 'dealvalue' ? <><DollarSign size={15} style={{color:'var(--color-text-muted)'}} /> Total Deal Value</> :
+                   k === 'tasks' ? <><CheckSquare size={14} style={{color:'var(--color-text-muted)'}} /> {t('dashboard.widgets.tasksDue')} <span className="dash-badge" style={{background:'color-mix(in oklch,var(--color-primary)18%,var(--color-surface))',color:'var(--color-primary)'}}>{stats.tasks}</span></> :
+                   k === 'touchpoints' ? <><Activity size={14} style={{color:'var(--color-text-muted)'}} /> {t('dashboard.widgets.recentActivity')}</> :
+                   k === 'pipeline' ? <><TrendingUp size={14} style={{color:'var(--color-text-muted)'}} /> {t('dashboard.widgets.pipeline')}</> :
+                   k === 'dealvalue' ? <><DollarSign size={15} style={{color:'var(--color-text-muted)'}} /> {t('dashboard.widgets.dealTotal')}</> :
                    k === 'aiinsight' ? <><Sparkles size={15} style={{color:'var(--color-purple)'}} /> AI Insight</> :
-                   k === 'activity_feed' ? <><Activity size={15} style={{color:'var(--color-text-muted)'}} /> Activity Feed</> :
+                   k === 'activity_feed' ? <><Activity size={15} style={{color:'var(--color-text-muted)'}} /> {t('dashboard.widgets.recentActivity')}</> :
                    def.label}
                 </h3>
                 {editing && (
                   <div className="w-actions">
-                    <button className="w-action" title="拖曳"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="9" cy="6" r="1"/><circle cx="9" cy="12" r="1"/><circle cx="9" cy="18" r="1"/><circle cx="15" cy="6" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="15" cy="18" r="1"/></svg></button>
-                    <button className="w-action" title="移除" onClick={e => { e.stopPropagation(); removeW(k) }}><X size={14} /></button>
+                    <button className="w-action" title={t('greeting.drag')}><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="9" cy="6" r="1"/><circle cx="9" cy="12" r="1"/><circle cx="9" cy="18" r="1"/><circle cx="15" cy="6" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="15" cy="18" r="1"/></svg></button>
+                    <button className="w-action" title={t('greeting.remove')} onClick={e => { e.stopPropagation(); removeW(k) }}><X size={14} /></button>
                   </div>
                 )}
               </div>
@@ -445,7 +447,7 @@ export default function DashboardPreview() {
                   <div className="kpi-center">
                     <span className="kpi-val" style={{cursor:'pointer',color:k==='kpi_contacts'?'var(--color-blue)':k==='kpi_companies'?'var(--color-purple)':k==='kpi_deals'?'var(--color-primary)':'var(--color-warning)'}}
                       onClick={() => {
-                        if (k === 'kpi_contacts' && contacts.length > 0) openDrawer('Contacts',
+                        if (k === 'kpi_contacts' && contacts.length > 0) openDrawer(t('contacts.title'),
                           <div style={{display:'flex',flexDirection:'column',gap:8,padding:'8px 0'}}>
                             {contacts.slice(0,10).map(c => (
                               <div key={c.id} className="dash-row" onClick={() => openDrawer(c.name, buildContactDetail(c))}>
@@ -456,7 +458,7 @@ export default function DashboardPreview() {
                             ))}
                           </div>
                         )
-                        if (k === 'kpi_deals' && deals.length > 0) openDrawer('All Deals',
+                        if (k === 'kpi_deals' && deals.length > 0) openDrawer(t('deals.title'),
                           <div style={{display:'flex',flexDirection:'column',gap:8,padding:'8px 0'}}>
                             {deals.slice(0,10).map(d => (
                               <div key={d.id} className="dash-row" onClick={() => openDrawer(d.name, buildDealDetail(d))}>
@@ -467,7 +469,7 @@ export default function DashboardPreview() {
                             ))}
                           </div>
                         )
-                        if (k === 'kpi_tasks' && tasks.length > 0) openDrawer('All Tasks',
+                        if (k === 'kpi_tasks' && tasks.length > 0) openDrawer(t('tasks.title'),
                           <div style={{display:'flex',flexDirection:'column',gap:8,padding:'8px 0'}}>
                             {tasks.slice(0,10).map(t => (
                               <div key={t.id} className="dash-row" onClick={() => openDrawer(t.title, buildTaskDetail(t))}>
@@ -481,11 +483,16 @@ export default function DashboardPreview() {
                       }}>
                       {k==='kpi_contacts'?stats.contacts:k==='kpi_companies'?stats.companies:k==='kpi_deals'?stats.deals:stats.tasks}
                     </span>
-                    <span className="kpi-lbl">{def.label}</span>
+                    <span className="kpi-lbl">{t('dashboard.widgets.' + ({
+                      kpi_contacts: 'totalCustomers',
+                      kpi_companies: 'totalCustomers',
+                      kpi_deals: 'activeDeals',
+                      kpi_tasks: 'tasksDue',
+                    })[k])}</span>
                   </div>
                 )}
                 {k === 'tasks' && (tasks.length === 0
-                  ? <div className="empty">No tasks</div>
+                  ? <div className="empty">{t('pages.tasks.empty')}</div>
                   : tasks.slice(0,5).map(t => (
                     <div key={t.id} className="dash-row" onClick={() => openDrawer(t.title, buildTaskDetail(t))}>
                       <CheckSquare size={14} className="row-icon" />
@@ -498,7 +505,7 @@ export default function DashboardPreview() {
                   ))
                 )}
                 {k === 'touchpoints' && (touchpoints.length === 0
-                  ? <div className="empty">No recent activity</div>
+                  ? <div className="empty">{t('common.noResults')}</div>
                   : touchpoints.map(tp => (
                     <div key={tp.id} className="dash-row" onClick={() => openDrawer(tp.title, buildTouchpointDetail(tp))}>
                       <Activity size={14} className="row-icon" />
@@ -510,7 +517,7 @@ export default function DashboardPreview() {
                 {k === 'pipeline' && pipeline.map(p => (
                   <div key={p.key} className="stage-row" style={{cursor:'pointer'}} onClick={() => {
                     const stageDeals = deals.filter(d => d.stage_id === p.key)
-                    if (stageDeals.length > 0) openDrawer(`${p.label} Deals (${stageDeals.length})`, 
+                    if (stageDeals.length > 0) openDrawer(`${p.label} ${t('deals.title')} (${stageDeals.length})`, 
                       <div style={{display:'flex',flexDirection:'column',gap:8,padding:'8px 0'}}>
                         {stageDeals.map(d => (
                           <div key={d.id} className="list-row" onClick={() => openDrawer(d.name, buildDealDetail(d))}>
@@ -527,7 +534,7 @@ export default function DashboardPreview() {
                   }}>
                     <div className="stage-labels">
                       <span>{p.label}</span>
-                      <span>{p.count} deals · ${p.total.toLocaleString()}</span>
+                      <span>{p.count} {t('deals.title').toLowerCase()} · ${p.total.toLocaleString()}</span>
                     </div>
                     <div className="bar-track">
                       <div className="bar-fill" style={{width:`${(p.total/maxPipelineTotal)*100}%`,background:p.color}} />
@@ -537,7 +544,7 @@ export default function DashboardPreview() {
                 {k === 'dealvalue' && (
                   <><div className="kpi-val" style={{color:'var(--color-primary)',cursor:'pointer'}} onClick={() => {
                     const won = deals.filter(d => d.stage_id === 'closed_won')
-                    if (won.length > 0) openDrawer('Closed Won Deals',
+                    if (won.length > 0) openDrawer(t('pages.deals.won') + ' ' + t('deals.title'),
                       <div style={{display:'flex',flexDirection:'column',gap:8,padding:'8px 0'}}>
                         {won.map(d => (
                           <div key={d.id} className="list-row" onClick={() => openDrawer(d.name, buildDealDetail(d))}>
@@ -549,22 +556,22 @@ export default function DashboardPreview() {
                       </div>
                     )
                   }}>{stats.dealValue||'—'}</div>
-                  <div className="kpi-delta up">↑ {deals.filter(d=>d.stage_id==='closed_won').length} closed won</div></>
+                  <div className="kpi-delta up">↑ {deals.filter(d=>d.stage_id==='closed_won').length} {t('status.won')}</div></>
                 )}
                 {k === 'aiinsight' && (
                   <div style={{fontSize:13,lineHeight:1.5,color:'var(--color-text-muted)'}}>
-                    <p>• {stats.contacts} contacts active</p>
-                    <p>• {stats.tasks} tasks pending</p>
-                    <p>• Pipeline velocity: {deals.length>0?Math.round(deals.filter(d=>d.stage_id==='closed_won').length/Math.max(1,deals.length)*100):0}%</p>
+                    <p>• {stats.contacts} {t('contacts.title').toLowerCase()} {t('status.active')}</p>
+                    <p>• {stats.tasks} {t('tasks.title').toLowerCase()} {t('status.pending')}</p>
+                    <p>• {t('dashboard.widgets.pipeline')} velocity: {deals.length>0?Math.round(deals.filter(d=>d.stage_id==='closed_won').length/Math.max(1,deals.length)*100):0}%</p>
                   </div>
                 )}
                 {k === 'activity_feed' && (
                   <div style={{fontSize:13}}>
                     {touchpoints.length === 0
-                      ? <div className="empty">No recent activity</div>
+                      ? <div className="empty">{t('common.noResults')}</div>
                       : <table className="feed-table">
                           <thead>
-                            <tr><th>Type</th><th>Title</th><th>Company</th><th>Date</th></tr>
+                            <tr><th>{t('touchpoint.type')}</th><th>{t('touchpoint.title')}</th><th>{t('contacts.company')}</th><th>{t('touchpoint.type')}</th></tr>
                           </thead>
                           <tbody>
                             {touchpoints.map(tp => (
@@ -625,7 +632,7 @@ export default function DashboardPreview() {
         {editing && (
           <div className="dash-add-tile" onClick={() => setShowPicker(!showPicker)}>
             <Plus size={24} />
-            <span>新增小工具</span>
+            <span>{t('dashboard.addWidget')}</span>
           </div>
         )}
       </div>
@@ -636,7 +643,7 @@ export default function DashboardPreview() {
           {Object.entries(allWidgets).filter(([k]) => !widgetItems.some(w => w.key === k)).map(([k, v]) => (
             <button key={k} className="picker-btn" onClick={() => addWidget(k)}>+ {v.label}</button>
           ))}
-          {Object.keys(allWidgets).length === widgetItems.length && <span className="picker-done">All widgets added</span>}
+          {Object.keys(allWidgets).length === widgetItems.length && <span className="picker-done">{t('greeting.allWidgetsAdded')}</span>}
         </div>
       )}
 
