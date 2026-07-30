@@ -132,7 +132,7 @@
 .dash01-shell .new-dropdown-item svg { width: 16px; height: 16px; color: var(--color-text-muted); }
 
 /* ── MAIN CONTENT ── */
-.dash01-shell .content { flex: 1; overflow-y: auto; padding: 24px 24px 100px; }
+.dash01-shell .content { flex: 1; overflow-y: auto; padding: 24px 24px 100px; background: var(--color-bg); }
 .dash01-shell .dash-toolbar {
   display: flex; justify-content: space-between; align-items: center;
   margin-bottom: 18px; flex-wrap: wrap; gap: 10px;

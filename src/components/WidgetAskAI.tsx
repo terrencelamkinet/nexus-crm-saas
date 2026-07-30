@@ -79,7 +79,7 @@ export default function WidgetAskAI({ onExpand, className }: Props) {
           style={{
             flex: 1,
             padding: '8px 12px',
-            fontSize: 13,
+            fontSize: 16, // iOS 16px min to prevent auto-zoom
             borderRadius: 'var(--radius-md)',
             border: '1px solid var(--color-border)',
             background: 'var(--color-surface)',

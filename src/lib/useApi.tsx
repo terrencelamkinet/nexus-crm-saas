@@ -102,17 +102,17 @@ export function TableSkeleton({ rows = 5, cols = 5 }: { rows?: number; cols?: nu
     <div className="animate-pulse">
       <table className="w-full">
         <thead>
-          <tr className="text-xs text-slate-500 uppercase bg-slate-50">
+          <tr style={{fontSize:12,color:'var(--color-text-faint)',background:'var(--color-surface-offset)'}}>
             {Array.from({ length: cols }).map((_, i) => (
-              <th key={i} className="text-left px-4 py-3"><div className="h-3 bg-slate-200 rounded w-16" /></th>
+              <th key={i} style={{textAlign:'left',padding:'12px 16px'}}><div style={{height:12,borderRadius:4,background:'var(--color-surface-offset-2)',width:64}} /></th>
             ))}
           </tr>
         </thead>
         <tbody>
           {Array.from({ length: rows }).map((_, r) => (
-            <tr key={r} className="border-t border-slate-100">
+            <tr key={r} style={{borderTop:'1px solid var(--color-divider)'}}>
               {Array.from({ length: cols }).map((_, c) => (
-                <td key={c} className="px-4 py-3"><div className="h-4 bg-slate-100 rounded w-3/4" /></td>
+                <td key={c} style={{padding:'12px 16px'}}><div style={{height:16,borderRadius:4,background:'var(--color-surface-offset)',width:'75%'}} /></td>
               ))}
             </tr>
           ))}
@@ -126,12 +126,12 @@ export function CardSkeleton({ count = 3 }: { count?: number }) {
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 animate-pulse">
       {Array.from({ length: count }).map((_, i) => (
-        <div key={i} className="bg-white rounded-xl border border-slate-200 overflow-hidden">
-          <div className="h-36 bg-slate-100" />
+        <div key={i} style={{background:'var(--color-surface-2)',borderRadius:12,border:'1px solid var(--color-border)',overflow:'hidden'}}>
+          <div style={{height:144,background:'var(--color-surface-offset)'}} />
           <div className="p-4 space-y-2">
-            <div className="h-4 bg-slate-200 rounded w-2/3" />
-            <div className="h-3 bg-slate-100 rounded w-1/2" />
-            <div className="h-3 bg-slate-100 rounded w-3/4" />
+            <div style={{height:16,borderRadius:4,background:'var(--color-surface-offset-2)',width:'66%'}} />
+            <div style={{height:12,borderRadius:4,background:'var(--color-surface-offset)',width:'50%'}} />
+            <div style={{height:12,borderRadius:4,background:'var(--color-surface-offset)',width:'75%'}} />
           </div>
         </div>
       ))}

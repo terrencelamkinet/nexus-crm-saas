@@ -5,6 +5,7 @@ import LoginPage from './pages/LoginPage';
 import DashboardNew from './pages/DashboardNew';
 import ContactsPage from './modules/contacts/ContactsPage';
 import ContactDetailPage from './modules/contacts/ContactDetailPage';
+import ContactCalendarPage from './modules/contacts/ContactCalendarPage';
 import CompaniesPage from './modules/companies/CompaniesPage';
 import CompaniesDetailPage from './modules/companies/CompaniesDetailPage';
 import ProjectsPage from './modules/projects/ProjectsPage';
@@ -39,6 +40,7 @@ function App() {
           <Route index element={<Navigate to="/dashboard" replace />} />
           <Route path="dashboard" element={<DashboardNew />} />
           <Route path="contacts" element={<ContactsPage />} />
+          <Route path="contacts/calendar" element={<ContactCalendarPage />} />
           <Route path="contacts/:id" element={<ContactDetailPage />} />
           <Route path="companies" element={<CompaniesPage />} />
           <Route path="companies/:id" element={<CompaniesDetailPage />} />

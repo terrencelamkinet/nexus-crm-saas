@@ -2070,3 +2070,172 @@ async def delete_calendar_event(
         summary=f"Deleted calendar event '{title}'",
     )
     return None
+
+
+# ===========================================================================
+# Global CRM Search — unified search across all entities
+# ===========================================================================
+
+
+@router.get("/search")
+async def global_crm_search(
+    request: Request,
+    q: str,
+    limit: int = 10,
+    db: AsyncSession = Depends(get_tenant_session),
+):
+    """Search across all CRM entities (contacts, companies, deals, tasks,
+    projects, touchpoints, notes) using a single UNION ALL query.
+
+    Returns a flat result list with id, type, label, sub, url.
+    """
+    tenant_id = _get_tenant_id(request)
+    pattern = f"%{q}%"
+
+    # ── Main data query with UNION ALL ────────────────────────────────
+    data_sql = text(
+        """
+        SELECT id, type, label, sub, url
+        FROM (
+            SELECT
+                c.id::text                AS id,
+                'contact'                 AS type,
+                c.name                    AS label,
+                COALESCE(c.email, '')     AS sub,
+                '/contacts/' || c.id::text AS url
+            FROM nexus_crm.contacts c
+            WHERE c.tenant_id = :tenant_id
+              AND (c.name       ILIKE :q
+                OR c.email      ILIKE :q
+                OR c.phone      ILIKE :q
+                OR c.chinese_name ILIKE :q)
+
+            UNION ALL
+
+            SELECT
+                co.id::text                 AS id,
+                'company'                   AS type,
+                co.name                     AS label,
+                COALESCE(co.industry, '')   AS sub,
+                '/companies/' || co.id::text AS url
+            FROM nexus_crm.companies co
+            WHERE co.tenant_id = :tenant_id
+              AND (co.name     ILIKE :q
+                OR co.domain   ILIKE :q
+                OR co.industry ILIKE :q)
+
+            UNION ALL
+
+            SELECT
+                d.id::text                AS id,
+                'deal'                    AS type,
+                d.name                    AS label,
+                ''                        AS sub,
+                '/deals/' || d.id::text   AS url
+            FROM nexus_crm.deals d
+            WHERE d.tenant_id = :tenant_id
+              AND (d.name  ILIKE :q
+                OR d.notes ILIKE :q)
+
+            UNION ALL
+
+            SELECT
+                t.id::text               AS id,
+                'task'                   AS type,
+                t.title                  AS label,
+                ''                       AS sub,
+                '/tasks/' || t.id::text  AS url
+            FROM nexus_crm.tasks t
+            WHERE t.tenant_id = :tenant_id
+              AND t.title ILIKE :q
+
+            UNION ALL
+
+            SELECT
+                p.id::text                 AS id,
+                'project'                  AS type,
+                p.name                     AS label,
+                ''                         AS sub,
+                '/projects/' || p.id::text AS url
+            FROM nexus_crm.projects p
+            WHERE p.tenant_id = :tenant_id
+              AND p.name ILIKE :q
+
+            UNION ALL
+
+            SELECT
+                tp.id::text                   AS id,
+                'touchpoint'                  AS type,
+                tp.title                      AS label,
+                ''                            AS sub,
+                '/touchpoints/' || tp.id::text AS url
+            FROM nexus_crm.touchpoints tp
+            WHERE tp.tenant_id = :tenant_id
+              AND tp.title ILIKE :q
+
+            UNION ALL
+
+            SELECT
+                n.id::text               AS id,
+                'note'                   AS type,
+                COALESCE(n.title, '')    AS label,
+                LEFT(COALESCE(n.content, ''), 200) AS sub,
+                '/notes/' || n.id::text  AS url
+            FROM nexus_crm.notes n
+            WHERE n.tenant_id = :tenant_id
+              AND (n.title   ILIKE :q
+                OR n.content ILIKE :q)
+        ) results
+        LIMIT :limit
+        """
+    )
+
+    # ── Count query (same filters, no data) ───────────────────────────
+    count_sql = text(
+        """
+        SELECT COUNT(*) FROM (
+            SELECT c.id FROM nexus_crm.contacts c
+             WHERE c.tenant_id = :tenant_id
+               AND (c.name ILIKE :q OR c.email ILIKE :q OR c.phone ILIKE :q OR c.chinese_name ILIKE :q)
+            UNION ALL
+            SELECT co.id FROM nexus_crm.companies co
+             WHERE co.tenant_id = :tenant_id
+               AND (co.name ILIKE :q OR co.domain ILIKE :q OR co.industry ILIKE :q)
+            UNION ALL
+            SELECT d.id FROM nexus_crm.deals d
+             WHERE d.tenant_id = :tenant_id
+               AND (d.name ILIKE :q OR d.notes ILIKE :q)
+            UNION ALL
+            SELECT t.id FROM nexus_crm.tasks t
+             WHERE t.tenant_id = :tenant_id AND t.title ILIKE :q
+            UNION ALL
+            SELECT p.id FROM nexus_crm.projects p
+             WHERE p.tenant_id = :tenant_id AND p.name ILIKE :q
+            UNION ALL
+            SELECT tp.id FROM nexus_crm.touchpoints tp
+             WHERE tp.tenant_id = :tenant_id AND tp.title ILIKE :q
+            UNION ALL
+            SELECT n.id FROM nexus_crm.notes n
+             WHERE n.tenant_id = :tenant_id
+               AND (n.title ILIKE :q OR n.content ILIKE :q)
+        ) cnt
+        """
+    )
+
+    params = {"tenant_id": tenant_id, "q": pattern, "limit": limit}
+
+    rows = (await db.execute(data_sql, params)).fetchall()
+    total = (await db.execute(count_sql, params)).scalar() or 0
+
+    results = [
+        {
+            "id": row.id,
+            "type": row.type,
+            "label": row.label,
+            "sub": row.sub,
+            "url": row.url,
+        }
+        for row in rows
+    ]
+
+    return {"results": results, "total": total}

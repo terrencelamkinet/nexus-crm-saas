@@ -28,7 +28,9 @@
     "searchPlaceholder": "Search contacts, companies, deals...",
     "toggleTheme": "Toggle theme",
     "notifications": "Notifications",
-    "userMenu": "User menu"
+    "userMenu": "User menu",
+    "searchNoResults": "No results found",
+    "searchWeb": "Search web for \"{{query}}\" →"
   },
   "login": {
     "title": "Welcome back",

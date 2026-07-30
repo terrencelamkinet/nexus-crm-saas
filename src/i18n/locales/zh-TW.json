@@ -28,7 +28,9 @@
     "searchPlaceholder": "搜尋聯絡人、公司、交易...",
     "toggleTheme": "切換主題",
     "notifications": "通知",
-    "userMenu": "用戶選單"
+    "userMenu": "用戶選單",
+    "searchNoResults": "搵唔到結果",
+    "searchWeb": "上網搜尋 \"{{query}}\" →"
   },
   "login": {
     "title": "歡迎回來",

@@ -17,6 +17,19 @@ import WeekView from './WeekView';
 import DayView from './DayView';
 import DeadlineView from './DeadlineView';
 import GanttView from './GanttView';
+import MobileAgendaView from './MobileAgendaView';
+
+/** Simple hook that tracks a CSS media query match state. */
+function useMediaQuery(query: string): boolean {
+  const [matches, setMatches] = useState(() => window.matchMedia(query).matches);
+  useEffect(() => {
+    const mql = window.matchMedia(query);
+    const handler = (e: MediaQueryListEvent) => setMatches(e.matches);
+    mql.addEventListener('change', handler);
+    return () => mql.removeEventListener('change', handler);
+  }, [query]);
+  return matches;
+}
 
 interface CalendarViewsProps {
   events: CalendarEventFormatted[];
@@ -55,6 +68,7 @@ export default function CalendarViews({ events, loading, onRefresh }: CalendarVi
   const [viewType, setViewType] = useState<CalendarViewType>('deadline');
   const [date, setDate] = useState<Date>(new Date());
   const [showWeekends, setShowWeekends] = useState<boolean>(getStoredShowWeekends);
+  const isMobile = useMediaQuery('(max-width: 768px)');
 
   // Persist weekend setting
   useEffect(() => {
@@ -71,12 +85,16 @@ export default function CalendarViews({ events, loading, onRefresh }: CalendarVi
 
   const renderView = () => {
     switch (viewType) {
-      case 'month': return <MonthView events={events} date={date} onDateChange={handleDateChange} />;
+      case 'month':
+        if (isMobile) return <MobileAgendaView events={events} date={date} onDateChange={handleDateChange} />;
+        return <MonthView events={events} date={date} onDateChange={handleDateChange} />;
       case 'week': return <WeekView events={events} date={date} onDateChange={handleDateChange} viewType={viewType} onViewChange={handleViewChange} showWeekends={showWeekends} />;
       case 'day': return <DayView events={events} date={date} onDateChange={handleDateChange} />;
       case 'deadline': return <DeadlineView events={events} date={date} onDateChange={handleDateChange} />;
       case 'gantt': return <GanttView events={events} date={date} onDateChange={handleDateChange} />;
-      default: return <MonthView events={events} date={date} onDateChange={handleDateChange} />;
+      default:
+        if (isMobile) return <MobileAgendaView events={events} date={date} onDateChange={handleDateChange} />;
+        return <MonthView events={events} date={date} onDateChange={handleDateChange} />;
     }
   };
 

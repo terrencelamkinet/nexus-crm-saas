@@ -9,7 +9,6 @@ import {
   Plus, Sparkles, X,
   Activity, DollarSign, Layout, Calendar,
 } from 'lucide-react'
-import ChatboxPanel from '../components/ChatboxPanel'
 import SlideDrawer from '../components/SlideDrawer'
 import DailyBriefingCard from '../components/DailyBriefingCard'
 import WidgetAskAI from '../components/WidgetAskAI'
@@ -1117,7 +1116,7 @@ export default function DashboardNew() {
       </div>
 
       {aiOn && (
-        <div className="ai-tag" style={{display:'inline-flex',alignItems:'center',gap:5,padding:'5px 10px',borderRadius:'999px',background:'var(--color-purple-highlight)',color:'var(--color-purple)',fontSize:11.5,fontWeight:700,marginTop:10,border:'none',cursor:'pointer'}}>
+        <div className="ai-tag" onClick={() => window.dispatchEvent(new CustomEvent('toggle-ai-chat'))} style={{display:'inline-flex',alignItems:'center',gap:5,padding:'5px 10px',borderRadius:'999px',background:'var(--color-purple-highlight)',color:'var(--color-purple)',fontSize:11.5,fontWeight:700,marginTop:10,border:'none',cursor:'pointer'}}>
           <Sparkles size={12} /> {t('chat.title')}
         </div>
       )}
@@ -1190,8 +1189,6 @@ export default function DashboardNew() {
           }
         </div>
       </aside>
-      {/* ── AI Chat ── */}
-      <ChatboxPanel />
       {/* ── Detail Drawer ── */}
       <SlideDrawer open={detailDrawer} onClose={() => setDetailDrawer(false)} title={drawerTitle} width="30vw">
         {drawerContent}
