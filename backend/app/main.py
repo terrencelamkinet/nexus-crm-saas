@@ -55,7 +55,9 @@ app.include_router(crm_todo.router)
 app.include_router(dashboard_layout.router)
 app.include_router(crm_module_c.router)
 from app.routers import ai
+from app.routers import ai_rag
 app.include_router(ai.router)
+app.include_router(ai_rag.router)
 
 @app.get("/health")
 async def health():

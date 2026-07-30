@@ -546,6 +546,22 @@ async def _search_crm_context(
         except Exception:
             pass
 
+    # ── Vector (RAG) search — semantic similarity across all CRM records ──
+    try:
+        from app.ai.rag.search import retrieve_context
+        rag_text = await retrieve_context(
+            db,
+            query=query,
+            tenant_id=ctx.tenant_id,
+            workspace_id=ctx.workspace_id,
+            top_k=8,
+            min_score=0.35,
+        )
+        if rag_text:
+            context["rag_vectors"] = rag_text
+    except Exception:
+        pass  # RAG retrieval is best-effort
+
     return context
 
 
