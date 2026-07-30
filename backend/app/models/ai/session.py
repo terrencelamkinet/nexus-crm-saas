@@ -20,6 +20,8 @@ class AISession(Base):
     model_profile_id: Mapped[UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("nexus_ai.model_profiles.id", ondelete="SET NULL"), nullable=True)
     plan_type: Mapped[str] = mapped_column(String(50), default="chat")
     status: Mapped[str] = mapped_column(String(50), default="active", nullable=False)
+    title: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    memory_summary: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
     ended_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=True)
 

@@ -11,7 +11,7 @@ import json
 from uuid import UUID
 from datetime import datetime, timezone
 from typing import Any
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
@@ -19,7 +19,7 @@ from app.db import get_tenant_session
 from app.ai.tool_registry import TOOL_REGISTRY, ToolDef
 from app.ai.tools.guard import authorize_tool_call, ScopeViolation, log_audit
 from app.ai.providers import get_provider, ProviderAdapter
-from app.models.ai import ActionRequest
+from app.models.ai import ActionRequest, AISession, Message
 
 # ---------------------------------------------------------------------------
 # Default provider configuration
@@ -34,6 +34,177 @@ def _default_adapter() -> ProviderAdapter:
 
 
 router = APIRouter(prefix="/api/v1/ai", tags=["AI"])
+
+
+# ====================================================================
+# Session management
+# ====================================================================
+
+
+@router.post("/sessions")
+async def create_session(
+    request: Request,
+    title: str = Query("", max_length=200),
+    db: AsyncSession = Depends(get_tenant_session),
+):
+    """Create a new AI chat session."""
+    ctx = getattr(request.state, "ai_context", None)
+    if not ctx:
+        raise HTTPException(400, "AI session context not initialized")
+
+    session = AISession(
+        tenant_id=ctx.tenant_id,
+        workspace_id=ctx.workspace_id,
+        team_id=ctx.team_id,
+        user_id=ctx.user_id,
+        plan_type="chat",
+        status="active",
+    )
+    if title:
+        session.title = title
+    db.add(session)
+    await db.flush()
+    return {"session_id": str(session.id), "created_at": session.created_at.isoformat()}
+
+
+@router.get("/sessions")
+async def list_sessions(
+    request: Request,
+    limit: int = Query(50, ge=1, le=200),
+    db: AsyncSession = Depends(get_tenant_session),
+):
+    """List user's chat sessions, most recent first."""
+    ctx = getattr(request.state, "ai_context", None)
+    if not ctx:
+        raise HTTPException(400, "AI session context not initialized")
+
+    # Get sessions + latest message preview for each
+    result = await db.execute(
+        select(
+            AISession.id,
+            AISession.title,
+            AISession.status,
+            AISession.created_at,
+        )
+        .where(
+            AISession.user_id == ctx.user_id,
+            AISession.tenant_id == ctx.tenant_id,
+        )
+        .order_by(AISession.created_at.desc())
+        .limit(limit)
+    )
+    rows = result.fetchall()
+
+    items = []
+    for row in rows:
+        sid, title, status, created_at = row
+        # Get last message for preview
+        last_msg = await db.execute(
+            select(Message.content)
+            .where(Message.session_id == sid)
+            .order_by(Message.created_at.desc())
+            .limit(1)
+        )
+        last_content = last_msg.scalar_one_or_none()
+
+        if not title and last_content:
+            title = last_content[:60]
+
+        items.append({
+            "session_id": str(sid),
+            "title": title or "New Chat",
+            "status": status,
+            "created_at": created_at.isoformat() if created_at else None,
+        })
+
+    return {"sessions": items}
+
+
+@router.get("/sessions/{session_id}/messages")
+async def get_session_messages(
+    session_id: UUID,
+    request: Request,
+    limit: int = Query(200, ge=1, le=1000),
+    db: AsyncSession = Depends(get_tenant_session),
+):
+    """Get all messages for a session."""
+    ctx = getattr(request.state, "ai_context", None)
+    if not ctx:
+        raise HTTPException(400, "AI session context not initialized")
+
+    # Verify ownership
+    sess = await db.get(AISession, session_id)
+    if not sess or sess.user_id != ctx.user_id:
+        raise HTTPException(404, "Session not found")
+
+    result = await db.execute(
+        select(Message)
+        .where(Message.session_id == session_id)
+        .order_by(Message.created_at.asc())
+        .limit(limit)
+    )
+    messages = result.scalars().all()
+
+    return {
+        "session_id": str(session_id),
+        "messages": [
+            {
+                "id": str(m.id),
+                "role": m.role,
+                "content": m.content,
+                "created_at": m.created_at.isoformat() if m.created_at else None,
+            }
+            for m in messages
+        ],
+    }
+
+
+@router.patch("/sessions/{session_id}")
+async def update_session(
+    session_id: UUID,
+    body: dict[str, Any],
+    request: Request,
+    db: AsyncSession = Depends(get_tenant_session),
+):
+    """Update session title or status."""
+    ctx = getattr(request.state, "ai_context", None)
+    if not ctx:
+        raise HTTPException(400, "AI session context not initialized")
+
+    sess = await db.get(AISession, session_id)
+    if not sess or sess.user_id != ctx.user_id:
+        raise HTTPException(404, "Session not found")
+
+    if "title" in body:
+        sess.title = body["title"]
+    if "status" in body:
+        if body["status"] not in ("active", "archived", "deleted"):
+            raise HTTPException(400, "Invalid status")
+        sess.status = body["status"]
+        if body["status"] in ("archived", "deleted"):
+            sess.ended_at = datetime.now(timezone.utc)
+
+    await db.flush()
+    return {"status": "updated"}
+
+
+@router.delete("/sessions/{session_id}")
+async def delete_session(
+    session_id: UUID,
+    request: Request,
+    db: AsyncSession = Depends(get_tenant_session),
+):
+    """Delete a session and all its messages."""
+    ctx = getattr(request.state, "ai_context", None)
+    if not ctx:
+        raise HTTPException(400, "AI session context not initialized")
+
+    sess = await db.get(AISession, session_id)
+    if not sess or sess.user_id != ctx.user_id:
+        raise HTTPException(404, "Session not found")
+
+    await db.delete(sess)
+    return {"status": "deleted"}
 
 
 # ====================================================================
@@ -313,30 +484,66 @@ async def chat_completion(
     messages: list[dict[str, Any]],
     request: Request,
     db: AsyncSession = Depends(get_tenant_session),
+    session_id: UUID | None = Query(None),
     model: str = DEFAULT_MODEL,
     provider: str = DEFAULT_PROVIDER,
     temperature: float = 0.7,
     max_tokens: int = 4096,
 ):
-    """Chat completion with automatic CRM context retrieval.
+    """Chat completion with CRM context + session persistence.
 
-    Before calling the LLM, searches CRM data relevant to the user's
-    query and includes it as context in the system prompt.
+    Accepts a session_id to continue an existing conversation.
+    Saves every user message and AI response to the messages table.
+    Auto-generates session title from the first user message.
     """
     ctx = getattr(request.state, "ai_context", None)
     if not ctx:
         raise HTTPException(400, "AI session context not initialized")
 
-    # Extract user's last message
+    # ── Resolve/create session ───────────────────────────────────────────
+    if session_id:
+        sess = await db.get(AISession, session_id)
+        if not sess or sess.user_id != ctx.user_id:
+            raise HTTPException(404, "Session not found")
+    else:
+        sess = AISession(
+            tenant_id=ctx.tenant_id,
+            workspace_id=ctx.workspace_id,
+            team_id=ctx.team_id,
+            user_id=ctx.user_id,
+            status="active",
+        )
+        db.add(sess)
+        await db.flush()
+        session_id = sess.id
+
+    # ── Extract user's last message ──────────────────────────────────────
     user_msgs = [m for m in messages if m.get("role") == "user"]
     last_query = user_msgs[-1]["content"] if user_msgs else ""
 
-    # Search CRM data
+    # ── Auto-title from first user message ──────────────────────────────
+    is_new = not sess.title
+    if is_new and last_query:
+        title = last_query[:100].rstrip(".,!?;: ")
+        if len(title) > 5:
+            sess.title = title
+
+    # ── Save user message ────────────────────────────────────────────────
+    if last_query:
+        user_msg = Message(
+            session_id=sess.id,
+            role="user",
+            content=last_query,
+        )
+        db.add(user_msg)
+        await db.flush()
+
+    # ── Search CRM data ──────────────────────────────────────────────────
     crm_context: dict[str, Any] = {}
     if last_query:
         crm_context = await _search_crm_context(last_query, ctx, db)
 
-    # Format CRM context as readable text
+    # ── Build system prompt with CRM context ─────────────────────────────
     context_lines: list[str] = []
     for tool_key, data in crm_context.items():
         label = tool_key.replace("_", " ").title()
@@ -367,12 +574,13 @@ async def chat_completion(
 
     system_prompt = _SYSTEM_PROMPT_TPL.format(context=context_str)
 
-    # Build message list: system prompt + original messages (skip any existing system msg)
+    # ── Build message list ──────────────────────────────────────────────
     enhanced = [{"role": "system", "content": system_prompt}]
     for m in messages:
         if m.get("role") != "system":
             enhanced.append(m)
 
+    # ── Call LLM ─────────────────────────────────────────────────────────
     adapter = _default_adapter()
     try:
         text, usage = await adapter.chat(
@@ -381,8 +589,19 @@ async def chat_completion(
             temperature=temperature,
             max_tokens=max_tokens,
         )
+
+        # ── Save AI response ──────────────────────────────────────────────
+        assistant_msg = Message(
+            session_id=sess.id,
+            role="assistant",
+            content=text,
+            token_count=usage.output_tokens,
+        )
+        db.add(assistant_msg)
+
         return {
             "text": text,
+            "session_id": str(sess.id),
             "usage": {
                 "input_tokens": usage.input_tokens,
                 "output_tokens": usage.output_tokens,

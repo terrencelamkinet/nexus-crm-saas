@@ -43,8 +43,8 @@ async def build_ai_session_context(
     auth middleware).  Resolves workspace_id from a fast Redis lookup if
     available, otherwise falls back to a DB query.
     """
-    tenant_id: uuid.UUID = request.state.tenant_id
-    user_id: uuid.UUID = request.state.user_id
+    tenant_id: uuid.UUID = uuid.UUID(request.state.tenant_id) if request.state.tenant_id else uuid.UUID(int=0)
+    user_id: uuid.UUID = uuid.UUID(request.state.user_id) if request.state.user_id else uuid.UUID(int=0)
 
     # --- resolve workspace_id ------------------------------------------------
     workspace_id: Optional[uuid.UUID] = getattr(request.state, "workspace_id", None)
