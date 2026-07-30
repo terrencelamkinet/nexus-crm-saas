@@ -873,10 +873,43 @@ async def chat_stream_completion(
         if m.get("role") != "system":
             enhanced.append(m)
 
+    # ── Build citations from CRM context ──────────────────────────────────
+    citations: list[dict[str, Any]] = []
+    for tool_key, data in crm_context.items():
+        if not isinstance(data, list) or tool_key in ("get_dashboard_summary", "get_upcoming_events", "list_tasks"):
+            continue
+        label_map = {
+            "search_companies": "company",
+            "search_contacts": "contact",
+            "search_deals": "deal",
+            "search_projects": "project",
+        }
+        rec_type = label_map.get(tool_key, "record")
+        for item in data[:10]:
+            if not isinstance(item, dict):
+                continue
+            name = item.get("name") or item.get("title") or ""
+            if not name:
+                continue
+            citations.append({
+                "id": str(item.get("id", "")),
+                "type": rec_type,
+                "title": name,
+                "snippet": item.get("email", "") or item.get("phone", "") or "",
+                "updated_at": item.get("updated_at", ""),
+            })
+
     # ── SSE event generator ────────────────────────────────────────────────
     async def event_generator() -> AsyncGenerator[dict[str, str], None]:
         adapter = _default_adapter()
         try:
+            # ── Yield citation events before streaming ──
+            for cit in citations:
+                yield {
+                    "event": "citation",
+                    "data": json.dumps(cit),
+                }
+
             full_text_parts: list[str] = []
             final_report: UsageReport | None = None
 
@@ -930,7 +963,10 @@ async def chat_stream_completion(
             # ── Yield done event ───────────────────────────────────────────
             yield {
                 "event": "done",
-                "data": json.dumps({"session_id": str(sess.id)}),
+                "data": json.dumps({
+                    "session_id": str(sess.id),
+                    "citations": citations,
+                }),
             }
         except Exception as e:
             yield {

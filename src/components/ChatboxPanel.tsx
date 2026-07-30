@@ -11,6 +11,15 @@ interface ChatMessage {
   role: 'user' | 'assistant'
   content: string
   timestamp: number
+  citations?: CitationSource[]
+}
+
+interface CitationSource {
+  id: string
+  type: string
+  title: string
+  snippet: string
+  updated_at?: string
 }
 
 interface SessionItem {
@@ -306,6 +315,7 @@ export default function ChatboxPanel() {
       let buffer = ''
       let fullReply = ''
       let newSessionId: string | null = null
+      const msgCitations: CitationSource[] = []
 
       while (true) {
         const { done, value } = await reader.read()
@@ -319,7 +329,7 @@ export default function ChatboxPanel() {
           if (line.startsWith('event: ')) {
             continue // we handle data lines
           }
-              if (line.startsWith('data: ')) {
+          if (line.startsWith('data: ')) {
             try {
               const data = JSON.parse(line.slice(6))
 
@@ -327,8 +337,18 @@ export default function ChatboxPanel() {
                 fullReply += data.text
                 setStreamingContent(fullReply)
               }
+              if (data.id !== undefined && data.type !== undefined && data.title !== undefined) {
+                // citation event
+                msgCitations.push(data as CitationSource)
+              }
               if (data.session_id) {
                 newSessionId = data.session_id
+              }
+              if (data.citations) {
+                // citations array from done event
+                if (Array.isArray(data.citations)) {
+                  msgCitations.push(...data.citations)
+                }
               }
               if (data.input_tokens !== undefined) {
                 // usage event — store for reference
@@ -344,9 +364,12 @@ export default function ChatboxPanel() {
         }
       }
 
-      // Streaming complete — save the final message
+      // Streaming complete — save the final message with citations
       if (fullReply) {
-        const reply = assistantMessage(fullReply)
+        const reply: ChatMessage = {
+          ...assistantMessage(fullReply),
+          citations: msgCitations.length > 0 ? msgCitations : undefined,
+        }
         setMessages(prev => [...prev, reply])
       }
 
@@ -686,6 +709,50 @@ export default function ChatboxPanel() {
                               style={actionBtnStyle}>
                               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
                             </button>
+                          </div>
+                        )}
+                        {/* ── Source cards ── */}
+                        {msg.citations && msg.citations.length > 0 && (
+                          <div style={{ marginTop: 8, paddingLeft: 34 }}>
+                            <div style={{ fontSize: 11, color: 'var(--color-text-faint)', marginBottom: 6, fontWeight: 600 }}>Sources</div>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                              {msg.citations.slice(0, 5).map((cit, ci) => (
+                                <div key={ci} style={{
+                                  display: 'flex', alignItems: 'center', gap: 6,
+                                  padding: '6px 8px',
+                                  background: 'var(--color-surface-2)',
+                                  borderRadius: 6,
+                                  border: '1px solid var(--color-border)',
+                                  cursor: 'pointer',
+                                }}
+                                  onClick={() => {
+                                    const routes: Record<string, string> = { company: 'companies', contact: 'contacts', deal: 'deals', project: 'projects' }
+                                    const route = routes[cit.type] || cit.type
+                                    window.open(`/${route}/${cit.id}`, '_blank')
+                                  }}
+                                >
+                                  <span style={{
+                                    width: 16, height: 16, borderRadius: 3,
+                                    background: 'var(--color-primary)',
+                                    color: '#fff', fontSize: 9, fontWeight: 700,
+                                    display: 'grid', placeItems: 'center', flexShrink: 0,
+                                  }}>
+                                    {ci + 1}
+                                  </span>
+                                  <div style={{ minWidth: 0, flex: 1 }}>
+                                    <div style={{ fontSize: 11.5, fontWeight: 500, color: 'var(--color-text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                      {cit.title}
+                                    </div>
+                                    <div style={{ fontSize: 10.5, color: 'var(--color-text-faint)', textTransform: 'capitalize' }}>
+                                      {cit.type}
+                                    </div>
+                                  </div>
+                                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ color: 'var(--color-text-faint)', flexShrink: 0 }}>
+                                    <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/>
+                                  </svg>
+                                </div>
+                              ))}
+                            </div>
                           </div>
                         )}
                       </div>
