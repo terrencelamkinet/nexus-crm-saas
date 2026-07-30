@@ -15,6 +15,8 @@ import TasksPage from './modules/tasks/TasksPage';
 import TaskDetailPage from './modules/tasks/TaskDetailPage';
 import TouchpointsPage from './modules/touchpoints/TouchpointsPage';
 import TouchpointDetailPage from './modules/touchpoints/TouchpointDetailPage';
+import MarketplacePage from './pages/MarketplacePage';
+import IntegrationDetailPage from './pages/IntegrationDetailPage';
 import NameCardsPage from './pages/NameCardsPage';
 import SettingsPage from './pages/SettingsPage';
 import NotificationsPage from './pages/NotificationsPage';
@@ -64,6 +66,8 @@ function App() {
               <p className="text-slate-500 mt-2">Coming soon</p>
             </div>
           } />
+          <Route path="marketplace" element={<MarketplacePage />} />
+          <Route path="marketplace/:id" element={<IntegrationDetailPage />} />
           <Route path="team" element={
             <div className="p-8">
               <h1 className="text-2xl font-bold c-text">Team</h1>

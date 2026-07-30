@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { NavLink } from 'react-router-dom';
-import { LayoutDashboard, Users, Building2, TrendingUp, CheckSquare, Activity, ScanLine, Settings, BarChart3, Sparkles, UserCog, FolderKanban, Bell, Truck, Bot, Calendar } from 'lucide-react';
+import { LayoutDashboard, Users, Building2, TrendingUp, CheckSquare, Activity, ScanLine, Settings, BarChart3, Sparkles, UserCog, FolderKanban, Bell, Truck, Bot, Calendar, Puzzle } from 'lucide-react';
 import { apiClient } from '../lib/api';
 
 export interface ModuleSetting {
@@ -112,6 +112,10 @@ export default function Sidebar() {
         <NavLink to="/notifications" onClick={closeMobileMenu} className={({ isActive }) => `nav-item${isActive ? ' active' : ''}`}>
           <Bell />
           <span>{t('nav.notifications')}</span>
+        </NavLink>
+        <NavLink to="/marketplace" onClick={closeMobileMenu} className={({ isActive }) => `nav-item${isActive ? ' active' : ''}`}>
+          <Puzzle />
+          <span>Marketplace</span>
         </NavLink>
         <NavLink to="/settings" onClick={closeMobileMenu} className={({ isActive }) => `nav-item${isActive ? ' active' : ''}`}
           style={{ marginTop: 'var(--space-4)' }}>
