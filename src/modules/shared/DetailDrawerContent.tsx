@@ -1,4 +1,5 @@
 import { useState, useEffect, Suspense } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Phone, Mail, Building2, User, Clock, Edit3, Trash2, ExternalLink } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { apiClient } from '../../lib/api'
@@ -22,6 +23,7 @@ interface Props {
 
 export default function DetailDrawerContent({ config, id, onClose, tabRenderers, extraData }: Props) {
   const navigate = useNavigate()
+  const { t } = useTranslation()
   const [entity, setEntity] = useState<EntityRecord | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -118,8 +120,8 @@ export default function DetailDrawerContent({ config, id, onClose, tabRenderers,
   if (error || !entity) {
     return (
       <div className="drawer-error">
-        <p>{error || `${config.label} not found`}</p>
-        <button onClick={fetchEntity} className="btn-secondary">Retry</button>
+        <p>{error || t('common.notFound', { label: config.label })}</p>
+        <button onClick={fetchEntity} className="btn-secondary">{t('common.retry')}</button>
       </div>
     )
   }
@@ -141,7 +143,7 @@ export default function DetailDrawerContent({ config, id, onClose, tabRenderers,
     <div className="drawer-detail">
       {/* Breadcrumb */}
       <nav className="breadcrumb drawer-bc">
-        <span className="breadcrumb-link" onClick={() => { onClose(); navigate('/dashboard') }}>Home</span>
+        <span className="breadcrumb-link" onClick={() => { onClose(); navigate('/dashboard') }}>{t('common.home')}</span>
         <span className="bc-sep">/</span>
         <span className="breadcrumb-link" onClick={onClose}>{config.labelPlural}</span>
         <span className="bc-sep">/</span>
@@ -183,18 +185,18 @@ export default function DetailDrawerContent({ config, id, onClose, tabRenderers,
         )}
         <div className="drawer-info-row">
           <User className="icon-14" />
-          <span>Owner: {entity['contact_type'] || 'Unassigned'}</span>
+          <span>{t('common.owner')}: {entity['contact_type'] || t('common.unassigned')}</span>
         </div>
         <div className="drawer-info-row">
           <Clock className="icon-14" />
-          <span>Last touch: {lastTouchDate}</span>
+          <span>{t('common.lastTouch')}: {lastTouchDate}</span>
         </div>
       </div>
 
       {/* Tags */}
       <div className="drawer-tags">
         <span className={`select-tag ${statusColors[entity['status']] || 'tag-default'}`}>
-          {entity['status'] || 'Active'}
+          {entity['status'] || t('common.active')}
         </span>
         {Array.isArray(entity['tags']) && entity['tags'].map((t: string) => (
           <span key={t} className="tag">{t}</span>
@@ -207,7 +209,7 @@ export default function DetailDrawerContent({ config, id, onClose, tabRenderers,
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="14" height="14">
             <path d="M12 20h9M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4L16.5 3.5z" />
           </svg>
-          Editing mode active. Save changes below.
+          {t('common.editingModeActive')}
         </div>
       )}
 
@@ -215,25 +217,25 @@ export default function DetailDrawerContent({ config, id, onClose, tabRenderers,
       <div className="drawer-actions">
         {editOpen ? (
           <>
-            <button onClick={cancelEdit} disabled={saving} className="btn-ghost btn-sm">Cancel</button>
+            <button onClick={cancelEdit} disabled={saving} className="btn-ghost btn-sm">{t('common.cancel')}</button>
             <button onClick={handleSave} disabled={saving} className="btn-primary btn-sm">
-              {saving ? 'Saving...' : 'Save'}
+              {saving ? t('common.saving') : t('common.save')}
             </button>
           </>
         ) : (
           <>
             <button onClick={handleDeleteClick} className="btn-danger btn-sm">
-              <Trash2 className="icon-14" /> Delete
+              <Trash2 className="icon-14" /> {t('common.delete')}
             </button>
             <button onClick={() => {
               const route = config.routePrefix || config.labelPlural.toLowerCase()
               onClose()
               navigate(`/${route}/${entity.id}`)
             }} className="btn-primary btn-sm">
-              <ExternalLink className="icon-14" /> Open full
+              <ExternalLink className="icon-14" /> {t('common.openFull')}
             </button>
             <button onClick={openEdit} className="btn-primary btn-sm">
-              <Edit3 className="icon-14" /> Edit
+              <Edit3 className="icon-14" /> {t('common.edit')}
             </button>
           </>
         )}
@@ -254,18 +256,18 @@ export default function DetailDrawerContent({ config, id, onClose, tabRenderers,
           />
 
           {/* All tabs as stacked sections */}
-          {visibleTabs.map(t => {
-            const CustomRenderer = t.render || tabRenderers?.[t.id]
+          {visibleTabs.map(tabItem => {
+            const CustomRenderer = tabItem.render || tabRenderers?.[tabItem.id]
             return (
-              <div className="drawer-section" key={t.id}>
+              <div className="drawer-section" key={tabItem.id}>
                 {CustomRenderer ? (
-                  <Suspense fallback={<div className="empty-state">Loading {t.label.toLowerCase()}...</div>}>
+                  <Suspense fallback={<div className="empty-state">{t('common.loadingLabel', { label: tabItem.label.toLowerCase() })}</div>}>
                     <CustomRenderer entity={entity} moduleConfig={config} refresh={fetchEntity} />
                   </Suspense>
                 ) : (
                   <div className="panel">
-                    <div className="panel-head"><h3>{t.label}</h3></div>
-                    <div className="empty-state">No {t.label.toLowerCase()} yet</div>
+                    <div className="panel-head"><h3>{tabItem.label}</h3></div>
+                    <div className="empty-state">{t('common.noLabelYet', { label: tabItem.label.toLowerCase() })}</div>
                   </div>
                 )}
               </div>
@@ -277,12 +279,12 @@ export default function DetailDrawerContent({ config, id, onClose, tabRenderers,
           {/* Desktop: tab bar */}
           {visibleTabs.length > 0 && (
             <div className="drawer-tab-bar">
-              {visibleTabs.map(t => (
-                <div key={t.id}
-                  className={`drawer-tab ${tab === t.id ? 'active' : ''}`}
-                  onClick={() => setTab(t.id)}
+              {visibleTabs.map(tabItem => (
+                <div key={tabItem.id}
+                  className={`drawer-tab ${tab === tabItem.id ? 'active' : ''}`}
+                  onClick={() => setTab(tabItem.id)}
                 >
-                  {t.label}
+                  {tabItem.label}
                 </div>
               ))}
             </div>
@@ -291,7 +293,7 @@ export default function DetailDrawerContent({ config, id, onClose, tabRenderers,
           {/* Details fields */}
           {tab === 'details' && (
             <div className="drawer-section">
-              <div className="drawer-section-title">{config.label} Information</div>
+              <div className="drawer-section-title">{config.label} {t('common.information')}</div>
               <div className="drawer-fields-grid">
                 {detailFields.map(f => (
                   <FieldsRenderer key={f.key} field={f} entity={entity} form={form}
@@ -305,21 +307,21 @@ export default function DetailDrawerContent({ config, id, onClose, tabRenderers,
           )}
 
           {/* Tab content */}
-          {visibleTabs.map(t => {
-            if (tab !== t.id) return null
-            const CustomRenderer = t.render || tabRenderers?.[t.id]
+          {visibleTabs.map(tabItem => {
+            if (tab !== tabItem.id) return null
+            const CustomRenderer = tabItem.render || tabRenderers?.[tabItem.id]
             if (CustomRenderer) {
               return (
-                <Suspense key={t.id}
-                  fallback={<div className="drawer-section"><div className="empty-state">Loading {t.label.toLowerCase()}...</div></div>}
+                <Suspense key={tabItem.id}
+                  fallback={<div className="drawer-section"><div className="empty-state">{t('common.loadingLabel', { label: tabItem.label.toLowerCase() })}</div></div>}
                 >
                   <CustomRenderer entity={entity} moduleConfig={config} refresh={fetchEntity} />
                 </Suspense>
               )
             }
             return (
-              <div className="drawer-section" key={t.id}>
-                <div className="empty-state">No {t.label.toLowerCase()} yet</div>
+              <div className="drawer-section" key={tabItem.id}>
+                <div className="empty-state">{t('common.noLabelYet', { label: tabItem.label.toLowerCase() })}</div>
               </div>
             )
           })}
@@ -332,13 +334,13 @@ export default function DetailDrawerContent({ config, id, onClose, tabRenderers,
           <div className="modal modal-sm">
             <div className="delete-body">
               <div className="delete-icon-wrap"><Trash2 /></div>
-              <h3 className="delete-heading">Delete {entityName}?</h3>
-              <p className="delete-text">This action cannot be undone.</p>
+              <h3 className="delete-heading">{t('common.deleteConfirm', { name: entityName })}</h3>
+              <p className="delete-text">{t('common.cannotUndo')}</p>
             </div>
             <div className="modal-foot">
-              <button onClick={() => setDeleteModalOpen(false)} className="btn-secondary">Cancel</button>
+              <button onClick={() => setDeleteModalOpen(false)} className="btn-secondary">{t('common.cancel')}</button>
               <button onClick={handleDeleteConfirm} disabled={deleteLoading}
-                className="btn-notification">{deleteLoading ? 'Deleting...' : 'Delete'}</button>
+                className="btn-notification">{deleteLoading ? t('common.deleting') : t('common.delete')}</button>
             </div>
           </div>
         </div>
@@ -359,10 +361,11 @@ function DetailFieldsSection({ detailFields, config, entity, form, handleChange,
   onNavigate?: (url: string) => void
 }) {
   const [showAll, setShowAll] = useState(false)
+  const { t } = useTranslation()
   const visible = showAll ? detailFields : detailFields.slice(0, 10)
   return (
     <div className="drawer-section">
-      <div className="drawer-section-title">{config.label} Information</div>
+      <div className="drawer-section-title">{config.label} {t('common.information')}</div>
       <div className="drawer-fields-grid grid-2col">
         {visible.map(f => (
           <FieldsRenderer key={f.key} field={f} entity={entity} form={form}
@@ -374,7 +377,7 @@ function DetailFieldsSection({ detailFields, config, entity, form, handleChange,
       </div>
       {detailFields.length > 10 && (
         <button className="btn-ghost drawer-more-btn" onClick={() => setShowAll(!showAll)}>
-          {showAll ? 'Show less' : `Show all ${detailFields.length} fields`}
+          {showAll ? t('common.showLess') : t('common.showAllFields', { count: detailFields.length })}
         </button>
       )}
     </div>

@@ -9,6 +9,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { Search, X, Plus, Loader2 } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { apiClient } from '../../lib/api'
 
 interface EntitySearchProps {
@@ -35,13 +36,16 @@ export default function EntitySearch({
   searchUrl,
   value,
   onChange,
-  placeholder = 'Search...',
+  placeholder = '',
   displayField = 'name',
   label,
   required,
   createLabel,
   createTitleField = 'name',
 }: EntitySearchProps) {
+  const { t } = useTranslation()
+  const searchPlaceholder = placeholder || t('common.search')
+  const changePlaceholder = t('common.search')
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<SearchItem[]>([])
   const [loading, setLoading] = useState(false)
@@ -204,7 +208,7 @@ export default function EntitySearch({
       setShowCreate(false)
       setCreateName('')
     } catch (e: any) {
-      alert(e.detail || e.message || 'Failed to create')
+      alert(e.detail || e.message || t('common.error'))
     } finally {
       setCreating(false)
     }
@@ -275,7 +279,7 @@ export default function EntitySearch({
               {selectedLabel}
             </span>
             <button type="button" onClick={handleClear}
-              title="Remove"
+              title={t('common.clear')}
               style={{
                 display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
                 border: 'none', background: 'transparent', cursor: 'pointer',
@@ -294,7 +298,7 @@ export default function EntitySearch({
             onChange={handleInputChange}
             onFocus={handleFocus}
             onBlur={() => setFocused(false)}
-            placeholder="Change…"
+            placeholder={changePlaceholder}
             className="input-field"
             style={{
               border: 'none', boxShadow: 'none', padding: '4px 4px',
@@ -305,7 +309,7 @@ export default function EntitySearch({
 
           {/* + button */}
           {createLabel && (
-            <button type="button" onClick={openCreate} title={`New ${createLabel}`}
+            <button type="button" onClick={openCreate} title={`${t('common.create')} ${createLabel}`}
               style={{
                 display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
                 width: 22, height: 22, borderRadius: 6, border: 'none',
@@ -346,7 +350,7 @@ export default function EntitySearch({
           onChange={handleInputChange}
           onFocus={handleFocus}
           onBlur={() => setFocused(false)}
-          placeholder={placeholder}
+          placeholder={searchPlaceholder}
           className="input-field"
           style={{ border: 'none', boxShadow: 'none', padding: '8px 6px', flex: 1, background: 'transparent' }}
         />
@@ -357,7 +361,7 @@ export default function EntitySearch({
             onClick={handleClear} />
         ) : null}
         {createLabel && (
-          <button type="button" onClick={openCreate} title={`New ${createLabel}`}
+          <button type="button" onClick={openCreate} title={`${t('common.create')} ${createLabel}`}
             style={{
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               width: 22, height: 22, borderRadius: 6, border: 'none',
@@ -382,27 +386,27 @@ export default function EntitySearch({
         onClick={e => { if (e.target === e.currentTarget) setShowCreate(false) }}>
         <div className="modal modal-sm">
           <div className="modal-head">
-            <h2>New {createLabel}</h2>
+            <h2>{t('common.create')} {createLabel}</h2>
             <button onClick={() => setShowCreate(false)} className="modal-x">
               <X className="icon-16" />
             </button>
           </div>
           <div className="modal-body p-20">
             <div className="form-field">
-              <label className="field-label">{createLabel} Name *</label>
+              <label className="field-label">{createLabel} *</label>
               <input type="text" value={createName}
                 onChange={e => setCreateName(e.target.value)}
                 className="input-field"
-                placeholder={`Enter ${createLabel} name...`}
+                placeholder={changePlaceholder}
                 autoFocus
                 onKeyDown={e => { if (e.key === 'Enter') handleCreate() }} />
             </div>
           </div>
           <div className="modal-foot">
-            <button onClick={() => setShowCreate(false)} className="btn-secondary">Cancel</button>
+            <button onClick={() => setShowCreate(false)} className="btn-secondary">{t('common.cancel')}</button>
             <button onClick={handleCreate} disabled={creating || !createName.trim()}
               className="btn-primary">
-              {creating ? 'Creating...' : `Create ${createLabel}`}
+              {creating ? t('common.processing') : `${t('common.create')} ${createLabel}`}
             </button>
           </div>
         </div>

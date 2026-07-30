@@ -536,7 +536,8 @@ export default function ChatboxPanel() {
       setStreamingContent('')
       abortRef.current = null
     }
-  }, [messages])
+  }, [input, isLoading, loadingSession, sessionId])
+
 
   // ── Retry last message (re-uses lastUserTextRef) ──
   const retryLastMessage = useCallback(async () => {
@@ -767,6 +768,15 @@ export default function ChatboxPanel() {
               CRM Assistant
             </div>
           </div>
+          <button onClick={createNewSession} aria-label={t('chat.newChat')} title={t('chat.newChat')}
+            style={{
+              width: 28, height: 28, borderRadius: 6, display: 'grid', placeItems: 'center',
+              background: 'transparent', border: 0, color: 'var(--color-text-muted)',
+              cursor: 'pointer', fontSize: 16,
+            }}
+          >
+            <Plus size={15} />
+          </button>
           <button onClick={() => setShowSessionList(prev => !prev)} aria-label={t('chat.sessionList')} title={t('chat.sessionList')}
             style={{
               width: 28, height: 28, borderRadius: 6, display: 'grid', placeItems: 'center',

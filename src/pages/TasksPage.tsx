@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Plus, Search, X, ChevronRight } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useApi, useSearch, useCreateModal, TableSkeleton, ErrorBox } from '../lib/useApi';
@@ -39,6 +40,7 @@ const statusColors: Record<string, string> = {
 const defaultForm = { title: '', priority: 'P2', status: 'Pending', due_date: '' };
 
 export default function TasksPage() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const { query, setQuery, searchParams } = useSearch();
   const { data, loading, error, refresh } = useApi<TaskListResponse>(`/api/v1/crm/tasks${searchParams || '?page=1&page_size=50'}`);
@@ -80,12 +82,12 @@ export default function TasksPage() {
       {/* Page header */}
       <div className="page-header">
         <div>
-          <h1>Tasks</h1>
-          <p>{total} active tasks</p>
+          <h1>{t('pages.tasks.title')}</h1>
+          <p>{t('pages.tasks.count', { count: total })}</p>
         </div>
         <div className="header-actions">
           <button onClick={create.openModal} className="btn-primary">
-            <Plus className="w-4 h-4" /> New Task
+            <Plus className="w-4 h-4" /> {t('pages.tasks.new')}
           </button>
         </div>
       </div>
@@ -147,7 +149,7 @@ export default function TasksPage() {
         <div className="modal-overlay">
           <div className="modal">
             <div className="modal-head">
-              <h2>New Task</h2>
+              <h2>{t('pages.tasks.new')}</h2>
               <button onClick={create.closeModal} className="modal-x"><X className="w-5 h-5" /></button>
             </div>
             <div className="modal-body space-y-4">
@@ -187,9 +189,9 @@ export default function TasksPage() {
               </div>
             </div>
             <div className="modal-foot">
-              <button onClick={create.closeModal} className="btn-secondary">Cancel</button>
+              <button onClick={create.closeModal} className="btn-secondary">{t('common.cancel')}</button>
               <button onClick={handleCreate} disabled={saving || !form.title.trim()} className="btn-primary">
-                {saving ? 'Creating...' : 'Create'}
+                {saving ? t('common.processing') : t('common.create')}
               </button>
             </div>
           </div>

@@ -193,7 +193,8 @@
       "title": "Module Settings",
       "description": "Enable or disable CRM modules",
       "save": "Save Settings"
-    }
+    },
+    "loading": "Loading settings..."
   },
   "common": {
     "save": "Save",
@@ -205,6 +206,12 @@
     "back": "Back",
     "next": "Next",
     "done": "Done",
+    "sort": "Sort",
+    "group": "Group",
+    "properties": "Properties",
+    "columns": "Columns",
+    "resetColumns": "Reset Columns",
+    "moreActions": "More actions",
     "search": "Search",
     "filter": "Filter",
     "clear": "Clear",
@@ -245,11 +252,13 @@
     "loadingTab": "Loading {{label}}...",
     "noDataTab": "No {{label}} yet",
     "infoSection": "{{label}} Information",
-    "backToAll": "\u2190 Back to all sections",
+    "backToAll": "← Back to all sections",
     "backToLabel": "Back to {{label}}",
     "notFound": "{{label}} not found",
     "fileCount_one": "{{count}} file",
     "fileCount_other": "{{count}} files",
+    "days_one": "{{count}} day",
+    "days_other": "{{count}} days",
     "searchResource": "Search {{resource}}..."
   },
   "contacts": {
@@ -307,6 +316,8 @@
       "type": "Type",
       "description": "Description",
       "actionRequired": "Action *",
+      "add": "Add",
+      "log": "Log",
       "pinned": "Pinned",
       "relationPartner": "Relation: Partner",
       "since": "Since ",
@@ -375,6 +386,7 @@
     "contacts": {
       "title": "Contacts",
       "new": "New Contact",
+      "count": "{{count}} contacts",
       "name": "Name",
       "email": "Email",
       "phone": "Phone",
@@ -382,6 +394,11 @@
       "jobTitle": "Job Title",
       "notes": "Notes",
       "empty": "No contacts found",
+      "selectedCount": "{{count}} selected",
+      "deleteTitle": "Delete Contact",
+      "deleteConfirmText": "Are you sure you want to delete",
+      "deleteCannotUndo": "This action cannot be undone.",
+      "detailTitle": "Contact Details",
       "chineseName": "Chinese Name",
       "nickName": "Nick Name",
       "department": "Department",
@@ -412,6 +429,9 @@
         "addNote": "+ Add Note",
         "logActivity": "+ Log activity",
         "linkProject": "+ Link Project",
+        "add": "Add",
+        "log": "Log",
+        "link": "Link",
         "modalLogActivity": "Log Activity",
         "modalAddTouchpoint": "Add Touchpoint",
         "modalAddNote": "Add Note",
@@ -434,6 +454,7 @@
     },
     "companies": {
       "title": "Companies",
+      "count": "{{count}} companies",
       "new": "New Company",
       "name": "Company Name",
       "industry": "Industry",
@@ -445,7 +466,49 @@
       "owner": "Owner",
       "status": "Status",
       "phone": "Phone",
-      "searchPlaceholder": "Search companies..."
+      "searchPlaceholder": "Search companies...",
+      "detail": {
+        "contacts": "Contacts",
+        "deals": "Deals",
+        "projects": "Projects",
+        "productsInUse": "Products In Use",
+        "partners": "Partners",
+        "touchpoints": "Touchpoints",
+        "notes": "Notes",
+        "activity": "Activity",
+        "tasks": "Tasks",
+        "noContacts": "No contacts linked to this company",
+        "noDeals": "No deals for this company",
+        "noProjects": "No projects yet",
+        "noProducts": "No products in use",
+        "noPartners": "No distributor partners",
+        "noTouchpoints": "No touchpoints yet",
+        "noNotes": "No notes yet",
+        "noActivity": "No activity recorded yet",
+        "noTasks": "No tasks linked",
+        "addTouchpoint": "+ Add Touchpoint",
+        "addNote": "+ Add Note",
+        "logActivity": "+ Log activity",
+        "modalAddTouchpoint": "Add Touchpoint",
+        "modalAddNote": "Add Note",
+        "modalLogActivity": "Log Activity",
+        "titleRequired": "Title *",
+        "type": "Type",
+        "description": "Description",
+        "add": "Add",
+        "log": "Log",
+        "actionRequired": "Action *",
+        "pinned": "Pinned",
+        "relationPartner": "Relation: Partner",
+        "since": "Since ",
+        "selectProject": "Select Project",
+        "titlePlaceholder": "e.g. Quarterly review",
+        "descriptionPlaceholder": "Brief description",
+        "actionPlaceholder": "e.g. Called, Emailed, Meeting",
+        "noteTitlePlaceholder": "Note title",
+        "noteContentPlaceholder": "Write your notes here...",
+        "activityDescriptionPlaceholder": "Brief description..."
+      }
     },
     "deals": {
       "title": "Deals",
@@ -461,7 +524,8 @@
       "dueDate": "Due Date",
       "won": "Won",
       "lost": "Lost",
-      "open": "Open"
+      "open": "Open",
+      "summary": "{{count}} active deals · {{total}} total"
     },
     "projects": {
       "title": "Projects",
@@ -470,6 +534,7 @@
     },
     "tasks": {
       "title": "Tasks",
+      "count": "{{count}} active tasks",
       "table": "Table",
       "new": "New Task",
       "taskTitle": "Task Title",
@@ -543,6 +608,21 @@
       "markAllRead": "Mark all as read",
       "total": "{{count}} notifications",
       "summary": "{{total}} total · {{unread}} unread"
+    },
+    "contact": {
+      "title": "Contacts"
+    },
+    "company": {
+      "title": "Companies"
+    },
+    "project": {
+      "title": "Projects"
+    },
+    "task": {
+      "title": "Tasks"
+    },
+    "touchpoint": {
+      "title": "Touchpoints"
     }
   },
   "filter": {
@@ -639,6 +719,8 @@
   },
   "nameCard": {
     "title": "Name Cards",
+    "scannerTitle": "NameCard Scanner",
+    "scannedCount": "{{count}} cards scanned",
     "empty": "No name cards yet"
   }
 }

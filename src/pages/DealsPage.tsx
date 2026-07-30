@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Plus, X, ChevronRight } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { apiClient } from '../lib/api';
@@ -37,6 +38,7 @@ interface Deal {
 // ---------------------------------------------------------------------------
 
 export default function DealsPage() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const [pipelines, setPipelines] = useState<Pipeline[]>([]);
   const [stages, setStages] = useState<Stage[]>([]);
@@ -155,10 +157,8 @@ export default function DealsPage() {
       {/* Header */}
       <div className="page-header">
         <div>
-          <h1>Deals Pipeline</h1>
-          <p>
-            {deals.length} active deals · {formatAmount(totalAmount)} total
-          </p>
+          <h1>{t('pages.deals.title')}</h1>
+          <p>{t('pages.deals.summary', { count: deals.length, total: formatAmount(totalAmount) })}</p>
         </div>
         <div className="header-actions">
           {pipelines.length > 1 && (
@@ -177,7 +177,7 @@ export default function DealsPage() {
             }}
             className="btn-primary"
           >
-            <Plus className="w-4 h-4" /> New Deal
+            <Plus className="w-4 h-4" /> {t('pages.deals.new')}
           </button>
         </div>
       </div>
@@ -234,7 +234,7 @@ export default function DealsPage() {
         <div className="modal-overlay">
           <div className="modal">
             <div className="modal-head">
-              <h2>New Deal</h2>
+              <h2>{t('pages.deals.new')}</h2>
               <button onClick={create.closeModal} className="modal-x"><X className="w-5 h-5" /></button>
             </div>
             <div className="modal-body pb-100">
@@ -276,10 +276,10 @@ export default function DealsPage() {
             </div>
             <div className="modal-foot">
               <button onClick={create.closeModal}
-                className="btn-secondary">Cancel</button>
+                className="btn-secondary">{t('common.cancel')}</button>
               <button onClick={handleCreate} disabled={saving || !form.name.trim()}
                 className="btn-primary">
-                {saving ? 'Creating...' : 'Create'}
+                {saving ? t('common.processing') : t('common.create')}
               </button>
             </div>
           </div>

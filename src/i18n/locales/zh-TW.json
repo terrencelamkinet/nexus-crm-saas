@@ -193,7 +193,8 @@
       "title": "模組設定",
       "description": "啟用或停用 CRM 模組",
       "save": "儲存設定"
-    }
+    },
+    "loading": "載入設定中..."
   },
   "common": {
     "save": "儲存",
@@ -205,6 +206,12 @@
     "back": "返回",
     "next": "下一步",
     "done": "完成",
+    "sort": "排序",
+    "group": "分組",
+    "properties": "屬性",
+    "columns": "欄位",
+    "resetColumns": "重置欄位",
+    "moreActions": "更多操作",
     "search": "搜尋",
     "filter": "篩選",
     "clear": "清除",
@@ -232,7 +239,27 @@
     "selectProject": "請選擇一個項目",
     "removeProject": "從聯絡人移除呢個項目？",
     "confirmAction": "確認操作",
-    "selectContact": "請選擇一個聯絡人"
+    "selectContact": "請選擇一個聯絡人",
+    "backToAll": "← 返回全部",
+    "backToLabel": "返回 {{label}}",
+    "cannotUndo": "呢個動作唔可以還原",
+    "deleting": "刪除中...",
+    "editingMode": "編輯模式已啟動。修改以下欄位後按儲存。",
+    "saveChanges": "儲存變更",
+    "saving": "儲存中...",
+    "unassigned": "未分配",
+    "ownerLabel": "負責人：{{name}}",
+    "lastTouch": "上次聯繫：{{date}}",
+    "deleteConfirm": "刪除 {{name}}？",
+    "infoSection": "{{label}} 資料",
+    "loadingTab": "載入 {{label}}...",
+    "noDataTab": "未有 {{label}}",
+    "notFound": "搵唔到 {{label}}",
+    "searchResource": "搜尋 {{resource}}...",
+    "fileCount_one": "{{count}} 個檔案",
+    "fileCount_other": "{{count}} 個檔案",
+    "days_one": "{{count}} 日",
+    "days_other": "{{count}} 日"
   },
   "contacts": {
     "title": "聯絡人",
@@ -312,6 +339,7 @@
     "contacts": {
       "title": "聯絡人",
       "new": "新增聯絡人",
+      "count": "{{count}} 個聯絡人",
       "name": "姓名",
       "email": "電郵",
       "phone": "電話",
@@ -319,6 +347,11 @@
       "jobTitle": "職位",
       "notes": "備註",
       "empty": "搵唔到聯絡人",
+      "selectedCount": "已選 {{count}} 項",
+      "deleteTitle": "刪除聯絡人",
+      "deleteConfirmText": "你確定要刪除",
+      "deleteCannotUndo": "呢個動作唔可以還原。",
+      "detailTitle": "聯絡人詳細資料",
       "chineseName": "中文名",
       "nickName": "暱稱",
       "department": "部門",
@@ -331,10 +364,50 @@
       "description": "描述",
       "content": "內容",
       "searchPlaceholder": "搜尋聯絡人...",
-      "taskPlaceholder": "新增任務..."
+      "taskPlaceholder": "新增任務...",
+      "detail": {
+        "tasks": "任務",
+        "activity": "活動",
+        "deals": "交易",
+        "touchpoints": "互動記錄",
+        "notes": "備註",
+        "projects": "項目",
+        "noTasks": "未有相關任務",
+        "noActivity": "未有活動記錄",
+        "noDeals": "未有相關交易",
+        "noTouchpoints": "未有互動記錄",
+        "noNotes": "未有備註",
+        "noProjects": "未有相關項目",
+        "addTouchpoint": "+ 新增互動",
+        "addNote": "+ 新增備註",
+        "logActivity": "+ 記錄活動",
+        "linkProject": "+ 關聯項目",
+        "modalLogActivity": "記錄活動",
+        "modalAddTouchpoint": "新增互動",
+        "modalAddNote": "新增備註",
+        "modalLinkProject": "關聯項目",
+        "titleRequired": "標題 *",
+        "type": "類型",
+        "description": "描述",
+        "actionRequired": "動作 *",
+        "pinned": "已釘選",
+        "selectProject": "選擇項目",
+        "chooseProject": "-- 選擇一個項目 --",
+        "titlePlaceholder": "例如：探索性通話",
+        "descriptionPlaceholder": "簡短描述",
+        "actionPlaceholder": "例如：打電話、發電郵、會議",
+        "noteTitlePlaceholder": "備註標題",
+        "noteContentPlaceholder": "喺度寫低你嘅備註...",
+        "activityDescriptionPlaceholder": "簡短描述...",
+        "removeProjectConfirm": "從聯絡人移除呢個項目？",
+        "add": "新增",
+        "log": "記錄",
+        "link": "關聯"
+      }
     },
     "companies": {
       "title": "公司",
+      "count": "{{count}} 間公司",
       "new": "新增公司",
       "name": "公司名稱",
       "industry": "行業",
@@ -347,7 +420,49 @@
       "owner": "負責人",
       "status": "狀態",
       "phone": "電話",
-      "searchPlaceholder": "搜尋公司..."
+      "searchPlaceholder": "搜尋公司...",
+      "detail": {
+        "contacts": "聯絡人",
+        "deals": "交易",
+        "projects": "項目",
+        "productsInUse": "使用中產品",
+        "partners": "合作夥伴",
+        "touchpoints": "互動記錄",
+        "notes": "備註",
+        "activity": "活動",
+        "tasks": "任務",
+        "noContacts": "未有關聯嘅聯絡人",
+        "noDeals": "未有相關交易",
+        "noProjects": "未有相關項目",
+        "noProducts": "未有使用中產品",
+        "noPartners": "未有分銷合作夥伴",
+        "noTouchpoints": "未有互動記錄",
+        "noNotes": "未有備註",
+        "noActivity": "未有活動記錄",
+        "noTasks": "未有相關任務",
+        "addTouchpoint": "+ 新增互動",
+        "addNote": "+ 新增備註",
+        "logActivity": "+ 記錄活動",
+        "modalAddTouchpoint": "新增互動",
+        "modalAddNote": "新增備註",
+        "modalLogActivity": "記錄活動",
+        "titleRequired": "標題 *",
+        "type": "類型",
+        "description": "描述",
+        "add": "新增",
+        "log": "記錄",
+        "actionRequired": "動作 *",
+        "pinned": "已釘選",
+        "relationPartner": "關係：合作夥伴",
+        "since": "自 ",
+        "selectProject": "選擇項目",
+        "titlePlaceholder": "例如：季度檢討",
+        "descriptionPlaceholder": "簡短描述",
+        "actionPlaceholder": "例如：打電話、發電郵、會議",
+        "noteTitlePlaceholder": "備註標題",
+        "noteContentPlaceholder": "喺度寫低你嘅備註...",
+        "activityDescriptionPlaceholder": "簡短描述..."
+      }
     },
     "deals": {
       "title": "交易",
@@ -363,10 +478,12 @@
       "dueDate": "到期日",
       "won": "贏咗",
       "lost": "輸咗",
-      "open": "進行中"
+      "open": "進行中",
+      "summary": "{{count}} 個進行中交易 · 總值 {{total}}"
     },
     "tasks": {
       "title": "任務",
+      "count": "{{count}} 個任務",
       "new": "新增任務",
       "taskTitle": "任務標題",
       "description": "描述",
@@ -382,7 +499,7 @@
       "breakTime": "休息時間",
       "ready": "準備好",
       "paused": "暫停咗",
-      "remaining": "剩餘",
+      "remaining": "剩餘 {{count}} 項",
       "reset": "重置",
       "sessions": "時段",
       "focusComplete": "🎉 專注時段完成！休息吓啦。",
@@ -390,7 +507,45 @@
       "searchPlaceholder": "搜尋任務...",
       "completed": "已完成",
       "inProgress": "進行中",
-      "pending": "待處理"
+      "pending": "待處理",
+      "addNotes": "新增備註...",
+      "addStep": "新增步驟",
+      "addToGetStarted": "新增一個任務開始使用",
+      "category": "分類",
+      "details": "詳細資料",
+      "due": "到期",
+      "emptyForContact": "呢個聯絡人冇任務",
+      "listNamePlaceholder": "清單名稱",
+      "lists": "清單",
+      "myDay": "我嘅今日",
+      "myLists": "我嘅清單",
+      "newList": "新增清單",
+      "notes": "備註",
+      "openStandalone": "獨立開啟",
+      "remind": "提醒",
+      "repeat": "重複",
+      "steps": "步驟",
+      "stepNamePrompt": "步驟名稱：",
+      "table": "表格",
+      "taskPlaceholder": "新增任務...",
+      "today": "今日",
+      "tomorrow": "聽日",
+      "daysOverdue": "逾期 {{count}} 日",
+      "recurrence": {
+        "doesNotRepeat": "不重複",
+        "daily": "每日",
+        "weekdays": "工作日",
+        "weekly": "每週",
+        "biweekly": "每兩週",
+        "monthly": "每月",
+        "yearly": "每年"
+      },
+      "shareList": "分享清單",
+      "shareListTitle": "分享清單",
+      "shareEmailPlaceholder": "電郵地址",
+      "shareAdd": "新增",
+      "sharePermissionRead": "唯讀",
+      "sharePermissionWrite": "可寫"
     },
     "notifications": {
       "title": "通知",
@@ -398,7 +553,30 @@
       "unread": "未讀",
       "empty": "未有通知",
       "markRead": "標為已讀",
-      "markAllRead": "全部標為已讀"
+      "markAllRead": "全部標為已讀",
+      "read": "已讀",
+      "total": "共 {{count}} 個通知",
+      "summary": "共 {{total}} 個 · {{unread}} 個未讀"
+    },
+    "projects": {
+      "title": "項目",
+      "table": "表格",
+      "calendar": "日曆"
+    },
+    "contact": {
+      "title": "聯絡人"
+    },
+    "company": {
+      "title": "公司"
+    },
+    "project": {
+      "title": "項目"
+    },
+    "task": {
+      "title": "任務"
+    },
+    "touchpoint": {
+      "title": "互動記錄"
     }
   },
   "filter": {
@@ -493,6 +671,8 @@
   },
   "nameCard": {
     "title": "名片",
+    "scannerTitle": "名片掃描器",
+    "scannedCount": "已掃描 {{count}} 張",
     "empty": "未有名片"
   }
 }

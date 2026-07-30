@@ -4,6 +4,7 @@ import {
   ArrowLeft, Phone, Mail, Building2, Edit3, Plus, X,
   Activity, Trash2, User, Clock
 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { apiClient } from '../lib/api';
 import { useModuleSettings } from '../lib/useModules';
 
@@ -83,6 +84,7 @@ type TabId = 'details' | 'timeline' | 'deals' | 'tasks' | 'touchpoints' | 'notes
 // ---------------------------------------------------------------------------
 
 export default function ContactDetailPage() {
+  const { t } = useTranslation();
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
 
@@ -335,13 +337,13 @@ export default function ContactDetailPage() {
   }
 
   const tabs: { id: TabId; label: string; count: number }[] = [
-    { id: 'details', label: 'Details', count: 0 },
-    { id: 'timeline', label: 'Timeline', count: 0 },
-    ...(salesOn ? [{ id: 'deals' as TabId, label: 'Deals', count: deals.length }] : []),
-    { id: 'tasks', label: 'Tasks', count: 0 },
-    { id: 'touchpoints', label: 'Touchpoints', count: touchpoints.length },
-    { id: 'notes', label: 'Notes', count: notes.length },
-    { id: 'projects', label: 'Projects', count: projects.length },
+    { id: 'details', label: t('pages.contacts.detail.tabs.details'), count: 0 },
+    { id: 'timeline', label: t('pages.contacts.detail.tabs.timeline'), count: 0 },
+    ...(salesOn ? [{ id: 'deals' as TabId, label: t('pages.contacts.detail.tabs.deals'), count: deals.length }] : []),
+    { id: 'tasks', label: t('pages.contacts.detail.tabs.tasks'), count: 0 },
+    { id: 'touchpoints', label: t('pages.contacts.detail.tabs.touchpoints'), count: touchpoints.length },
+    { id: 'notes', label: t('pages.contacts.detail.tabs.notes'), count: notes.length },
+    { id: 'projects', label: t('pages.contacts.detail.tabs.projects'), count: projects.length },
   ];
   // If sales module off and current tab is deals, switch to details
   if (!salesOn && tab === 'deals') setTab('details');
@@ -379,9 +381,9 @@ export default function ContactDetailPage() {
     <div className="contact-detail-page">
       {/* ═══ Breadcrumb ═══ */}
       <nav className="breadcrumb">
-        <Link to="/dashboard">Home</Link>
+        <Link to="/dashboard">{t('common.home')}</Link>
         <span>/</span>
-        <Link to="/contacts">Contacts</Link>
+        <Link to="/contacts">{t('pages.contacts.title')}</Link>
         <span>/</span>
         <span className="cur">{contact.name}</span>
       </nav>
@@ -398,11 +400,11 @@ export default function ContactDetailPage() {
           {editOpen ? (
             <>
               <button onClick={cancelEdit} disabled={saving} className="btn-ghost">
-                Cancel
+                {t('common.cancel')}
               </button>
               <button onClick={handleSave} disabled={saving || !form.name.trim()}
                 className="btn-primary">
-                {saving ? 'Saving...' : 'Save changes'}
+                {saving ? t('common.saving') : t('common.saveChanges')}
               </button>
             </>
           ) : (
@@ -411,13 +413,13 @@ export default function ContactDetailPage() {
                 setLogActivityForm({ action: '', description: '' });
                 setLogActivityOpen(true);
               }} className="btn-secondary">
-                <Plus className="icon-16" /> Log Activity
+                <Plus className="icon-16" /> {t('pages.contacts.detail.logActivity')}
               </button>
               <button onClick={handleDeleteClick} className="btn-danger">
-                <Trash2 className="icon-16" /> Delete
+                <Trash2 className="icon-16" /> {t('common.delete')}
               </button>
               <button onClick={openEdit} className="btn-primary">
-                <Edit3 className="icon-16" /> Edit
+                <Edit3 className="icon-16" /> {t('common.edit')}
               </button>
             </>
           )}
@@ -430,7 +432,7 @@ export default function ContactDetailPage() {
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <path d="M12 20h9M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4L16.5 3.5z" />
           </svg>
-          Editing mode active. Make changes to the fields below and click Save.
+          {t('pages.contacts.detail.editBanner')}
         </div>
       )}
 
@@ -459,12 +461,12 @@ export default function ContactDetailPage() {
 
             {/* Owner / Assignee */}
             <div className="profile-field">
-              <User className="w-3.5 h-3.5" /> Owner: {contact.contact_type || 'Unassigned'}
+              <User className="w-3.5 h-3.5" /> {t('pages.contacts.detail.owner')}: {contact.contact_type || t('pages.contacts.detail.unassigned')}
             </div>
 
             {/* Last Touch Date */}
             <div className="profile-field">
-              <Clock className="w-3.5 h-3.5" /> Last touch: {lastTouchDate}
+              <Clock className="w-3.5 h-3.5" /> {t('pages.contacts.detail.lastTouch')}: {lastTouchDate}
             </div>
 
             {/* Company */}
@@ -512,12 +514,12 @@ export default function ContactDetailPage() {
                 {/* Left: Contact Information Form */}
                 <div className="panel panel-detail">  {/* was: style={{ padding: '24px' }} */}
                   <h3 style={{ fontSize: '16px', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <User className="w-4 h-4" /> Contact Information
+                    <User className="w-4 h-4" /> {t('pages.contacts.detail.contactInformation')}
                   </h3>
                   <div className="detail-form-grid">
                     {/* 1. Client Name */}
                     <div className="form-field">
-                      <div className="field-label">Client Name</div>
+                      <div className="field-label">{t('common.clientName')}</div>
                       <div className={"field-value" + (editOpen ? ' editable' : '')}
                         contentEditable={editOpen || undefined}
                         suppressContentEditableWarning
@@ -526,7 +528,7 @@ export default function ContactDetailPage() {
                     </div>
                     {/* 2. Chinese Name */}
                     <div className="form-field">
-                      <div className="field-label">Chinese Name</div>
+                      <div className="field-label">{t('common.chineseName')}</div>
                       <div className={"field-value" + (editOpen ? ' editable' : '')}
                         contentEditable={editOpen || undefined}
                         suppressContentEditableWarning
@@ -535,40 +537,40 @@ export default function ContactDetailPage() {
                     </div>
                     {/* 3. Nick Name */}
                     <div className="form-field">
-                      <div className="field-label">Nick Name</div>
-                      <div className={"field-value" + (editOpen ? ' editable' : '')}
+                      <div className="field-label">{t('common.nickName')}</div>
+                      <div className={'field-value' + (editOpen ? ' editable' : '')}
                         contentEditable={editOpen || undefined}
                         suppressContentEditableWarning
-                        onInput={e => { const t = e.currentTarget; setForm(f => ({ ...f, nick_name: t.textContent || '' })); }}
+                        onInput={e => { const target = e.currentTarget; setForm(f => ({ ...f, nick_name: target.textContent || '' })); }}
                       >{contact.nick_name || '—'}</div>
                     </div>
                     {/* 4. Title */}
                     <div className="form-field">
-                      <div className="field-label">Title</div>
-                      <div className={"field-value" + (editOpen ? ' editable' : '')}
+                      <div className="field-label">{t('common.jobTitle')}</div>
+                      <div className={'field-value' + (editOpen ? ' editable' : '')}
                         contentEditable={editOpen || undefined}
                         suppressContentEditableWarning
-                        onInput={e => { const t = e.currentTarget; setForm(f => ({ ...f, job_title: t.textContent || '' })); }}
+                        onInput={e => { const target = e.currentTarget; setForm(f => ({ ...f, job_title: target.textContent || '' })); }}
                       >{contact.job_title || '—'}</div>
                     </div>
                     {/* 5. Department */}
                     <div className="form-field">
-                      <div className="field-label">Department</div>
-                      <div className={"field-value" + (editOpen ? ' editable' : '')}
+                      <div className="field-label">{t('common.department')}</div>
+                      <div className={'field-value' + (editOpen ? ' editable' : '')}
                         contentEditable={editOpen || undefined}
                         suppressContentEditableWarning
-                        onInput={e => { const t = e.currentTarget; setForm(f => ({ ...f, department: t.textContent || '' })); }}
+                        onInput={e => { const target = e.currentTarget; setForm(f => ({ ...f, department: target.textContent || '' })); }}
                       >{contact.department || '—'}</div>
                     </div>
                     {/* 6. Type */}
                     <div className="form-field">
-                      <div className="field-label">Type</div>
+                      <div className="field-label">{t('common.type')}</div>
                       {editOpen ? (
                         <select value={form.contact_type} onChange={e => setForm(f => ({ ...f, contact_type: e.target.value }))} className="input-field">
-                          <option value="">— Select —</option>
-                          <option value="Distributor">Distributor</option>
-                          <option value="Vendor">Vendor</option>
-                          <option value="Client">Client</option>
+                          <option value="">— {t('common.select')} —</option>
+                          <option value="Distributor">{t('pages.contacts.detail.distributor')}</option>
+                          <option value="Vendor">{t('pages.contacts.detail.vendor')}</option>
+                          <option value="Client">{t('pages.contacts.detail.client')}</option>
                         </select>
                       ) : (
                         <div className="field-value">{contact.contact_type ? <span className="badge badge-tag">{contact.contact_type}</span> : '—'}</div>
@@ -576,24 +578,24 @@ export default function ContactDetailPage() {
                     </div>
                     {/* 7. Grade */}
                     <div className="form-field">
-                      <div className="field-label">Grade</div>
+                      <div className="field-label">{t('common.grade')}</div>
                       {editOpen ? (
                         <select value={form.grade} onChange={e => setForm(f => ({ ...f, grade: e.target.value }))} className="input-field">
-                          <option value="">— Select —</option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option>
+                          <option value="">— {t('common.select')} —</option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option>
                         </select>
                       ) : (
-                        <div className="field-value">{contact.grade ? <span className="badge badge-tag">Grade {contact.grade}</span> : '—'}</div>
+                        <div className="field-value">{contact.grade ? <span className="badge badge-tag">{t('pages.contacts.detail.grade')} {contact.grade}</span> : '—'}</div>
                       )}
                     </div>
                     {/* 8. Tag */}
                     <div className="form-field">
-                      <div className="field-label">Tag</div>
+                      <div className="field-label">{t('common.tag')}</div>
                       {editOpen ? (
                         <select value={form.tags[0] || ''} onChange={e => setForm(f => ({ ...f, tags: e.target.value ? [e.target.value] : [] }))} className="input-field">
-                          <option value="">— Select —</option>
-                          <option value="Sales">Sales</option><option value="Client">Client</option>
-                          <option value="Technical">Technical</option><option value="Head">Head</option>
-                          <option value="Internal Sales">Internal Sales</option>
+                          <option value="">— {t('common.select')} —</option>
+                          <option value="Sales">{t('pages.contacts.detail.sales')}</option><option value="Client">{t('pages.contacts.detail.client')}</option>
+                          <option value="Technical">{t('pages.contacts.detail.technical')}</option><option value="Head">{t('pages.contacts.detail.head')}</option>
+                          <option value="Internal Sales">{t('pages.contacts.detail.internalSales')}</option>
                         </select>
                       ) : (
                         <div className="field-value" style={{ gap: '6px', display: 'flex', flexWrap: 'wrap' }}>
@@ -603,7 +605,7 @@ export default function ContactDetailPage() {
                     </div>
                     {/* 9. No. */}
                     <div className="form-field">
-                      <div className="field-label">No.</div>
+                      <div className="field-label">{t('common.number')}</div>
                       {editOpen ? (
                         <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
                           {['1','2','3','4','5','6','7','8'].map(n => (
@@ -615,92 +617,92 @@ export default function ContactDetailPage() {
                         </div>
                       ) : (
                         <div className="field-value" style={{ gap: '6px', display: 'flex', flexWrap: 'wrap' }}>
-                          {contact.numbers?.length ? contact.numbers.map(n => <span key={n} className="badge badge-tag">No. {n}</span>) : '—'}
+                          {contact.numbers?.length ? contact.numbers.map(n => <span key={n} className="badge badge-tag">{t('pages.contacts.detail.number')} {n}</span>) : '—'}
                         </div>
                       )}
                     </div>
                     {/* 10. Email */}
                     <div className="form-field">
-                      <div className="field-label">Email</div>
-                      <div className={"field-value" + (editOpen ? ' editable' : '')}
+                      <div className="field-label">{t('common.email')}</div>
+                      <div className={'field-value' + (editOpen ? ' editable' : '')}
                         contentEditable={editOpen || undefined}
                         suppressContentEditableWarning
-                        onInput={e => { const t = e.currentTarget; setForm(f => ({ ...f, email: t.textContent || '' })); }}
+                        onInput={e => { const target = e.currentTarget; setForm(f => ({ ...f, email: target.textContent || '' })); }}
                       >{contact.email || '—'}</div>
                     </div>
                     {/* 11. Phone */}
                     <div className="form-field">
-                      <div className="field-label">Phone</div>
-                      <div className={"field-value" + (editOpen ? ' editable' : '')}
+                      <div className="field-label">{t('common.phone')}</div>
+                      <div className={'field-value' + (editOpen ? ' editable' : '')}
                         contentEditable={editOpen || undefined}
                         suppressContentEditableWarning
-                        onInput={e => { const t = e.currentTarget; setForm(f => ({ ...f, phone: t.textContent || '' })); }}
+                        onInput={e => { const target = e.currentTarget; setForm(f => ({ ...f, phone: target.textContent || '' })); }}
                       >{contact.phone || '—'}</div>
                     </div>
                     {/* 12. Office */}
                     <div className="form-field">
-                      <div className="field-label">Office</div>
-                      <div className={"field-value" + (editOpen ? ' editable' : '')}
+                      <div className="field-label">{t('common.office')}</div>
+                      <div className={'field-value' + (editOpen ? ' editable' : '')}
                         contentEditable={editOpen || undefined}
                         suppressContentEditableWarning
-                        onInput={e => { const t = e.currentTarget; setForm(f => ({ ...f, office_phone: t.textContent || '' })); }}
+                        onInput={e => { const target = e.currentTarget; setForm(f => ({ ...f, office_phone: target.textContent || '' })); }}
                       >{contact.office_phone || '—'}</div>
                     </div>
                     {/* 13. LinkedIn */}
                     <div className="form-field">
-                      <div className="field-label">LinkedIn</div>
-                      <div className={"field-value" + (editOpen ? ' editable' : '')}
+                      <div className="field-label">{t('common.linkedin')}</div>
+                      <div className={'field-value' + (editOpen ? ' editable' : '')}
                         contentEditable={editOpen || undefined}
                         suppressContentEditableWarning
-                        onInput={e => { const t = e.currentTarget; setForm(f => ({ ...f, linkedin_url: t.textContent || '' })); }}
+                        onInput={e => { const target = e.currentTarget; setForm(f => ({ ...f, linkedin_url: target.textContent || '' })); }}
                       >{contact.linkedin_url || '—'}</div>
                     </div>
                     {/* 14. Address */}
                     <div className="form-field">
-                      <div className="field-label">Address</div>
-                      <div className={"field-value" + (editOpen ? ' editable' : '')}
+                      <div className="field-label">{t('common.address')}</div>
+                      <div className={'field-value' + (editOpen ? ' editable' : '')}
                         contentEditable={editOpen || undefined}
                         suppressContentEditableWarning
-                        onInput={e => { const t = e.currentTarget; setForm(f => ({ ...f, address: t.textContent || '' })); }}
+                        onInput={e => { const target = e.currentTarget; setForm(f => ({ ...f, address: target.textContent || '' })); }}
                       >{contact.address || '—'}</div>
                     </div>
                     {/* 15. Notes (full width) */}
                     <div className="form-field gcol-1-1">
-                      <div className="field-label">Notes</div>
-                      <div className={"field-value" + (editOpen ? ' editable' : '')}
+                      <div className="field-label">{t('common.notes')}</div>
+                      <div className={'field-value' + (editOpen ? ' editable' : '')}
                         contentEditable={editOpen || undefined}
                         suppressContentEditableWarning
-                        onInput={e => { const t = e.currentTarget; setForm(f => ({ ...f, notes: t.textContent || '' })); }}
+                        onInput={e => { const target = e.currentTarget; setForm(f => ({ ...f, notes: target.textContent || '' })); }}
                         style={editOpen ? {} : { alignItems: 'flex-start', lineHeight: 1.6 }}
                       >{contact.notes || '—'}</div>
                     </div>
                     {/* 16. Name Card */}
                     <div className="form-field gcol-1-1">
-                      <div className="field-label">Name Card</div>
-                      <div className={"field-value" + (editOpen ? ' editable' : '')}
+                      <div className="field-label">{t('pages.contacts.detail.nameCard')}</div>
+                      <div className={'field-value' + (editOpen ? ' editable' : '')}
                         contentEditable={editOpen || undefined}
                         suppressContentEditableWarning
-                        onInput={e => { const t = e.currentTarget; setForm(f => ({ ...f, namecard_path: t.textContent || '' })); }}
+                        onInput={e => { const target = e.currentTarget; setForm(f => ({ ...f, namecard_path: target.textContent || '' })); }}
                       >{contact.namecard_path || '—'}</div>
                     </div>
                     {/* 17. Company (full width) */}
                     <div className="form-field gcol-1-1">
-                      <div className="field-label">Companies</div>
+                      <div className="field-label">{t('pages.contacts.detail.companies')}</div>
                       <div className="field-value">{contact.company?.name || '—'}</div>
                     </div>
                     {/* 18. Projects count */}
                     <div className="form-field">
-                      <div className="field-label">Projects</div>
-                      <div className="field-value">{projects.length} linked</div>
+                      <div className="field-label">{t('pages.contacts.detail.projects')}</div>
+                      <div className="field-value">{projects.length} {t('pages.contacts.detail.linked')}</div>
                     </div>
                     {/* 19. Touchpoints count */}
                     <div className="form-field">
-                      <div className="field-label">Touch Points</div>
-                      <div className="field-value">{touchpoints.length} recorded</div>
+                      <div className="field-label">{t('pages.contacts.detail.touchPoints')}</div>
+                      <div className="field-value">{touchpoints.length} {t('pages.contacts.detail.recorded')}</div>
                     </div>
                     {/* 20. Created Time */}
                     <div className="form-field">
-                      <div className="field-label">Created Time</div>
+                      <div className="field-label">{t('pages.contacts.detail.createdTime')}</div>
                       <div className="field-value">{formatDate(contact.created_at)}</div>
                     </div>
                   </div>
@@ -711,31 +713,31 @@ export default function ContactDetailPage() {
                 <div>
                   <div className="panel panel-detail" style={{ background: 'var(--color-surface-offset)' }}>
                     <h3 style={{ fontSize: '16px', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg> Sales Summary
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg> {t('pages.contacts.detail.salesSummary')}
                     </h3>
                     <div className="summary-item">
-                      <span className="lbl text-13-muted">Pipeline Value</span>
+                      <span className="lbl text-13-muted">{t('pages.contacts.detail.pipelineValue')}</span>
                       <span className="val" style={{ fontWeight: 600, color: 'var(--color-primary)', fontSize: '16px' }}>
                         {deals.length > 0 ? `$${deals.reduce((s, d) => s + (d.amount || 0), 0).toLocaleString()}` : '$0'}
                       </span>
                     </div>
                     <div className="summary-item">
-                      <span className="lbl text-13-muted">Open Deals</span>
-<span className="fw-600 val">{deals.length} active</span>
+                      <span className="lbl text-13-muted">{t('pages.contacts.detail.openDeals')}</span>
+<span className="fw-600 val">{deals.length} {t('pages.contacts.detail.active')}</span>
                     </div>
                     <div className="summary-item">
-                      <span className="lbl text-13-muted">Last Touch</span>
+                      <span className="lbl text-13-muted">{t('pages.contacts.detail.lastTouch')}</span>
 <span className="fw-600 val">{lastTouchDate}</span>
                     </div>
                     <div className="summary-item">
-                      <span className="lbl text-13-muted">Owner</span>
-<span className="fw-600 val">{contact.contact_type || 'Unassigned'}</span>
+                      <span className="lbl text-13-muted">{t('pages.contacts.detail.owner')}</span>
+<span className="fw-600 val">{contact.contact_type || t('pages.contacts.detail.unassigned')}</span>
                     </div>
                     {deals.length > 0 && (
                       <div className="next-action" style={{ background: 'var(--color-primary-highlight)', padding: '12px', borderRadius: '8px', marginTop: '16px', border: '1px solid rgba(15,111,111,0.2)' }}>
-                        <div className="lbl" style={{ fontSize: '11px', textTransform: 'uppercase', color: 'var(--color-primary)', fontWeight: 700, marginBottom: '4px' }}>Next Action</div>
+                        <div className="lbl" style={{ fontSize: '11px', textTransform: 'uppercase', color: 'var(--color-primary)', fontWeight: 700, marginBottom: '4px' }}>{t('pages.contacts.detail.nextAction')}</div>
                         <div className="val" style={{ fontWeight: 600, color: 'var(--color-primary-active)', fontSize: '13px' }}>{deals[0].name}</div>
-                        <div className="lbl" style={{ marginTop: '4px', fontWeight: 500, fontSize: '12px', color: 'var(--color-text)' }}>Stage: {deals[0].stage?.name || '—'}</div>
+                        <div className="lbl" style={{ marginTop: '4px', fontWeight: 500, fontSize: '12px', color: 'var(--color-text)' }}>{t('pages.contacts.detail.stage')}: {deals[0].stage?.name || '—'}</div>
                       </div>
                     )}
                   </div>
@@ -748,16 +750,16 @@ export default function ContactDetailPage() {
           {tab === 'timeline' && (
             <div className="panel">
               <div className="panel-head">
-                <h3>Activity</h3>
+                <h3>{t('pages.contacts.detail.activity')}</h3>
                 <button onClick={() => {
                   setLogActivityForm({ action: '', description: '' });
                   setLogActivityOpen(true);
                 }} className="btn-ghost">
-                  + Log activity
+                  + {t('pages.contacts.detail.logActivity')}
                 </button>
               </div>
               {timelineItems.length === 0 ? (
-                <div className="empty-state">No activity recorded yet</div>
+                <div className="empty-state">{t('pages.contacts.detail.noActivity')}</div>
               ) : (
                 <div className="timeline timeline-panel">
                   {timelineItems.map(item => (
@@ -781,10 +783,10 @@ export default function ContactDetailPage() {
           {tab === 'deals' && (
             <div className="panel">
               <div className="panel-head">
-                <h3>Deals</h3>
+                <h3>{t('pages.contacts.detail.deals')}</h3>
               </div>
               {deals.length === 0 ? (
-                <div className="empty-state">No deals linked</div>
+                <div className="empty-state">{t('pages.contacts.detail.noDeals')}</div>
               ) : (
                 <div className="flex-col">
                   {deals.map(d => (
@@ -813,13 +815,13 @@ export default function ContactDetailPage() {
           {tab === 'touchpoints' && (
             <div className="panel">
               <div className="panel-head">
-                <h3>Touchpoints</h3>
+                <h3>{t('pages.contacts.detail.touchpoints')}</h3>
                 <button onClick={() => setTpOpen(true)} className="btn-ghost">
-                  + Add Touchpoint
+                  + {t('pages.contacts.detail.addTouchpoint')}
                 </button>
               </div>
               {touchpoints.length === 0 ? (
-                <div className="empty-state">No touchpoints yet</div>
+                <div className="empty-state">{t('pages.contacts.detail.noTouchpoints')}</div>
               ) : (
                 <div className="flex-col">
                   {touchpoints.map(tp => (
@@ -847,20 +849,20 @@ export default function ContactDetailPage() {
           {tab === 'notes' && (
             <div className="panel">
               <div className="panel-head">
-                <h3>Notes</h3>
+                <h3>{t('pages.contacts.detail.notes')}</h3>
                 <button onClick={() => setNoteOpen(true)} className="btn-ghost">
-                  + Add Note
+                  + {t('pages.contacts.detail.addNote')}
                 </button>
               </div>
               {notes.length === 0 ? (
-                <div className="empty-state">No notes yet</div>
+                <div className="empty-state">{t('pages.contacts.detail.noNotes')}</div>
               ) : (
                 <div className="flex-col">
                   {notes.filter(n => n.contact_id === id || !n.contact_id).map(n => (
                     <div key={n.id} className="list-row flex-col items-stretch px-5 py-3">
                       <div className="flex items-start justify-between gap-2">
                         <div className="list-title">{n.title}</div>
-                        {n.pinned && <span className="badge badge-p1">Pinned</span>}
+                        {n.pinned && <span className="badge badge-p1">{t('pages.contacts.detail.pinned')}</span>}
                       </div>
                       {n.content && <p className="list-sub mt-1 whitespace-pre-wrap">{n.content}</p>}
                       <p className="list-sub mt-1 text-xs">{timeAgo(n.created_at)}</p>
@@ -875,7 +877,7 @@ export default function ContactDetailPage() {
           {tab === 'projects' && (
             <div className="panel">
               <div className="panel-head">
-                <h3>Projects</h3>
+                <h3>{t('pages.contacts.detail.projects')}</h3>
                 <button onClick={async () => {
                   try {
                     const res = await apiClient.get<{ items: DealOption[] }>('/api/v1/crm/deals?page_size=200');
@@ -884,11 +886,11 @@ export default function ContactDetailPage() {
                     setProjectOpen(true);
                   } catch (e: any) { alert(e.detail || e.message); }
                 }} className="btn-ghost">
-                  + Link Project
+                  + {t('pages.contacts.detail.linkProject')}
                 </button>
               </div>
               {projects.length === 0 ? (
-                <div className="empty-state">No projects linked</div>
+                <div className="empty-state">{t('pages.contacts.detail.noProjects')}</div>
               ) : (
                 <div className="flex-col">
                   {projects.map(p => (
@@ -903,12 +905,12 @@ export default function ContactDetailPage() {
                           <div className="list-sub">{p.probability ?? 0}%</div>
                         </div>
                         <button onClick={async () => {
-                          if (!confirm('Remove this project from contact?')) return;
+                          if (!confirm(t('pages.contacts.detail.confirmRemoveProject'))) return;
                           try {
                             await apiClient.delete(`/api/v1/crm/contacts/${id}/projects/${p.id}`);
                             fetchContact();
                           } catch (e: any) { alert(e.detail || e.message); }
-                        }} className="icon-btn text-notification" title="Remove">
+                        }} className="icon-btn text-notification" title={t('pages.contacts.detail.remove')}>
                           <Trash2 className="icon-16" />
                         </button>
                       </div>
@@ -930,18 +932,18 @@ export default function ContactDetailPage() {
               <div className="delete-icon-wrap">
                 <Trash2 />
               </div>
-              <h3 className="delete-heading">Delete {contact.name}?</h3>
+              <h3 className="delete-heading">{t('pages.contacts.detail.deleteConfirm', { name: contact.name })}</h3>
               <p className="delete-text">
-                This action removes the contact from your CRM. It cannot be undone.
+                {t('pages.contacts.detail.deleteWarning')}
               </p>
             </div>
             <div className="modal-foot">
               <button onClick={() => setDeleteModalOpen(false)} className="btn-secondary">
-                Cancel
+                {t('common.cancel')}
               </button>
               <button onClick={handleDeleteConfirm} disabled={deleteLoading}
                 className="btn-notification">
-                {deleteLoading ? 'Deleting...' : 'Delete'}
+                {deleteLoading ? t('common.deleting') : t('common.delete')}
               </button>
             </div>
           </div>
@@ -954,35 +956,35 @@ export default function ContactDetailPage() {
           onClick={(e) => { if (e.target === e.currentTarget) setLogActivityOpen(false); }}>
           <div className="modal">
             <div className="modal-head">
-              <h2>Log Activity</h2>
+              <h2>{t('pages.contacts.detail.logActivity')}</h2>
               <button onClick={() => setLogActivityOpen(false)} className="modal-x"><X className="icon-16" /></button>
             </div>
             <div className="modal-body form-body">
               <div className="form-row-1">
                 <div>
-                  <label className="field-label">Action *</label>
+                  <label className="field-label">{t('pages.contacts.detail.actionRequired')}</label>
                   <input type="text" value={logActivityForm.action}
                     onChange={e => setLogActivityForm(f => ({ ...f, action: e.target.value }))}
-                    placeholder="e.g. Called, Emailed, Meeting"
+                    placeholder={t('pages.contacts.detail.actionPlaceholder')}
                     className="input-field" />
                 </div>
               </div>
               <div className="form-row-1">
                 <div>
-                  <label className="field-label">Description</label>
+                  <label className="field-label">{t('common.description')}</label>
                   <textarea value={logActivityForm.description}
                     onChange={e => setLogActivityForm(f => ({ ...f, description: e.target.value }))}
                     rows={3}
-                    placeholder="Brief description..."
+                    placeholder={t('pages.contacts.detail.descriptionPlaceholder')}
                     className="input-field" />
                 </div>
               </div>
             </div>
             <div className="modal-foot">
-              <button onClick={() => setLogActivityOpen(false)} className="btn-secondary">Cancel</button>
+              <button onClick={() => setLogActivityOpen(false)} className="btn-secondary">{t('common.cancel')}</button>
               <button onClick={handleLogActivity} disabled={logActivitySaving || !logActivityForm.action.trim()}
                 className="btn-primary">
-                {logActivitySaving ? 'Saving...' : 'Log'}
+                {logActivitySaving ? t('common.saving') : t('pages.contacts.detail.log')}
               </button>
             </div>
           </div>
@@ -995,48 +997,48 @@ export default function ContactDetailPage() {
           onClick={(e) => { if (e.target === e.currentTarget) setTpOpen(false); }}>
           <div className="modal">
             <div className="modal-head">
-              <h2>Add Touchpoint</h2>
+              <h2>{t('pages.contacts.detail.addTouchpoint')}</h2>
               <button onClick={() => setTpOpen(false)} className="modal-x"><X className="icon-16" /></button>
             </div>
             <div className="modal-body form-body">
               <div className="form-row-1">
                 <div>
-                  <label className="field-label">Title *</label>
+                  <label className="field-label">{t('pages.contacts.detail.titleRequired')}</label>
                   <input type="text" value={tpForm.title}
                     onChange={e => setTpForm(f => ({ ...f, title: e.target.value }))}
-                    placeholder="e.g. Discovery call with Peter"
+                    placeholder={t('pages.contacts.detail.touchpointTitlePlaceholder')}
                     className="input-field" />
                 </div>
               </div>
               <div className="form-row-1">
                 <div>
-                  <label className="field-label">Type</label>
+                  <label className="field-label">{t('common.type')}</label>
                   <select value={tpForm.type}
                     onChange={e => setTpForm(f => ({ ...f, type: e.target.value }))}
                     className="input-field">
-                    <option value="meeting">Meeting</option>
-                    <option value="call">Call</option>
-                    <option value="email">Email</option>
-                    <option value="namecard">NameCard</option>
+                    <option value="meeting">{t('pages.contacts.detail.meeting')}</option>
+                    <option value="call">{t('pages.contacts.detail.call')}</option>
+                    <option value="email">{t('pages.contacts.detail.email')}</option>
+                    <option value="namecard">{t('pages.contacts.detail.namecard')}</option>
                   </select>
                 </div>
               </div>
               <div className="form-row-1">
                 <div>
-                  <label className="field-label">Description</label>
+                  <label className="field-label">{t('common.description')}</label>
                   <textarea value={tpForm.description}
                     onChange={e => setTpForm(f => ({ ...f, description: e.target.value }))}
                     rows={2}
-                    placeholder="Brief description of the interaction"
+                    placeholder={t('pages.contacts.detail.touchpointDescriptionPlaceholder')}
                     className="input-field" />
                 </div>
               </div>
             </div>
             <div className="modal-foot">
-              <button onClick={() => setTpOpen(false)} className="btn-secondary">Cancel</button>
+              <button onClick={() => setTpOpen(false)} className="btn-secondary">{t('common.cancel')}</button>
               <button onClick={handleAddTouchpoint} disabled={tpSaving || !tpForm.title.trim()}
                 className="btn-primary">
-                {tpSaving ? 'Saving...' : 'Add'}
+                {tpSaving ? t('common.saving') : t('pages.contacts.detail.add')}
               </button>
             </div>
           </div>
@@ -1049,35 +1051,35 @@ export default function ContactDetailPage() {
           onClick={(e) => { if (e.target === e.currentTarget) setNoteOpen(false); }}>
           <div className="modal">
             <div className="modal-head">
-              <h2>Add Note</h2>
+              <h2>{t('pages.contacts.detail.addNote')}</h2>
               <button onClick={() => setNoteOpen(false)} className="modal-x"><X className="icon-16" /></button>
             </div>
             <div className="modal-body form-body">
               <div className="form-row-1">
                 <div>
-                  <label className="field-label">Title *</label>
+                  <label className="field-label">{t('pages.contacts.detail.titleRequired')}</label>
                   <input type="text" value={noteForm.title}
                     onChange={e => setNoteForm(f => ({ ...f, title: e.target.value }))}
-                    placeholder="Note title"
+                    placeholder={t('pages.contacts.detail.noteTitlePlaceholder')}
                     className="input-field" />
                 </div>
               </div>
               <div className="form-row-1">
                 <div>
-                  <label className="field-label">Content</label>
+                  <label className="field-label">{t('common.content')}</label>
                   <textarea value={noteForm.content}
                     onChange={e => setNoteForm(f => ({ ...f, content: e.target.value }))}
                     rows={4}
-                    placeholder="Write your notes here..."
+                    placeholder={t('pages.contacts.detail.noteContentPlaceholder')}
                     className="input-field" />
                 </div>
               </div>
             </div>
             <div className="modal-foot">
-              <button onClick={() => setNoteOpen(false)} className="btn-secondary">Cancel</button>
+              <button onClick={() => setNoteOpen(false)} className="btn-secondary">{t('common.cancel')}</button>
               <button onClick={handleAddNote} disabled={noteSaving || !noteForm.title.trim()}
                 className="btn-primary">
-                {noteSaving ? 'Saving...' : 'Add'}
+                {noteSaving ? t('common.saving') : t('pages.contacts.detail.add')}
               </button>
             </div>
           </div>
@@ -1090,17 +1092,17 @@ export default function ContactDetailPage() {
           onClick={(e) => { if (e.target === e.currentTarget) setProjectOpen(false); }}>
           <div className="modal">
             <div className="modal-head">
-              <h2>Link Project</h2>
+              <h2>{t('pages.contacts.detail.linkProject')}</h2>
               <button onClick={() => setProjectOpen(false)} className="modal-x"><X className="icon-16" /></button>
             </div>
             <div className="modal-body form-body">
               <div className="form-row-1">
                 <div>
-                  <label className="field-label">Select Project</label>
+                  <label className="field-label">{t('pages.contacts.detail.selectProject')}</label>
                   <select value={selectedProjectId}
                     onChange={e => setSelectedProjectId(e.target.value)}
                     className="input-field">
-                    <option value="">-- Choose a project --</option>
+                    <option value="">{t('pages.contacts.detail.chooseProject')}</option>
                     {dealOptions.map(d => (
                       <option key={d.id} value={d.id}>
                         {d.name} {d.amount ? `($${d.amount})` : ''}
@@ -1111,7 +1113,7 @@ export default function ContactDetailPage() {
               </div>
             </div>
             <div className="modal-foot">
-              <button onClick={() => setProjectOpen(false)} className="btn-secondary">Cancel</button>
+              <button onClick={() => setProjectOpen(false)} className="btn-secondary">{t('common.cancel')}</button>
               <button onClick={async () => {
                 if (!selectedProjectId) { alert('Please select a project'); return; }
                 setProjectSaving(true);
@@ -1123,7 +1125,7 @@ export default function ContactDetailPage() {
                 finally { setProjectSaving(false); }
               }} disabled={projectSaving || !selectedProjectId}
                 className="btn-primary">
-                {projectSaving ? 'Linking...' : 'Link'}
+                {projectSaving ? t('common.saving') : t('pages.contacts.detail.link')}
               </button>
             </div>
           </div>

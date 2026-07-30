@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Plus, Search, Building2, X, ChevronRight } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useApi, useSearch, useCreateModal, TableSkeleton, ErrorBox } from '../lib/useApi';
@@ -29,6 +30,7 @@ const defaultForm = { name: '', industry: '', domain: '', status: 'Active' };
 
 export default function CompaniesPage() {
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const { query, setQuery, searchParams } = useSearch();
   const { data, loading, error, refresh } = useApi<CompanyListResponse>(`/api/v1/crm/companies${searchParams}`);
   const create = useCreateModal();
@@ -69,15 +71,15 @@ export default function CompaniesPage() {
       {/* Header */}
       <div className="page-header">
         <div>
-          <h1>Companies</h1>
-          <p>{total} companies</p>
+          <h1>{t('pages.companies.title')}</h1>
+          <p>{t('pages.companies.count', { count: total })}</p>
         </div>
         <div className="header-actions">
           <button
             onClick={create.openModal}
             className="btn-primary"
           >
-            <Plus className="w-4 h-4" /> New Company
+            <Plus className="w-4 h-4" /> {t('pages.companies.new')}
           </button>
         </div>
       </div>
@@ -142,7 +144,7 @@ export default function CompaniesPage() {
         <div className="modal-overlay">
           <div className="modal">
             <div className="modal-head">
-              <h2>New Company</h2>
+              <h2>{t('pages.companies.new')}</h2>
               <button onClick={create.closeModal} className="modal-x"><X className="w-5 h-5" /></button>
             </div>
             <div className="modal-body">
@@ -184,14 +186,14 @@ export default function CompaniesPage() {
                 onClick={create.closeModal}
                 className="btn-secondary"
               >
-                Cancel
+                {t('common.cancel')}
               </button>
               <button
                 onClick={handleCreate}
                 disabled={saving || !form.name.trim()}
                 className="btn-primary"
               >
-                {saving ? 'Creating...' : 'Create'}
+                {saving ? t('common.processing') : t('common.create')}
               </button>
             </div>
           </div>

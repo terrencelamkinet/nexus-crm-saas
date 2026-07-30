@@ -1,4 +1,5 @@
 import { useState, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Plus, Search, X, Trash2, Edit3, Filter, ArrowUpDown, LayoutGrid, SlidersHorizontal, Download, ChevronRight, MoreHorizontal, GripVertical } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useApi, useSearch, useCreateModal, TableSkeleton, ErrorBox } from '../lib/useApi';
@@ -231,6 +232,7 @@ function ContactFormFields({ form, setForm, inputCls }: FormFieldsProps) {
 }
 
 export default function ContactsPage() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const tableRef = useRef<HTMLTableElement>(null);
   const { query, setQuery, debounced } = useSearch();
@@ -381,23 +383,23 @@ export default function ContactsPage() {
     <div>
       {/* Breadcrumb */}
       <div className="breadcrumb">
-        <span className="breadcrumb-link" onClick={() => navigate('/dashboard')}>Home</span>
+        <span className="breadcrumb-link" onClick={() => navigate('/dashboard')}>{t('common.home')}</span>
         <ChevronRight />
-        <span className="breadcrumb-current">Contacts</span>
+        <span className="breadcrumb-current">{t('pages.contacts.title')}</span>
       </div>
 
       {/* Header */}
       <div className="page-header">
         <div>
-          <h1>Contacts</h1>
-          <p>{total} contacts</p>
+          <h1>{t('pages.contacts.title')}</h1>
+          <p>{t('pages.contacts.count', { count: total })}</p>
         </div>
         <div className="header-actions">
           <button className="btn-secondary">
-            <Download className="w-4 h-4" /> Export
+            <Download className="w-4 h-4" /> {t('common.export')}
           </button>
           <button onClick={create.openModal} className="btn-primary">
-            <Plus className="w-4 h-4" /> New Contact
+            <Plus className="w-4 h-4" /> {t('pages.contacts.new')}
           </button>
         </div>
       </div>
@@ -408,15 +410,15 @@ export default function ContactsPage() {
         <div className="db-toolbar">
           <div className="db-search">
             <Search className="w-4 h-4" />
-            <input type="text" placeholder="Search contacts..." value={query}
+            <input type="text" placeholder={t('pages.contacts.searchPlaceholder')} value={query}
               onChange={e => setQuery(e.target.value)} />
           </div>
           <div className="toolbar-actions">
-            <button className="toolbar-btn"><Filter className="w-4 h-4" /> Filter</button>
-            <button className="toolbar-btn"><ArrowUpDown className="w-4 h-4" /> Sort</button>
-            <button className="toolbar-btn"><LayoutGrid className="w-4 h-4" /> Group</button>
+            <button className="toolbar-btn"><Filter className="w-4 h-4" /> {t('common.filter')}</button>
+            <button className="toolbar-btn"><ArrowUpDown className="w-4 h-4" /> {t('common.sort')}</button>
+            <button className="toolbar-btn"><LayoutGrid className="w-4 h-4" /> {t('common.group')}</button>
             <span className="toolbar-sep" />
-            <button className="toolbar-btn" onClick={col.openMobile}><SlidersHorizontal className="w-4 h-4" /> Properties</button>
+            <button className="toolbar-btn" onClick={col.openMobile}><SlidersHorizontal className="w-4 h-4" /> {t('common.properties')}</button>
           </div>
         </div>
 
@@ -425,7 +427,7 @@ export default function ContactsPage() {
         ) : error ? (
           <ErrorBox message={error} onRetry={refresh} />
         ) : items.length === 0 ? (
-          <div className="empty-state">No contacts found</div>
+          <div className="empty-state">{t('pages.contacts.empty')}</div>
         ) : (
           <>
             <table ref={tableRef}>
@@ -469,15 +471,15 @@ export default function ContactsPage() {
                     ))}
                     <td className="col-menu" onClick={e => e.stopPropagation()}>
                       <div className="menu-wrap">
-                        <button className="menu-dots" title="More actions">
+                        <button className="menu-dots" title={t('common.moreActions')}>
                           <MoreHorizontal className="w-4 h-4" />
                         </button>
                         <div className="menu-dropdown">
                           <button className="menu-item" onClick={() => openEdit(c)}>
-                            <Edit3 /> Edit
+                            <Edit3 /> {t('common.edit')}
                           </button>
                           <button className="menu-item text-notification" onClick={() => setDeleteTarget(c)}>
-                            <Trash2 /> Delete
+                            <Trash2 /> {t('common.delete')}
                           </button>
                         </div>
                       </div>
@@ -490,15 +492,15 @@ export default function ContactsPage() {
             {/* Bulk action bar */}
             {selectedIds.size > 0 && (
               <div className="bulk-bar">
-                <span className="count">{selectedIds.size} selected</span>
-                <button className="btn-secondary">Add Tag</button>
-                <button className="btn-secondary">Export</button>
+                <span className="count">{t('pages.contacts.selectedCount', { count: selectedIds.size })}</span>
+                <button className="btn-secondary">{t('common.addTag')}</button>
+                <button className="btn-secondary">{t('common.export')}</button>
                 <button className="btn-notification"
                   onClick={() => {
                     const first = items.find(i => selectedIds.has(i.id));
                     if (first) setDeleteTarget(first);
                   }}>
-                  <Trash2 className="w-4 h-4" /> Delete
+                  <Trash2 className="w-4 h-4" /> {t('common.delete')}
                 </button>
               </div>
             )}
@@ -512,17 +514,17 @@ export default function ContactsPage() {
           onClick={(e) => { if (e.target === e.currentTarget) create.closeModal(); }}>
           <div className="modal">
             <div className="modal-head">
-              <h2>New Contact</h2>
+              <h2>{t('pages.contacts.new')}</h2>
               <button onClick={create.closeModal} className="modal-x"><X className="icon-16" /></button>
             </div>
             <div className="modal-body form-body pb-100">
               <ContactFormFields form={form} setForm={setForm} inputCls={inputCls} />
             </div>
             <div className="modal-foot">
-              <button onClick={create.closeModal} className="btn-secondary">Cancel</button>
+              <button onClick={create.closeModal} className="btn-secondary">{t('common.cancel')}</button>
               <button onClick={handleCreate} disabled={saving || !form.name.trim()}
                 className="btn-primary">
-                {saving ? 'Saving...' : 'Create'}
+                {saving ? t('common.saving') : t('common.create')}
               </button>
             </div>
           </div>
@@ -535,17 +537,17 @@ export default function ContactsPage() {
           onClick={(e) => { if (e.target === e.currentTarget) setEditTarget(null); }}>
           <div className="modal">
             <div className="modal-head">
-              <h2>Edit Contact</h2>
+              <h2>{t('common.edit')}</h2>
               <button onClick={() => setEditTarget(null)} className="modal-x"><X className="icon-16" /></button>
             </div>
             <div className="modal-body form-body pb-100">
               <ContactFormFields form={form} setForm={setForm} inputCls={inputCls} />
             </div>
             <div className="modal-foot">
-              <button onClick={() => setEditTarget(null)} className="btn-secondary">Cancel</button>
+              <button onClick={() => setEditTarget(null)} className="btn-secondary">{t('common.cancel')}</button>
               <button onClick={handleEdit} disabled={saving || !form.name.trim()}
                 className="btn-primary">
-                {saving ? 'Saving...' : 'Save'}
+                {saving ? t('common.saving') : t('common.save')}
               </button>
             </div>
           </div>
@@ -561,17 +563,17 @@ export default function ContactsPage() {
               <div className="delete-icon-wrap">
                 <Trash2 />
               </div>
-              <h2 className="delete-heading">Delete Contact</h2>
+              <h2 className="delete-heading">{t('pages.contacts.deleteTitle')}</h2>
               <p className="delete-text">
-                Are you sure you want to delete <strong>{deleteTarget.name}</strong>?
-                This action cannot be undone.
+                {t('pages.contacts.deleteConfirmText')} <strong>{deleteTarget.name}</strong>?
+                {t('pages.contacts.deleteCannotUndo')}
               </p>
             </div>
             <div className="modal-foot">
-              <button onClick={() => setDeleteTarget(null)} className="btn-secondary">Cancel</button>
+              <button onClick={() => setDeleteTarget(null)} className="btn-secondary">{t('common.cancel')}</button>
               <button onClick={handleDelete} disabled={deleting}
                 className="btn-notification">
-                {deleting ? 'Deleting...' : 'Delete'}
+                {deleting ? t('common.deleting') : t('common.delete')}
               </button>
             </div>
           </div>
@@ -579,7 +581,7 @@ export default function ContactsPage() {
       )}
 
       {/* ─── Mobile Column Settings ─── */}
-      <BottomSheet open={col.mobileOpen} onClose={col.closeMobile} title="Columns">
+      <BottomSheet open={col.mobileOpen} onClose={col.closeMobile} title={t('common.columns')}>
         <div className="col-settings">
           {visibleCols.map((v, i) => (
             <div key={v.key} className="col-settings-row">
@@ -595,13 +597,13 @@ export default function ContactsPage() {
           ))}
           <button className="quick-submit" onClick={() => { col.resetColumns(); col.closeMobile(); }}
             style={{ marginTop: 16, background: 'var(--color-surface-offset)', color: 'var(--color-text)', border: '1px solid var(--color-border)' }}>
-            Reset Columns
+            {t('common.resetColumns')}
           </button>
         </div>
       </BottomSheet>
 
       {/* ─── Right-side Detail Drawer ─── */}
-      <SlideDrawer open={!!selectedContactId} onClose={() => setSelectedContactId(null)} title="Contact Details">
+      <SlideDrawer open={!!selectedContactId} onClose={() => setSelectedContactId(null)} title={t('pages.contacts.detailTitle')}>
         {selectedContactId && (
           <DetailDrawerContent
             config={contactConfig}

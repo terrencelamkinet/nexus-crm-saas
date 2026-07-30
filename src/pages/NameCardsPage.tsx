@@ -1,5 +1,6 @@
 import { ScanLine, CheckCircle, ChevronRight } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { useApi, CardSkeleton, ErrorBox } from '../lib/useApi';
 
 interface NameCard {
@@ -19,6 +20,7 @@ interface NameCardListResponse {
 }
 
 export default function NameCardsPage() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const { data, loading, error, refresh } = useApi<NameCardListResponse>('/api/v1/crm/name-cards?page=1&page_size=50');
 
@@ -35,8 +37,8 @@ export default function NameCardsPage() {
       </div>
       <div className="page-header">
         <div>
-          <h1>NameCard Scanner</h1>
-          <p>{total} cards scanned</p>
+          <h1>{t('nameCard.scannerTitle')}</h1>
+          <p>{t('nameCard.scannedCount', { count: total })}</p>
         </div>
       </div>
 
@@ -45,7 +47,7 @@ export default function NameCardsPage() {
       ) : error ? (
         <ErrorBox message={error} onRetry={refresh} />
       ) : items.length === 0 ? (
-        <div className="p-8 text-center text-sm c-text-faint">No name cards yet</div>
+        <div className="p-8 text-center text-sm c-text-faint">{t('nameCard.empty')}</div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {items.map((card) => (
