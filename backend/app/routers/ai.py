@@ -751,3 +751,60 @@ async def chat_completion(
         }
     finally:
         await adapter.close()
+
+
+# ====================================================================
+# Daily Summary Cron Endpoint
+# ====================================================================
+import os as _os
+
+
+@router.post("/daily-summary")
+async def daily_summary(
+    request: Request,
+    db: AsyncSession = Depends(get_tenant_session),
+    text: str = Query("", max_length=10000),
+):
+    """Create a new session with a daily summary message (requires Cron-Api-Key header).
+    The 'text' query param contains the summary content. If empty, a default template is used.
+    """
+    cron_key = request.headers.get("Cron-Api-Key", "")
+    expected = _os.environ.get("NEXUS_CRON_API_KEY", "")
+    if not expected or cron_key != expected:
+        raise HTTPException(403, "Invalid or missing Cron-Api-Key")
+
+    ctx = getattr(request.state, "ai_context", None)
+    if not ctx:
+        raise HTTPException(400, "AI session context not initialized")
+
+    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    summary = text.strip()
+    if not summary:
+        summary = f"📋 今日摘要 · {today}\n\n📌 Daily Tasks\n  (no data)\n\n📅 Daily Meetings\n  (no data)"
+
+    # ── Create session ──
+    session = AISession(
+        tenant_id=ctx.tenant_id,
+        workspace_id=ctx.workspace_id,
+        team_id=ctx.team_id,
+        user_id=ctx.user_id,
+        plan_type="chat",
+        status="active",
+        title=f"Daily Summary · {today}",
+    )
+    db.add(session)
+    await db.flush()
+
+    # ── Insert assistant message ──
+    msg = Message(
+        session_id=session.id,
+        role="assistant",
+        content=summary,
+    )
+    db.add(msg)
+    await db.commit()
+
+    return {
+        "session_id": str(session.id),
+        "summary": summary,
+    }
