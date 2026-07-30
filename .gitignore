@@ -34,3 +34,7 @@ __pycache__/
 # Backups
 *.bak
 *.backup
+
+# Environment
+.env
+backend/.env
