@@ -337,17 +337,20 @@ export default function ChatboxPanel() {
                 fullReply += data.text
                 setStreamingContent(fullReply)
               }
-              if (data.id !== undefined && data.type !== undefined && data.title !== undefined) {
-                // citation event
-                msgCitations.push(data as CitationSource)
-              }
               if (data.session_id) {
                 newSessionId = data.session_id
               }
               if (data.citations) {
-                // citations array from done event
+                // citations array from done event — single source of truth
                 if (Array.isArray(data.citations)) {
-                  msgCitations.push(...data.citations)
+                  // Deduplicate by id
+                  const existingIds = new Set(msgCitations.map(c => c.id))
+                  for (const cit of data.citations) {
+                    if (!existingIds.has(cit.id)) {
+                      msgCitations.push(cit as CitationSource)
+                      existingIds.add(cit.id)
+                    }
+                  }
                 }
               }
               if (data.input_tokens !== undefined) {
