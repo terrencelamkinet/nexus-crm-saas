@@ -632,16 +632,12 @@ async def chat_completion(
     request: Request,
     db: AsyncSession = Depends(get_tenant_session),
     session_id: UUID | None = Query(None),
-    model: str = DEFAULT_MODEL,
-    provider: str = DEFAULT_PROVIDER,
     temperature: float = 0.7,
     max_tokens: int = 4096,
 ):
     """Chat completion with CRM context + session persistence.
 
-    Accepts a session_id to continue an existing conversation.
-    Saves every user message and AI response to the messages table.
-    Auto-generates session title from the first user message.
+    Provider/model resolved server-side via ModelRouter.
     """
     ctx = getattr(request.state, "ai_context", None)
     if not ctx:
@@ -734,7 +730,7 @@ async def chat_completion(
     try:
         text, usage = await adapter.chat(
             messages=enhanced,
-            model=model,
+            model=DEFAULT_MODEL,
             temperature=temperature,
             max_tokens=max_tokens,
         )
