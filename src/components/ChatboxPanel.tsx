@@ -674,6 +674,7 @@ export default function ChatboxPanel() {
                       e.preventDefault()
                       setContextMenu({ x: e.clientX, y: e.clientY, session: s })
                     }}
+                    className="session-row"
                     style={{
                       display: 'flex', alignItems: 'center', gap: 4,
                       width: '100%', padding: '8px 10px', border: 'none',
@@ -692,21 +693,21 @@ export default function ChatboxPanel() {
                     {s.is_pinned && (
                       <Pin size={11} style={{ color: 'var(--color-primary)', flexShrink: 0 }} />
                     )}
-                    <button
-                      onClick={e => {
-                        e.stopPropagation()
-                        setContextMenu(ctx =>
-                          ctx?.session.session_id === s.session_id ? null
-                            : { x: e.clientX - 100, y: e.clientY, session: s }
-                        )
-                      }}
-                      style={{
-                        width: 22, height: 22, border: 0, borderRadius: 4,
-                        background: 'transparent', color: 'var(--color-text-faint)',
-                        cursor: 'pointer', display: 'grid', placeItems: 'center',
-                        flexShrink: 0, opacity: 0, transition: 'opacity .1s',
-                      }}
-                      className="session-more-btn"
+            <button
+              onClick={e => {
+                e.stopPropagation()
+                setContextMenu(ctx =>
+                  ctx?.session.session_id === s.session_id ? null
+                    : { x: e.clientX - 100, y: e.clientY, session: s }
+                )
+              }}
+              style={{
+                width: 22, height: 22, border: 0, borderRadius: 4,
+                background: 'transparent', color: 'var(--color-text-faint)',
+                cursor: 'pointer', display: 'none', placeItems: 'center',
+                flexShrink: 0,
+              }}
+              className="session-more-btn"
                     >
                       <MoreHorizontal size={12} />
                     </button>
@@ -766,11 +767,6 @@ export default function ChatboxPanel() {
             )}
           </div>
         )}
-
-        <style>{`
-          .session-more-btn { display: none; }
-          div:hover > .session-more-btn { display: grid; }
-        `}</style>
 
         {/* ── Messages Area: Notion AI style ── */}
         <div ref={scrollRef} style={{
@@ -1131,6 +1127,7 @@ export default function ChatboxPanel() {
           outline: 2px solid var(--color-primary);
           outline-offset: 2px;
         }
+        .session-row:hover .session-more-btn { display: grid !important; }
       `}</style>
     </>
   )
