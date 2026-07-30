@@ -109,41 +109,18 @@ export default function DailyBriefingCard({ className = '', style }: Props) {
     setLoading(true);
     setError(null);
     try {
-      const todayStr = new Date().toISOString().slice(0, 10);
-
-      // Fetch all data in parallel
-      const [tasksRes] = await Promise.allSettled([
-        apiClient.get<{ items: TaskItem[]; total: number }>('/api/v1/crm/tasks?page=1&page_size=20'),
-        // Weather — could call /api/v1/weather or fallback
-        // Schedule — could call /api/v1/calendar/upcoming or fallback
-        // AI tip — call dedicated endpoint
-        apiClient.get<{ insight: string }>('/api/v1/ai/tools/get_dashboard_summary/execute').catch(() => null),
-      ]);
-
-      // Tasks
-      let tasks: TaskItem[] = mockTasks;
-      if (tasksRes.status === 'fulfilled' && tasksRes.value.items?.length) {
-        tasks = tasksRes.value.items;
-      }
-
-      // Filter P0-P1 tasks due today
-      const todayTasks = tasks.filter(t => {
-        if (t.priority !== 'P0' && t.priority !== 'P1') return false;
-        if (t.status === 'done' || t.status === 'cancelled') return false;
-        if (!t.due_date) return true; // no due date = assume today
-        try {
-          const due = new Date(t.due_date).toISOString().slice(0, 10);
-          return due <= todayStr;
-        } catch {
-          return true;
-        }
-      });
+      const res = await apiClient.get<{
+        weather: any;
+        schedule: ScheduleEvent[];
+        tasks: TaskItem[];
+        ai_tip: string;
+      }>('/api/v1/ai/briefing');
 
       setData({
-        weather: mockBriefing.weather,
-        schedule: mockBriefing.schedule,
-        tasks: todayTasks,
-        aiTip: mockBriefing.aiTip,
+        weather: res?.weather || mockBriefing.weather,
+        schedule: (res?.schedule || []).slice(0, 5),
+        tasks: (res?.tasks || []).slice(0, 5) as TaskItem[],
+        aiTip: { text: res?.ai_tip || mockBriefing.aiTip.text },
       });
       setLastUpdated(new Date());
     } catch {

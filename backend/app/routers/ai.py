@@ -20,6 +20,11 @@ from sqlalchemy import select, func
 
 from app.db import get_tenant_session
 from app.ai.tool_registry import TOOL_REGISTRY, ToolDef
+from app.ai.tool_registry import (
+    _get_upcoming_events,
+    _list_tasks,
+    _get_dashboard_summary,
+)
 from app.ai.tools.guard import authorize_tool_call, ScopeViolation, log_audit
 from app.ai.providers import get_provider, ProviderAdapter, UsageReport
 from app.models.ai import ActionRequest, AISession, Message, UserMemory
@@ -960,12 +965,26 @@ async def chat_stream_completion(
                     except Exception:
                         pass
 
+            # ── Filter citations to only records referenced in the response ─
+            text_lower = full_text.lower()
+            matched_citations: list[dict[str, Any]] = []
+            for cit in citations:
+                title_lower = cit["title"].lower()
+                # Exact title match
+                if title_lower in text_lower:
+                    matched_citations.append(cit)
+                    continue
+                # Word-level match — if a significant word from name appears
+                words = [w for w in title_lower.split() if len(w) > 3]
+                if any(w in text_lower for w in words):
+                    matched_citations.append(cit)
+
             # ── Yield done event ───────────────────────────────────────────
             yield {
                 "event": "done",
                 "data": json.dumps({
                     "session_id": str(sess.id),
-                    "citations": citations,
+                    "citations": matched_citations,
                 }),
             }
         except Exception as e:
@@ -1058,6 +1077,109 @@ async def message_feedback(
     # ── Acknowledge (persistence TBD — Message table lacks feedback columns) ──
     return {"status": "ok", "rating": rating}
 
+
+# ====================================================================
+# Daily Briefing for Dashboard
+# ====================================================================
+
+
+class BriefingResponse(BaseModel):
+    weather: dict[str, Any] = {}
+    schedule: list[dict[str, Any]] = []
+    tasks: list[dict[str, Any]] = []
+    ai_tip: str = ""
+
+
+@router.get("/briefing")
+async def get_briefing(
+    request: Request,
+    db: AsyncSession = Depends(get_tenant_session),
+):
+    """Aggregated daily briefing for the dashboard card."""
+    ctx = getattr(request.state, "ai_context", None)
+    if not ctx:
+        raise HTTPException(400, "AI session context not initialized")
+
+    try:
+        # ── Schedule: today's events via existing tool handler ──
+        schedule: list[dict[str, Any]] = []
+        try:
+            evts = await _get_upcoming_events(ctx, {"days_ahead": 1, "limit": 10}, db)
+            if evts:
+                schedule = [
+                    {
+                        "id": e.get("id", ""),
+                        "title": e.get("title", e.get("summary", "Event")),
+                        "time": (
+                            e.get("start", "")[:16].replace("T", " ")
+                            if e.get("start")
+                            else ""
+                        ),
+                        "location": e.get("location", ""),
+                    }
+                    for e in evts
+                ]
+        except Exception:
+            pass
+
+        # ── Tasks: open P0-P1 tasks ──
+        brief_tasks: list[dict[str, Any]] = []
+        try:
+            tasks = await _list_tasks(
+                ctx, {"status": "pending", "limit": 30}, db
+            )
+            for t in tasks:
+                pri = t.get("priority", "medium")
+                if pri not in ("P0", "P1", "high", "urgent"):
+                    continue
+                brief_tasks.append({
+                    "id": t.get("id", ""),
+                    "title": t.get("title", ""),
+                    "priority": pri.upper() if len(pri) == 2 else ("P0" if pri in ("urgent",) else "P1"),
+                    "status": t.get("status", ""),
+                    "due_date": t.get("due_date"),
+                })
+        except Exception:
+            pass
+
+        # ── Dashboard stats for AI tip ──
+        ai_tip = _DEFAULT_TIP
+        try:
+            dash = await _get_dashboard_summary(ctx, {"period": "30d"}, db)
+            if dash:
+                open_deals = dash.get("open_deals", 0)
+                open_tasks = dash.get("open_tasks", 0)
+                new_contacts = dash.get("recent", {}).get("new_contacts", 0)
+                if open_deals > 0:
+                    ai_tip = (
+                        f"You have {open_deals} open deal{'s' if open_deals > 1 else ''} "
+                        f"and {open_tasks} open task{'s' if open_tasks > 1 else ''}. "
+                        f"Prioritise deals in late-stage for follow-up this week."
+                    )
+                elif new_contacts > 0:
+                    ai_tip = (
+                        f"{new_contacts} new contact{'s' if new_contacts > 1 else ''} added "
+                        f"in the last 30 days — consider scheduling introductory touchpoints."
+                    )
+        except Exception:
+            pass
+
+        return BriefingResponse(
+            weather={},
+            schedule=schedule,
+            tasks=brief_tasks,
+            ai_tip=ai_tip,
+        )
+    except Exception:
+        return BriefingResponse(
+            weather={},
+            schedule=[],
+            tasks=[],
+            ai_tip=_DEFAULT_TIP,
+        )
+
+
+_DEFAULT_TIP = "Review your dashboard for today's priorities — check pending tasks and upcoming events."
 
 # ====================================================================
 # Daily Summary Cron Endpoint
