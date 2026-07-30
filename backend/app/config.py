@@ -34,6 +34,29 @@ class Settings(BaseSettings):
     deepseek_api_key: str = ""
     gemini_api_key: str = ""
 
+    # Integration / OAuth
+    api_base_url: str = "http://localhost:8001"
+    integration_client_ids: dict = {
+        "google_calendar": "",
+        "outlook_calendar": "",
+        "gmail": "",
+        "outlook_mail": "",
+        "slack": "",
+        "zoom": "",
+        "whatsapp": "",
+        "teams": "",
+        "google_drive": "",
+        "dropbox": "",
+        "onedrive": "",
+        "linkedin": "",
+        "facebook": "",
+        "notion": "",
+        "stripe": "",
+        "quickbooks": "",
+        "mailchimp": "",
+        "hubspot": "",
+    }
+
     model_config = {"env_prefix": "NEXUS_"}
 
 settings = Settings()

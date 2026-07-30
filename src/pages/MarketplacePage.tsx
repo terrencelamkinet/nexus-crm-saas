@@ -1,13 +1,34 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Search, PackageOpen } from 'lucide-react';
 import { integrations, integrationTypes } from '../data/integrations';
+import { fetchIntegrations, startOAuth, disconnectIntegration } from '../lib/integration-api';
+import type { IntegrationRecord } from '../lib/integration-api';
+
+/** Provider ID → IntegrationRecord lookup */
+type ConnectionMap = Record<string, IntegrationRecord>;
 
 export default function MarketplacePage() {
   const navigate = useNavigate();
   const [search, setSearch] = useState('');
   const [activeType, setActiveType] = useState('All');
+  const [connections, setConnections] = useState<ConnectionMap>({});
+  const [loading, setLoading] = useState(true);
 
+  // Fetch user's connected integrations on mount
+  const load = useCallback(async () => {
+    try {
+      const list = await fetchIntegrations();
+      const map: ConnectionMap = {};
+      list.forEach(c => { map[c.provider] = c; });
+      setConnections(map);
+    } catch { /* not logged in / no integrations yet */ }
+    setLoading(false);
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  // Merge static catalog with live connection status
   const filtered = useMemo(() => {
     return integrations.filter(i => {
       const matchSearch =
@@ -16,15 +37,45 @@ export default function MarketplacePage() {
         i.shortDesc.toLowerCase().includes(search.toLowerCase());
       const matchType = activeType === 'All' || i.type === activeType;
       return matchSearch && matchType;
-    });
-  }, [search, activeType]);
+    }).map(i => ({
+      ...i,
+      isConnected: !!connections[i.id.replace('-', '_')] || !!connections[i.id],
+      _connection: connections[i.id.replace('-', '_')] || connections[i.id],
+    }));
+  }, [search, activeType, connections]);
 
   const renderStars = (n: number) => {
     return Array.from({ length: 5 }, (_, i) => (
-      <span key={i} className={i < n ? 'filled' : ''}>
-        ★
-      </span>
+      <span key={i} className={i < n ? 'filled' : ''}>★</span>
     ));
+  };
+
+  const handleConnect = async (e: React.MouseEvent, integrationId: string, providerKey: string) => {
+    e.stopPropagation();
+    try {
+      const res = await startOAuth(providerKey, `/marketplace/${integrationId}`);
+      if (res.oauth_url) {
+        window.open(res.oauth_url, '_blank', 'noopener,noreferrer');
+      }
+    } catch (err) {
+      console.error('OAuth start failed', err);
+    }
+  };
+
+  const handleDisconnect = async (e: React.MouseEvent, providerKey: string) => {
+    e.stopPropagation();
+    const record = connections[providerKey];
+    if (!record) return;
+    try {
+      await disconnectIntegration(record.id);
+      setConnections(prev => {
+        const next = { ...prev };
+        delete next[providerKey];
+        return next;
+      });
+    } catch (err) {
+      console.error('Disconnect failed', err);
+    }
   };
 
   return (
@@ -48,71 +99,72 @@ export default function MarketplacePage() {
         <button
           className={`mkt-filter${activeType === 'All' ? ' active' : ''}`}
           onClick={() => setActiveType('All')}
-        >
-          All
-        </button>
+        >All</button>
         {integrationTypes.map(type => (
           <button
             key={type}
             className={`mkt-filter${activeType === type ? ' active' : ''}`}
             onClick={() => setActiveType(type)}
-          >
-            {type}
-          </button>
+          >{type}</button>
         ))}
       </div>
 
       {/* Grid */}
-      {filtered.length === 0 ? (
+      {loading ? (
+        <div className="mkt-empty"><p>Loading integrations...</p></div>
+      ) : filtered.length === 0 ? (
         <div className="mkt-empty">
           <PackageOpen />
           <p>No integrations found</p>
         </div>
       ) : (
         <div className="mkt-grid">
-          {filtered.map(integration => (
-            <div
-              key={integration.id}
-              className="mkt-card"
-              onClick={() => navigate(`/marketplace/${integration.id}`)}
-              role="button"
-              tabIndex={0}
-              onKeyDown={e => {
-                if (e.key === 'Enter') navigate(`/marketplace/${integration.id}`);
-              }}
-            >
-              <div className="mkt-card-top">
-                <div
-                  className="mkt-card-icon"
-                  style={{ background: integration.color }}
-                >
-                  {integration.icon}
-                </div>
-                <div className="mkt-card-info">
-                  <div className="mkt-card-name">
-                    {integration.name}
-                    <span className="mkt-card-type">{integration.type}</span>
+          {filtered.map(integration => {
+            const providerKey = integration.id.replace('-', '_');
+            const isConnected = integration.isConnected;
+            return (
+              <div
+                key={integration.id}
+                className="mkt-card"
+                onClick={() => navigate(`/marketplace/${integration.id}`)}
+                role="button"
+                tabIndex={0}
+                onKeyDown={e => {
+                  if (e.key === 'Enter') navigate(`/marketplace/${integration.id}`);
+                }}
+              >
+                <div className="mkt-card-top">
+                  <div className="mkt-card-icon" style={{ background: integration.color }}>
+                    {integration.icon}
                   </div>
-                  <div className="mkt-card-desc">{integration.shortDesc}</div>
+                  <div className="mkt-card-info">
+                    <div className="mkt-card-name">
+                      {integration.name}
+                      <span className="mkt-card-type">{integration.type}</span>
+                    </div>
+                    <div className="mkt-card-desc">{integration.shortDesc}</div>
+                  </div>
+                </div>
+                <div className="mkt-card-bottom">
+                  <div className="mkt-stars">
+                    {renderStars(integration.popularity)}
+                    <span>({integration.connectionCount.toLocaleString()})</span>
+                  </div>
+                  {isConnected ? (
+                    <button
+                      className="mkt-card-btn connected"
+                      onClick={e => handleDisconnect(e, providerKey)}
+                    >Connected ✓</button>
+                  ) : (
+                    <button
+                      className="mkt-card-btn connect"
+                      onClick={e => handleConnect(e, integration.id, providerKey)}
+                    >Connect</button>
+                  )}
                 </div>
               </div>
-              <div className="mkt-card-bottom">
-                <div className="mkt-stars">
-                  {renderStars(integration.popularity)}
-                  <span>({integration.connectionCount.toLocaleString()})</span>
-                </div>
-                <button
-                  className={`mkt-card-btn ${integration.isConnected ? 'connected' : 'connect'}`}
-                  onClick={e => {
-                    e.stopPropagation();
-                    // future: trigger OAuth flow
-                  }}
-                >
-                  {integration.isConnected ? 'Connected' : 'Connect'}
-                </button>
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>
