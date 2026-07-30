@@ -560,22 +560,14 @@ export default function ChatboxPanel() {
           padding: '10px 14px 12px',
           background: 'var(--color-surface-2)',
         }}>
-          <div style={{
-            display: 'flex', alignItems: 'flex-end', gap: 8,
-            padding: '6px 8px',
+          <div className="composer__box" style={{
+            display: 'flex', alignItems: 'flex-end', gap: 0,
+            padding: '6px 10px',
             border: '1px solid var(--color-border)',
             borderRadius: 10,
             background: 'var(--color-surface)',
             transition: 'border-color .15s, box-shadow .15s',
           }}>
-            <button aria-label="Attach"
-              style={{
-                width: 26, height: 26, borderRadius: 6, display: 'grid', placeItems: 'center',
-                background: 'transparent', border: 0, color: 'var(--color-text-muted)',
-                cursor: 'pointer', flexShrink: 0, fontSize: 16,
-              }}>
-              ＋
-            </button>
             <textarea ref={inputRef} value={input} onChange={handleInputChange} onKeyDown={handleKeyDown}
               placeholder="Ask NEXUS AI anything…" rows={1} disabled={isLoading || loadingSession}
               aria-label="Chat input"
@@ -588,6 +580,7 @@ export default function ChatboxPanel() {
                 opacity: isLoading || loadingSession ? 0.5 : 1,
               }}
             />
+            <span className="send-btn-hitarea" style={{ display: 'inline-flex', padding: 0, lineHeight: 0 }}>
             <button onClick={sendMessage} disabled={!input.trim() || isLoading || loadingSession}
               aria-label="Send message"
               style={{
@@ -604,6 +597,7 @@ export default function ChatboxPanel() {
                 <polyline points="5 12 12 5 19 12" />
               </svg>
             </button>
+            </span>
           </div>
           <div style={{
             display: 'flex', justifyContent: 'space-between',
@@ -615,11 +609,20 @@ export default function ChatboxPanel() {
         </div>
       </div>
 
-      {/* Typing animation keyframes */}
+      {/* Typing animation keyframes + a11y focus styles */}
       <style>{`
         @keyframes blink {
           0%, 80%, 100% { opacity: .2; transform: translateY(0); }
           40% { opacity: 1; transform: translateY(-2px); }
+        }
+        .composer__box:focus-within {
+          border-color: var(--color-primary) !important;
+          box-shadow: 0 0 0 3px rgba(35, 131, 226, 0.15);
+        }
+        .send-btn-hitarea { padding: 8px; margin: -8px; }
+        button:focus-visible {
+          outline: 2px solid var(--color-primary);
+          outline-offset: 2px;
         }
       `}</style>
     </>
