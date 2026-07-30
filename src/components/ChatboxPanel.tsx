@@ -40,6 +40,7 @@ interface StreamError {
 // Constants
 // ---------------------------------------------------------------------------
 
+const DRAFT_KEY = 'nexus_chat_draft'
 const PANEL_WIDTH = 420
 const ANIMATION_DURATION = 220
 
@@ -125,31 +126,41 @@ interface ToggleButtonProps {
 }
 
 export function ChatboxToggleButton({ onClick, visible }: ToggleButtonProps) {
+  const [hovered, setHovered] = useState(false)
+  const [pressed, setPressed] = useState(false)
+  const scale = visible ? 0.75 : pressed ? 0.95 : hovered ? 1.05 : 1
   return (
     <button
       onClick={onClick}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => { setHovered(false); setPressed(false) }}
+      onMouseDown={() => setPressed(true)}
+      onMouseUp={() => setPressed(false)}
       aria-label="Toggle AI chat"
       aria-expanded={visible}
+      className="fab-btn"
       style={{
         position: 'fixed',
         zIndex: 50,
-        bottom: 24,
-        right: 24,
+        bottom: 'calc(24px + env(safe-area-inset-bottom, 0px))',
+        right: 'max(24px, env(safe-area-inset-right, 24px))',
         width: 48,
         height: 48,
         borderRadius: '50%',
         backgroundColor: 'var(--color-primary)',
         color: '#fff',
-        boxShadow: '0 4px 16px rgba(0,0,0,0.2), 0 2px 6px rgba(0,0,0,0.12)',
+        boxShadow: pressed
+          ? '0 2px 8px rgba(0,0,0,0.18), 0 1px 3px rgba(0,0,0,0.1)'
+          : '0 4px 16px rgba(0,0,0,0.2), 0 2px 6px rgba(0,0,0,0.12)',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
         border: 'none',
         cursor: 'pointer',
-        transition: `all ${ANIMATION_DURATION}ms ease-out`,
+        transition: 'transform 150ms ease-out, opacity 220ms ease-out, box-shadow 150ms ease-out',
         opacity: visible ? 0 : 1,
         pointerEvents: visible ? 'none' : 'auto',
-        transform: visible ? 'scale(0.75)' : 'scale(1)',
+        transform: `scale(${scale})`,
       }}
     >
       <Sparkles size={22} />
@@ -173,6 +184,7 @@ export default function ChatboxPanel() {
   const [sessionId, setSessionId] = useState<string | null>(null)
   const [sessionList, setSessionList] = useState<SessionItem[]>([])
   const [showSessionList, setShowSessionList] = useState(false)
+  const [showCheatsheet, setShowCheatsheet] = useState(false)
   const [loadingSession, setLoadingSession] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [renameId, setRenameId] = useState<string | null>(null)
@@ -244,6 +256,9 @@ export default function ChatboxPanel() {
     } else if (suggestedPromptsCache.prompts.length) {
       setSuggestedPrompts(suggestedPromptsCache.prompts)
     }
+    // Restore draft from localStorage
+    const saved = localStorage.getItem(DRAFT_KEY)
+    if (saved) setInput(saved)
   }, [isOpen])
 
   // ── Click outside session list to close ──
@@ -386,6 +401,7 @@ export default function ChatboxPanel() {
     const userMsg = userMessage(text)
     setMessages(prev => [...prev, userMsg])
     setInput('')
+    localStorage.removeItem(DRAFT_KEY)
     lastUserTextRef.current = text
     setError(null)
     setIsLoading(true)
@@ -677,10 +693,12 @@ export default function ChatboxPanel() {
       if (e.key === 'Escape') { setMenuType(null); setMentionResults([]); e.preventDefault(); return }
     }
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage() }
+    if (e.key === '?' && !e.shiftKey && !e.ctrlKey && !e.metaKey) { setShowCheatsheet(prev => !prev); e.preventDefault() }
   }, [menuType, menuIndex, mentionResults, input, sendMessage])
 
   const handleInputChange2 = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const val = e.target.value; setInput(val)
+    localStorage.setItem(DRAFT_KEY, val)
     const ta = e.target; ta.style.height = 'auto'; ta.style.height = `${Math.min(ta.scrollHeight, 160)}px`
     const selStart = ta.selectionStart ?? val.length
     const m = val.slice(0, selStart).match(/(?:^|\s)([/@])(\w*)$/)
@@ -741,11 +759,11 @@ export default function ChatboxPanel() {
             <Sparkles size={14} />
           </div>
           <div style={{ minWidth: 0, flex: 1 }}>
-            <div style={{ fontWeight: 600, fontSize: 13.5, color: 'var(--color-text)' }}>
+            <div style={{ fontWeight: 600, fontSize: 14, color: 'var(--color-text)' }}>
               NEXUS AI
             </div>
             <div style={{ color: 'var(--color-text-muted)', fontSize: 11.5 }}>
-              CRM Assistant · online
+              CRM Assistant
             </div>
           </div>
           <button onClick={() => setShowSessionList(prev => !prev)} aria-label="History" title="History"
@@ -966,8 +984,9 @@ export default function ChatboxPanel() {
           background: 'var(--color-surface)',
         }}>
           {loadingSession ? (
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
-              <span style={{ fontSize: 12, color: 'var(--color-text-faint)' }}>Loading...</span>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 10, height: '100%', padding: '0 32px' }}>
+              <div className="skeleton-line" style={{ width: '60%', height: 10, borderRadius: 4, background: 'var(--color-border)' }} />
+              <div className="skeleton-line" style={{ width: '40%', height: 10, borderRadius: 4, background: 'var(--color-border)' }} />
             </div>
           ) : messages.length === 0 ? (
             /* ── Empty state: Notion AI hero ── */
@@ -1033,7 +1052,7 @@ export default function ChatboxPanel() {
                         borderRadius: '14px 14px 4px 14px',
                         whiteSpace: 'pre-wrap',
                         wordBreak: 'break-word',
-                        fontSize: 13.5,
+                        fontSize: 14,
                         lineHeight: 1.55,
                         color: 'var(--color-text)',
                         marginLeft: 'auto',
@@ -1058,7 +1077,7 @@ export default function ChatboxPanel() {
                           </div>}
                           <div style={{
                             flex: 1, minWidth: 0,
-                            fontSize: 13.5, lineHeight: 1.6,
+                            fontSize: 14, lineHeight: 1.6,
                             color: 'var(--color-text)',
                             whiteSpace: 'pre-wrap',
                             wordBreak: 'break-word',
@@ -1150,7 +1169,7 @@ export default function ChatboxPanel() {
                                     <div style={{ fontSize: 11.5, fontWeight: 500, color: 'var(--color-text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                                       {cit.title}
                                     </div>
-                                    <div style={{ fontSize: 10.5, color: 'var(--color-text-faint)', textTransform: 'capitalize' }}>
+                                    <div style={{ fontSize: 11.5, color: 'var(--color-text-faint)', textTransform: 'capitalize' }}>
                                       {cit.type}
                                     </div>
                                   </div>
@@ -1179,7 +1198,7 @@ export default function ChatboxPanel() {
                   </div>
                   <div style={{
                     flex: 1, minWidth: 0,
-                    fontSize: 13.5, lineHeight: 1.6,
+                    fontSize: 14, lineHeight: 1.6,
                     color: 'var(--color-text)',
                     whiteSpace: 'pre-wrap',
                     wordBreak: 'break-word',
@@ -1350,7 +1369,7 @@ export default function ChatboxPanel() {
                 flex: 1, border: 0, outline: 'none', resize: 'none',
                 background: 'transparent',
                 font: 'inherit', color: 'inherit',
-                maxHeight: 160, fontSize: 13.5, lineHeight: 1.5,
+                maxHeight: 160, fontSize: 14, lineHeight: 1.5,
                 padding: '4px 2px',
                 opacity: isLoading || loadingSession ? 0.5 : 1,
               }}
@@ -1394,13 +1413,46 @@ export default function ChatboxPanel() {
           </div>
           <div style={{
             display: 'flex', justifyContent: 'space-between',
-            color: 'var(--color-text-faint)', fontSize: 10.5,
+            color: 'var(--color-text-faint)', fontSize: 11.5,
             marginTop: 5, padding: '0 4px',
           }}>
             <span><kbd style={{ fontFamily: 'inherit', fontSize: 10, padding: '1px 4px', background: 'var(--color-surface-offset)', border: '1px solid var(--color-border)', borderRadius: 3 }}>⏎</kbd> send · <kbd style={{ fontFamily: 'inherit', fontSize: 10, padding: '1px 4px', background: 'var(--color-surface-offset)', border: '1px solid var(--color-border)', borderRadius: 3 }}>⇧</kbd>+<kbd style={{ fontFamily: 'inherit', fontSize: 10, padding: '1px 4px', background: 'var(--color-surface-offset)', border: '1px solid var(--color-border)', borderRadius: 3 }}>⏎</kbd> new line</span>
           </div>
         </div>
       </div>
+
+      {/* ── Keyboard shortcut cheatsheet ── */}
+      {showCheatsheet && (
+        <div onClick={() => setShowCheatsheet(false)}
+          style={{ position: 'absolute', inset: 0, zIndex: 300, background: 'rgba(0,0,0,0.3)', display: 'grid', placeItems: 'center' }}>
+          <div onClick={e => e.stopPropagation()} style={{
+            background: 'var(--color-surface)', borderRadius: 12, padding: '20px 24px',
+            maxWidth: 280, width: '90%', boxShadow: '0 8px 32px rgba(0,0,0,0.2)',
+          }}>
+            <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 12 }}>⌨️ Shortcuts</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, fontSize: 12.5 }}>
+              {[
+                { keys: '⏎', desc: 'Send message' },
+                { keys: '⇧⏎', desc: 'New line' },
+                { keys: '/', desc: 'Command menu' },
+                { keys: '@', desc: 'Search CRM' },
+                { keys: '↑', desc: 'Edit last message' },
+                { keys: 'Esc', desc: 'Close panel / menu' },
+                { keys: '?', desc: 'Toggle shortcuts' },
+              ].map(s => (
+                <div key={s.keys} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <kbd style={{ fontFamily: 'inherit', fontSize: 11, padding: '1px 6px', background: 'var(--color-surface-offset)', border: '1px solid var(--color-border)', borderRadius: 4, fontWeight: 600 }}>{s.keys}</kbd>
+                  <span style={{ color: 'var(--color-text-muted)' }}>{s.desc}</span>
+                </div>
+              ))}
+            </div>
+            <button onClick={() => setShowCheatsheet(false)}
+              style={{ marginTop: 14, width: '100%', padding: '6px 0', border: '1px solid var(--color-border)', borderRadius: 8, background: 'transparent', cursor: 'pointer', fontSize: 12, color: 'var(--color-text)' }}>
+              Close
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Typing animation keyframes + a11y focus styles */}
       <style>{`
@@ -1422,6 +1474,26 @@ export default function ChatboxPanel() {
           outline-offset: 2px;
         }
         .session-row:hover .session-more-btn { display: grid !important; }
+        .skeleton-line { animation: skeleton-pulse 1.5s ease-in-out infinite; }
+        @keyframes skeleton-pulse {
+          0%, 100% { opacity: 0.4; }
+          50% { opacity: 1; }
+        }
+        .fab-btn { position: relative; }
+        .fab-btn::after {
+          content: ''; position: absolute; top: 2px; right: 2px;
+          width: 8px; height: 8px; border-radius: 50%;
+          background: #ff3b30; border: 2px solid var(--color-primary);
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .typing-dots span, .skeleton-line, .streaming-caret { animation: none !important; }
+        }
+        @media (prefers-color-scheme: dark) {
+          :root { --color-bg: #1a1a1e; --color-surface: #242428; --color-surface-offset: #2c2c30; }
+        }
+        @supports (bottom: env(safe-area-inset-bottom)) {
+          .fab-btn { bottom: calc(24px + env(safe-area-inset-bottom)) !important; }
+        }
       `}</style>
     </>
   )
