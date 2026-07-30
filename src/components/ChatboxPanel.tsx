@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { Sparkles, X, Plus } from 'lucide-react'
-import { apiClient } from '../lib/api'
+import { apiClient, getStoredAuth } from '../lib/api'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -294,7 +294,7 @@ export default function ChatboxPanel() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('auth_token') || ''}`,
+          'Authorization': `Bearer ${getStoredAuth()?.access_token || ''}`,
         },
         body: JSON.stringify({
           messages: [{ role: 'user', content: text }],
