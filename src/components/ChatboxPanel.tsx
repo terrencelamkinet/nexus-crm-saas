@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
-import { apiClient } from '../lib/api'
 import { Sparkles, X, Plus } from 'lucide-react'
+import { apiClient } from '../lib/api'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -33,6 +33,15 @@ const emptyPrompts = [
   '📋 今日待辦事項',
   '🎯 最需要關注嘅 Deal',
 ]
+
+const actionBtnStyle = {
+  width: 24, height: 24, borderRadius: 4,
+  display: 'grid', placeItems: 'center',
+  background: 'transparent', border: 'none',
+  color: 'var(--color-text-muted)',
+  cursor: 'pointer',
+  transition: 'color .12s',
+}
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -128,6 +137,8 @@ export default function ChatboxPanel() {
   const [showSessionList, setShowSessionList] = useState(false)
   const [loadingSession, setLoadingSession] = useState(false)
   const abortRef = useRef<AbortController | null>(null)
+  const [hoveredMsgId, setHoveredMsgId] = useState<string | null>(null)
+  const [feedbackMap, setFeedbackMap] = useState<Record<string, 'up' | 'down'>>({})
 
   // ── Refs ──
   const scrollRef = useRef<HTMLDivElement>(null)
@@ -369,6 +380,30 @@ export default function ChatboxPanel() {
     }
   }, [sendMessage])
 
+  // ── Message actions ──
+  const copyMessage = useCallback(async (content: string) => {
+    try {
+      await navigator.clipboard.writeText(content)
+    } catch { /* ignore */ }
+  }, [])
+
+  const sendFeedback = useCallback(async (messageId: string, rating: 'up' | 'down') => {
+    setFeedbackMap(prev => ({ ...prev, [messageId]: rating }))
+    try {
+      await apiClient.post(`/api/v1/ai/messages/${messageId}/feedback`, { rating })
+    } catch { /* ignore */ }
+  }, [])
+
+  const retryMessage = useCallback((msgIdx: number) => {
+    if (msgIdx === 0) return
+    const lastUserMsg = messages[msgIdx - 1]
+    if (lastUserMsg?.role !== 'user') return
+
+    // Set the input to the last user message and send
+    setInput(lastUserMsg.content)
+    // Send will be triggered by user pressing Enter
+  }, [messages])
+
   // ── Input change ──
   const handleInputChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setInput(e.target.value)
@@ -582,24 +617,77 @@ export default function ChatboxPanel() {
                         {msg.content}
                       </div>
                     ) : (
-                      <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
-                        <div style={{
-                          width: 24, height: 24, borderRadius: '50%',
-                          background: 'linear-gradient(135deg, var(--color-primary), #5c9df0)',
-                          color: '#fff', display: 'grid', placeItems: 'center',
-                          fontSize: 11, flexShrink: 0, marginTop: 2,
-                        }}>
-                          <Sparkles size={11} />
+                      <div
+                        onMouseEnter={() => setHoveredMsgId(msg.id)}
+                        onMouseLeave={() => setHoveredMsgId(null)}
+                        style={{ position: 'relative' }}
+                      >
+                        <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+                          <div style={{
+                            width: 24, height: 24, borderRadius: '50%',
+                            background: 'linear-gradient(135deg, var(--color-primary), #5c9df0)',
+                            color: '#fff', display: 'grid', placeItems: 'center',
+                            fontSize: 11, flexShrink: 0, marginTop: 2,
+                          }}>
+                            <Sparkles size={11} />
+                          </div>
+                          <div style={{
+                            flex: 1, minWidth: 0,
+                            fontSize: 13.5, lineHeight: 1.6,
+                            color: 'var(--color-text)',
+                            whiteSpace: 'pre-wrap',
+                            wordBreak: 'break-word',
+                          }}>
+                            {msg.content}
+                          </div>
                         </div>
-                        <div style={{
-                          flex: 1, minWidth: 0,
-                          fontSize: 13.5, lineHeight: 1.6,
-                          color: 'var(--color-text)',
-                          whiteSpace: 'pre-wrap',
-                          wordBreak: 'break-word',
-                        }}>
-                          {msg.content}
-                        </div>
+                        {/* ── Actions row (hover-reveal) ── */}
+                        {(hoveredMsgId === msg.id) && (
+                          <div style={{
+                            display: 'flex', gap: 2,
+                            marginTop: 4, paddingLeft: 34,
+                            opacity: 0.6, transition: 'opacity .12s',
+                          }}>
+                            <button onClick={() => copyMessage(msg.content)}
+                              title="Copy" aria-label="Copy"
+                              style={actionBtnStyle}>
+                              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                            </button>
+                            <button onClick={() => {
+                              const idx = messages.findIndex(m => m.id === msg.id)
+                              retryMessage(idx)
+                            }}
+                              title="Retry" aria-label="Retry"
+                              style={actionBtnStyle}>
+                              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+                            </button>
+                            {(feedbackMap[msg.id] !== 'up') ? (
+                              <button onClick={() => sendFeedback(msg.id, 'up')}
+                                title="Helpful" aria-label="Helpful"
+                                style={{
+                                  ...actionBtnStyle,
+                                  color: feedbackMap[msg.id] === 'up' ? 'var(--color-primary)' : undefined,
+                                }}>
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"/></svg>
+                              </button>
+                            ) : null}
+                            {(feedbackMap[msg.id] !== 'down') ? (
+                              <button onClick={() => sendFeedback(msg.id, 'down')}
+                                title="Not helpful" aria-label="Not helpful"
+                                style={{
+                                  ...actionBtnStyle,
+                                  color: feedbackMap[msg.id] === 'down' ? 'var(--color-notification)' : undefined,
+                                }}>
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M10 15v4a3 3 0 0 0 3 3l4-9V2H5.72a2 2 0 0 0-2 1.7l-1.38 9a2 2 0 0 0 2 2.3zm7-13h2.67A2.31 2.31 0 0 1 22 4v7a2.31 2.31 0 0 1-2.33 2H17"/></svg>
+                              </button>
+                            ) : null}
+                            <button onClick={() => copyMessage(msg.content)}
+                              title="Share" aria-label="Share"
+                              style={actionBtnStyle}>
+                              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+                            </button>
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>

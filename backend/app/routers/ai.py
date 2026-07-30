@@ -979,6 +979,51 @@ async def abort_chat_message(
 
 
 # ====================================================================
+# Message Feedback
+# ====================================================================
+
+
+@router.post("/messages/{message_id}/feedback")
+async def message_feedback(
+    message_id: UUID,
+    body: dict[str, Any],
+    request: Request,
+    db: AsyncSession = Depends(get_tenant_session),
+):
+    """Submit feedback (up/down) on an AI message.
+
+    Validates rating ('up' or 'down') and optional reason.
+    Verifies message ownership via session user.
+    Currently acknowledges the feedback without persisting — DB schema
+    expansion (adding feedback columns to the Message table) is pending.
+    """
+    ctx = getattr(request.state, "ai_context", None)
+    if not ctx:
+        raise HTTPException(400, "AI session context not initialized")
+
+    # ── Validate input ──────────────────────────────────────────────
+    rating = body.get("rating")
+    if rating not in ("up", "down"):
+        raise HTTPException(422, "rating must be 'up' or 'down'")
+
+    reason = body.get("reason")
+    if reason is not None and not isinstance(reason, str):
+        raise HTTPException(422, "reason must be a string")
+
+    # ── Verify message ownership ────────────────────────────────────
+    msg = await db.get(Message, message_id)
+    if not msg:
+        raise HTTPException(404, "Message not found")
+
+    sess = await db.get(AISession, msg.session_id)
+    if not sess or sess.user_id != ctx.user_id:
+        raise HTTPException(404, "Message not found")
+
+    # ── Acknowledge (persistence TBD — Message table lacks feedback columns) ──
+    return {"status": "ok", "rating": rating}
+
+
+# ====================================================================
 # Daily Summary Cron Endpoint
 # ====================================================================
 import os as _os
