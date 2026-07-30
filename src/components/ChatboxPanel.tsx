@@ -44,6 +44,8 @@ const emptyPrompts = [
   '🎯 最需要關注嘅 Deal',
 ]
 
+const suggestedPromptsCache = { prompts: emptyPrompts, ts: 0 }
+
 const actionBtnStyle = {
   width: 24, height: 24, borderRadius: 4,
   display: 'grid', placeItems: 'center',
@@ -175,6 +177,7 @@ export default function ChatboxPanel() {
   const [menuIndex, setMenuIndex] = useState(0)
   const [menuQuery, setMenuQuery] = useState('')
   const [mentionResults, setMentionResults] = useState<{ id: string; label: string; type: string; sub: string }[]>([])
+  const [suggestedPrompts, setSuggestedPrompts] = useState<string[]>(emptyPrompts)
   const abortRef = useRef<AbortController | null>(null)
   const [hoveredMsgId, setHoveredMsgId] = useState<string | null>(null)
   const [feedbackMap, setFeedbackMap] = useState<Record<string, 'up' | 'down'>>({})
@@ -219,6 +222,21 @@ export default function ChatboxPanel() {
   useEffect(() => {
     if (!isOpen) return
     loadSessions()
+    // Fetch dynamic prompts (cache 5 min)
+    const age = Date.now() - suggestedPromptsCache.ts
+    if (age > 300000) {
+      apiClient.get<{ prompts: string[] }>('/api/v1/ai/prompts/suggested')
+        .then(r => {
+          if (r?.prompts?.length) {
+            setSuggestedPrompts(r.prompts)
+            suggestedPromptsCache.prompts = r.prompts
+            suggestedPromptsCache.ts = Date.now()
+          }
+        })
+        .catch(() => {})
+    } else if (suggestedPromptsCache.prompts.length) {
+      setSuggestedPrompts(suggestedPromptsCache.prompts)
+    }
   }, [isOpen])
 
   // ── Click outside session list to close ──
@@ -843,7 +861,7 @@ export default function ChatboxPanel() {
                 問問題、搵 CRM 資料、或者整理今日重點。
               </p>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, justifyContent: 'center', maxWidth: 320 }}>
-                {emptyPrompts.map(p => (
+                {suggestedPrompts.map(p => (
                   <button key={p} onClick={() => { setInput(p); inputRef.current?.focus() }}
                     style={{
                       padding: '6px 14px', border: '1px solid var(--color-border)',

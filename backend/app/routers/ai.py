@@ -1236,6 +1236,76 @@ async def get_briefing(
 _DEFAULT_TIP = "Review your dashboard for today's priorities — check pending tasks and upcoming events."
 
 
+@router.get("/prompts/suggested")
+async def suggested_prompts(
+    request: Request,
+    db: AsyncSession = Depends(get_tenant_session),
+):
+    """Generate up to 6 dynamic prompts based on time + CRM activity."""
+    ctx = getattr(request.state, "ai_context", None)
+    if not ctx:
+        return {"prompts": _FALLBACK_PROMPTS}
+
+    now = datetime.now(timezone.utc)
+    hour = now.hour + 8  # HKT
+    weekday = now.weekday()  # 0=Mon
+
+    prompts: list[str] = []
+    seen: set[str] = set()
+
+    def add(p: str) -> None:
+        if len(prompts) < 6 and p not in seen:
+            prompts.append(p)
+            seen.add(p)
+
+    # Time-based
+    if hour < 12:
+        add("📊 Summarise today's CRM activity")
+        add("📅 What meetings do I have today?")
+    elif hour < 17:
+        add("🎯 Which deals need attention this afternoon?")
+        add("📋 Review pending touchpoints")
+    else:
+        add("📋 What's left on my task list?")
+        add("📅 Preview tomorrow's schedule")
+
+    # Day-based
+    if weekday == 0:
+        add("📈 Weekly pipeline review — how did last week go?")
+    elif weekday == 4:
+        add("🎯 End-of-week wrap: deals closed and open tasks")
+
+    # Data-driven prompts from dashboard summary
+    try:
+        dash = await _get_dashboard_summary(ctx, {"period": "30d"}, db)
+        if dash:
+            open_deals = dash.get("open_deals", 0)
+            open_tasks = dash.get("open_tasks", 0)
+            recent_contacts = dash.get("recent", {}).get("new_contacts", 0)
+            if open_deals > 0:
+                add(f"🔍 Find the {open_deals} open deal{'s' if open_deals > 1 else ''}")
+            if open_tasks > 0:
+                add(f"✅ Show my {open_tasks} open task{'s' if open_tasks > 1 else ''}")
+            if recent_contacts > 0:
+                add(f"👤 Who are the {recent_contacts} new contacts?")
+    except Exception:
+        pass
+
+    # Fallback if nothing generated
+    if len(prompts) < 2:
+        prompts = list(_FALLBACK_PROMPTS)
+
+    return {"prompts": prompts[:6]}
+
+
+_FALLBACK_PROMPTS = [
+    "📊 Summarise today's CRM activity",
+    "🔍 Find the most recent contact updates",
+    "📋 Today's to-do items",
+    "🎯 Which deal needs attention?",
+]
+
+
 @router.get("/mentions/search")
 async def search_mentions(
     request: Request,
