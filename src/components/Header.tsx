@@ -3,8 +3,10 @@ import { useAuth } from '../lib/AuthContext';
 import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { apiClient } from '../lib/api';
+import { useTranslation } from 'react-i18next';
 
 export default function Header() {
+  const { t } = useTranslation();
   const { user, logout } = useAuth();
   const [menuOpen, setMenuOpen] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -107,17 +109,17 @@ export default function Header() {
     <header className="topbar">
       {/* Hamburger — mobile only */}
       <button className="topbar-hamburger icon-btn" onClick={() => setMobileOpen(!mobileOpen)}
-        aria-label="Toggle sidebar">
+        aria-label={t('common.close')}>
         <div className={`ham-icon${mobileOpen ? ' open' : ''}`}>
           <span></span><span></span><span></span>
         </div>
       </button>
       <div className="topbar-search">
         <Search />
-        <input type="text" placeholder="Search contacts, companies, deals..." />
+        <input type="text" placeholder={t('header.searchPlaceholder')} />
       </div>
       <div className="topbar-actions">
-        <button className="icon-btn" onClick={() => setDark(!dark)} title={dark ? 'Light mode' : 'Dark mode'}>
+        <button className="icon-btn" onClick={() => setDark(!dark)} title={t('header.toggleTheme')}>
           {dark ? <Sun /> : <Moon />}
         </button>
         <div className="relative" ref={notifRef}>
@@ -128,14 +130,14 @@ export default function Header() {
           {notifOpen && (
             <div className="notif-dropdown">
               <div className="notif-head">
-                <span>Notifications</span>
+                <span>{t('header.notifications')}</span>
                 <button className="text-xs" style={{color:'var(--color-primary)',fontWeight:600,background:'none',border:'none',cursor:'pointer'}}
                   onClick={async () => { try{await apiClient.post('/api/v1/notifications/read-all');setUnreadCount(0);setNotifList([])}catch{} }}>
-                  Mark all read
+                  {t('notifications.markAllRead')}
                 </button>
               </div>
               {notifList.length === 0 ? (
-                <div className="notif-empty">No notifications</div>
+                <div className="notif-empty">{t('notifications.empty')}</div>
               ) : notifList.map((n: any) => (
                 <div key={n.id} className={`notif-item${n.status === 'UNREAD' ? ' unread' : ''}`}
                   onClick={() => handleNotifClick(n)}>
@@ -149,7 +151,7 @@ export default function Header() {
                 </div>
               ))}
               <div className="notif-foot" onClick={() => { navigate('/notifications'); setNotifOpen(false); }}>
-                View all notifications →
+                {t('common.viewAll')} →
               </div>
             </div>
           )}
@@ -173,7 +175,7 @@ export default function Header() {
               <button onClick={() => { logout(); window.location.href = '/sign-in'; }}
                 className="w-full flex items-center gap-2 px-4 py-2 text-sm transition-colors"
                 style={{color:'var(--color-notification)'}}>
-                <LogOut className="w-4 h-4" /> Sign out
+                <LogOut className="w-4 h-4" /> {t('nav.signOut')}
               </button>
             </div>
           )}

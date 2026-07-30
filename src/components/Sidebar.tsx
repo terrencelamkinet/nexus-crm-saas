@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import { NavLink } from 'react-router-dom';
 import { LayoutDashboard, Users, Building2, TrendingUp, CheckSquare, Activity, ScanLine, Settings, BarChart3, Sparkles, UserCog, FolderKanban, Bell, Truck, Bot } from 'lucide-react';
 import { apiClient } from '../lib/api';
@@ -14,28 +15,30 @@ const closeMobileMenu = () => {
   window.dispatchEvent(new CustomEvent('close-mobile-menu'));
 };
 
-const workspaceItems = [
-  { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { to: '/contacts', label: 'Contacts', icon: Users },
-  { to: '/companies', label: 'Companies', icon: Building2 },
-  { to: '/projects', label: 'Projects', icon: FolderKanban, module: 'projects' },
-  { to: '/deals', label: 'Deals', icon: TrendingUp, module: 'sales' },
-  { to: '/tasks', label: 'Tasks', icon: CheckSquare },
-  { to: '/shipping', label: 'Shipping', icon: Truck, module: 'shipping' },
-];
-
-const secondaryItems = [
-  { to: '/touchpoints', label: 'Touchpoints', icon: Activity },
-  { to: '/namecards', label: 'NameCards', icon: ScanLine },
-  { to: '/reports', label: 'Reports', icon: BarChart3 },
-];
-
-const orgItems = [
-  { to: '/team', label: 'Team', icon: UserCog },
-  { to: '/ai-apps', label: 'AI Apps', icon: Sparkles },
-];
-
 export default function Sidebar() {
+  const { t } = useTranslation();
+
+  const workspaceItems = [
+    { to: '/dashboard', label: t('nav.dashboard'), icon: LayoutDashboard },
+    { to: '/contacts', label: t('nav.contacts'), icon: Users },
+    { to: '/companies', label: t('nav.companies'), icon: Building2 },
+    { to: '/projects', label: t('nav.projects'), icon: FolderKanban, module: 'projects' },
+    { to: '/deals', label: t('nav.deals'), icon: TrendingUp, module: 'sales' },
+    { to: '/tasks', label: t('nav.tasks'), icon: CheckSquare },
+    { to: '/shipping', label: t('nav.shipping'), icon: Truck, module: 'shipping' },
+  ];
+
+  const secondaryItems = [
+    { to: '/touchpoints', label: t('nav.touchpoints'), icon: Activity },
+    { to: '/namecards', label: t('nav.nameCards'), icon: ScanLine },
+    { to: '/reports', label: t('nav.reports'), icon: BarChart3 },
+  ];
+
+  const orgItems = [
+    { to: '/team', label: t('nav.team'), icon: UserCog },
+    { to: '/ai-apps', label: t('nav.aiApps'), icon: Sparkles },
+  ];
+
   const [modules, setModules] = useState<Record<string, boolean>>({});
 
   const fetchModules = useCallback(async () => {
@@ -69,24 +72,24 @@ export default function Sidebar() {
           <path d="M4 24V4l10 16V4l10 16"/>
           <path d="M24 20v4H4"/>
         </svg>
-        <span>NEXUS CRM</span>
+        <span>{t('app.name')}</span>
       </div>
       <nav className="sidebar-nav">
-        <p className="nav-section-label">Workspace</p>
+        <p className="nav-section-label">{t('nav.workspace')}</p>
         {workspaceItems.map(item => isVisible(item) && (
           <NavLink key={item.to} to={item.to} onClick={closeMobileMenu} className={({ isActive }) => `nav-item${isActive ? ' active' : ''}`}>
             <item.icon />
             <span>{item.label}</span>
           </NavLink>
         ))}
-        <p className="nav-section-label mt-space-4">Records</p>
+        <p className="nav-section-label mt-space-4">{t('nav.records')}</p>
         {secondaryItems.map(item => (
           <NavLink key={item.to} to={item.to} onClick={closeMobileMenu} className={({ isActive }) => `nav-item${isActive ? ' active' : ''}`}>
             <item.icon />
             <span>{item.label}</span>
           </NavLink>
         ))}
-        <p className="nav-section-label mt-space-4">Organization</p>
+        <p className="nav-section-label mt-space-4">{t('nav.organization')}</p>
         {orgItems.map(item => (
           <NavLink key={item.to} to={item.to} onClick={closeMobileMenu} className={({ isActive }) => `nav-item${isActive ? ' active' : ''}`}>
             <item.icon />
@@ -102,16 +105,16 @@ export default function Sidebar() {
           style={{ width: '100%', border: 0, textAlign: 'left', cursor: 'pointer', background: 'none', fontFamily: 'inherit', fontSize: 'inherit', color: 'inherit' }}
         >
           <Bot />
-          <span>AI Chat</span>
+          <span>{t('nav.aiChat')}</span>
         </button>
         <NavLink to="/notifications" onClick={closeMobileMenu} className={({ isActive }) => `nav-item${isActive ? ' active' : ''}`}>
           <Bell />
-          <span>Notifications</span>
+          <span>{t('nav.notifications')}</span>
         </NavLink>
         <NavLink to="/settings" onClick={closeMobileMenu} className={({ isActive }) => `nav-item${isActive ? ' active' : ''}`}
           style={{ marginTop: 'var(--space-4)' }}>
           <Settings />
-          <span>Settings</span>
+          <span>{t('nav.settings')}</span>
         </NavLink>
       </nav>
     </aside>

@@ -1,9 +1,11 @@
 import { useState, useRef, useEffect, type FormEvent } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '../lib/AuthContext';
 import { signup, forgotPassword, resetPassword, storeAuth } from '../lib/api';
 
 export default function LoginPage() {
+  const { t } = useTranslation();
   const { login, verifyMfa, sendMfaCode, mfaEmail } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -193,7 +195,7 @@ export default function LoginPage() {
                   <path d="M4 24V4l10 16V4l10 16"/>
                   <path d="M24 20v4H4"/>
                 </svg>
-                <span>NEXUS CRM</span>
+                <span>{t('app.name')}</span>
               </div>
               <button className="theme-btn" onClick={toggleTheme} aria-label="Switch theme">
                 {theme === 'dark' ? (
@@ -243,9 +245,9 @@ export default function LoginPage() {
             <section className="auth-card" aria-live="polite">
               <div className="auth-head">
                 <h2 id="pageTitle">
-                  {step === 'login' && 'Welcome back'}
-                  {step === 'register' && 'Create account'}
-                  {step === 'forgot' && 'Reset password'}
+                  {step === 'login' && t('login.title')}
+                  {step === 'register' && t('login.createAccount')}
+                  {step === 'forgot' && t('login.forgotPassword')}
                   {step === 'reset' && 'Set new password'}
                   {step === 'mfa' && 'Check your email'}
                 </h2>
@@ -266,12 +268,12 @@ export default function LoginPage() {
                     <div className={`notice success ${success ? 'show' : ''}`}>{success}</div>
                     <button className="btn btn-secondary google-btn" type="button">
                       <span className="gmark" aria-hidden="true"></span>
-                      <span className="btn-label">Continue with Google</span>
+                      <span className="btn-label">{t('login.continueGoogle')}</span>
                     </button>
                     <div className="divider">or continue with email</div>
                     <form className="form" onSubmit={handleLogin} noValidate>
                       <div className="field">
-                        <label htmlFor="loginEmail">Work email</label>
+                        <label htmlFor="loginEmail">{t('login.emailLabel')}</label>
                         <input
                           className="input"
                           id="loginEmail"
@@ -279,7 +281,7 @@ export default function LoginPage() {
                           type="email"
                           inputMode="email"
                           autoComplete="email"
-                          placeholder="name@company.com"
+                          placeholder={t('login.emailPlaceholder')}
                           value={email}
                           onChange={e => setEmail(e.target.value)}
                           required
@@ -288,7 +290,7 @@ export default function LoginPage() {
                       </div>
                       <div className="field">
                         <div className="field-row">
-                          <label htmlFor="loginPassword">Password</label>
+                          <label htmlFor="loginPassword">{t('login.passwordLabel')}</label>
                         </div>
                         <div className="input-wrap">
                           <input
@@ -297,7 +299,7 @@ export default function LoginPage() {
                             name="password"
                             type="password"
                             autoComplete="current-password"
-                            placeholder="Enter your password"
+                            placeholder={t('login.passwordPlaceholder')}
                             value={password}
                             onChange={e => setPassword(e.target.value)}
                             required
@@ -312,17 +314,17 @@ export default function LoginPage() {
                       </div>
                       <button className="btn btn-primary" type="submit" disabled={loading}>
                         <span className="btn-label">
-                          {loading ? <><span className="spinner"></span> Signing in...</> : 'Sign in'}
+                          {loading ? <><span className="spinner"></span> {t('login.signingIn')}</> : t('login.signIn')}
                         </span>
                       </button>
                     </form>
                     <div className="switcher">
                       <a href="#register" onClick={e => { e.preventDefault(); goTo('register'); }}>
-                        Don't have an account? Sign up
+                        {t('login.noAccount')} Sign up
                       </a>
                       <span style={{ margin: '0 8px', color: 'var(--color-text-faint)' }}>·</span>
                       <a href="#forgot" onClick={e => { e.preventDefault(); goTo('forgot'); }}>
-                        Forgot password?
+                        {t('login.forgotPassword')}
                       </a>
                     </div>
                     <div className="panel-note">
@@ -350,21 +352,21 @@ export default function LoginPage() {
                         />
                       </div>
                       <div className="field">
-                        <label htmlFor="regEmail">Work email</label>
+                        <label htmlFor="regEmail">{t('login.emailLabel')}</label>
                         <input
                           className="input"
                           id="regEmail"
                           type="email"
                           inputMode="email"
                           autoComplete="email"
-                          placeholder="name@company.com"
+                          placeholder={t('login.emailPlaceholder')}
                           value={email}
                           onChange={e => setEmail(e.target.value)}
                           required
                         />
                       </div>
                       <div className="field">
-                        <label htmlFor="regPassword">Password</label>
+                        <label htmlFor="regPassword">{t('login.passwordLabel')}</label>
                         <input
                           className="input"
                           id="regPassword"
@@ -391,7 +393,7 @@ export default function LoginPage() {
                       </div>
                       <button className="btn btn-primary" type="submit" disabled={loading}>
                         <span className="btn-label">
-                          {loading ? <><span className="spinner"></span> Creating account...</> : 'Create account'}
+                          {loading ? <><span className="spinner"></span> Creating account...</> : t('login.createAccount')}
                         </span>
                       </button>
                     </form>
@@ -410,14 +412,14 @@ export default function LoginPage() {
                     <div className={`notice success ${success ? 'show' : ''}`}>{success}</div>
                     <form className="form" onSubmit={handleForgotPassword} noValidate>
                       <div className="field">
-                        <label htmlFor="forgotEmail">Work email</label>
+                        <label htmlFor="forgotEmail">{t('login.emailLabel')}</label>
                         <input
                           className="input"
                           id="forgotEmail"
                           type="email"
                           inputMode="email"
                           autoComplete="email"
-                          placeholder="name@company.com"
+                          placeholder={t('login.emailPlaceholder')}
                           value={email}
                           onChange={e => setEmail(e.target.value)}
                           required
@@ -533,7 +535,7 @@ export default function LoginPage() {
                           disabled={loading || otp.join('').length !== 6}
                         >
                           <span className="btn-label">
-                            {loading ? <><span className="spinner"></span> Verifying...</> : 'Verify & sign in'}
+                            {loading ? <><span className="spinner"></span> Verifying...</> : t('login.mfaVerify')}
                           </span>
                         </button>
                         <button

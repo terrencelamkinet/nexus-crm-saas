@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { Sparkles, X, Plus, MoreHorizontal, Search, Pin, Pencil, Trash2, Download } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { apiClient, getStoredAuth } from '../lib/api'
 
 // ---------------------------------------------------------------------------
@@ -61,15 +62,6 @@ const actionBtnStyle = {
   cursor: 'pointer',
   transition: 'color .12s',
 }
-
-const SLASH_COMMANDS = [
-  { key: 'summarize', label: 'Summarize today', icon: '📊' },
-  { key: 'find', label: 'Find CRM records', icon: '🔍' },
-  { key: 'create-task', label: 'Create a task', icon: '📋' },
-  { key: 'draft-email', label: 'Draft an email', icon: '✉️' },
-  { key: 'pipeline', label: 'Show pipeline', icon: '📈' },
-  { key: 'reset', label: 'Reset session', icon: '🔄' },
-]
 
 const SLASH_TRIGGER_PROMPTS: Record<string, string> = {
   summarize: 'Summarize today\'s CRM activity',
@@ -173,6 +165,15 @@ export function ChatboxToggleButton({ onClick, visible }: ToggleButtonProps) {
 // ---------------------------------------------------------------------------
 
 export default function ChatboxPanel() {
+  const { t } = useTranslation()
+  const SLASH_COMMANDS = [
+    { key: 'summarize', label: t('chat.slashCommands.summarize'), icon: '📊' },
+    { key: 'find', label: t('chat.slashCommands.find'), icon: '🔍' },
+    { key: 'create-task', label: t('chat.slashCommands.createTask'), icon: '📋' },
+    { key: 'draft-email', label: t('chat.slashCommands.draftEmail'), icon: '✉️' },
+    { key: 'pipeline', label: t('chat.slashCommands.pipeline'), icon: '📈' },
+    { key: 'reset', label: t('chat.slashCommands.reset'), icon: '🔄' },
+  ]
   // ── State ──
   const [isOpen, setIsOpen] = useState(false)
   const [messages, setMessages] = useState<ChatMessage[]>([])
@@ -517,13 +518,13 @@ export default function ChatboxPanel() {
         // ignore — session list best-effort
       }
     } catch (err: any) {
-      const msg = err?.detail || err?.message || 'Something went wrong. Please try again.'
+      const msg = err?.detail || err?.message || t('chat.errors.server')
       if (err.name === 'AbortError') {
-        setError({ type: 'timeout', message: 'Generation was cancelled', retryable: true })
+        setError({ type: 'timeout', message: t('chat.errors.timeout'), retryable: true })
       } else if (err.name === 'TypeError' && msg.includes('fetch')) {
-        setError({ type: 'network', message: 'Connection lost — check your network', retryable: true })
+        setError({ type: 'network', message: t('chat.errors.network'), retryable: true })
       } else if (msg.includes('401') || msg.includes('Unauthorized') || msg.includes('token')) {
-        setError({ type: 'auth', message: 'Session expired — please log in again', retryable: false })
+        setError({ type: 'auth', message: t('chat.errors.auth'), retryable: false })
       } else if (msg.includes('500') || msg.includes('503') || msg.includes('502') || msg.includes('service')) {
         setError({ type: 'server', message: msg, retryable: true })
       } else {
@@ -635,13 +636,13 @@ export default function ChatboxPanel() {
         }
       } catch { /* ignore */ }
     } catch (err: any) {
-      const msg = err?.message || 'Something went wrong. Please try again.'
+      const msg = err?.message || t('chat.errors.server')
       if (err.name === 'AbortError') {
-        setError({ type: 'timeout', message: 'Generation was cancelled', retryable: true })
+        setError({ type: 'timeout', message: t('chat.errors.timeout'), retryable: true })
       } else if (err.name === 'TypeError' && msg.includes('fetch')) {
-        setError({ type: 'network', message: 'Connection lost — check your network', retryable: true })
+        setError({ type: 'network', message: t('chat.errors.network'), retryable: true })
       } else if (msg.includes('401') || msg.includes('Unauthorized') || msg.includes('token')) {
-        setError({ type: 'auth', message: 'Session expired — please log in again', retryable: false })
+        setError({ type: 'auth', message: t('chat.errors.auth'), retryable: false })
       } else if (msg.includes('500') || msg.includes('503') || msg.includes('502') || msg.includes('service')) {
         setError({ type: 'server', message: msg, retryable: true })
       } else {
@@ -721,7 +722,7 @@ export default function ChatboxPanel() {
       <div
         ref={sessionListRef}
         role="dialog"
-        aria-label="AI Chat"
+        aria-label={t('nav.aiChat')}
         aria-hidden={!isOpen}
         className="fixed top-0 right-0 h-screen z-50 flex flex-col"
         style={{
@@ -760,13 +761,13 @@ export default function ChatboxPanel() {
           </div>
           <div style={{ minWidth: 0, flex: 1 }}>
             <div style={{ fontWeight: 600, fontSize: 14, color: 'var(--color-text)' }}>
-              NEXUS AI
+              NEXUS {t('chat.title')}
             </div>
             <div style={{ color: 'var(--color-text-muted)', fontSize: 11.5 }}>
               CRM Assistant
             </div>
           </div>
-          <button onClick={() => setShowSessionList(prev => !prev)} aria-label="History" title="History"
+          <button onClick={() => setShowSessionList(prev => !prev)} aria-label={t('chat.sessionList')} title={t('chat.sessionList')}
             style={{
               width: 28, height: 28, borderRadius: 6, display: 'grid', placeItems: 'center',
               background: 'transparent', border: 0, color: 'var(--color-text-muted)',
@@ -778,7 +779,7 @@ export default function ChatboxPanel() {
               <polyline points="12 6 12 12 16 14" />
             </svg>
           </button>
-          <button onClick={() => setIsOpen(false)} aria-label="Close"
+          <button onClick={() => setIsOpen(false)} aria-label={t('common.close')}
             style={{
               width: 28, height: 28, borderRadius: 6, display: 'grid', placeItems: 'center',
               background: 'transparent', border: 0, color: 'var(--color-text-muted)',
@@ -817,7 +818,7 @@ export default function ChatboxPanel() {
               }}
             >
               <Plus size={14} />
-              New Chat
+              {t('chat.newChat')}
             </button>
 
             {/* ── Search field (shown when >5 sessions) ── */}
@@ -832,7 +833,7 @@ export default function ChatboxPanel() {
                   <input
                     value={searchQuery}
                     onChange={e => setSearchQuery(e.target.value)}
-                    placeholder="Search sessions..."
+                    placeholder={t('chat.searchSessions')}
                     style={{
                       flex: 1, border: 0, outline: 'none',
                       background: 'transparent',
@@ -872,7 +873,7 @@ export default function ChatboxPanel() {
                     />
                     <button onClick={() => renameSession(s.session_id, renameText)}
                       style={{ border: 0, background: 'var(--color-primary)', color: '#fff', borderRadius: 4, padding: '2px 8px', fontSize: 11, cursor: 'pointer', fontWeight: 600 }}>
-                      Save
+                      {t('common.save')}
                     </button>
                   </div>
                 ) : (
@@ -945,31 +946,31 @@ export default function ChatboxPanel() {
                   setRenameText(contextMenu.session.title)
                   setContextMenu(null)
                 }}>
-                  <Pencil size={12} /> Rename
+                  <Pencil size={12} /> {t('chat.rename')}
                 </CtxBtn>
                 <CtxBtn onClick={() => {
                   togglePin(contextMenu.session.session_id, !contextMenu.session.is_pinned)
                   setContextMenu(null)
                 }}>
-                  <Pin size={12} /> {contextMenu.session.is_pinned ? 'Unpin' : 'Pin'}
+                  <Pin size={12} /> {contextMenu.session.is_pinned ? t('chat.unpin') : t('chat.pin')}
                 </CtxBtn>
                 <CtxBtn onClick={() => {
                   exportSession(contextMenu.session.session_id)
                   setContextMenu(null)
                 }}>
-                  <Download size={12} /> Export
+                  <Download size={12} /> {t('chat.export')}
                 </CtxBtn>
                 <div style={{ borderTop: '1px solid var(--color-border)', margin: '4px 0' }} />
                 <CtxBtn
                   danger
                   onClick={() => {
-                    if (confirm('Delete this chat and all its messages?')) {
+                    if (confirm(t('chat.deleteConfirm'))) {
                       deleteSession(contextMenu.session.session_id)
                     }
                     setContextMenu(null)
                   }}
                 >
-                  <Trash2 size={12} /> Delete
+                  <Trash2 size={12} /> {t('chat.delete')}
                 </CtxBtn>
               </div>
             )}
@@ -1005,10 +1006,10 @@ export default function ChatboxPanel() {
                 ✏️
               </div>
               <h1 style={{ fontSize: 20, fontWeight: 600, margin: '0 0 6px', color: 'var(--color-text)' }}>
-                今日想做啲咩？
+                {t('chat.emptyTitle')}
               </h1>
               <p style={{ color: 'var(--color-text-muted)', fontSize: 13, margin: '0 0 24px' }}>
-                問問題、搵 CRM 資料、或者整理今日重點。
+                {t('chat.emptySubtitle')}
               </p>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, justifyContent: 'center', maxWidth: 320 }}>
                 {suggestedPrompts.map(p => (
@@ -1093,7 +1094,7 @@ export default function ChatboxPanel() {
                             opacity: 0.6, transition: 'opacity .12s',
                           }}>
                             <button onClick={() => copyMessage(msg.content)}
-                              title="Copy" aria-label="Copy"
+                              title={t('chat.copy')} aria-label={t('chat.copy')}
                               style={actionBtnStyle}>
                               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
                             </button>
@@ -1101,13 +1102,13 @@ export default function ChatboxPanel() {
                               const idx = messages.findIndex(m => m.id === msg.id)
                               retryMessage(idx)
                             }}
-                              title="Retry" aria-label="Retry"
+                              title={t('chat.retry')} aria-label={t('chat.retry')}
                               style={actionBtnStyle}>
                               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
                             </button>
                             {(feedbackMap[msg.id] !== 'up') ? (
                               <button onClick={() => sendFeedback(msg.id, 'up')}
-                                title="Helpful" aria-label="Helpful"
+                                title={t('chat.upvote')} aria-label={t('chat.upvote')}
                                 style={{
                                   ...actionBtnStyle,
                                   color: feedbackMap[msg.id] === 'up' ? 'var(--color-primary)' : undefined,
@@ -1117,7 +1118,7 @@ export default function ChatboxPanel() {
                             ) : null}
                             {(feedbackMap[msg.id] !== 'down') ? (
                               <button onClick={() => sendFeedback(msg.id, 'down')}
-                                title="Not helpful" aria-label="Not helpful"
+                                title={t('chat.downvote')} aria-label={t('chat.downvote')}
                                 style={{
                                   ...actionBtnStyle,
                                   color: feedbackMap[msg.id] === 'down' ? 'var(--color-notification)' : undefined,
@@ -1131,7 +1132,7 @@ export default function ChatboxPanel() {
                                 : `https://nexus-crm.kinet-poc.com/chat?msg=${msg.id}`
                               navigator.clipboard.writeText(url)
                             }}
-                              title="Share permalink" aria-label="Share permalink"
+                              title={t('chat.share')} aria-label={t('chat.share')}
                               style={actionBtnStyle}>
                               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
                             </button>
@@ -1140,7 +1141,7 @@ export default function ChatboxPanel() {
                         {/* ── Source cards ── */}
                         {msg.citations && msg.citations.length > 0 && (
                           <div style={{ marginTop: 8, paddingLeft: 34 }}>
-                            <div style={{ fontSize: 11, color: 'var(--color-text-faint)', marginBottom: 6, fontWeight: 600 }}>Sources</div>
+                            <div style={{ fontSize: 11, color: 'var(--color-text-faint)', marginBottom: 6, fontWeight: 600 }}>{t('chat.sources')}</div>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                               {msg.citations.slice(0, 5).map((cit, ci) => (
                                 <div key={ci} style={{
@@ -1271,7 +1272,7 @@ export default function ChatboxPanel() {
                       fontWeight: 600, whiteSpace: 'nowrap',
                     }}
                   >
-                    Retry
+                    {t('common.retry')}
                   </button>
                 )}
                 <button onClick={() => setError(null)} style={{ border: 'none', background: 'none', cursor: 'pointer', color: colors[error.type] || 'var(--color-text)', padding: 0, display: 'grid', placeItems: 'center' }}>
@@ -1363,7 +1364,7 @@ export default function ChatboxPanel() {
             transition: 'border-color .15s, box-shadow .15s',
           }}>
             <textarea ref={inputRef} value={input} onChange={handleInputChange2} onKeyDown={handleKeyDown2}
-              placeholder="Ask NEXUS AI anything…" rows={1} disabled={isLoading || loadingSession}
+              placeholder={t('chat.placeholder')} rows={1} disabled={isLoading || loadingSession}
               aria-label="Chat input"
               style={{
                 flex: 1, border: 0, outline: 'none', resize: 'none',
@@ -1377,7 +1378,7 @@ export default function ChatboxPanel() {
             <span className="send-btn-hitarea" style={{ display: 'inline-flex', padding: 0, lineHeight: 0 }}>
             {isStreaming ? (
               <button onClick={abortStreaming}
-                aria-label="Stop generating"
+                aria-label={t('chat.stop')}
                 style={{
                   width: 28, height: 28, border: 0, borderRadius: 6,
                   display: 'grid', placeItems: 'center',
@@ -1393,7 +1394,7 @@ export default function ChatboxPanel() {
               </button>
             ) : (
             <button onClick={sendMessage} disabled={!input.trim() || isLoading || loadingSession}
-              aria-label="Send message"
+              aria-label={t('chat.send')}
               style={{
                 width: 28, height: 28, border: 0, borderRadius: 6,
                 display: 'grid', placeItems: 'center',
@@ -1448,7 +1449,7 @@ export default function ChatboxPanel() {
             </div>
             <button onClick={() => setShowCheatsheet(false)}
               style={{ marginTop: 14, width: '100%', padding: '6px 0', border: '1px solid var(--color-border)', borderRadius: 8, background: 'transparent', cursor: 'pointer', fontSize: 12, color: 'var(--color-text)' }}>
-              Close
+              {t('common.close')}
             </button>
           </div>
         </div>
