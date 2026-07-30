@@ -31,7 +31,7 @@ from app.ai.tool_registry import (
 from app.ai.tools.guard import authorize_tool_call, ScopeViolation, log_audit
 from app.ai.providers import get_provider, ProviderAdapter, UsageReport
 from app.ai.quota.service import QuotaService, QuotaExceeded, TIER_LIMITS
-from app.models.ai import ActionRequest, AISession, Message, UserMemory, UsageEvent
+from app.models.ai import ActionRequest, AISession, Message, UserMemory, UsageEvent, PromptTemplate
 
 # ---------------------------------------------------------------------------
 # Default provider configuration
@@ -699,6 +699,41 @@ async def _record_usage_event(
     db.add(ev)
 
 
+async def _build_system_prompt(
+    ctx: Any,
+    db: AsyncSession,
+    context_str: str,
+    memory_str: str,
+) -> str:
+    """Build system prompt — prefer active template from PG, fall back to hardcoded."""
+    try:
+        result = await db.execute(
+            select(PromptTemplate.content, PromptTemplate.variables)
+            .where(
+                PromptTemplate.tenant_id == ctx.tenant_id,
+                PromptTemplate.key == "system_chat",
+                PromptTemplate.is_active == True,
+            )
+            .limit(1)
+        )
+        row = result.one_or_none()
+        if row:
+            tpl = row.content
+            # Only pass variables the template actually expects
+            kwargs = {}
+            for var in (row.variables or ["context", "memory"]):
+                if var == "context":
+                    kwargs[var] = context_str
+                elif var == "memory":
+                    kwargs[var] = memory_str
+                else:
+                    kwargs[var] = ""
+            return tpl.format(**kwargs)
+    except Exception:
+        pass
+    return _SYSTEM_PROMPT_TPL.format(context=context_str, memory=memory_str)
+
+
 # ====================================================================
 # Chat completion (CRM-aware + memory-aware)
 # ====================================================================
@@ -816,7 +851,7 @@ async def chat_completion(
 
     memory_lines = await _inject_memory_context(ctx, db, session_id)
     memory_str = "\n".join(memory_lines) if memory_lines else "No past conversation data available."
-    system_prompt = _SYSTEM_PROMPT_TPL.format(context=context_str, memory=memory_str)
+    system_prompt = await _build_system_prompt(ctx, db, context_str, memory_str)
 
     # ── Build message list ──────────────────────────────────────────────
     enhanced = [{"role": "system", "content": system_prompt}]
@@ -995,7 +1030,7 @@ async def chat_stream_completion(
 
     memory_lines = await _inject_memory_context(ctx, db, sess.id)
     memory_str = "\n".join(memory_lines) if memory_lines else "No past conversation data available."
-    system_prompt = _SYSTEM_PROMPT_TPL.format(context=context_str, memory=memory_str)
+    system_prompt = await _build_system_prompt(ctx, db, context_str, memory_str)
 
     # ── Build message list ────────────────────────────────────────────────
     enhanced: list[dict[str, Any]] = [{"role": "system", "content": system_prompt}]
@@ -1623,3 +1658,177 @@ async def usage_summary(
         "today_cost_usd": float(td.today_cost) if td.today_cost else 0.0,
         "last_7d_cost_usd": float(wc),
     }
+
+
+# ====================================================================
+# Prompt Template Management
+# ====================================================================
+
+
+class PromptCreateRequest(BaseModel):
+    key: str
+    name: str
+    content: str
+    variables: list[str] = []
+    description: str = ""
+
+
+class PromptUpdateRequest(BaseModel):
+    content: str
+    name: str | None = None
+    variables: list[str] | None = None
+    description: str | None = None
+
+
+@router.get("/prompts")
+async def list_prompt_keys(
+    request: Request,
+    db: AsyncSession = Depends(get_tenant_session),
+):
+    """List all prompt template keys for this tenant with active version info."""
+    ctx = getattr(request.state, "ai_context", None)
+    if not ctx:
+        raise HTTPException(400, "AI session context not initialized")
+
+    result = await db.execute(
+        select(
+            PromptTemplate.key,
+            PromptTemplate.name,
+            PromptTemplate.version,
+            PromptTemplate.description,
+            PromptTemplate.updated_at,
+        )
+        .where(
+            PromptTemplate.tenant_id == ctx.tenant_id,
+            PromptTemplate.is_active == True,
+        )
+        .order_by(PromptTemplate.key)
+    )
+    return {"prompts": [dict(r._mapping) for r in result.fetchall()]}
+
+
+@router.get("/prompts/{key}")
+async def get_active_prompt(
+    key: str,
+    request: Request,
+    db: AsyncSession = Depends(get_tenant_session),
+):
+    """Get the active version of a prompt template."""
+    ctx = getattr(request.state, "ai_context", None)
+    if not ctx:
+        raise HTTPException(400, "AI session context not initialized")
+
+    result = await db.execute(
+        select(PromptTemplate)
+        .where(
+            PromptTemplate.tenant_id == ctx.tenant_id,
+            PromptTemplate.key == key,
+            PromptTemplate.is_active == True,
+        )
+        .limit(1)
+    )
+    pt = result.scalar_one_or_none()
+    if not pt:
+        raise HTTPException(404, f"Prompt '{key}' not found")
+
+    return {
+        "key": pt.key,
+        "name": pt.name,
+        "content": pt.content,
+        "version": pt.version,
+        "variables": pt.variables,
+        "description": pt.description,
+        "updated_at": pt.updated_at.isoformat() if pt.updated_at else None,
+    }
+
+
+@router.post("/prompts")
+async def create_prompt(
+    body: PromptCreateRequest,
+    request: Request,
+    db: AsyncSession = Depends(get_tenant_session),
+):
+    """Create a new prompt template (version 1)."""
+    ctx = getattr(request.state, "ai_context", None)
+    if not ctx:
+        raise HTTPException(400, "AI session context not initialized")
+
+    # Check existing key
+    existing = await db.execute(
+        select(PromptTemplate).where(
+            PromptTemplate.tenant_id == ctx.tenant_id,
+            PromptTemplate.key == body.key,
+        ).limit(1)
+    )
+    if existing.scalar_one_or_none():
+        raise HTTPException(409, f"Prompt key '{body.key}' already exists — use POST .../versions to add new version")
+
+    pt = PromptTemplate(
+        tenant_id=ctx.tenant_id,
+        key=body.key,
+        name=body.name,
+        content=body.content,
+        variables=body.variables,
+        description=body.description,
+        created_by=ctx.user_id,
+    )
+    db.add(pt)
+    await db.flush()
+    return {"status": "created", "key": pt.key, "version": pt.version}
+
+
+@router.post("/prompts/{key}/versions")
+async def create_prompt_version(
+    key: str,
+    body: PromptUpdateRequest,
+    request: Request,
+    db: AsyncSession = Depends(get_tenant_session),
+):
+    """Create a new version of a prompt template. Deactivates old active version."""
+    ctx = getattr(request.state, "ai_context", None)
+    if not ctx:
+        raise HTTPException(400, "AI session context not initialized")
+
+    # Get current max version
+    result = await db.execute(
+        select(PromptTemplate.version)
+        .where(
+            PromptTemplate.tenant_id == ctx.tenant_id,
+            PromptTemplate.key == key,
+        )
+        .order_by(PromptTemplate.version.desc())
+        .limit(1)
+    )
+    current_max = result.scalar()
+    if current_max is None:
+        raise HTTPException(404, f"Prompt key '{key}' not found")
+
+    # Deactivate old active
+    old_active = await db.execute(
+        select(PromptTemplate)
+        .where(
+            PromptTemplate.tenant_id == ctx.tenant_id,
+            PromptTemplate.key == key,
+            PromptTemplate.is_active == True,
+        )
+        .limit(1)
+    )
+    old = old_active.scalar_one_or_none()
+    if old:
+        old.is_active = False
+
+    # Create new version
+    pt = PromptTemplate(
+        tenant_id=ctx.tenant_id,
+        key=key,
+        name=body.name or key,
+        content=body.content,
+        version=current_max + 1,
+        is_active=True,
+        variables=body.variables or [],
+        description=body.description or "",
+        created_by=ctx.user_id,
+    )
+    db.add(pt)
+    await db.flush()
+    return {"status": "created", "key": pt.key, "version": pt.version}
