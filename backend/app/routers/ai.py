@@ -205,18 +205,62 @@ async def _search_crm_context(
 ) -> dict[str, Any]:
     """Search CRM data relevant to the user's query.
 
+    ALWAYS searches companies + contacts with the query term.
+    Also runs specialised searches when specific keywords are detected.
     Returns a dict mapping tool keys to their results.
     """
     context: dict[str, Any] = {}
     msg_lower = query.lower()
 
-    # Determine which tools match the query intent
+    # ── Entity search (ALWAYS runs — user might mention a company/contact name) ──
+    # Extract searchable terms: filter out common stop words, use the remaining words
+    _STOP_WORDS = frozenset({
+        "tell", "me", "about", "show", "find", "search", "look", "for", "get",
+        "what", "who", "where", "when", "why", "how", "is", "are", "was", "were",
+        "do", "does", "did", "can", "could", "would", "should", "will", "may",
+        "the", "a", "an", "in", "on", "at", "to", "of", "by", "with", "from",
+        "and", "or", "but", "not", "all", "any", "some", "please", "need", "want",
+        "has", "have", "had", "been", "being", "am", "be", "this", "that", "these",
+        "those", "it", "its", "they", "them", "their", "he", "she", "his", "her",
+        "my", "your", "our", "i", "you", "we",
+    })
+    search_words = [w for w in query.lower().split() if len(w) > 2 and w not in _STOP_WORDS]
+    search_queries = [query] + search_words  # Try full query first, then individual words
+
+    entity_tools: list[str] = []
+    for t in ("search_companies", "search_contacts"):
+        tool = TOOL_REGISTRY.get(t)
+        if tool and tool.handler:
+            entity_tools.append(t)
+
+    for tool_key in entity_tools:
+        try:
+            tool = TOOL_REGISTRY[tool_key]
+            # Try each search term until we get results
+            for sq in search_queries:
+                result = await tool.handler(ctx, {"query": sq, "limit": 25}, db)
+                if result is not None and not (isinstance(result, list) and len(result) == 0):
+                    context[tool_key] = result
+                    break
+        except Exception:
+            pass
+
+    # ── Intent-driven specialised searches (only when keywords match) ──
+    _INTENT_PATTERNS: dict[str, list[str]] = {
+        "search_deals": [r"deal", r"opportunity", r"pipeline", r"sale"],
+        "search_projects": [r"project", r"engagement"],
+        "list_tasks": [r"task", r"(?:to-)?do", r"assign", r"deadline", r"overdue"],
+        "list_touchpoints": [r"touchpoint", r"meeting", r"call", r"email"],
+        "get_upcoming_events": [r"upcoming", r"schedule", r"calendar", r"event"],
+        "get_dashboard_summary": [r"summar", r"overview", r"dashboard", r"(?:how\s)?many"],
+    }
+
     tools_to_call: set[str] = set()
     for tool_key, patterns in _INTENT_PATTERNS.items():
         if any(re.search(p, msg_lower) for p in patterns):
             tools_to_call.add(tool_key)
 
-    # Always include a dashboard overview for baseline context
+    # Always include dashboard overview
     tools_to_call.add("get_dashboard_summary")
 
     for tool_key in tools_to_call:
@@ -224,7 +268,7 @@ async def _search_crm_context(
         if not tool or not tool.handler:
             continue
         try:
-            if tool_key in ("search_companies", "search_contacts", "search_deals", "search_projects"):
+            if tool_key in ("search_deals", "search_projects"):
                 result = await tool.handler(ctx, {"query": query, "limit": 25}, db)
             elif tool_key == "list_tasks":
                 result = await tool.handler(ctx, {"limit": 30}, db)
@@ -240,7 +284,7 @@ async def _search_crm_context(
             if result is not None and not (isinstance(result, list) and len(result) == 0):
                 context[tool_key] = result
         except Exception:
-            pass  # Silently skip tools that error
+            pass
 
     return context
 
