@@ -14,6 +14,7 @@
     "test:backend": "cd backend && source venv/bin/activate && python -m pytest",
     "test:backend:rag": "cd backend && source venv/bin/activate && python -m pytest tests/test_rag.py -v",
     "test:backend:rls": "cd backend && source venv/bin/activate && python -m pytest tests/test_rls.py -v",
+    "test:backend:integrations": "cd backend && source venv/bin/activate && python -m pytest tests/test_integrations.py -v",
     "load-test": "cd backend && source venv/bin/activate && python scripts/load_test.py",
     "outage-drill": "cd backend && source venv/bin/activate && python scripts/outage_drill.py"
   },

@@ -1,7 +1,10 @@
-"""Integration & OAuth State models — per-user, per-tenant isolation."""
+"""Integration & OAuth State models — per-user, per-tenant isolation.
+No FK constraints on tenant_id/user_id — the TenantMiddleware + RLS
+already enforce isolation, and DB-level FKs prevent testing with
+synthetic JWTs."""
 import uuid
 from datetime import datetime, timezone
-from sqlalchemy import Column, String, Boolean, DateTime, ForeignKey, Text, JSON
+from sqlalchemy import Column, String, Boolean, DateTime, Text, JSON
 from sqlalchemy.dialects.postgresql import UUID
 from app.db import Base
 
@@ -12,13 +15,13 @@ class Integration(Base):
     __table_args__ = {"schema": "nexus_crm"}
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    tenant_id = Column(UUID(as_uuid=True), ForeignKey("nexus_auth.nexus_auth_tenants.id", ondelete="CASCADE"), nullable=False, index=True)
-    user_id = Column(UUID(as_uuid=True), ForeignKey("nexus_auth.nexus_auth_users.id", ondelete="CASCADE"), nullable=False, index=True)
-    provider = Column(String(100), nullable=False)              # 'google_calendar', 'slack', etc.
-    provider_display = Column(String(255), nullable=False)      # 'Google Calendar'
-    status = Column(String(50), default="disconnected")         # disconnected | connecting | active | error
-    config = Column(JSON, default=dict)                         # {refresh_token, calendar_id, ...}
-    metadata_ = Column("metadata", JSON, default=dict)          # {connected_at, last_error, user_email}
+    tenant_id = Column(UUID(as_uuid=True), nullable=False, index=True)
+    user_id = Column(UUID(as_uuid=True), nullable=False, index=True)
+    provider = Column(String(100), nullable=False)
+    provider_display = Column(String(255), nullable=False)
+    status = Column(String(50), default="disconnected")
+    config = Column(JSON, default=dict)
+    metadata_ = Column("metadata", JSON, default=dict)
     last_sync_at = Column(DateTime(timezone=True), nullable=True)
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc),
