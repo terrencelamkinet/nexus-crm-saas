@@ -5,9 +5,10 @@ import { apiClient } from '../lib/api'
 import {
   LayoutDashboard, Users, Building2, TrendingUp, FolderKanban,
   CheckSquare, Truck, UsersRound,
-  Plus, Sparkles, X, Minus, Send,
+  Plus, Sparkles, X,
   Activity, DollarSign, Layout, Calendar,
 } from 'lucide-react'
+import ChatboxPanel from '../components/ChatboxPanel'
 import SlideDrawer from '../components/SlideDrawer'
 import DailyBriefingCard from '../components/DailyBriefingCard'
 import WidgetAskAI from '../components/WidgetAskAI'
@@ -204,18 +205,14 @@ const modulesData: ModuleData[] = [
 export default function DashboardNew() {
   const navigate = useNavigate()
   const [modules, setModules] = useState<Record<string, boolean>>({})
-  const aiOn = modules['ai_assistant'] === true
+  const [localAiOn, setLocalAiOn] = useState(true)
+  const aiOn = modules['ai_assistant'] ?? localAiOn
   const [editing, setEditing] = useState(false)
-  const [chatOpen, setChatOpen] = useState(false)
-  const [chatMsg, setChatMsg] = useState('')
   const [newOpen, setNewOpen] = useState(false)
   const newRef = useRef<HTMLDivElement>(null)
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [showCompanyDrawer, setShowCompanyDrawer] = useState(false)
   const [widgetSearch, setWidgetSearch] = useState('')
-  const chatBodyRef = useRef<HTMLDivElement>(null)
-  const chatOpenedRef = useRef(false)
-  const [suggestions, setSuggestions] = useState<string[]>([])
   // Drag state
   const dragKey = useRef<string | null>(null)
   const dragPending = useRef(false)
@@ -415,64 +412,7 @@ export default function DashboardNew() {
     if (domKeys.length > 0) setOrder(domKeys)
   }
 
-  // ── Chat helpers ──
-  const appendMsg = useCallback((role: 'ai' | 'user', html: string) => {
-    const body = chatBodyRef.current
-    if (!body) return
-    const m = document.createElement('div')
-    m.className = `msg ${role}`
-    m.innerHTML = role === 'ai'
-      ? '<div class="msg-avatar"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l1.5 4.5L18 9l-4.5 1.5L12 15l-1.5-4.5L6 9l4.5-1.5z"/><path d="M19 15l.7 2.1L22 18l-2.3.9L19 21l-.7-2.1L16 18l2.3-.9z"/></svg></div><div class="msg-bubble">' + html + '</div>'
-      : '<div class="msg-avatar" style="background:var(--color-primary)"><span style="font-weight:700;font-size:10px">TL</span></div><div class="msg-bubble">' + html + '</div>'
-    body.appendChild(m)
-    body.scrollTop = body.scrollHeight
-  }, [])
-  const showTyping = useCallback(() => {
-    const body = chatBodyRef.current
-    if (!body) return
-    const t = document.createElement('div')
-    t.className = 'msg ai'
-    t.id = 'chatTyping'
-    t.innerHTML = '<div class="msg-avatar"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l1.5 4.5L18 9l-4.5 1.5L12 15l-1.5-4.5L6 9l4.5-1.5z"/><path d="M19 15l.7 2.1L22 18l-2.3.9L19 21l-.7-2.1L16 18l2.3-.9z"/></svg></div><div class="msg-bubble"><div class="chat-typing"><span></span><span></span><span></span></div></div>'
-    body.appendChild(t)
-    body.scrollTop = body.scrollHeight
-  }, [])
-  const removeTyping = () => document.getElementById('chatTyping')?.remove()
-  const sendInitialReport = useCallback(() => {
-    showTyping()
-    setTimeout(() => {
-      removeTyping()
-      appendMsg('ai', `<div class="chat-report">
-        <h4><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l1.5 4.5L18 9l-4.5 1.5L12 15l-1.5-4.5L6 9l4.5-1.5z"/><path d="M19 15l.7 2.1L22 18l-2.3.9L19 21l-.7-2.1L16 18l2.3-.9z"/></svg>今日業務摘要</h4>
-        <div class="chat-report-section"><div class="label">重點</div><ul>
-          <li><b>${stats.deals}個Deal</b>進行中,合共${stats.dealValue}</li>
-          <li>本日<b>${stats.tasks}</b>項待辦任務</li>
-        </ul></div>
-        <div class="chat-report-section"><div class="label">風險</div><ul>
-          <li>${tasks.filter(t => t.priority === 'P0').length}件緊急任務需跟進</li>
-          <li>${stats.companies}間公司活躍中</li>
-        </ul></div>
-      </div>`)
-      setTimeout(() => {
-        appendMsg('ai', '我已經幫你準備好今日重點。想我幫手做啲乜？')
-        setSuggestions(['分析呢週Deal轉換率', '邊個客戶最需要關注？', '安排今日跟進事項'])
-      }, 500)
-    }, 900)
-  }, [showTyping, appendMsg, stats, tasks])
-  const userSend = useCallback((text: string) => {
-    if (!text.trim()) return
-    appendMsg('user', text)
-    setChatMsg('')
-    setSuggestions([])
-    showTyping()
-    setTimeout(() => {
-      removeTyping()
-      appendMsg('ai', `已收到:「${text}」。我會根據你嘅CRM數據整理相關資訊並跟進。`)
-      setSuggestions(['顯示相關記錄', '安排跟進任務'])
-    }, 900)
-  }, [appendMsg, showTyping])
-
-  // ── WIDGET BODIES MAP ──
+  // ── Drawer detail content builders ──
   const widgetBodies: Record<string, () => React.ReactElement> = {
     // ── Legacy widgets (real data) ──
     kpi_contacts: () => (
@@ -1007,6 +947,14 @@ export default function DashboardNew() {
               </div>
             )}
           </div>
+          <div className="ai-toggle-inline" style={{display:'inline-flex',alignItems:'center',gap:6,padding:'4px 12px 4px 10px',borderRadius:'999px',background:'var(--color-surface-offset)',fontSize:13,fontWeight:600}}>
+            <Sparkles size={14} style={{color:'var(--color-purple)'}} />
+            <span>AI</span>
+            <button className={`switcher${aiOn ? ' on' : ''}`} onClick={() => setLocalAiOn(!localAiOn)}
+              style={{width:28,height:16,borderRadius:8,border:'none',cursor:'pointer',position:'relative',background:aiOn?'var(--color-purple)':'var(--color-border)',transition:'background .15s'}}>
+              <span style={{position:'absolute',top:2,left:aiOn?14:2,width:12,height:12,borderRadius:'50%',background:'#fff',transition:'left .15s'}} />
+            </button>
+          </div>
           <button className={`btn ${editing ? 'btn-primary' : 'btn-ghost'}`}
             onClick={() => setEditing(!editing)}
             style={{display:'inline-flex',alignItems:'center',gap:6,padding:'9px 16px',borderRadius:'var(--radius-md)',fontSize:13.5,fontWeight:600,cursor:'pointer',background: editing ? 'var(--color-primary)' : 'var(--color-surface-offset)',color: editing ? '#fff' : 'var(--color-text)'}}>
@@ -1062,13 +1010,7 @@ export default function DashboardNew() {
               </div>
               {(k === 'c1' || k === 'co3' || k === 'd3' || k === 't2' || k === 's2' || k === 'te1') && aiOn && (
                 <button className="ai-tag" style={{display:'inline-flex',alignItems:'center',gap:5,padding:'5px 10px',borderRadius:'999px',background:'var(--color-purple-highlight)',color:'var(--color-purple)',fontSize:11.5,fontWeight:700,marginTop:8,border:'none',cursor:'pointer'}}
-                  onClick={() => {
-                    setChatOpen(true)
-                    if (!chatOpenedRef.current) {
-                      chatOpenedRef.current = true
-                      setTimeout(() => sendInitialReport(), 400)
-                    }
-                  }}>
+                  onClick={() => window.dispatchEvent(new CustomEvent('toggle-ai-chat'))}>
                   <Sparkles size={12} />AI advise
                 </button>
               )}
@@ -1195,54 +1137,8 @@ export default function DashboardNew() {
           }
         </div>
       </aside>
-      {aiOn && (
-        <button className="chat-fab" aria-label="Open AI assistant" onClick={() => {
-          setChatOpen(!chatOpen)
-          if (!chatOpen && !chatOpenedRef.current) {
-            chatOpenedRef.current = true
-            setTimeout(() => sendInitialReport(), 400)
-          }
-        }}>
-          <Sparkles size={24} />
-          <span className="chat-fab-dot" />
-        </button>
-      )}
-
-      {/* Chat Panel */}
-      {aiOn && (
-      <section className={`chat-panel${chatOpen ? ' show' : ''}`} aria-label="AI Assistant Chat">
-        <div className="chat-head">
-          <div className="chat-avatar"><Sparkles size={17} /></div>
-          <div className="chat-title"><strong>AI 私人秘書</strong><span>在線</span></div>
-          <div className="chat-head-actions">
-            <button aria-label="Minimize" onClick={() => setChatOpen(false)}><Minus size={16} /></button>
-            <button aria-label="Close" onClick={() => setChatOpen(false)}><X size={16} /></button>
-          </div>
-        </div>
-        <div className="chat-body" ref={chatBodyRef}>
-          <div className="msg ai">
-            <div className="msg-avatar"><Sparkles size={13} /></div>
-            <div className="msg-bubble">早晨! 今日有 {stats.tasks} 項任務和 {stats.deals} 個 Deal 需要跟進。有咩可以幫你？</div>
-          </div>
-        </div>
-        {suggestions.length > 0 && (
-          <div className="chat-suggest">
-            {suggestions.map((s, i) => (
-              <button key={i} onClick={() => userSend(s)}>{s}</button>
-            ))}
-          </div>
-        )}
-        <div className="chat-input-row">
-          <textarea placeholder="問AI任何關於今日業務嘅問題..." value={chatMsg}
-            onChange={e => setChatMsg(e.target.value)}
-            onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); userSend(chatMsg) } }}
-            rows={1} />
-          <button className="chat-send" aria-label="Send" onClick={() => userSend(chatMsg)}>
-            <Send size={16} />
-          </button>
-        </div>
-      </section>
-      )}
+      {/* ── AI Chat ── */}
+      <ChatboxPanel />
       {/* ── Detail Drawer ── */}
       <SlideDrawer open={detailDrawer} onClose={() => setDetailDrawer(false)} title={drawerTitle} width="30vw">
         {drawerContent}
