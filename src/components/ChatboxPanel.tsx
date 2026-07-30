@@ -30,6 +30,12 @@ interface SessionItem {
   is_pinned?: boolean
 }
 
+interface StreamError {
+  type: 'network' | 'auth' | 'timeout' | 'server' | 'streaming'
+  message: string
+  retryable: boolean
+}
+
 // ---------------------------------------------------------------------------
 // Constants
 // ---------------------------------------------------------------------------
@@ -163,7 +169,7 @@ export default function ChatboxPanel() {
   const [isLoading, setIsLoading] = useState(false)
   const [isStreaming, setIsStreaming] = useState(false)
   const [streamingContent, setStreamingContent] = useState('')
-  const [error, setError] = useState<string | null>(null)
+  const [error, setError] = useState<StreamError | null>(null)
   const [sessionId, setSessionId] = useState<string | null>(null)
   const [sessionList, setSessionList] = useState<SessionItem[]>([])
   const [showSessionList, setShowSessionList] = useState(false)
@@ -178,12 +184,13 @@ export default function ChatboxPanel() {
   const [menuQuery, setMenuQuery] = useState('')
   const [mentionResults, setMentionResults] = useState<{ id: string; label: string; type: string; sub: string }[]>([])
   const [suggestedPrompts, setSuggestedPrompts] = useState<string[]>(emptyPrompts)
-  const abortRef = useRef<AbortController | null>(null)
   const [hoveredMsgId, setHoveredMsgId] = useState<string | null>(null)
   const [feedbackMap, setFeedbackMap] = useState<Record<string, 'up' | 'down'>>({})
 
   // ── Refs ──
   const scrollRef = useRef<HTMLDivElement>(null)
+  const abortRef = useRef<AbortController | null>(null)
+  const lastUserTextRef = useRef('')
   const inputRef = useRef<HTMLTextAreaElement>(null)
   const sessionListRef = useRef<HTMLDivElement>(null)
 
@@ -379,6 +386,7 @@ export default function ChatboxPanel() {
     const userMsg = userMessage(text)
     setMessages(prev => [...prev, userMsg])
     setInput('')
+    lastUserTextRef.current = text
     setError(null)
     setIsLoading(true)
     setIsStreaming(true)
@@ -459,8 +467,8 @@ export default function ChatboxPanel() {
                 // usage event — store for reference
               }
               if (data.message) {
-                // error event
-                setError(data.message)
+                // streaming error from SSE
+                setError({ type: 'streaming', message: data.message, retryable: true })
               }
             } catch {
               // skip unparseable lines
@@ -493,12 +501,17 @@ export default function ChatboxPanel() {
         // ignore — session list best-effort
       }
     } catch (err: any) {
+      const msg = err?.detail || err?.message || 'Something went wrong. Please try again.'
       if (err.name === 'AbortError') {
-        setError('Generation stopped')
+        setError({ type: 'timeout', message: 'Generation was cancelled', retryable: true })
+      } else if (err.name === 'TypeError' && msg.includes('fetch')) {
+        setError({ type: 'network', message: 'Connection lost — check your network', retryable: true })
+      } else if (msg.includes('401') || msg.includes('Unauthorized') || msg.includes('token')) {
+        setError({ type: 'auth', message: 'Session expired — please log in again', retryable: false })
+      } else if (msg.includes('500') || msg.includes('503') || msg.includes('502') || msg.includes('service')) {
+        setError({ type: 'server', message: msg, retryable: true })
       } else {
-        const errorText = err?.detail || err?.message || 'Something went wrong. Please try again.'
-        setError(errorText)
-        setMessages(prev => [...prev, assistantMessage(`Error: ${errorText}`)])
+        setError({ type: 'streaming', message: msg, retryable: true })
       }
     } finally {
       setIsStreaming(false)
@@ -507,6 +520,124 @@ export default function ChatboxPanel() {
       abortRef.current = null
     }
   }, [messages])
+
+  // ── Retry last message (re-uses lastUserTextRef) ──
+  const retryLastMessage = useCallback(async () => {
+    const text = lastUserTextRef.current
+    if (!text || isLoading || loadingSession) return
+
+    const userMsg = userMessage(text)
+    setMessages(prev => [...prev, userMsg])
+    setError(null)
+    setIsLoading(true)
+    setIsStreaming(true)
+    setStreamingContent('')
+
+    const controller = new AbortController()
+    abortRef.current = controller
+
+    try {
+      const resp = await fetch('/api/v1/ai/chat/stream', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${getStoredAuth()?.access_token || ''}`,
+        },
+        body: JSON.stringify({
+          messages: [{ role: 'user', content: text }],
+          session_id: sessionId || null,
+        }),
+        signal: controller.signal,
+      })
+
+      if (!resp.ok) {
+        const errBody = await resp.json().catch(() => ({ detail: `HTTP ${resp.status}` }))
+        throw new Error(errBody.detail || `Request failed with status ${resp.status}`)
+      }
+
+      const reader = resp.body?.getReader()
+      if (!reader) throw new Error('No response body')
+
+      const decoder = new TextDecoder()
+      let buffer = ''
+      let fullReply = ''
+      let newSessionId: string | null = null
+      const msgCitations: CitationSource[] = []
+
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+
+        buffer += decoder.decode(value, { stream: true })
+        const lines = buffer.split('\n')
+        buffer = lines.pop() || ''
+
+        for (const line of lines) {
+          if (line.startsWith('event: ')) continue
+          if (line.startsWith('data: ')) {
+            try {
+              const data = JSON.parse(line.slice(6))
+              if (data.text !== undefined) {
+                fullReply += data.text
+                setStreamingContent(fullReply)
+              }
+              if (data.session_id) newSessionId = data.session_id
+              if (data.citations && Array.isArray(data.citations)) {
+                const existingIds = new Set(msgCitations.map(c => c.id))
+                for (const cit of data.citations) {
+                  if (!existingIds.has(cit.id)) {
+                    msgCitations.push(cit as CitationSource)
+                    existingIds.add(cit.id)
+                  }
+                }
+              }
+              if (data.message) {
+                setError({ type: 'streaming', message: data.message, retryable: true })
+              }
+            } catch { /* skip */ }
+          }
+        }
+      }
+
+      if (fullReply) {
+        const reply: ChatMessage = {
+          ...assistantMessage(fullReply),
+          citations: msgCitations.length > 0 ? msgCitations : undefined,
+        }
+        setMessages(prev => [...prev, reply])
+      }
+      if (newSessionId && newSessionId !== sessionId) setSessionId(newSessionId)
+
+      setStreamingContent('')
+      try {
+        const listResp = await fetch('/api/v1/ai/sessions', {
+          headers: { 'Authorization': `Bearer ${getStoredAuth()?.access_token || ''}` },
+        })
+        if (listResp.ok) {
+          const listData = await listResp.json()
+          if (listData?.sessions) setSessionList(listData.sessions)
+        }
+      } catch { /* ignore */ }
+    } catch (err: any) {
+      const msg = err?.message || 'Something went wrong. Please try again.'
+      if (err.name === 'AbortError') {
+        setError({ type: 'timeout', message: 'Generation was cancelled', retryable: true })
+      } else if (err.name === 'TypeError' && msg.includes('fetch')) {
+        setError({ type: 'network', message: 'Connection lost — check your network', retryable: true })
+      } else if (msg.includes('401') || msg.includes('Unauthorized') || msg.includes('token')) {
+        setError({ type: 'auth', message: 'Session expired — please log in again', retryable: false })
+      } else if (msg.includes('500') || msg.includes('503') || msg.includes('502') || msg.includes('service')) {
+        setError({ type: 'server', message: msg, retryable: true })
+      } else {
+        setError({ type: 'streaming', message: msg, retryable: true })
+      }
+    } finally {
+      setIsStreaming(false)
+      setIsLoading(false)
+      setStreamingContent('')
+      abortRef.current = null
+    }
+  }, [sessionId])
 
   const copyMessage = useCallback(async (content: string) => {
     try {
@@ -1079,19 +1210,49 @@ export default function ChatboxPanel() {
           )}
         </div>
 
-        {/* ── Error banner ── */}
+        {/* ── Per-type error banner with Retry ── */}
         {error && (
-          <div style={{
-            padding: '8px 16px', fontSize: 12, display: 'flex', alignItems: 'center', gap: 8,
-            backgroundColor: 'var(--color-notification-highlight)', color: 'var(--color-notification)',
-            borderTop: '1px solid var(--color-border)',
-          }}>
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" /></svg>
-            <span style={{ flex: 1 }}>{error}</span>
-            <button onClick={() => setError(null)} style={{ border: 'none', background: 'none', cursor: 'pointer', color: 'var(--color-notification)', padding: 0, display: 'grid', placeItems: 'center' }}>
-              <X size={12} />
-            </button>
-          </div>
+          (() => {
+            const colors: Record<string, string> = {
+              network: '#b91c1c', auth: '#92400e', timeout: '#7c3aed', server: '#b91c1c', streaming: '#b45309',
+            }
+            const icons: Record<string, string> = {
+              network: '📡', auth: '🔒', timeout: '⏱️', server: '⚠️', streaming: '💬',
+            }
+            const bg = error.type === 'network' || error.type === 'server'
+              ? 'rgba(255,59,48,0.08)' : error.type === 'auth'
+              ? 'rgba(255,149,0,0.08)' : error.type === 'timeout'
+              ? 'rgba(175,82,222,0.08)' : 'rgba(255,159,10,0.08)'
+            const borderColor = error.type === 'network' || error.type === 'server'
+              ? '1px solid rgba(255,59,48,0.25)' : error.type === 'auth'
+              ? '1px solid rgba(255,149,0,0.25)' : error.type === 'timeout'
+              ? '1px solid rgba(175,82,222,0.25)' : '1px solid rgba(255,159,10,0.25)'
+            return (
+              <div style={{
+                padding: '8px 14px', fontSize: 12, display: 'flex', alignItems: 'center', gap: 8,
+                backgroundColor: bg, borderTop: borderColor,
+              }}>
+                <span>{icons[error.type] || '⚠️'}</span>
+                <span style={{ flex: 1, color: colors[error.type] || 'var(--color-text)' }}>{error.message}</span>
+                {error.retryable && (
+                  <button
+                    onClick={() => { setError(null); setTimeout(() => retryLastMessage(), 0) }}
+                    style={{
+                      border: '1px solid currentColor', background: 'transparent',
+                      color: colors[error.type] || 'var(--color-text)',
+                      borderRadius: 999, padding: '2px 10px', fontSize: 11, cursor: 'pointer',
+                      fontWeight: 600, whiteSpace: 'nowrap',
+                    }}
+                  >
+                    Retry
+                  </button>
+                )}
+                <button onClick={() => setError(null)} style={{ border: 'none', background: 'none', cursor: 'pointer', color: colors[error.type] || 'var(--color-text)', padding: 0, display: 'grid', placeItems: 'center' }}>
+                  <X size={12} />
+                </button>
+              </div>
+            )
+          })()
         )}
 
         {/* ── Slash / Mention floating menu ── */}
