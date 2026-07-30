@@ -378,7 +378,15 @@ export default function ChatboxPanel() {
       }
 
       setStreamingContent('')
-      loadSessions()
+      // Refresh session list without switching — don't clear messages
+      try {
+        const resp = await apiClient.get<{ sessions: SessionItem[] }>('/api/v1/ai/sessions')
+        if (resp?.sessions) {
+          setSessionList(resp.sessions)
+        }
+      } catch {
+        // ignore — session list best-effort
+      }
     } catch (err: any) {
       if (err.name === 'AbortError') {
         setError('Generation stopped')
