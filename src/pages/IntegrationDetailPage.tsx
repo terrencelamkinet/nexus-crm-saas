@@ -1,9 +1,10 @@
 import { useParams, Link } from 'react-router-dom';
-import { useEffect, useState, useCallback, useRef } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { Check, AlertCircle, RefreshCw } from 'lucide-react';
 import { integrations } from '../data/integrations';
-import { fetchIntegrations, startOAuth, disconnectIntegration } from '../lib/integration-api';
+import { fetchIntegrations, disconnectIntegration } from '../lib/integration-api';
 import type { IntegrationRecord } from '../lib/integration-api';
+import ConnectDialog from '../components/ConnectDialog';
 
 export default function IntegrationDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -11,8 +12,7 @@ export default function IntegrationDetailPage() {
 
   const [connection, setConnection] = useState<IntegrationRecord | null>(null);
   const [loading, setLoading] = useState(true);
-  const [actionLoading, setActionLoading] = useState<string | null>(null);
-  const popupRef = useRef<Window | null>(null);
+  const [showDialog, setShowDialog] = useState(false);
 
   const loadConnection = useCallback(async () => {
     if (!id) return;
@@ -31,7 +31,7 @@ export default function IntegrationDetailPage() {
   useEffect(() => {
     const handler = (event: MessageEvent) => {
       if (event.data?.type === 'nexus-oauth-complete') {
-        setActionLoading(null);
+        setShowDialog(false);
         loadConnection();
       }
     };
@@ -52,50 +52,34 @@ export default function IntegrationDetailPage() {
     );
   }
 
-  const providerKey = integration.id.replace('-', '_');
   const isConnected = !!connection;
-
-  const handleConnect = async () => {
-    if (actionLoading) return;
-    setActionLoading('connect');
-    try {
-      const res = await startOAuth(providerKey);
-      if (res.oauth_url) {
-        const w = 600;
-        const h = 700;
-        const left = window.screenX + (window.outerWidth - w) / 2;
-        const top = window.screenY + (window.outerHeight - h) / 2;
-        popupRef.current = window.open(
-          res.oauth_url,
-          'nexus-oauth',
-          `width=${w},height=${h},left=${left},top=${top},popup=1`,
-        );
-      }
-    } catch (err) {
-      console.error('OAuth start failed', err);
-      setActionLoading(null);
-    }
-  };
 
   const handleDisconnect = async () => {
     if (!connection) return;
-    setActionLoading('disconnect');
     try {
       await disconnectIntegration(connection.id);
       setConnection(null);
     } catch (err) {
       console.error('Disconnect failed', err);
     }
-    setActionLoading(null);
   };
 
-  const statusColor = isConnected ? '#22c55e' : loading ? '#a0aec0' : '#a0aec0';
-  const statusText = isConnected
-    ? 'Active'
-    : loading ? 'Checking...' : 'Not connected';
+  const handleConnected = () => {
+    setShowDialog(false);
+    loadConnection();
+  };
+
+  const statusColor = isConnected ? '#22c55e' : '#a0aec0';
+  const statusText = isConnected ? 'Active' : loading ? 'Checking...' : 'Not connected';
   const lastSync = connection?.last_sync_at
     ? new Date(connection.last_sync_at).toLocaleString()
     : null;
+
+  // Badge for connection method
+  const methodLabel = integration.connectionMethod === 'oauth' ? 'One-click OAuth'
+    : integration.connectionMethod === 'url' ? 'Paste URL'
+    : integration.connectionMethod === 'webhook' ? 'Webhook'
+    : 'Coming soon';
 
   return (
     <div className="mkt-detail">
@@ -115,6 +99,13 @@ export default function IntegrationDetailPage() {
           <h1>{integration.name}</h1>
           <span className="mkt-card-type" style={{ display: 'inline-block' }}>
             {integration.typeIcon} {integration.type}
+            <span style={{
+              marginLeft: 8, fontSize: 11, padding: '2px 8px', borderRadius: 10,
+              background: 'var(--color-surface)', border: '1px solid var(--color-divider)',
+              verticalAlign: 'middle',
+            }}>
+              {methodLabel}
+            </span>
           </span>
           <div className="mkt-detail-meta">
             <span>{'★'.repeat(integration.popularity)}{'☆'.repeat(5 - integration.popularity)}</span>
@@ -122,21 +113,17 @@ export default function IntegrationDetailPage() {
           </div>
         </div>
         <div className="mkt-detail-action">
-          {isConnected ? (
-            <button
-              className="mkt-detail-btn connected"
-              onClick={handleDisconnect}
-              disabled={actionLoading === 'disconnect'}
-            >
-              {actionLoading === 'disconnect' ? 'Disconnecting...' : 'Connected ✓'}
+          {integration.connectionMethod === 'coming' ? (
+            <button className="mkt-detail-btn" disabled style={{ opacity: 0.5 }}>
+              Coming Soon
+            </button>
+          ) : isConnected ? (
+            <button className="mkt-detail-btn connected" onClick={handleDisconnect}>
+              Connected ✓
             </button>
           ) : (
-            <button
-              className="mkt-detail-btn connect"
-              onClick={handleConnect}
-              disabled={!!actionLoading}
-            >
-              {actionLoading === 'connect' ? 'Connecting...' : 'Connect'}
+            <button className="mkt-detail-btn connect" onClick={() => setShowDialog(true)}>
+              Connect
             </button>
           )}
         </div>
@@ -192,6 +179,15 @@ export default function IntegrationDetailPage() {
           </div>
         )}
       </div>
+
+      {/* Connect Dialog */}
+      {showDialog && (
+        <ConnectDialog
+          integration={integration}
+          onClose={() => setShowDialog(false)}
+          onConnected={handleConnected}
+        />
+      )}
     </div>
   );
 }

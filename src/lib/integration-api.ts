@@ -43,3 +43,13 @@ export async function completeOAuth(code: string, state: string): Promise<Integr
 export async function disconnectIntegration(id: string): Promise<void> {
   return apiClient.delete(`/api/v1/integrations/${id}`);
 }
+
+export async function createIntegration(data: {
+  provider: string;
+  provider_display: string;
+  status?: string;
+  config: Record<string, unknown>;
+  metadata_?: Record<string, unknown>;
+}): Promise<IntegrationRecord> {
+  return apiClient.post('/api/v1/integrations', data);
+}

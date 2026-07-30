@@ -1,9 +1,10 @@
-import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Search, PackageOpen } from 'lucide-react';
 import { integrations, integrationTypes } from '../data/integrations';
-import { fetchIntegrations, startOAuth, disconnectIntegration } from '../lib/integration-api';
+import { fetchIntegrations, disconnectIntegration } from '../lib/integration-api';
 import type { IntegrationRecord } from '../lib/integration-api';
+import ConnectDialog from '../components/ConnectDialog';
 
 type ConnectionMap = Record<string, IntegrationRecord>;
 
@@ -13,17 +14,15 @@ export default function MarketplacePage() {
   const [activeType, setActiveType] = useState('All');
   const [connections, setConnections] = useState<ConnectionMap>({});
   const [loading, setLoading] = useState(true);
-  const [connectingProvider, setConnectingProvider] = useState<string | null>(null);
-  const popupRef = useRef<Window | null>(null);
+  const [dialogIntegration, setDialogIntegration] = useState<string | null>(null);
 
-  // Fetch user's connected integrations
   const load = useCallback(async () => {
     try {
       const list = await fetchIntegrations();
       const map: ConnectionMap = {};
       list.forEach(c => { map[c.provider] = c; });
       setConnections(map);
-    } catch { /* not logged in / no integrations yet */ }
+    } catch { /* not logged in */ }
     setLoading(false);
   }, []);
 
@@ -33,8 +32,7 @@ export default function MarketplacePage() {
   useEffect(() => {
     const handler = (event: MessageEvent) => {
       if (event.data?.type === 'nexus-oauth-complete') {
-        setConnectingProvider(null);
-        load(); // refresh integrations list
+        load();
       }
     };
     window.addEventListener('message', handler);
@@ -53,8 +51,8 @@ export default function MarketplacePage() {
       })
       .map(i => ({
         ...i,
-        isConnected: !!connections[i.id.replace('-', '_')] || !!connections[i.id],
-        _connection: connections[i.id.replace('-', '_')] || connections[i.id],
+        isConnected: !!connections[i.id.replace('-', '_')],
+        _connection: connections[i.id.replace('-', '_')],
       }));
   }, [search, activeType, connections]);
 
@@ -63,29 +61,11 @@ export default function MarketplacePage() {
       <span key={i} className={i < n ? 'filled' : ''}>★</span>
     ));
 
-  const handleConnect = async (e: React.MouseEvent, providerKey: string) => {
+  const handleConnectClick = (e: React.MouseEvent, int: typeof filtered[0]) => {
     e.stopPropagation();
-    if (connectingProvider) return; // prevent double-click
-    setConnectingProvider(providerKey);
-
-    try {
-      const res = await startOAuth(providerKey);
-      if (res.oauth_url) {
-        // Open popup — user only needs to login on provider side
-        const w = 600;
-        const h = 700;
-        const left = window.screenX + (window.outerWidth - w) / 2;
-        const top = window.screenY + (window.outerHeight - h) / 2;
-        popupRef.current = window.open(
-          res.oauth_url,
-          'nexus-oauth',
-          `width=${w},height=${h},left=${left},top=${top},popup=1`,
-        );
-      }
-    } catch (err) {
-      console.error('OAuth start failed', err);
-      setConnectingProvider(null);
-    }
+    if (int.connectionMethod === 'coming') return;
+    if (int.connectionMethod === 'oauth') return; // OAuth handled in detail page
+    setDialogIntegration(int.id);
   };
 
   const handleDisconnect = async (e: React.MouseEvent, providerKey: string) => {
@@ -103,6 +83,8 @@ export default function MarketplacePage() {
       console.error('Disconnect failed', err);
     }
   };
+
+  const dialogInt = dialogIntegration ? integrations.find(i => i.id === dialogIntegration) : null;
 
   return (
     <div className="mkt-page">
@@ -142,39 +124,46 @@ export default function MarketplacePage() {
         </div>
       ) : (
         <div className="mkt-grid">
-          {filtered.map(integration => {
-            const providerKey = integration.id.replace('-', '_');
-            const isConnected = integration.isConnected;
-            const isConnecting = connectingProvider === providerKey;
+          {filtered.map(int => {
+            const providerKey = int.id.replace('-', '_');
+            const isConnected = int.isConnected;
             return (
               <div
-                key={integration.id}
+                key={int.id}
                 className="mkt-card"
-                onClick={() => navigate(`/marketplace/${integration.id}`)}
+                onClick={() => navigate(`/marketplace/${int.id}`)}
                 role="button"
                 tabIndex={0}
                 onKeyDown={e => {
-                  if (e.key === 'Enter') navigate(`/marketplace/${integration.id}`);
+                  if (e.key === 'Enter') navigate(`/marketplace/${int.id}`);
                 }}
               >
                 <div className="mkt-card-top">
-                  <div className="mkt-card-icon" style={{ background: integration.color }}>
-                    {integration.icon}
+                  <div className="mkt-card-icon" style={{ background: int.color }}>
+                    {int.icon}
                   </div>
                   <div className="mkt-card-info">
                     <div className="mkt-card-name">
-                      {integration.name}
-                      <span className="mkt-card-type">{integration.type}</span>
+                      {int.name}
+                      <span className="mkt-card-type">{int.type}</span>
                     </div>
-                    <div className="mkt-card-desc">{integration.shortDesc}</div>
+                    <div className="mkt-card-desc">{int.shortDesc}</div>
+                    <div style={{ fontSize: 11, color: 'var(--color-text-faint)', marginTop: 4 }}>
+                      {int.connectionMethod === 'url' && '📋 Paste URL'}
+                      {int.connectionMethod === 'webhook' && '🔗 Webhook'}
+                      {int.connectionMethod === 'oauth' && '🔑 One-click OAuth'}
+                      {int.connectionMethod === 'coming' && '🚧 Coming soon'}
+                    </div>
                   </div>
                 </div>
                 <div className="mkt-card-bottom">
                   <div className="mkt-stars">
-                    {renderStars(integration.popularity)}
-                    <span>({integration.connectionCount.toLocaleString()})</span>
+                    {renderStars(int.popularity)}
+                    <span>({int.connectionCount.toLocaleString()})</span>
                   </div>
-                  {isConnected ? (
+                  {int.connectionMethod === 'coming' ? (
+                    <button className="mkt-card-btn" disabled style={{ opacity: 0.5 }}>Soon</button>
+                  ) : isConnected ? (
                     <button
                       className="mkt-card-btn connected"
                       onClick={e => handleDisconnect(e, providerKey)}
@@ -182,15 +171,23 @@ export default function MarketplacePage() {
                   ) : (
                     <button
                       className="mkt-card-btn connect"
-                      onClick={e => handleConnect(e, providerKey)}
-                      disabled={!!connectingProvider}
-                    >{isConnecting ? 'Connecting...' : 'Connect'}</button>
+                      onClick={e => handleConnectClick(e, int)}
+                    >Connect</button>
                   )}
                 </div>
               </div>
             );
           })}
         </div>
+      )}
+
+      {/* Connect Dialog */}
+      {dialogInt && (
+        <ConnectDialog
+          integration={dialogInt}
+          onClose={() => setDialogIntegration(null)}
+          onConnected={() => { setDialogIntegration(null); load(); }}
+        />
       )}
     </div>
   );

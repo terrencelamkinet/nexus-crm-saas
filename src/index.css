@@ -1794,3 +1794,21 @@ textarea.input-field{resize:vertical;min-height:60px}
 .mkt-detail-status .dot{width:8px;height:8px;border-radius:50%}
 .mkt-detail-status .dot.green{background:#22c55e}
 .mkt-detail-status .dot.gray{background:var(--color-text-faint)}
+
+/* ── Connect Dialog ── */
+.dialog-overlay{position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:1000;display:flex;align-items:center;justify-content:center;padding:20px;animation:fadeIn .15s}
+.dialog-box{background:var(--color-bg);border:1px solid var(--color-divider);border-radius:var(--radius-xl);width:100%;max-height:90vh;overflow-y:auto;box-shadow:0 16px 48px rgba(0,0,0,.15);animation:slideUp .2s}
+.dialog-header{display:flex;align-items:center;justify-content:space-between;padding:16px 24px;border-bottom:1px solid var(--color-divider)}
+.dialog-close{background:none;border:none;cursor:pointer;color:var(--color-text-muted);padding:4px;border-radius:6px}
+.dialog-close:hover{background:var(--color-surface)}
+.mkt-url-row{display:flex;align-items:center;gap:8px;background:var(--color-surface);border:1px solid var(--color-divider);border-radius:var(--radius-lg);padding:8px 12px}
+.mkt-url-display{flex:1;font-size:12px;word-break:break-all;color:var(--color-text);background:none;border:none;line-height:1.5}
+.mkt-copy-btn{background:var(--color-surface);border:1px solid var(--color-divider);border-radius:6px;padding:6px;cursor:pointer;color:var(--color-text-muted);display:flex;align-items:center;flex-shrink:0}
+.mkt-copy-btn:hover{color:var(--color-text);border-color:var(--color-primary)}
+.mkt-steps{display:flex;flex-direction:column;gap:10px}
+.mkt-step{display:flex;align-items:flex-start;gap:10px;font-size:13px;line-height:1.5;color:var(--color-text)}
+.mkt-step-num{width:20px;height:20px;border-radius:50%;background:var(--color-primary);color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px}
+.mkt-url-input{width:100%;padding:10px 14px;border:1px solid var(--color-divider);border-radius:var(--radius-lg);font-size:13px;background:var(--color-surface);color:var(--color-text);font-family:var(--font-body);outline:none;transition:border-color .15s}
+.mkt-url-input:focus{border-color:var(--color-primary)}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+@keyframes slideUp{from{transform:translateY(12px);opacity:0}to{transform:translateY(0);opacity:1}}

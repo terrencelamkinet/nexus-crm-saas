@@ -51,6 +51,20 @@ def alt_auth_headers():
     return {"Authorization": f"Bearer {_make_token(ALT_USER, ALT_TENANT, 'alt@test.com')}"}
 
 
+@pytest.fixture(autouse=True)
+async def cleanup_integrations():
+    """Clean up all test integrations before each test so tests don't leak."""
+    async with httpx.AsyncClient() as client:
+        token = _make_token(TEST_USER, KINETIX_TENANT)
+        headers = {"Authorization": f"Bearer {token}"}
+        # List current integrations
+        resp = await client.get(f"{BACKEND_URL}/api/v1/integrations", headers=headers)
+        if resp.status_code == 200:
+            for item in resp.json():
+                await client.delete(f"{BACKEND_URL}/api/v1/integrations/{item['id']}", headers=headers)
+    yield
+
+
 # ===========================================================================
 # Unauthenticated access
 # ===========================================================================
@@ -280,6 +294,27 @@ class TestOAuthComplete:
 # ===========================================================================
 
 class TestIntegrationCRUD:
+
+    async def test_create_url_connection(self, auth_headers):
+        """POST /integrations should create a URL-based connection directly."""
+        async with httpx.AsyncClient() as client:
+            resp = await client.post(
+                f"{BACKEND_URL}/api/v1/integrations",
+                headers=auth_headers,
+                json={
+                    "provider": "google_calendar",
+                    "provider_display": "Google Calendar",
+                    "status": "active",
+                    "config": {"connection_url": "https://calendar.google.com/calendar/ical/test/basic.ics"},
+                },
+            )
+        assert resp.status_code == 201
+        data = resp.json()
+        assert data["provider"] == "google_calendar"
+        assert data["config"]["connection_url"] == "https://calendar.google.com/calendar/ical/test/basic.ics"
+        assert data["status"] == "active"
+        assert data["tenant_id"] == KINETIX_TENANT
+        return data["id"]
 
     async def test_update_integration_status(self, auth_headers):
         """PATCH should update status and config."""

@@ -3,6 +3,7 @@ Integrations Router — per-user, tenant-isolated.
 
 Endpoints:
   GET    /integrations              → list user's connected integrations
+  POST   /integrations              → create URL/webhook-based connection directly
   POST   /integrations/oauth/start  → create OAuth state, return redirect URL
   POST   /integrations/oauth/callback → complete OAuth, store tokens
   PATCH  /integrations/{id}         → update status/config
@@ -56,6 +57,43 @@ async def list_integrations(
     ).order_by(Integration.created_at.desc())
     rows = (await db.execute(q)).scalars().all()
     return list(rows)
+
+
+# ─── CREATE (URL/webhook-based connection) ─────────────────────
+
+
+@router.post("/integrations", response_model=IntegrationResponse, status_code=201)
+async def create_integration(
+    request: Request,
+    db: AsyncSession = Depends(get_tenant_session),
+):
+    """
+    Create a new integration connection directly (URL/webhook-based).
+    Body: { "provider": "google_calendar", "provider_display": "Google Calendar",
+            "status": "active", "config": {"connection_url": "..."},
+            "metadata_": {"connected_at": "..."} }
+    """
+    body = await request.json()
+    tenant_id = _tid(request)
+    user_id = _uid(request)
+
+    provider = body.get("provider", "")
+    if not provider:
+        raise HTTPException(400, "provider is required")
+
+    integration = Integration(
+        tenant_id=tenant_id,
+        user_id=user_id,
+        provider=provider,
+        provider_display=body.get("provider_display", provider.replace("_", " ").title()),
+        status=body.get("status", "active"),
+        config=body.get("config", {}),
+        metadata_=body.get("metadata_", {}),
+    )
+    db.add(integration)
+    await db.flush()
+    await db.refresh(integration)
+    return integration
 
 
 # ─── GET single integration ────────────────────────────────────
