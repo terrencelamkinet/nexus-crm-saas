@@ -7,7 +7,15 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "oxlint",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test:e2e": "cd tests/e2e && npx playwright test",
+    "test:e2e:headed": "cd tests/e2e && npx playwright test --headed",
+    "test:e2e:report": "npx playwright show-report playwright-report",
+    "test:backend": "cd backend && source venv/bin/activate && python -m pytest",
+    "test:backend:rag": "cd backend && source venv/bin/activate && python -m pytest tests/test_rag.py -v",
+    "test:backend:rls": "cd backend && source venv/bin/activate && python -m pytest tests/test_rls.py -v",
+    "load-test": "cd backend && source venv/bin/activate && python scripts/load_test.py",
+    "outage-drill": "cd backend && source venv/bin/activate && python scripts/outage_drill.py"
   },
   "dependencies": {
     "lucide-react": "^1.25.0",
@@ -18,6 +26,7 @@
     "react-router-dom": "^7.18.1"
   },
   "devDependencies": {
+    "@playwright/test": "^1.62.0",
     "@tailwindcss/postcss": "^4.3.3",
     "@types/node": "^24.13.2",
     "@types/react": "^19.2.17",
