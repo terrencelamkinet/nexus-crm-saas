@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Users, CreditCard, Puzzle, Monitor, ChevronRight } from 'lucide-react'
 import { apiClient } from '../lib/api'
+import LanguageSwitcher from '../i18n/LanguageSwitcher';
 
 const tabs = [
   { id: 'profile', label: 'Profile', icon: Users },
@@ -157,6 +158,10 @@ export default function SettingsPage() {
                   <select className="input-field">
                     <option>Asia/Hong_Kong (UTC+8)</option>
                   </select>
+                </div>
+                <div className="stg-field-row">
+                  <label>Language</label>
+                  <LanguageSwitcher />
                 </div>
               </div>
               <button className="btn-primary">Save Changes</button>
