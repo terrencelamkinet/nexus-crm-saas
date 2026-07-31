@@ -63,6 +63,8 @@ class Settings(BaseSettings):
         "hubspot": "",
     }
 
+    cron_api_key: str = ""  # Cron-Api-Key for scheduled jobs (NEXUS_CRON_API_KEY)
+
     model_config = {"env_prefix": "NEXUS_", "env_file": ".env", "env_file_encoding": "utf-8", "extra": "ignore"}
 
 settings = Settings()

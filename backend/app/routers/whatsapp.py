@@ -267,6 +267,23 @@ async def verify_otp(
     reset_rate_limit(f"otp_verify:{phone}")
     reset_rate_limit(f"otp_send:{phone}")
 
+    # 📲 Default-ON: auto-enable AI Briefing push (frictionless onboarding, §2.1)
+    from app.models.im_push import IMDeliveryPref
+    pref = (
+        await db.execute(
+            select(IMDeliveryPref).where(
+                IMDeliveryPref.tenant_id == tenant_id,
+                IMDeliveryPref.user_id == user_id,
+                IMDeliveryPref.channel == "whatsapp",
+            )
+        )
+    ).scalar_one_or_none()
+    if pref is None:
+        db.add(IMDeliveryPref(tenant_id=tenant_id, user_id=user_id, channel="whatsapp"))
+    else:
+        pref.enabled = True  # re-binding re-enables
+    await db.flush()
+
     return {
         "status": "connected",
         "wa_id": phone,

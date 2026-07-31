@@ -37,6 +37,42 @@ export default function SettingsPage() {
   const [showKey, setShowKey] = useState(false)
   const [aiSaveState, setAiSaveState] = useState<'idle' | 'saving' | 'done'>('idle')
 
+  // IM Push (通知與整合) state
+  const [imChannels, setImChannels] = useState<Record<string, any>>({})
+  const [imSaving, setImSaving] = useState(false)
+  const [imSaved, setImSaved] = useState(false)
+  const [imTestState, setImTestState] = useState<'idle' | 'sending' | 'done' | 'error'>('idle')
+
+  const loadImPrefs = async () => {
+    try {
+      const res = await apiClient.get<{ channels: Record<string, any> }>('/api/v1/im-push/prefs')
+      if (res?.channels) setImChannels(res.channels)
+    } catch { /* non-fatal */ }
+  }
+  useEffect(() => { loadImPrefs() }, [])
+
+  const saveImPrefs = async (channel: string) => {
+    setImSaving(true)
+    try {
+      await apiClient.put('/api/v1/im-push/prefs', imChannels[channel])
+      setImSaved(true)
+      setTimeout(() => setImSaved(false), 1600)
+    } catch { /* surface via button state */ }
+    setImSaving(false)
+  }
+
+  const testImPush = async (channel: string) => {
+    setImTestState('sending')
+    try {
+      await apiClient.post('/api/v1/im-push/test', { channel })
+      setImTestState('done')
+      setTimeout(() => setImTestState('idle'), 2200)
+    } catch {
+      setImTestState('error')
+      setTimeout(() => setImTestState('idle'), 3200)
+    }
+  }
+
   // Integration state
   const [integrations] = useState<Record<string, boolean>>({
     google: false,
@@ -335,6 +371,125 @@ export default function SettingsPage() {
                   {aiSaveState === 'saving' && <span className="btn-spinner" />}
                   {aiSaveState === 'done' && <span className="btn-check">✓</span>}
                 </button>
+              </div>
+
+              {/* ── 通知與整合 — AI 每日簡報推送 ── */}
+              <div style={{ marginTop: 28, borderTop: '1px solid var(--color-divider)', paddingTop: 22 }}>
+                <h3 style={{ margin: '0 0 4px', fontSize: 14.5, fontWeight: 700, color: 'var(--color-text)' }}>
+                  📲 通知與整合
+                </h3>
+                <p className="stg-subtitle" style={{ marginBottom: 14 }}>
+                  允許 AI 透過 WhatsApp / Telegram 發送每日簡報（☀️ 早晨 / ☕ 午間 / 🌙 傍晚）
+                </p>
+
+                {Object.keys(imChannels).length === 0 && (
+                  <div style={{ fontSize: 12.5, color: 'var(--color-text-faint)', padding: '10px 0' }}>
+                    尚未綁定任何通訊軟件 — 去 Marketplace 連接 WhatsApp / Telegram 後會自動啟用推送
+                  </div>
+                )}
+
+                {Object.entries(imChannels).map(([ch, pref]: [string, any]) => (
+                  <div key={ch} style={{
+                    border: '1px solid var(--color-divider)', borderRadius: 'var(--radius-md)',
+                    padding: '14px 16px', marginBottom: 12, background: 'var(--color-surface)',
+                  }}>
+                    {/* Header row: channel name + global toggle */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <span style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--color-text)' }}>
+                        {ch === 'whatsapp' ? '💬 WhatsApp' : '✈️ Telegram'}
+                      </span>
+                      <span style={{ fontSize: 11.5, fontWeight: 600, color: pref.enabled ? '#34d399' : 'var(--color-text-faint)' }}>
+                        {pref.enabled ? '已啟用' : '已關閉'}
+                      </span>
+                      <span style={{ marginLeft: 'auto' }} />
+                      <button
+                        className={`switcher${pref.enabled ? ' on' : ''}`}
+                        onClick={() => setImChannels({ ...imChannels, [ch]: { ...pref, enabled: !pref.enabled } })}
+                        aria-label={`${ch} 推送開關`}
+                        style={{
+                          width: 34, height: 19, borderRadius: 10, border: 'none', cursor: 'pointer',
+                          position: 'relative', background: pref.enabled ? 'var(--color-purple, #7c3aed)' : 'var(--color-border)',
+                          transition: 'background .15s',
+                        }}
+                      >
+                        <span style={{
+                          position: 'absolute', top: 2, left: pref.enabled ? 18 : 2, width: 15, height: 15,
+                          borderRadius: '50%', background: '#fff', transition: 'left .15s',
+                        }} />
+                      </button>
+                    </div>
+
+                    {/* Slot checkboxes */}
+                    <div style={{ display: 'flex', gap: 8, marginTop: 12, flexWrap: 'wrap' }}>
+                      {(['morning', 'noon', 'evening'] as const).map(s => (
+                        <label
+                          key={s}
+                          style={{
+                            display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12.5, cursor: 'pointer',
+                            padding: '5px 12px', borderRadius: 999,
+                            background: pref.slots?.[s] ? 'rgba(124,93,250,0.12)' : 'var(--color-surface-offset)',
+                            color: pref.slots?.[s] ? '#7c3aed' : 'var(--color-text-muted)', fontWeight: 600,
+                            transition: 'background 150ms, color 150ms',
+                          }}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={!!pref.slots?.[s]}
+                            onChange={() => setImChannels({
+                              ...imChannels,
+                              [ch]: { ...pref, slots: { ...pref.slots, [s]: !pref.slots?.[s] } },
+                            })}
+                            style={{ display: 'none' }}
+                          />
+                          {s === 'morning' ? '☀️ 早晨' : s === 'noon' ? '☕ 午間' : '🌙 傍晚'}
+                        </label>
+                      ))}
+                    </div>
+
+                    {/* Weekend mute */}
+                    <label style={{ display: 'flex', alignItems: 'center', gap: 7, marginTop: 12, fontSize: 12.5, cursor: 'pointer', color: 'var(--color-text)' }}>
+                      <input
+                        type="checkbox"
+                        checked={!!pref.weekend_mute}
+                        onChange={() => setImChannels({ ...imChannels, [ch]: { ...pref, weekend_mute: !pref.weekend_mute } })}
+                        style={{ accentColor: 'var(--color-primary)' }}
+                      />
+                      週末不推送（預設開啟）
+                    </label>
+
+                    {/* Actions */}
+                    <div style={{ display: 'flex', gap: 8, marginTop: 14, alignItems: 'center' }}>
+                      <button
+                        onClick={() => saveImPrefs(ch)}
+                        disabled={imSaving}
+                        style={{
+                          display: 'inline-flex', alignItems: 'center', gap: 5,
+                          fontSize: 12, fontWeight: 600, padding: '7px 14px', borderRadius: 'var(--radius-md)',
+                          background: 'var(--color-primary)', color: '#fff', border: 'none', cursor: 'pointer',
+                          opacity: imSaving ? 0.6 : 1,
+                        }}
+                      >
+                        💾 儲存
+                      </button>
+                      <button
+                        onClick={() => testImPush(ch)}
+                        disabled={imTestState === 'sending'}
+                        style={{
+                          display: 'inline-flex', alignItems: 'center', gap: 5,
+                          fontSize: 12, fontWeight: 600, padding: '7px 14px', borderRadius: 'var(--radius-md)',
+                          background: 'var(--color-surface-offset)', color: 'var(--color-text)',
+                          border: '1px solid var(--color-divider)', cursor: 'pointer',
+                          opacity: imTestState === 'sending' ? 0.6 : 1,
+                        }}
+                      >
+                        {imTestState === 'sending' ? '發送中…' : '📨 測試推送'}
+                      </button>
+                      {imSaved && <span style={{ fontSize: 12, fontWeight: 600, color: '#34d399' }}>✓ 已儲存</span>}
+                      {imTestState === 'done' && <span style={{ fontSize: 12, fontWeight: 600, color: '#34d399' }}>✓ 已發送</span>}
+                      {imTestState === 'error' && <span style={{ fontSize: 12, fontWeight: 600, color: '#f87171' }}>⚠️ 發送失敗（檢查 WhatsApp 連接 / token）</span>}
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
           )}
