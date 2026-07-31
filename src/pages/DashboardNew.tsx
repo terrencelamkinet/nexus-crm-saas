@@ -257,8 +257,7 @@ export default function DashboardNew() {
   const { t } = useTranslation()
   const navigate = useNavigate()
   const [modules, setModules] = useState<Record<string, boolean>>({})
-  const [localAiOn, setLocalAiOn] = useState(true)
-  const aiOn = modules['ai_assistant'] ?? localAiOn
+  const aiOn = modules['ai_assistant'] ?? true
   const [editing, setEditing] = useState(false)
   const [newOpen, setNewOpen] = useState(false)
   const newRef = useRef<HTMLDivElement>(null)
@@ -998,14 +997,6 @@ export default function DashboardNew() {
                 </button>
               </div>
             )}
-          </div>
-          <div className="ai-toggle-inline" style={{display:'inline-flex',alignItems:'center',gap:6,padding:'4px 12px 4px 10px',borderRadius:'999px',background:'var(--color-surface-offset)',fontSize:13,fontWeight:600}}>
-            <Sparkles size={14} style={{color:'var(--color-purple)'}} />
-            <span>AI</span>
-            <button className={`switcher${aiOn ? ' on' : ''}`} onClick={() => setLocalAiOn(!localAiOn)}
-              style={{width:28,height:16,borderRadius:8,border:'none',cursor:'pointer',position:'relative',background:aiOn?'var(--color-purple)':'var(--color-border)',transition:'background .15s'}}>
-              <span style={{position:'absolute',top:2,left:aiOn?14:2,width:12,height:12,borderRadius:'50%',background:'#fff',transition:'left .15s'}} />
-            </button>
           </div>
           <button className={`btn ${editing ? 'btn-primary' : 'btn-ghost'}`}
             onClick={() => setEditing(!editing)}
