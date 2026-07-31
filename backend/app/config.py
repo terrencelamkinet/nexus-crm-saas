@@ -34,6 +34,12 @@ class Settings(BaseSettings):
     deepseek_api_key: str = ""
     gemini_api_key: str = ""
 
+    # WhatsApp Cloud API
+    whatsapp_access_token: str = ""
+    whatsapp_phone_number_id: str = ""
+    whatsapp_webhook_verify_token: str = ""
+    whatsapp_app_secret: str = ""
+
     # Integration / OAuth
     api_base_url: str = "http://localhost:8001"
     integration_client_ids: dict = {
@@ -57,6 +63,6 @@ class Settings(BaseSettings):
         "hubspot": "",
     }
 
-    model_config = {"env_prefix": "NEXUS_"}
+    model_config = {"env_prefix": "NEXUS_", "env_file": ".env", "env_file_encoding": "utf-8", "extra": "ignore"}
 
 settings = Settings()

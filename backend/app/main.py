@@ -9,6 +9,8 @@ from app.models.crm_module_b import DealPipeline, DealStage, Deal, Product, Deal
 from app.models.notification import Notification, NotificationPreference  # Register Notification models
 from app.models.dashboard_layout import DashboardLayout  # Register Dashboard layout model
 from app.models.integration import Integration, OAuthState  # Register Integration models
+from app.models.whatsapp import WhatsAppMapping, WhatsAppOTP  # Register WhatsApp models
+from app.models.oauth_client import OAuthClientSetting  # Register OAuth client settings model
 from app.models.ai import Agent, AISession, Message, Tool, ActionRequest, Quota, UsageEvent, ModelProfile, ProviderCredential, ProviderHealth  # Register AI models
 from app.middleware.tenant import TenantMiddleware
 from app.middleware.ai_session import AISessionMiddleware
@@ -48,6 +50,8 @@ from app.routers import crm_notifications
 from app.routers import crm_todo
 from app.routers import dashboard_layout
 from app.routers import crm_integrations
+from app.routers import admin_oauth
+from app.routers import whatsapp
 app.include_router(auth.router)
 app.include_router(crm.router)
 app.include_router(crm_module_b.router)
@@ -57,6 +61,8 @@ app.include_router(crm_todo.router)
 app.include_router(dashboard_layout.router)
 app.include_router(crm_module_c.router)
 app.include_router(crm_integrations.router)
+app.include_router(admin_oauth.router)
+app.include_router(whatsapp.router)
 from app.routers import ai
 from app.routers import ai_rag
 app.include_router(ai.router)

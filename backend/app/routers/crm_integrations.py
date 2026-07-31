@@ -12,6 +12,8 @@ Endpoints:
 
 import uuid
 import secrets
+import os
+import json
 from datetime import datetime, timezone
 from uuid import UUID
 
@@ -354,10 +356,48 @@ PROVIDER_DISPLAY = {
 }
 
 
+OAUTH_CLIENTS_FILE = os.path.join(os.path.dirname(os.path.dirname(__file__)), "oauth_clients.json")
+
+
+def _get_client_id(provider: str) -> str:
+    """Get OAuth client ID for a provider.
+    Priority: oauth_clients.json → config.py env vars → PLACEHOLDER
+    """
+    from app.config import settings
+    try:
+        with open(OAUTH_CLIENTS_FILE) as f:
+            data = json.load(f)
+        if provider in data and data[provider].get("client_id"):
+            return data[provider]["client_id"]
+    except (FileNotFoundError, json.JSONDecodeError):
+        pass
+    env_val = settings.integration_client_ids.get(provider, "")
+    if env_val:
+        return env_val
+    return "PLACEHOLDER"
+
+
+def _get_client_secret(provider: str) -> str:
+    try:
+        with open(OAUTH_CLIENTS_FILE) as f:
+            data = json.load(f)
+        if provider in data and data[provider].get("client_secret"):
+            return data[provider]["client_secret"]
+    except (FileNotFoundError, json.JSONDecodeError):
+        pass
+    return ""
+
+
+def _save_client_ids(data: dict) -> None:
+    with open(OAUTH_CLIENTS_FILE, "w") as f:
+        json.dump(data, f, indent=2)
+
+
 def _build_oauth_url(provider: str, state: str, frontend_origin: str = "") -> str:
     """Build OAuth authorization URL for a given provider.
     The redirect_uri points to the frontend OAuth callback page so the
     provider sends users back to our UI, not directly to the backend.
+    Reads client_id from DB (set via Admin UI) or falls back to env config.
     """
     from app.config import settings
 
@@ -366,7 +406,8 @@ def _build_oauth_url(provider: str, state: str, frontend_origin: str = "") -> st
         return ""
 
     callback_url = f"{frontend_origin or 'http://localhost:5173'}/marketplace/oauth/callback"
-    client_id = settings.integration_client_ids.get(provider, "PLACEHOLDER")
+    # Fallback chain: DB-stored client_id → env config → placeholder
+    client_id = _get_client_id(provider)
 
     return template.format(
         client_id=client_id,
