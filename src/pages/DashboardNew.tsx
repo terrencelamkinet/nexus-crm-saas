@@ -10,7 +10,6 @@ import {
   Activity, DollarSign, Layout, Calendar,
 } from 'lucide-react'
 import SlideDrawer from '../components/SlideDrawer'
-import DailyBriefingCard from '../components/DailyBriefingCard'
 import AIBriefingDrawer from '../components/AIBriefingDrawer'
 import WidgetAskAI from '../components/WidgetAskAI'
 

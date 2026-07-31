@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { apiClient } from '../lib/api'
-import SlideDrawer from './SlideDrawer'
 import { Sparkles, X, ChevronDown, Send, RefreshCw, AlertTriangle, CheckSquare, Calendar, History } from 'lucide-react'
 
 // ─────────────────────────────────────────────────────────────
@@ -90,7 +89,7 @@ const fmtMoney = (n: number | null): string => {
 
 // ── Component ──
 export default function AIBriefingDrawer() {
-  const [drawerOpen, setDrawerOpen] = useState(false)
+  const [expanded, setExpanded] = useState(false)
   const [payload, setPayload] = useState<BriefingPayload | null>(null)
   const [loading, setLoading] = useState(false)
   const [hasLoaded, setHasLoaded] = useState(false)
@@ -201,7 +200,7 @@ export default function AIBriefingDrawer() {
   const animationPlayedRef = useRef(false)
 
   useEffect(() => {
-    if (!drawerOpen || !payload) return
+    if (!expanded || !payload) return
 
     // If animation already played once, just show full text instantly
     if (animationPlayedRef.current) {
@@ -226,11 +225,11 @@ export default function AIBriefingDrawer() {
       }
     }, 24)
     return () => { if (timerRef.current) clearInterval(timerRef.current) }
-  }, [drawerOpen, payload])
+  }, [expanded, payload])
 
-  // ── Open drawer ──
-  const openDrawer = () => {
-    setDrawerOpen(true)
+  // ── Toggle expand ──
+  const toggleExpand = () => {
+    setExpanded(prev => !prev)
     if (!hasLoaded) {
       setHasLoaded(true)
       loadBriefing()
@@ -280,21 +279,22 @@ export default function AIBriefingDrawer() {
     <>
       {/* Trigger widget — compact, non-intrusive */}
       <div
-        onClick={openDrawer}
+        onClick={toggleExpand}
         role="button"
+        aria-expanded={expanded}
         tabIndex={0}
-        onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') openDrawer() }}
+        onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') toggleExpand() }}
         style={{
           display: 'flex', alignItems: 'center', gap: 12,
           background: 'linear-gradient(135deg, rgba(124,93,250,0.10), rgba(99,102,241,0.06))',
-          border: '1px solid color-mix(in oklch, var(--color-purple) 22%, var(--color-divider))',
+          border: `1px solid ${expanded ? 'var(--color-purple)' : 'color-mix(in oklch, var(--color-purple) 22%, var(--color-divider))'}`,
           borderRadius: 'var(--radius-lg)',
           padding: '12px 16px', cursor: 'pointer',
           transition: 'border-color 150ms, background 150ms',
-          marginBottom: 20,
+          marginBottom: expanded ? 0 : 20,
         }}
         onMouseEnter={e => (e.currentTarget.style.borderColor = 'var(--color-purple)')}
-        onMouseLeave={e => (e.currentTarget.style.borderColor = 'color-mix(in oklch, var(--color-purple) 22%, var(--color-divider))')}
+        onMouseLeave={e => (e.currentTarget.style.borderColor = expanded ? 'var(--color-purple)' : 'color-mix(in oklch, var(--color-purple) 22%, var(--color-divider))')}
       >
         {/* Pulse orb */}
         <div style={{ position: 'relative', width: 34, height: 34, flexShrink: 0 }}>
@@ -324,13 +324,57 @@ export default function AIBriefingDrawer() {
           fontSize: 12, fontWeight: 600, color: '#7c3aed',
           background: 'rgba(124,93,250,0.12)', padding: '6px 12px', borderRadius: 999,
         }}>
-          View <ChevronDown size={13} />
+          {expanded ? '收起' : '更多'} <ChevronDown size={13} style={{ transform: expanded ? 'rotate(180deg)' : 'none', transition: 'transform 200ms' }} />
         </span>
       </div>
 
-      {/* Drawer */}
-      <SlideDrawer open={drawerOpen} onClose={() => setDrawerOpen(false)} title="Today's Briefing" width="26vw">
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 16, padding: '4px 2px 24px' }}>
+      {/* Expandable panel — push-down (推移式), inline in document flow */}
+      <div style={{
+        display: 'grid',
+        gridTemplateRows: expanded ? '1fr' : '0fr',
+        transition: 'grid-template-rows 320ms cubic-bezier(0.4, 0, 0.2, 1)',
+        marginBottom: expanded ? 20 : 0,
+      }}>
+        <div style={{
+          overflow: 'hidden', minHeight: 0,
+          visibility: expanded ? 'visible' : 'hidden',
+          transition: expanded ? 'visibility 0s' : 'visibility 0s linear 320ms',
+        }}>
+          <div
+            aria-hidden={!expanded}
+            {...(!expanded ? { inert: true } : {})}
+            style={{
+            border: '1px solid var(--color-divider)',
+            borderRadius: 'var(--radius-lg)',
+            background: 'var(--color-surface)',
+            boxShadow: '0 8px 24px rgba(0,0,0,0.10)',
+            padding: '14px 16px 16px',
+            marginTop: 12,
+            display: 'flex', flexDirection: 'column', gap: 16,
+            animation: expanded ? 'ai-fadein 0.3s ease' : 'none',
+          }}>
+          {/* Panel header */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--color-text)' }}>
+              Today's Briefing
+            </span>
+            <span style={{ marginLeft: 'auto' }} />
+            <button
+              onClick={e => { e.stopPropagation(); setExpanded(false) }}
+              aria-label="收起 Briefing"
+              style={{
+                display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                width: 26, height: 26, borderRadius: 8, cursor: 'pointer',
+                background: 'var(--color-surface-offset)', border: 'none',
+                color: 'var(--color-text-faint)', transition: 'background 150ms, color 150ms',
+              }}
+              onMouseEnter={e => { e.currentTarget.style.background = 'var(--color-divider)'; e.currentTarget.style.color = 'var(--color-text)' }}
+              onMouseLeave={e => { e.currentTarget.style.background = 'var(--color-surface-offset)'; e.currentTarget.style.color = 'var(--color-text-faint)' }}
+            >
+              <X size={14} />
+            </button>
+          </div>
+
           {/* Loading skeleton */}
           {loading && !payload && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
@@ -536,8 +580,9 @@ export default function AIBriefingDrawer() {
               </div>
             </div>
           )}
+          </div>
         </div>
-      </SlideDrawer>
+      </div>
 
       {/* Global keyframes + tooltip styles */}
       <style>{`
@@ -569,10 +614,6 @@ export default function AIBriefingDrawer() {
         [data-tooltip]:hover::before {
           content: ''; position: absolute; bottom: calc(100% + 2px); left: 18px;
           border: 5px solid transparent; border-top-color: #1e1b2e;
-        }
-        .slide-drawer { width: min(var(--drawer-width, 26vw), 420px) !important; }
-        @media (max-width: 768px) {
-          .slide-drawer { width: 100% !important; }
         }
       `}</style>
     </>
