@@ -11,6 +11,7 @@ import {
 } from 'lucide-react'
 import SlideDrawer from '../components/SlideDrawer'
 import DailyBriefingCard from '../components/DailyBriefingCard'
+import AIBriefingDrawer from '../components/AIBriefingDrawer'
 import WidgetAskAI from '../components/WidgetAskAI'
 
 interface Task { id: string; title: string; priority: string; status: string; due_date: string | null; area?: string; custom_fields?: Record<string, any> }
@@ -1015,8 +1016,10 @@ export default function DashboardNew() {
         </div>
       </div>
 
-      {/* AI Daily Brief — full width above widget grid */}
-      <DailyBriefingCard className={aiOn ? '' : 'hidden'} style={aiOn ? { marginBottom: 20 } : { display: 'none' }} />
+      {/* AI Daily Brief — compact trigger + drawer (V2) */}
+      <div className={aiOn ? '' : 'hidden'} style={aiOn ? {} : { display: 'none' }}>
+        <AIBriefingDrawer />
+      </div>
 
       {/* WIDGET GRID — CSS grid, 12-column, span classes */}
       <div ref={gridRef} style={{display:'grid',gridTemplateColumns:'repeat(12,1fr)',gap:16,alignItems:'start'}}>
