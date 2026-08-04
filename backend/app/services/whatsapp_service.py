@@ -94,6 +94,38 @@ async def send_text(wa_id: str, text: str) -> dict:
     return await _post_message(payload)
 
 
+async def download_media(media_id: str) -> tuple[bytes | None, str]:
+    """Download a WhatsApp media object by ID (Cloud API two-step fetch).
+
+    Returns (content, mime_type); (None, "") on failure. Used for incoming
+    namecard photos.
+    """
+    token = _access_token()
+    if not token or not media_id:
+        return None, ""
+    headers = {"Authorization": f"Bearer {token}"}
+    try:
+        async with httpx.AsyncClient(timeout=30) as client:
+            # Step 1: media ID → media URL
+            r = await client.get(
+                f"{GRAPH_API_BASE}/{_phone_number_id()}/media/{media_id}",
+                headers=headers,
+            )
+            if r.status_code != 200:
+                return None, ""
+            url = (r.json() or {}).get("url", "")
+            mime = (r.json() or {}).get("mime_type", "")
+            if not url:
+                return None, ""
+            # Step 2: media URL → binary content
+            r2 = await client.get(url, headers=headers)
+            if r2.status_code != 200:
+                return None, ""
+            return r2.content, mime
+    except Exception:  # noqa: BLE001 — media download must never crash webhook
+        return None, ""
+
+
 async def send_contact(wa_id: str, contact: dict) -> dict:
     """
     Send a native WhatsApp contact card (vCard).

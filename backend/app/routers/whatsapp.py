@@ -10,9 +10,11 @@ SOC 2 COMPLIANCE:
   - All other endpoints require auth + tenant isolation.
 """
 import uuid
+import os
 import random
 import json
 from datetime import datetime, timezone, timedelta
+from pathlib import Path
 
 from fastapi import APIRouter, Request, HTTPException, Depends, Query
 from sqlalchemy import select, func
@@ -23,11 +25,17 @@ from app.models.whatsapp import WhatsAppMapping, WhatsAppOTP
 from app.models.integration import Integration
 from app.routers.crm_integrations import _tid, _uid, PROVIDER_DISPLAY
 from app.services import whatsapp_service
+from app.services import namecard_im
 from app.services.rate_limiter import check_otp_send, check_otp_verify, reset_rate_limit
 
 router = APIRouter(prefix="/api/v1")
 
 OTP_EXPIRY_MINUTES = 5
+
+# ── NameCard pending state (per wa_id, module-level — single process) ──
+_wa_pending: dict[str, str] = {}   # wa_id → pending image path awaiting 係/唔使
+_wa_review: dict[str, str] = {}    # wa_id → pending review card_id awaiting 覆蓋/保留
+_WA_UPLOAD_DIR = Path(__file__).resolve().parents[2] / "uploads" / "namecards" / "wa_pending"
 OTP_LENGTH = 6
 
 
@@ -435,12 +443,30 @@ async def push_whatsapp_notification(
 
 
 async def _handle_incoming_message(msg: dict, phone_number_id: str):
-    """Process an incoming WhatsApp message — forward to AI engine."""
+    """Process an incoming WhatsApp message — namecard flow first, then AI bridge."""
     wa_id = msg.get("from", "")
     msg_type = msg.get("type", "text")
     text = ""
     if msg_type == "text":
         text = msg.get("text", {}).get("body", "")
+
+    # ── Namecard image flow ──
+    if msg_type == "image":
+        media_id = (msg.get("image") or {}).get("id", "")
+        if media_id:
+            content, mime = await whatsapp_service.download_media(media_id)
+            if content:
+                reply = await _handle_wa_namecard_image(wa_id, content, mime)
+                if reply:
+                    await whatsapp_service.send_text(wa_id, reply)
+        return  # image handled (silent if not a namecard)
+
+    # ── Namecard confirm flow (係/唔使 after a photo) ──
+    if text:
+        reply = await _handle_wa_namecard_text(wa_id, text)
+        if reply is not None:
+            await whatsapp_service.send_text(wa_id, reply)
+            return
 
     if not text:
         return
@@ -460,6 +486,89 @@ async def _handle_incoming_message(msg: dict, phone_number_id: str):
         if result.get("error"):
             with open("/tmp/whatsapp_webhook.log", "a") as f:
                 f.write(f"[{datetime.now().isoformat()}] send error: {result.get('message')}\n")
+
+
+async def _handle_wa_namecard_image(wa_id: str, content: bytes, mime: str) -> str | None:
+    """Detect namecard in a received image → store pending → ask to upload."""
+    ext = ".jpg"
+    if mime == "image/png":
+        ext = ".png"
+    elif mime == "image/webp":
+        ext = ".webp"
+    _WA_UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+    path = _WA_UPLOAD_DIR / f"wa_{uuid.uuid4().hex}{ext}"
+    path.write_bytes(content)
+
+    det = namecard_im.run_script(["--detect", str(path)])
+    if not det.get("is_namecard"):
+        try:
+            path.unlink(missing_ok=True)
+        except OSError:
+            pass
+        return None  # not a namecard — silent
+
+    # Friendlier preview: parse name + company
+    preview = (det.get("ocr_preview") or "")[:80]
+    try:
+        from app.services.namecard_ocr import parse_namecard, ocr_image
+        full_txt = ocr_image(str(path))
+        parsed = parse_namecard(full_txt or preview)
+        p_name = parsed.get("name") or ""
+        p_company = parsed.get("company") or ""
+        if p_name:
+            preview = f"{p_name}" + (f" · {p_company}" if p_company else "")
+        elif full_txt:
+            preview = " ".join(full_txt.split())[:80]
+    except Exception:
+        pass
+
+    _wa_pending[wa_id] = str(path)
+    return (
+        f"📇 偵測到名片：{preview}\n\n"
+        f"需要上載到名片庫嗎？（自動 OCR + 存入 CRM 聯絡人）\n"
+        f"回覆「係」上載，或「唔使」取消"
+    )
+
+
+async def _handle_wa_namecard_text(wa_id: str, text: str) -> str | None:
+    """Confirm (係/唔使) + review (覆蓋/保留) replies for WhatsApp."""
+    # ── Review reply first (higher priority: 覆蓋/保留 are unambiguous) ──
+    is_ow = namecard_im.match_intent(text, namecard_im.OVERWRITE_WORDS)
+    is_kp = namecard_im.match_intent(text, namecard_im.KEEP_WORDS)
+    if is_ow or is_kp:
+        card_id = _wa_review.pop(wa_id, "")
+        if card_id:
+            action = "overwrite" if is_ow else "keep_both"
+            res = namecard_im.run_script(["--resolve", card_id, action])
+            return namecard_im.format_resolve_result(res, action)
+
+    # ── Confirm reply (係/唔使) ──
+    is_yes = namecard_im.match_intent(text, namecard_im.YES_WORDS)
+    is_no = namecard_im.match_intent(text, namecard_im.NO_WORDS)
+    if not is_yes and not is_no:
+        return None  # normal message — AI bridge handles it
+
+    path = _wa_pending.pop(wa_id, "")
+    if is_no:
+        if path:
+            try:
+                Path(path).unlink(missing_ok=True)
+            except OSError:
+                pass
+        return "✅ 已取消，名片唔會上載。"
+    if not path or not Path(path).is_file():
+        return None  # no pending namecard — normal message
+
+    res = namecard_im.run_script(["--upload", path])
+    try:
+        Path(path).unlink(missing_ok=True)
+    except OSError:
+        pass
+
+    msg, review_state = namecard_im.format_upload_result(res)
+    if review_state.get("card_id"):
+        _wa_review[wa_id] = review_state["card_id"]
+    return msg
 
 
 async def _handle_status_update(status_data: dict):

@@ -34,6 +34,7 @@ from app.models.telegram_bot import TelegramBotMapping
 from app.models.ai.secretary_settings import SecretarySettings, ChannelCredential
 from app.services.auth_service import _load_private_key
 from app.services import telegram_service
+from app.services import namecard_im
 
 # NameCard pipeline helper (OCR detect + upload → G08 CRM)
 NAMECARD_SCRIPT = Path(__file__).resolve().parents[2] / "scripts" / "upload_namecard_to_g08.py"
@@ -258,28 +259,13 @@ async def _download_photo(token: str, photo_sizes: list[dict]) -> str | None:
         return None
 
 
-def _run_namecard_script(args: list[str]) -> dict:
-    """Run upload_namecard_to_g08.py (detect/upload) and parse JSON output."""
-    try:
-        r = subprocess.run(
-            [str(VENV_PY), str(NAMECARD_SCRIPT), *args],
-            capture_output=True, text=True, timeout=120,
-        )
-        out = r.stdout.strip()
-        if not out:
-            return {"ok": False, "error": f"script no output (exit {r.returncode}): {r.stderr[-200:]}"}
-        return json.loads(out)
-    except Exception as e:
-        return {"ok": False, "error": str(e)}
-
-
 async def _handle_photo(mapping: TelegramBotMapping, token: str, photo_sizes: list[dict]) -> str | None:
     """Photo message → detect namecard → store pending → ask user."""
     path = await _download_photo(token, photo_sizes)
     if not path:
         return "⚠️ 圖片下載失敗，請再試一次。"
 
-    det = _run_namecard_script(["--detect", path])
+    det = namecard_im.run_script(["--detect", path])
     if not det.get("is_namecard"):
         # Clean up non-namecard image
         try:
@@ -363,27 +349,57 @@ async def _handle_namecard_confirm(mapping: TelegramBotMapping, text: str) -> st
     if not pending or not os.path.isfile(pending):
         return None  # no pending namecard — treat as normal message
 
-    res = _run_namecard_script(["--upload", pending])
+    res = namecard_im.run_script(["--upload", pending])
     try:
         os.remove(pending)
     except OSError:
         pass
-    if not res.get("ok"):
-        return f"⚠️ 上載失敗：{res.get('error', 'unknown error')}"
-    status = res.get("status", "unknown")
-    status_txt = {"created": "✅ 已建立新聯絡人", "matched": "🔗 已連結現有聯絡人"}.get(
-        status, f"狀態：{status}"
-    )
-    lines = [f"{status_txt}並存入名片庫"]
-    if res.get("contact_name"):
-        lines.append(f"• 聯絡人：{res['contact_name']}")
-    if res.get("email"):
-        lines.append(f"• Email：{res['email']}")
-    if res.get("company"):
-        lines.append(f"• 公司：{res['company']}")
-    if res.get("title"):
-        lines.append(f"• 職位：{res['title']}")
-    return "\n".join(lines)
+
+    msg, review_state = namecard_im.format_upload_result(res)
+    # Review tier: remember the card so 「覆蓋/保留」can resolve it
+    if review_state.get("card_id"):
+        async with async_session() as db:
+            m = (
+                await db.execute(
+                    select(TelegramBotMapping).where(TelegramBotMapping.id == mapping.id)
+                )
+            ).scalar_one_or_none()
+            if m:
+                cfg2: dict[str, Any] = dict(m.config or {})
+                cfg2["pending_review_card_id"] = review_state["card_id"]
+                m.config = cfg2
+                await db.commit()
+    return msg
+
+
+async def _handle_namecard_review_reply(mapping: TelegramBotMapping, text: str) -> str | None:
+    """User replied '覆蓋/保留' to a review-status card → resolve via API."""
+    is_ow = namecard_im.match_intent(text, namecard_im.OVERWRITE_WORDS)
+    is_kp = namecard_im.match_intent(text, namecard_im.KEEP_WORDS)
+    if not is_ow and not is_kp:
+        return None  # not a review reply — treat as normal message
+
+    card_id = ""
+    async with async_session() as db:
+        m = (
+            await db.execute(
+                select(TelegramBotMapping).where(TelegramBotMapping.id == mapping.id)
+            )
+        ).scalar_one_or_none()
+        if not m:
+            return None
+        cfg: dict[str, Any] = dict(m.config or {})
+        card_id = cfg.get("pending_review_card_id") or ""
+        cfg.pop("pending_review_card_id", None)
+        m.config = cfg
+        await db.commit()
+
+    if not card_id:
+        return None  # no pending review — treat as normal message
+
+    action = "overwrite" if is_ow else "keep_both"
+    res = namecard_im.run_script(["--resolve", card_id, action])
+    return namecard_im.format_resolve_result(res, action)
 
 
 async def process_update(mapping: TelegramBotMapping, update: dict) -> None:
@@ -416,6 +432,13 @@ async def process_update(mapping: TelegramBotMapping, update: dict) -> None:
         confirm_reply = await _handle_namecard_confirm(mapping, text)
         if confirm_reply is not None:
             await telegram_service.send_message(token, chat_id, confirm_reply)
+            return
+
+    # Namecard review flow (覆蓋/保留 after a duplicate warning)
+    if text:
+        review_reply = await _handle_namecard_review_reply(mapping, text)
+        if review_reply is not None:
+            await telegram_service.send_message(token, chat_id, review_reply)
             return
 
     reply = await handle_telegram_message(mapping, text)

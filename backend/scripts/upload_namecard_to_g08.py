@@ -82,21 +82,62 @@ def upload(image_path: str) -> dict:
         return {"ok": False, "error": f"HTTP {r.status_code}: {r.text[:300]}"}
     d = r.json()
     contact = d.get("contact") or {}
+    parsed = d.get("parsed_data") or {}
+    review_cands = d.get("review_candidates") or []
     return {
         "ok": True,
         "status": d.get("status", "unknown"),
-        "name_card_id": str(d.get("id", ""))[:8],
-        "contact_name": contact.get("name") or d.get("parsed_data", {}).get("name"),
-        "email": contact.get("email") or d.get("parsed_data", {}).get("email"),
-        "company": contact.get("company_name") or d.get("parsed_data", {}).get("company"),
-        "title": d.get("parsed_data", {}).get("title"),
+        "name_card_id": str(d.get("id", "")),
+        "dedup_status": d.get("dedup_status") or parsed.get("dedup_status") or "",
+        "contact_name": contact.get("name") or parsed.get("name"),
+        "email": contact.get("email") or parsed.get("email"),
+        "company": contact.get("company_name") or parsed.get("company"),
+        "title": parsed.get("title"),
+        "context_note": parsed.get("context_note", ""),
+        "context_match": parsed.get("context_match", ""),
+        "review_candidates": [{
+            "contact_id": c.get("contact_id"),
+            "confidence": c.get("confidence"),
+            "reason": c.get("reason", ""),
+            "name": c.get("name"), "email": c.get("email"),
+            "phone": c.get("phone"), "company": c.get("company"),
+            "title": c.get("title"),
+        } for c in review_cands],
+    }
+
+
+def resolve(name_card_id: str, action: str) -> dict:
+    """User decision on a review-status card: overwrite | keep_both."""
+    import httpx
+    if action not in ("overwrite", "keep_both"):
+        return {"ok": False, "error": f"action must be overwrite|keep_both, got {action}"}
+    token = make_token()
+    r = httpx.post(
+        f"{API_BASE}/api/v1/crm/name-cards/{name_card_id}/resolve",
+        headers={"Authorization": f"Bearer {token}"},
+        json={"action": action},
+        timeout=60,
+    )
+    if r.status_code != 200:
+        return {"ok": False, "error": f"HTTP {r.status_code}: {r.text[:300]}"}
+    d = r.json()
+    return {
+        "ok": True,
+        "status": d.get("status", "unknown"),
+        "name_card_id": str(d.get("id", "")),
+        "contact_name": (d.get("parsed_data") or {}).get("name"),
+        "action": action,
     }
 
 
 def main():
     args = sys.argv[1:]
+    if len(args) >= 3 and args[0] == "--resolve":
+        card_id, action = args[1], args[2]
+        print(json.dumps(resolve(card_id, action)))
+        sys.exit(0)
     if len(args) < 2 or args[0] not in ("--detect", "--upload"):
-        print(json.dumps({"ok": False, "error": "usage: upload_namecard_to_g08.py --detect|--upload <image>"}))
+        print(json.dumps({"ok": False, "error": "usage: upload_namecard_to_g08.py --detect|--upload <image> | --resolve <card_id> <overwrite|keep_both>"}))
         sys.exit(2)
     mode, img = args[0], args[1]
     if not os.path.isfile(img):
