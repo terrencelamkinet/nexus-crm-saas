@@ -84,10 +84,10 @@
    ═══════════════════════════════════════════ */
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 html{-webkit-font-smoothing:antialiased;scroll-behavior:smooth}
-body{font-family:var(--font-body);background:var(--color-bg);color:var(--color-text);font-size:14.5px;line-height:1.5;overflow:hidden;min-height:100dvh}
-/* Login page needs to be scrollable on mobile — fixed height + inner scroll
-   (body has overflow:hidden for the app shell; min-height would let the
-   element grow past 100dvh and never become a scroll container) */
+body{font-family:var(--font-body);background:var(--color-bg);color:var(--color-text);font-size:14.5px;line-height:1.5;min-height:100dvh}
+/* Window-scroll architecture: body scrolls (no overflow:hidden) so the
+   iOS Safari URL bar collapses on every page. Login page keeps its own
+   fixed-height scroll container so it is unaffected by app layout. */
 .login-page{overflow-y:auto;-webkit-overflow-scrolling:touch;height:100dvh}
 input,select,textarea{font:inherit;color:inherit}
 :focus-visible{outline:2px solid var(--color-primary);outline-offset:2px;border-radius:var(--radius-sm)}
@@ -267,12 +267,12 @@ table{border-collapse:collapse;width:100%}
 /* ═══════════════════════════════════════════
    SHELL — Layout Grid
    ═══════════════════════════════════════════ */
-.app-shell{display:grid;grid-template-columns:var(--sidebar-w) 1fr;grid-template-rows:var(--topbar-h) 1fr;grid-template-areas:"sidebar topbar" "sidebar main";height:100vh;height:100dvh;background:var(--color-bg)}
+.app-shell{display:grid;grid-template-columns:var(--sidebar-w) 1fr;grid-template-rows:var(--topbar-h) 1fr;grid-template-areas:"sidebar topbar" "sidebar main";min-height:100vh;min-height:100dvh;background:var(--color-bg)}
 
 /* ═══════════════════════════════════════════
    SIDEBAR
    ═══════════════════════════════════════════ */
-.sidebar{grid-area:sidebar;background:var(--color-surface);border-right:1px solid var(--color-divider);display:flex;flex-direction:column}
+.sidebar{grid-area:sidebar;background:var(--color-surface);border-right:1px solid var(--color-divider);display:flex;flex-direction:column;position:sticky;top:0;align-self:start;height:100vh;height:100dvh}
 .sidebar-brand{height:var(--topbar-h);display:flex;align-items:center;gap:10px;padding:0 20px;border-bottom:1px solid var(--color-divider);flex-shrink:0;white-space:nowrap}
 .sidebar-brand svg{flex-shrink:0;color:var(--color-primary)}
 .sidebar-brand span{font-family:var(--font-display);font-weight:700;font-size:17px;letter-spacing:-.01em}
@@ -288,7 +288,7 @@ table{border-collapse:collapse;width:100%}
 /* ═══════════════════════════════════════════
    TOPBAR
    ═══════════════════════════════════════════ */
-.topbar{grid-area:topbar;background:var(--color-surface);border-bottom:1px solid var(--color-divider);display:flex;align-items:center;gap:16px;padding:0 20px}
+.topbar{grid-area:topbar;background:var(--color-surface);border-bottom:1px solid var(--color-divider);display:flex;align-items:center;gap:16px;padding:0 20px;position:sticky;top:0;z-index:30}
 .topbar-search{flex:1;max-width:420px;display:flex;align-items:center;gap:8px;background:var(--color-surface-offset);border:1px solid var(--color-border);border-radius:var(--radius-md);padding:0 12px;height:38px;color:var(--color-text-faint);transition:border-color var(--transition-interactive)}
 .topbar-search:hover,.topbar-search:focus-within{border-color:var(--color-primary)}
 .topbar-search svg{flex-shrink:0;width:16px;height:16px}
@@ -330,7 +330,8 @@ table{border-collapse:collapse;width:100%}
 /* ═══════════════════════════════════════════
    MAIN CONTENT
    ═══════════════════════════════════════════ */
-.main-content{grid-area:main;overflow-y:auto;padding:24px 32px 60px;background:var(--color-bg)}
+.main-content{grid-area:main;padding:24px 32px 60px;background:var(--color-bg)}
+.page-content{padding:24px 32px 60px}
 .page-header{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:22px;flex-wrap:wrap}
 .page-header h1{font-family:var(--font-display);font-size:23px;font-weight:700;letter-spacing:-.015em}
 .page-header p{color:var(--color-text-muted);font-size:13px;margin-top:3px}
@@ -509,17 +510,18 @@ tbody tr:hover .menu-dots{opacity:1}
 }
 
 /* ── Guide §10.2: Tablet sidebar collapses to icon-only 64px,
-   expands to 240px overlay on hover ── */
+   expands to 240px on hover — hover is scoped to the sidebar itself
+   (:has) so a cursor anywhere over the page does NOT keep it expanded ── */
 @media (min-width:769px) and (max-width:1024px){
   .app-shell{grid-template-columns:64px 1fr;transition:grid-template-columns .25s var(--ease-out)}
-  .app-shell:hover{grid-template-columns:240px 1fr}
+  .app-shell:has(.sidebar:hover){grid-template-columns:240px 1fr}
   .sidebar{width:auto;min-width:0}
   .sidebar .nav-section-label,.sidebar .sidebar-brand span,.sidebar .sidebar-user .info{display:none}
   .sidebar .nav-item span{display:none}
   .sidebar .nav-item{justify-content:center;padding-left:0;padding-right:0}
-  .app-shell:hover .sidebar .nav-section-label,.app-shell:hover .sidebar .sidebar-brand span,.app-shell:hover .sidebar .sidebar-user .info{display:block}
-  .app-shell:hover .sidebar .nav-item span{display:inline}
-  .app-shell:hover .sidebar .nav-item{justify-content:flex-start}
+  .app-shell:has(.sidebar:hover) .sidebar .nav-section-label,.app-shell:has(.sidebar:hover) .sidebar .sidebar-brand span,.app-shell:has(.sidebar:hover) .sidebar .sidebar-user .info{display:block}
+  .app-shell:has(.sidebar:hover) .sidebar .nav-item span{display:inline}
+  .app-shell:has(.sidebar:hover) .sidebar .nav-item{justify-content:flex-start}
 }
 
 /* ═══════════════════════════════════════════
@@ -535,7 +537,7 @@ tbody tr:hover .menu-dots{opacity:1}
   .topbar-search{display:none}
   .topbar-search-icon{display:flex !important}
   .topbar-hamburger{display:flex !important}
-  .main-content{padding:18px 14px 40px}
+  .main-content,.page-content{padding:18px 14px 40px}
   .scrim{position:fixed;inset:0;background:oklch(0 0 0/.35);z-index:30;opacity:0;pointer-events:none;transition:opacity .3s cubic-bezier(.4,0,.2,1)}
   .app-shell.mobile-open .scrim{opacity:1;pointer-events:auto}
   .kanban-board{grid-auto-columns:78vw}
@@ -649,7 +651,7 @@ tbody tr:hover .menu-dots{opacity:1}
   .notif-dropdown{position:fixed;left:8px;right:8px;width:auto;top:56px;margin-top:0;max-height:70dvh;z-index:60}
   .topbar-actions{gap:4px}
   .btn-primary{padding:0 12px;font-size:12.5px}
-  .main-content{padding:16px 12px 88px}
+  .main-content,.page-content{padding:16px 12px 88px}
   .page-header{flex-direction:row;align-items:center;flex-wrap:nowrap;gap:10px;margin-bottom:10px}
   .page-header p{display:none}
   .page-header h1{font-size:19px}
@@ -705,7 +707,7 @@ tbody tr:hover .menu-dots{opacity:1}
    ═══════════════════════════════════════════ */
 @media (max-height:420px) and (orientation:landscape){
   .topbar{height:52px}
-  .main-content{padding-top:12px}
+  .main-content,.page-content{padding-top:12px}
 }
 .list-row{display:flex;align-items:center;gap:12px;padding:11px 18px;transition:background var(--transition-interactive)}
 .list-row:hover{background:var(--color-surface-offset)}
@@ -2409,21 +2411,23 @@ textarea.input-field{resize:vertical;min-height:60px}
    ═══════════════════════════════════════════ */
 
 /* Guide §10.2: Tablet sidebar → icon-only 64px, expands to 240px on hover.
-   .dash01-shell uses flex (not .app-shell grid), so both layouts are covered. */
+   .dash01-shell uses flex (not .app-shell grid), so both layouts are covered.
+   Hover expansion is scoped to the sidebar itself (:has) so a cursor over
+   the page body does not keep the sidebar expanded. */
 @media (min-width:769px) and (max-width:1024px){
   .app-shell{grid-template-columns:64px 1fr;transition:grid-template-columns .25s var(--ease-out)}
-  .app-shell:hover{grid-template-columns:240px 1fr}
+  .app-shell:has(.sidebar:hover){grid-template-columns:240px 1fr}
   .dash01-shell .sidebar{width:64px;transition:width .25s var(--ease-out)}
-  .dash01-shell:hover .sidebar{width:240px}
+  .dash01-shell:has(.sidebar:hover) .sidebar{width:240px}
   .sidebar .nav-section-label,.sidebar .sidebar-brand span,.sidebar .sidebar-user .info{display:none}
   .sidebar .nav-item span{display:none}
   .sidebar .nav-item{justify-content:center;padding-left:0;padding-right:0}
-  .app-shell:hover .sidebar .nav-section-label,.app-shell:hover .sidebar .sidebar-brand span,.app-shell:hover .sidebar .sidebar-user .info{display:block}
-  .app-shell:hover .sidebar .nav-item span{display:inline}
-  .app-shell:hover .sidebar .nav-item{justify-content:flex-start}
-  .dash01-shell:hover .sidebar .nav-section-label,.dash01-shell:hover .sidebar .sidebar-brand span,.dash01-shell:hover .sidebar .sidebar-user .info{display:block}
-  .dash01-shell:hover .sidebar .nav-item span{display:inline}
-  .dash01-shell:hover .sidebar .nav-item{justify-content:flex-start}
+  .app-shell:has(.sidebar:hover) .sidebar .nav-section-label,.app-shell:has(.sidebar:hover) .sidebar .sidebar-brand span,.app-shell:has(.sidebar:hover) .sidebar .sidebar-user .info{display:block}
+  .app-shell:has(.sidebar:hover) .sidebar .nav-item span{display:inline}
+  .app-shell:has(.sidebar:hover) .sidebar .nav-item{justify-content:flex-start}
+  .dash01-shell:has(.sidebar:hover) .sidebar .nav-section-label,.dash01-shell:has(.sidebar:hover) .sidebar .sidebar-brand span,.dash01-shell:has(.sidebar:hover) .sidebar .sidebar-user .info{display:block}
+  .dash01-shell:has(.sidebar:hover) .sidebar .nav-item span{display:inline}
+  .dash01-shell:has(.sidebar:hover) .sidebar .nav-item{justify-content:flex-start}
 }
 
 /* Guide §3/§12: mobile touch targets ≥44px (Apple HIG) */

@@ -128,7 +128,7 @@ export default function DealsPage() {
 
   if (loading) {
     return (
-      <div className="main-content">
+      <div className="page-content">
         <div className="breadcrumb">
           <span className="breadcrumb-link" onClick={() => navigate('/dashboard')}>Home</span>
           <ChevronRight />
@@ -144,10 +144,10 @@ export default function DealsPage() {
     );
   }
 
-  if (error) return <div className="main-content"><ErrorBox message={error} onRetry={fetchData} /></div>;
+  if (error) return <div className="page-content"><ErrorBox message={error} onRetry={fetchData} /></div>;
 
   return (
-    <div className="main-content">
+    <div className="page-content">
       {/* Breadcrumb */}
       <div className="breadcrumb">
         <span className="breadcrumb-link" onClick={() => navigate('/dashboard')}>Home</span>

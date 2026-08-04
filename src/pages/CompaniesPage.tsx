@@ -61,7 +61,7 @@ export default function CompaniesPage() {
   const total = data?.total ?? 0;
 
   return (
-    <div className="main-content">
+    <div className="page-content">
       {/* Breadcrumb */}
       <div className="breadcrumb">
         <span className="breadcrumb-link" onClick={() => navigate('/dashboard')}>Home</span>

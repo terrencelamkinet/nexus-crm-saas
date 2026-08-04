@@ -63,7 +63,7 @@ export default function NotificationsPage() {
   };
 
   return (
-    <div className="main-content">
+    <div className="page-content">
       <div className="page-header">
         <div>
           <div className="breadcrumb">
