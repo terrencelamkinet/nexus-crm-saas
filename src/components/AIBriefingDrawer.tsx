@@ -105,15 +105,6 @@ const fmtMoney = (n: number | null): string => {
   return `$${n.toLocaleString('en-US')}`
 }
 
-/** Slot key → friendly label (zh/en aware). */
-const slotLabel = (slot: string): string => {
-  const map: Record<string, string> = {
-    morning: '早安', noon: '午安', afternoon: '午安',
-    evening: '晚安', night: '深夜', lateNight: '深夜',
-  }
-  return map[slot] || slot
-}
-
 /** Pick the active greeting slot for `now` (HKT) from backend slots. */
 function currentGreetingSlot(slots: { key: string; emoji: string; start: string }[] | undefined) {
   const list = (slots && slots.length ? slots : [
@@ -497,18 +488,6 @@ export default function AIBriefingDrawer() {
             </div>
           )}
 
-          {/* ── LLM-generated briefing (AI-app pipeline) ── */}
-          {payload?.content && (
-            <div className="ab-ai-box">
-              <div className="ab-ai-label">
-                🤖 AI 簡報{payload.slot ? ` · ${slotLabel(payload.slot)}` : ''}
-              </div>
-              <div className="ab-ai-content">
-                {payload.content}
-              </div>
-            </div>
-          )}
-
           {/* Insights (progressive disclosure) */}
           {showInsights && payload && (
             <div className="ab-insights">
@@ -600,11 +579,9 @@ export default function AIBriefingDrawer() {
 
               {/* ── Overdue tasks ── */}
               {payload.overdueTasks.length > 0 && (
-                <InsightSection
+                <SectionRow
                   icon={<CheckSquare size={14} className="ab-ic-warning" />}
-                  title={t('pages.briefing.taskSection', { count: payload.taskCount })}
-                  badge={t('pages.briefing.overdueBadge')}
-                  badgeColor="var(--color-warning)"
+                  label={t('pages.briefing.taskSection', { count: payload.taskCount })}
                 >
                   {payload.overdueTasks.map(task => (
                     <label key={task.id} className="ab-task-row">
@@ -615,16 +592,14 @@ export default function AIBriefingDrawer() {
                       </span>
                     </label>
                   ))}
-                </InsightSection>
+                </SectionRow>
               )}
 
               {/* ── Today's events ── */}
               {payload.todayEvents.length > 0 && (
-                <InsightSection
+                <SectionRow
                   icon={<Calendar size={14} className="ab-ic-blue" />}
-                  title={t('pages.briefing.eventSection', { count: payload.eventCount })}
-                  badge={t('pages.briefing.todayBadge')}
-                  badgeColor="var(--color-blue)"
+                  label={t('pages.briefing.eventSection', { count: payload.eventCount })}
                 >
                   {payload.todayEvents.map(ev => (
                     <div key={ev.id} className="ab-event-row">
@@ -635,16 +610,14 @@ export default function AIBriefingDrawer() {
                       {ev.location && <span className="ab-event-loc">{ev.location}</span>}
                     </div>
                   ))}
-                </InsightSection>
+                </SectionRow>
               )}
 
               {/* ── Weather ── */}
               {payload.weather.length > 0 && (
-                <InsightSection
+                <SectionRow
                   icon={<span className="ab-emoji-icon">🌤️</span>}
-                  title={t('pages.briefing.weatherSection')}
-                  badge={""}
-                  badgeColor="var(--color-text-faint)"
+                  label={t('pages.briefing.weatherSection')}
                 >
                   {payload.weather.slice(0, 2).map((w: any, i: number) => (
                     <div key={i} className="ab-weather-row">
@@ -655,16 +628,14 @@ export default function AIBriefingDrawer() {
                       {w.rainfall_mm != null && <span className="ab-weather-rain">{t('pages.briefing.weatherRain', { mm: w.rainfall_mm })}</span>}
                     </div>
                   ))}
-                </InsightSection>
+                </SectionRow>
               )}
 
               {/* ── Schedule conflicts ── */}
               {payload.conflicts.length > 0 && (
-                <InsightSection
+                <SectionRow
                   icon={<AlertTriangle size={14} className="ab-ic-notification" />}
-                  title={t('pages.briefing.conflictSection')}
-                  badge={t('pages.briefing.riskBadge')}
-                  badgeColor="var(--color-notification)"
+                  label={t('pages.briefing.conflictSection')}
                 >
                   {payload.conflicts.map((c: any, i: number) => (
                     <div key={i} className="ab-conflict-item">
@@ -676,32 +647,28 @@ export default function AIBriefingDrawer() {
                       </span>
                     </div>
                   ))}
-                </InsightSection>
+                </SectionRow>
               )}
 
               {/* ── Traffic ── */}
               {payload.traffic.length > 0 && (
-                <InsightSection
+                <SectionRow
                   icon={<span className="ab-emoji-icon">🚗</span>}
-                  title={t('pages.briefing.trafficSection')}
-                  badge={""}
-                  badgeColor="var(--color-text-faint)"
+                  label={t('pages.briefing.trafficSection')}
                 >
                   {payload.traffic.slice(0, 4).map((tr: any, i: number) => (
                     <div key={i} className="ab-traffic-text">
                       {tr.text || tr.ChinText || tr.EngText || ''}
                     </div>
                   ))}
-                </InsightSection>
+                </SectionRow>
               )}
 
               {/* ── Birthdays ── */}
               {payload.birthdays.length > 0 && (
-                <InsightSection
+                <SectionRow
                   icon={<span className="ab-emoji-icon">🎂</span>}
-                  title={t('pages.briefing.birthdaySection')}
-                  badge={""}
-                  badgeColor="var(--color-text-faint)"
+                  label={t('pages.briefing.birthdaySection')}
                 >
                   {payload.birthdays.slice(0, 5).map((b: any) => (
                     <div key={b.id} className="ab-bday-row">
@@ -709,16 +676,14 @@ export default function AIBriefingDrawer() {
                       {b.company_name && <span className="ab-bday-company">{b.company_name}</span>}
                     </div>
                   ))}
-                </InsightSection>
+                </SectionRow>
               )}
 
               {/* ── Drafts to review ── */}
               {payload.drafts.length > 0 && (
-                <InsightSection
+                <SectionRow
                   icon={<span className="ab-emoji-icon">✉️</span>}
-                  title={t('pages.briefing.draftSection')}
-                  badge={""}
-                  badgeColor="var(--color-text-faint)"
+                  label={t('pages.briefing.draftSection')}
                 >
                   {payload.drafts.slice(0, 5).map((d: any) => (
                     <div key={d.id} className="ab-draft-item">
@@ -728,16 +693,14 @@ export default function AIBriefingDrawer() {
                       </span>
                     </div>
                   ))}
-                </InsightSection>
+                </SectionRow>
               )}
 
               {/* ── Expenses ── */}
               {payload.expenses.length > 0 && (
-                <InsightSection
+                <SectionRow
                   icon={<span className="ab-emoji-icon">🧾</span>}
-                  title={t('pages.briefing.expenseSection')}
-                  badge={""}
-                  badgeColor="var(--color-text-faint)"
+                  label={t('pages.briefing.expenseSection')}
                 >
                   {payload.expenses.slice(0, 5).map((e: any) => (
                     <div key={e.id} className="ab-expense-row">
@@ -747,16 +710,14 @@ export default function AIBriefingDrawer() {
                       </span>
                     </div>
                   ))}
-                </InsightSection>
+                </SectionRow>
               )}
 
               {/* ── Personal reminders ── */}
               {payload.personal.length > 0 && (
-                <InsightSection
+                <SectionRow
                   icon={<span className="ab-emoji-icon">📌</span>}
-                  title={t('pages.briefing.personalSection')}
-                  badge={""}
-                  badgeColor="var(--color-text-faint)"
+                  label={t('pages.briefing.personalSection')}
                 >
                   {payload.personal.slice(0, 5).map((p: any) => (
                     <div key={p.id} className="ab-personal-item">
@@ -765,16 +726,14 @@ export default function AIBriefingDrawer() {
                       {p.remind_at && <span className="ab-personal-remind">⏰ {p.remind_at.slice(0, 16).replace('T', ' ')}</span>}
                     </div>
                   ))}
-                </InsightSection>
+                </SectionRow>
               )}
 
               {/* ── Unread messages ── */}
               {payload.unread.length > 0 && (
-                <InsightSection
+                <SectionRow
                   icon={<span className="ab-emoji-icon">💬</span>}
-                  title={t('pages.briefing.unreadSection')}
-                  badge={""}
-                  badgeColor="var(--color-text-faint)"
+                  label={t('pages.briefing.unreadSection')}
                 >
                   {payload.unread.slice(0, 5).map((u: any, i: number) => (
                     <div key={i} className="ab-unread-item">
@@ -784,16 +743,14 @@ export default function AIBriefingDrawer() {
                       {u.snippet && <span className="ab-unread-snippet">{u.snippet}</span>}
                     </div>
                   ))}
-                </InsightSection>
+                </SectionRow>
               )}
 
               {/* ── Industry news ── */}
               {payload.news.length > 0 && (
-                <InsightSection
+                <SectionRow
                   icon={<span className="ab-emoji-icon">📰</span>}
-                  title={t('pages.briefing.newsSection')}
-                  badge={""}
-                  badgeColor="var(--color-text-faint)"
+                  label={t('pages.briefing.newsSection')}
                 >
                   {payload.news.slice(0, 5).map((n: any, i: number) => (
                     <a
@@ -807,7 +764,7 @@ export default function AIBriefingDrawer() {
                       <span className="ab-news-feed">{n.feed || ''}</span>
                     </a>
                   ))}
-                </InsightSection>
+                </SectionRow>
               )}
 
               {/* ── Customer sentiment ── */}
@@ -936,6 +893,44 @@ function InsightSection({
           {children}
         </div>
       )}
+    </div>
+  )
+}
+
+// ── Section Row (direct-display, DailyBriefingCard style) ──
+function SectionRow({
+  icon,
+  label,
+  children,
+}: {
+  icon: React.ReactNode
+  label: string
+  children: React.ReactNode
+}) {
+  return (
+    <div
+      style={{
+        display: 'flex', alignItems: 'flex-start', gap: 10,
+        padding: '10px 12px',
+        borderRadius: 'var(--radius-md)',
+        cursor: 'default',
+        transition: 'background 150ms',
+      }}
+    >
+      <div style={{
+        width: 30, height: 30, borderRadius: 'var(--radius-sm)',
+        background: 'var(--color-surface-offset)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        flexShrink: 0, marginTop: 1,
+      }}>
+        {icon}
+      </div>
+      <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 3 }}>
+        <div style={{ fontSize: 11.5, fontWeight: 600, color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+          {label}
+        </div>
+        {children}
+      </div>
     </div>
   )
 }
