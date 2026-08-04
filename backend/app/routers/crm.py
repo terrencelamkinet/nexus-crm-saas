@@ -15,9 +15,10 @@ Every write operation (create / update / delete) records an ActivityLog row.
 
 from uuid import UUID
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request, UploadFile, File
 from sqlalchemy import func, select, or_, text
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import ColumnProperty, selectinload
@@ -1324,6 +1325,211 @@ async def create_name_card(
 
     await db.refresh(name_card)
     return name_card
+
+
+# ── NameCard upload → OCR → auto-create/link Contact ───────────────────
+UPLOAD_DIR = Path(__file__).resolve().parents[2] / "uploads" / "namecards"
+
+
+@router.post("/name-cards/upload", response_model=NameCardResponse, status_code=201)
+async def upload_name_card(
+    request: Request,
+    file: UploadFile = File(...),
+    db: AsyncSession = Depends(get_tenant_session),
+):
+    """Upload a namecard image → OCR → auto-create/link a Contact.
+
+    Pipeline:
+      1. Save image to backend/uploads/namecards/{uuid}.{ext}
+      2. tesseract OCR (chi_tra+eng) → raw text
+      3. Heuristic parse → structured fields
+      4. Company: match by name (exact, then case-insensitive) → create if missing
+      5. Contact: dedup by email (else phone, else name) → link or create
+      6. Store NameCard row with image_url / raw_ocr_text / parsed_data / contact_id
+    """
+    import uuid as _uuid
+    from pathlib import Path as _Path
+
+    from app.services import namecard_ocr
+
+    tenant_id = _get_tenant_id(request)
+    user_id = _get_user_id(request)
+    workspace_id = getattr(request.state, "workspace_id", None)
+
+    # 1. Save image
+    ext = _Path(file.filename or "card.jpg").suffix.lower()
+    if ext not in (".jpg", ".jpeg", ".png", ".webp", ".gif"):
+        ext = ".jpg"
+    card_id = _uuid.uuid4()
+    UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+    rel_path = f"{card_id}{ext}"
+    abs_path = UPLOAD_DIR / rel_path
+    content = await file.read()
+    if not content:
+        raise HTTPException(status_code=400, detail="Empty file")
+    abs_path.write_bytes(content)
+
+    image_url = f"/api/v1/crm/name-cards/image/{rel_path}"
+
+    # 2. OCR
+    raw_text = namecard_ocr.ocr_image(abs_path)
+    parsed = namecard_ocr.parse_namecard(raw_text) if raw_text else {}
+
+    # 3. Company match/create
+    company_id = None
+    company_name = (parsed.get("company") or "").strip()
+    if company_name:
+        comp = (
+            await db.execute(
+                select(Company).where(
+                    Company.tenant_id == tenant_id,
+                    func.lower(Company.name) == company_name.lower(),
+                )
+            )
+        ).scalar_one_or_none()
+        if comp is None:
+            comp = Company(tenant_id=tenant_id, workspace_id=workspace_id, name=company_name)
+            db.add(comp)
+            await db.flush()
+            await _log_activity(
+                db, tenant_id=tenant_id, actor_id=user_id,
+                action="created", entity_type="company", entity_id=comp.id,
+                summary=f"Created company '{company_name}' (from namecard)", workspace_id=workspace_id,
+            )
+        company_id = comp.id
+
+    # 4. Contact dedup (email → phone → name) then create/link
+    contact_id = None
+    status = "pending"
+    email = (parsed.get("email") or "").strip().lower()
+    phone = (parsed.get("phone") or "").strip()
+    person_name = (parsed.get("name") or "").strip()
+
+    existing = None
+    if email:
+        existing = (
+            await db.execute(
+                select(Contact).where(
+                    Contact.tenant_id == tenant_id,
+                    func.lower(Contact.email) == email,
+                )
+            )
+        ).scalar_one_or_none()
+    if existing is None and phone:
+        digits = "".join(ch for ch in phone if ch.isdigit())
+        if digits:
+            rows = (
+                await db.execute(
+                    select(Contact).where(
+                        Contact.tenant_id == tenant_id,
+                        or_(Contact.phone.isnot(None), Contact.office_phone.isnot(None)),
+                    )
+                )
+            ).scalars().all()
+            for c in rows:
+                c_digits = "".join(ch for ch in (c.phone or "") if ch.isdigit())
+                o_digits = "".join(ch for ch in (c.office_phone or "") if ch.isdigit())
+                if digits in c_digits or digits in o_digits:
+                    existing = c
+                    break
+    if existing is None and person_name:
+        existing = (
+            await db.execute(
+                select(Contact).where(
+                    Contact.tenant_id == tenant_id,
+                    func.lower(Contact.name) == person_name.lower(),
+                )
+            )
+        ).scalar_one_or_none()
+
+    if existing is not None:
+        contact_id = existing.id
+        status = "matched"
+        # Backfill missing fields from the card (never overwrite existing)
+        updates = {}
+        if not existing.email and email:
+            updates["email"] = email
+        if not existing.phone and phone:
+            updates["phone"] = phone
+        if not existing.job_title and parsed.get("title"):
+            updates["job_title"] = parsed["title"]
+        if not existing.company_id and company_id:
+            updates["company_id"] = company_id
+        if updates:
+            for k, v in updates.items():
+                setattr(existing, k, v)
+            await _log_activity(
+                db, tenant_id=tenant_id, actor_id=user_id,
+                action="updated", entity_type="contact", entity_id=existing.id,
+                summary=f"Backfilled contact from namecard: {', '.join(updates)}", workspace_id=workspace_id,
+            )
+    elif person_name:
+        contact = Contact(
+            tenant_id=tenant_id,
+            workspace_id=workspace_id,
+            name=person_name,
+            chinese_name=(parsed.get("chinese_name") or "").strip() or None,
+            email=email or None,
+            phone=phone or None,
+            office_phone=(parsed.get("office_phone") or "").strip() or None,
+            job_title=(parsed.get("title") or "").strip() or None,
+            company_id=company_id,
+            address=(parsed.get("address") or "").strip() or None,
+            source="namecard",
+            namecard_path=image_url,
+            custom_fields={
+                "namecard_website": parsed.get("website") or "",
+                "namecard_linkedin": parsed.get("linkedin") or "",
+            },
+        )
+        db.add(contact)
+        await db.flush()
+        contact_id = contact.id
+        status = "created"
+        await _log_activity(
+            db, tenant_id=tenant_id, actor_id=user_id,
+            action="created", entity_type="contact", entity_id=contact.id,
+            summary=f"Created contact '{person_name}' from namecard", workspace_id=workspace_id,
+        )
+
+    # 5. Store NameCard row
+    name_card = NameCard(
+        tenant_id=tenant_id,
+        contact_id=contact_id,
+        image_url=image_url,
+        raw_ocr_text=raw_text,
+        parsed_data=parsed,
+        status=status,
+        matched_by=user_id,
+    )
+    db.add(name_card)
+    await db.flush()
+    await _log_activity(
+        db, tenant_id=tenant_id, actor_id=user_id,
+        action="created", entity_type="name_card", entity_id=name_card.id,
+        summary=f"Uploaded namecard → {status}" + (f" ({person_name})" if person_name else ""),
+        workspace_id=workspace_id,
+    )
+
+    await db.flush()
+    await db.refresh(name_card)
+    return name_card
+
+
+@router.get("/name-cards/image/{filename}")
+async def name_card_image(
+    request: Request,
+    filename: str,
+):
+    """Serve a stored namecard image (authenticated)."""
+    from fastapi.responses import FileResponse
+
+    # Path traversal guard
+    safe = Path(filename).name
+    path = UPLOAD_DIR / safe
+    if not path.is_file():
+        raise HTTPException(status_code=404, detail="Image not found")
+    return FileResponse(path)
 
 
 @router.get("/name-cards/{name_card_id}", response_model=NameCardResponse)

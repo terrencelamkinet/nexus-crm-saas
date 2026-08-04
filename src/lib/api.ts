@@ -191,6 +191,28 @@ export const apiClient = {
     api<T>(path, { method: 'DELETE' }),
 };
 
+/** Upload a file (multipart/form-data) with auth. Returns parsed JSON body. */
+export async function uploadFile<T = any>(path: string, file: File, extraFields?: Record<string, string>): Promise<T> {
+  const auth = getStoredAuth();
+  const form = new FormData();
+  form.append('file', file);
+  if (extraFields) {
+    for (const [k, v] of Object.entries(extraFields)) form.append(k, v);
+  }
+  const headers: Record<string, string> = {};
+  if (auth?.access_token) headers['Authorization'] = `Bearer ${auth.access_token}`;
+  const res = await fetch(`${API_BASE}${path}`, { method: 'POST', headers, body: form });
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    if (res.status === 401) {
+      clearAuth();
+      window.location.href = '/sign-in';
+    }
+    throw new ApiError(res.status, body);
+  }
+  return body as T;
+}
+
 // ---------------------------------------------------------------------------
 // Auth-specific endpoints (no token required, or custom handling)
 // ---------------------------------------------------------------------------
