@@ -38,9 +38,7 @@ interface CitationSource {
 // ---------------------------------------------------------------------------
 
 const DRAFT_KEY = 'nexus_chat_draft'
-const PANEL_WIDTH = 400
 const MOBILE_BREAKPOINT = 768
-const FAB_SIZE = 48
 
 const emptyPrompts = [
   '📊 總結今日 CRM 重點',
@@ -91,35 +89,16 @@ export function ChatboxToggleButton({ onClick, open }: { onClick: () => void; op
       onTouchEnd={() => setPressed(false)}
       aria-label="Toggle AI chat"
       aria-expanded={open}
-      className={`fab-btn ${open ? 'fab-btn--open' : ''}`}
+      className={`fab-btn ${open ? 'fab-btn--open' : ''} cb-fab`}
       id="ai-fab"
       style={{
-        position: 'fixed',
-        zIndex: 50,
-        bottom: 'calc(24px + env(safe-area-inset-bottom, 0px))',
-        right: 'max(24px, env(safe-area-inset-right, 24px))',
-        width: FAB_SIZE,
-        height: FAB_SIZE,
-        borderRadius: '50%',
-        backgroundColor: 'var(--color-primary)',
-        color: '#fff',
-        border: 'none',
-        cursor: 'pointer',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        transition: 'transform 150ms cubic-bezier(0.34, 1.56, 0.64, 1), opacity 280ms cubic-bezier(0.16, 1, 0.3, 1), box-shadow 150ms ease-out',
-        opacity: 1,
-        pointerEvents: 'auto',
         transform: `scale(${pressed ? 0.92 : hovered ? 1.08 : 1})`,
         boxShadow: pressed
           ? '0 2px 8px rgba(0,0,0,0.18), 0 1px 3px rgba(0,0,0,0.1)'
           : '0 4px 16px rgba(0,0,0,0.2), 0 2px 6px rgba(0,0,0,0.12)',
       }}
     >
-      <span style={{
-        display: 'grid', placeItems: 'center',
-        transition: 'transform 280ms cubic-bezier(0.16, 1, 0.3, 1)',
+      <span className="cb-fab-icon" style={{
         transform: open ? 'rotate(90deg) scale(0.85)' : 'rotate(0deg) scale(1)',
       }}>
         {open ? <X size={20} /> : <Sparkles size={22} />}
@@ -135,40 +114,19 @@ export function ChatboxToggleButton({ onClick, open }: { onClick: () => void; op
 function UserMessageBubble({ msg, prevMsg }: { msg: ChatMessage; prevMsg?: ChatMessage }) {
   const prevSameRole = prevMsg && prevMsg.role === 'user' && (msg.timestamp - prevMsg.timestamp) < 180000
   return (
-    <div style={{
-      display: 'flex', flexDirection: 'column', alignItems: 'flex-end',
-      gap: 4, marginTop: prevSameRole ? -12 : 0,
-    }}>
+    <div className="cb-msg-user" style={{ marginTop: prevSameRole ? -12 : 0 }}>
       {/* Avatar + timestamp */}
       {!prevSameRole && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginRight: 4 }}>
-          <span style={{ fontSize: 'var(--text-xs, 12px)', color: 'var(--color-text-faint)' }}>
+        <div className="cb-msg-user-meta">
+          <span className="cb-msg-time">
             {formatTime(msg.timestamp)}
           </span>
-          <div style={{
-            width: 24, height: 24, borderRadius: '50%',
-            background: 'var(--color-surface-offset-2)',
-            color: 'var(--color-text-muted)',
-            display: 'grid', placeItems: 'center',
-            fontSize: 10, fontWeight: 600, flexShrink: 0,
-            border: '1px solid var(--color-border)',
-          }}>
+          <div className="cb-avatar-user">
             T
           </div>
         </div>
       )}
-      <div style={{
-        maxWidth: '82%',
-        padding: '8px 12px',
-        background: 'var(--color-primary-highlight)',
-        borderRadius: 'var(--radius-lg) var(--radius-lg) var(--radius-sm) var(--radius-lg)',
-        whiteSpace: 'pre-wrap',
-        wordBreak: 'break-word',
-        fontSize: 'var(--text-base, 16px)',
-        lineHeight: 1.6,
-        color: 'var(--color-text)',
-        fontWeight: 400,
-      }}>
+      <div className="cb-msg-user-bubble">
         {msg.content}
       </div>
     </div>
@@ -193,29 +151,24 @@ function AiMessageBubble({ msg, prevMsg, hovered, onHover, onCopy, onRetry, onFe
       onMouseLeave={() => onHover(false)}
       style={{ marginTop: prevSameRole ? -12 : 0 }}
     >
-      <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
+      <div className="cb-msg-ai-row">
         {/* Avatar */}
         {!prevSameRole && (
-          <div style={{
-            width: 28, height: 28, borderRadius: '50%',
-            background: 'linear-gradient(135deg, var(--color-primary), #5c9df0)',
-            color: '#fff', display: 'grid', placeItems: 'center',
-            fontSize: 12, flexShrink: 0, marginTop: 2,
-          }}>
+          <div className="cb-avatar-ai">
             <Sparkles size={13} />
           </div>
         )}
-        <div style={{ flex: 1, minWidth: 0 }}>
+        <div className="cb-msg-ai-body">
           {/* Timestamp */}
           {!prevSameRole && (
-            <div style={{ marginBottom: 4 }}>
-              <span style={{ fontSize: 'var(--text-xs, 12px)', color: 'var(--color-text-faint)' }}>
+            <div className="cb-msg-ai-meta">
+              <span className="cb-msg-time">
                 NEXUS AI · {formatTime(msg.timestamp)}
               </span>
             </div>
           )}
           {/* Content */}
-          <div className="msg-ai-content" style={{ position: 'relative' }}>
+          <div className="msg-ai-content cb-msg-ai-content">
             <MarkdownMessage content={msg.content} />
           </div>
 
@@ -225,12 +178,9 @@ function AiMessageBubble({ msg, prevMsg, hovered, onHover, onCopy, onRetry, onFe
           )}
 
           {/* Bottom toolbar */}
-          <div style={{
-            display: 'flex', gap: 2, marginTop: 6,
-            opacity: hovered ? 1 : 0,
-            transition: 'opacity 180ms var(--ease-out)',
-          }}
-            className="ai-msg-toolbar"
+          <div
+            className="ai-msg-toolbar cb-msg-ai-toolbar"
+            style={{ opacity: hovered ? 1 : 0 }}
           >
             <GhostBtn onClick={onCopy} ariaLabel="Copy" icon={
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
@@ -274,12 +224,8 @@ function GhostBtn({ onClick, icon, ariaLabel, active, activeColor }: {
     <button onClick={onClick}
       aria-label={ariaLabel}
       title={ariaLabel}
-      style={{
-        width: 24, height: 24, borderRadius: 4, border: 'none',
-        background: 'transparent', color: active ? (activeColor || 'var(--color-primary)') : 'var(--color-text-muted)',
-        cursor: 'pointer', display: 'grid', placeItems: 'center',
-        transition: 'background var(--transition-interactive), color var(--transition-interactive)',
-      }}
+      className="cb-ghost-btn"
+      style={{ color: active ? (activeColor || 'var(--color-primary)') : 'var(--color-text-muted)' }}
       onMouseEnter={e => { if (!active) e.currentTarget.style.background = 'var(--color-surface-offset)' }}
       onMouseLeave={e => { if (!active) e.currentTarget.style.background = 'transparent' }}
     >
@@ -292,15 +238,8 @@ function CitationChip({ citations }: { citations: CitationSource[] }) {
   const [expanded, setExpanded] = useState(false)
 
   return (
-    <div style={{ marginTop: 8 }}>
-      <div style={{
-        display: 'inline-flex', alignItems: 'center', gap: 4,
-        padding: '3px 8px', borderRadius: 999,
-        background: 'var(--color-surface-offset)',
-        fontSize: 11.5, fontWeight: 500, color: 'var(--color-text-muted)',
-        cursor: 'pointer',
-        transition: 'background var(--transition-interactive)',
-      }}
+    <div className="cb-citation-wrap">
+      <div className="cb-citation-chip"
         onClick={() => setExpanded(v => !v)}
         onMouseEnter={e => { e.currentTarget.style.background = 'var(--color-surface-offset-2)' }}
         onMouseLeave={e => { e.currentTarget.style.background = 'var(--color-surface-offset)' }}
@@ -312,7 +251,7 @@ function CitationChip({ citations }: { citations: CitationSource[] }) {
         Source: {citations.length} record{citations.length > 1 ? 's' : ''}
       </div>
       {expanded && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginTop: 6 }}>
+        <div className="cb-citation-list">
           {citations.slice(0, 5).map((cit, ci) => (
             <div key={ci}
               onClick={() => {
@@ -320,31 +259,20 @@ function CitationChip({ citations }: { citations: CitationSource[] }) {
                 const route = routes[cit.type] || cit.type
                 window.open(`/${route}/${cit.id}`, '_blank')
               }}
-              style={{
-                display: 'flex', alignItems: 'center', gap: 6,
-                padding: '6px 8px', background: 'var(--color-surface-offset)',
-                borderRadius: 6, cursor: 'pointer',
-                border: '1px solid var(--color-divider)',
-                transition: 'background var(--transition-interactive)',
-              }}
+              className="cb-citation-item"
               onMouseEnter={e => { e.currentTarget.style.background = 'var(--color-surface-offset-2)' }}
               onMouseLeave={e => { e.currentTarget.style.background = 'var(--color-surface-offset)' }}
             >
-              <span style={{
-                width: 16, height: 16, borderRadius: 3,
-                background: 'var(--color-primary)', color: '#fff',
-                fontSize: 9, fontWeight: 700,
-                display: 'grid', placeItems: 'center', flexShrink: 0,
-              }}>{ci + 1}</span>
-              <div style={{ minWidth: 0, flex: 1 }}>
-                <div style={{ fontSize: 11.5, fontWeight: 500, color: 'var(--color-text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+              <span className="cb-citation-badge">{ci + 1}</span>
+              <div className="cb-citation-body">
+                <div className="cb-citation-title">
                   {cit.title}
                 </div>
-                <div style={{ fontSize: 11.5, color: 'var(--color-text-faint)', textTransform: 'capitalize' }}>
+                <div className="cb-citation-type">
                   {cit.type}
                 </div>
               </div>
-              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ color: 'var(--color-text-faint)', flexShrink: 0 }}>
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="cb-citation-icon">
                 <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/>
               </svg>
             </div>
@@ -366,35 +294,20 @@ function formatTime(ts: number): string {
 
 function EmptyState({ prompts, onSelect }: { prompts: string[]; onSelect: (p: string) => void }) {
   return (
-    <div style={{
-      textAlign: 'center', padding: '48px 24px 24px',
-      display: 'flex', flexDirection: 'column', alignItems: 'center',
-      animation: 'fadeIn 300ms var(--ease-out) both',
-    }}>
-      <div style={{
-        width: 56, height: 56, margin: '0 auto 16px',
-        borderRadius: 14,
-        background: 'linear-gradient(135deg, var(--color-primary), #5c9df0)',
-        color: '#fff', display: 'grid', placeItems: 'center',
-        fontSize: 24, boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
-      }}>
+    <div className="cb-empty-state">
+      <div className="cb-empty-icon">
         ✏️
       </div>
-      <h1 style={{ fontSize: 20, fontWeight: 600, margin: '0 0 6px', color: 'var(--color-text)' }}>
+      <h1 className="cb-empty-title">
         How can I help?
       </h1>
-      <p style={{ color: 'var(--color-text-muted)', fontSize: 13, margin: '0 0 24px' }}>
+      <p className="cb-empty-subtitle">
         Ask me anything about your CRM
       </p>
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, justifyContent: 'center', maxWidth: 320 }}>
+      <div className="cb-empty-prompts">
         {prompts.map(p => (
           <button key={p} onClick={() => onSelect(p)}
-            style={{
-              padding: '6px 14px', border: '1px solid var(--color-border)',
-              background: 'var(--color-surface-2)', borderRadius: 999,
-              fontSize: 12.5, color: 'var(--color-text)', cursor: 'pointer',
-              transition: 'background var(--transition-interactive), border-color var(--transition-interactive)',
-            }}
+            className="cb-empty-prompt"
             onMouseEnter={e => { e.currentTarget.style.background = 'var(--color-surface-offset)' }}
             onMouseLeave={e => { e.currentTarget.style.background = 'var(--color-surface-2)' }}
           >
@@ -795,9 +708,6 @@ export default function ChatboxPanel() {
   const isClosing = animPhase === 'closing'
   const panelStyle: React.CSSProperties = isMobile
     ? {
-        position: 'fixed', inset: 0, zIndex: 50,
-        display: 'flex', flexDirection: 'column',
-        background: 'var(--color-surface)',
         transform: isClosing
           ? 'translateY(100%)'
           : 'translateY(0)',
@@ -805,26 +715,15 @@ export default function ChatboxPanel() {
           ? 'transform 320ms cubic-bezier(0.16, 1, 0.3, 1)'
           : 'none',
         height: !visible ? 0 : '92dvh',
-        top: '8dvh',
-        borderRadius: 'var(--radius-xl) var(--radius-xl) 0 0',
         boxShadow: visible && !isClosing ? '0 -8px 32px rgba(0,0,0,0.2)' : 'none',
       }
     : {
-        position: 'fixed' as const,
-        zIndex: 50,
         height: visible ? '70dvh' : 0,
         ...(visible
           ? { top: '15dvh', right: 'max(24px, env(safe-area-inset-right, 24px))' }
           : { top: 0, right: 0 }),
-        width: PANEL_WIDTH,
-        maxWidth: 'calc(100vw - 48px)',
-        background: 'var(--color-surface)',
         border: visible ? '1px solid var(--color-border)' : 'none',
-        borderRadius: 'var(--radius-xl)',
         boxShadow: visible && !isClosing ? 'var(--shadow-lg)' : 'none',
-        display: 'flex', flexDirection: 'column',
-        overflow: 'hidden',
-        transformOrigin: 'bottom right',
         transform: isClosing
           ? 'scale(0.85) translateY(20px)'
           : 'scale(1) translateY(0)',
@@ -843,60 +742,38 @@ export default function ChatboxPanel() {
       {/* Overlay backdrop for mobile */}
       {isMobile && isOpen && (
         <div onClick={closePanel}
-          style={{
-            position: 'fixed', inset: 0, zIndex: 49,
-            background: 'var(--color-overlay, rgba(0,0,0,0.4))',
-            animation: 'fadeIn 200ms ease-out both',
-          }}
+          className="cb-backdrop"
         />
       )}
 
       {/* Panel */}
-      <div ref={panelRef} style={panelStyle as React.CSSProperties}
+      <div ref={panelRef}
+        className={`cb-panel ${isMobile ? 'cb-panel--mobile' : 'cb-panel--desktop'}`}
+        style={panelStyle as React.CSSProperties}
         role="dialog"
         aria-label={t('nav.aiChat')}
         aria-hidden={!isOpen}
       >
         {/* ── Header ── */}
         {isOpen && (
-          <div style={{
-            display: 'flex', alignItems: 'center', gap: 8,
-            flexShrink: 0, height: 52,
-            padding: '0 12px 0 16px',
-            borderBottom: '1px solid var(--color-divider)',
-            background: 'var(--color-surface)',
-            borderRadius: isMobile ? 'var(--radius-xl) var(--radius-xl) 0 0' : 'var(--radius-xl) var(--radius-xl) 0 0',
-          }}>
+          <div className="cb-header">
             {/* Drag handle for mobile */}
             {isMobile && (
-              <div style={{
-                width: 36, height: 4, borderRadius: 2,
-                background: 'var(--color-divider)',
-                position: 'absolute', top: 8, left: '50%', marginLeft: -18,
-              }} />
+              <div className="cb-header-handle" />
             )}
-            <div style={{
-              width: 28, height: 28, borderRadius: 8,
-              background: 'linear-gradient(135deg, var(--color-primary), #5c9df0)',
-              color: '#fff', display: 'grid', placeItems: 'center',
-              fontSize: 14, fontWeight: 600, flexShrink: 0,
-            }}>
+            <div className="cb-header-logo">
               <Sparkles size={14} />
             </div>
-            <div style={{ minWidth: 0, flex: 1 }}>
-              <div style={{ fontWeight: 600, fontSize: 14, color: 'var(--color-text)' }}>
+            <div className="cb-header-titles">
+              <div className="cb-header-title">
                 NEXUS AI
               </div>
-              <div style={{ color: 'var(--color-text-muted)', fontSize: 11.5 }}>
+              <div className="cb-header-subtitle">
                 CRM Assistant
               </div>
             </div>
             <button onClick={createNewSession} aria-label={t('chat.newChat')} title={t('chat.newChat')}
-              style={{
-                width: 28, height: 28, borderRadius: 6, display: 'grid', placeItems: 'center',
-                background: 'transparent', border: 0, color: 'var(--color-text-muted)',
-                cursor: 'pointer', transition: 'color var(--transition-interactive), background var(--transition-interactive)',
-              }}
+              className="cb-header-btn"
               onMouseEnter={e => { e.currentTarget.style.background = 'var(--color-surface-offset)' }}
               onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}
             >
@@ -906,12 +783,8 @@ export default function ChatboxPanel() {
             {/* Session history toggle — Clock button on mobile, sidebar toggle on desktop */}
             {isMobile ? (
               <button onClick={() => setShowSidebar(v => !v)} aria-label={t('chat.sessionList')} title={t('chat.sessionList')}
-                style={{
-                  width: 28, height: 28, borderRadius: 6, display: 'grid', placeItems: 'center',
-                  background: 'transparent', border: 0,
-                  color: showSidebar ? 'var(--color-primary)' : 'var(--color-text-muted)',
-                  cursor: 'pointer',
-                }}>
+                className="cb-header-btn"
+                style={{ color: showSidebar ? 'var(--color-primary)' : 'var(--color-text-muted)' }}>
                 <Clock size={15} />
               </button>
             ) : (
@@ -930,11 +803,7 @@ export default function ChatboxPanel() {
             )}
 
             <button onClick={closePanel} aria-label={t('common.close')}
-              style={{
-                width: 28, height: 28, borderRadius: 6, display: 'grid', placeItems: 'center',
-                background: 'transparent', border: 0, color: 'var(--color-text-muted)',
-                cursor: 'pointer', transition: 'color var(--transition-interactive), background var(--transition-interactive)',
-              }}
+              className="cb-header-btn"
               onMouseEnter={e => { e.currentTarget.style.background = 'var(--color-surface-offset)' }}
               onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}
             >
@@ -945,7 +814,7 @@ export default function ChatboxPanel() {
 
         {/* ── Mobile session list (full screen) ── */}
         {isMobile && showSidebar && (
-          <div style={{ flex: 1, overflow: 'hidden', position: 'relative' }}>
+          <div className="cb-mobile-sessions">
             <SessionSidebar
               sessions={sessionList}
               currentSessionId={sessionId}
@@ -979,16 +848,13 @@ export default function ChatboxPanel() {
 
         {/* ── Messages area ── */}
         {isOpen && !showSidebar && (
-          <div ref={scrollRef} style={{
-            flex: 1, overflowY: 'auto',
+          <div ref={scrollRef} className="cb-messages" style={{
             padding: messages.length === 0 && !loadingSession ? '0' : '16px 16px',
-            background: 'var(--color-surface)',
-            scrollBehavior: 'smooth',
           }}>
             {loadingSession ? (
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 10, height: '100%' }}>
-                <div className="skeleton-line" style={{ width: '60%', height: 10, borderRadius: 4, background: 'var(--color-border)' }} />
-                <div className="skeleton-line" style={{ width: '40%', height: 10, borderRadius: 4, background: 'var(--color-border)' }} />
+              <div className="cb-loading">
+                <div className="skeleton-line cb-skeleton cb-skeleton--wide" />
+                <div className="skeleton-line cb-skeleton cb-skeleton--narrow" />
               </div>
             ) : messages.length === 0 ? (
               <EmptyState prompts={suggestedPrompts} onSelect={(p) => { setInput(p); setTimeout(() => {
@@ -996,7 +862,7 @@ export default function ChatboxPanel() {
                 ta?.focus()
               }, 100) }} />
             ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+              <div className="cb-msg-list">
                 {messages.map((msg, idx) => {
                   const prev = idx > 0 ? messages[idx - 1] : undefined
                   return (
@@ -1023,16 +889,11 @@ export default function ChatboxPanel() {
                   <LoadingIndicator isStreaming={isStreaming} />
                 ) : null}
                 {streamingContent && (
-                  <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
-                    <div style={{
-                      width: 28, height: 28, borderRadius: '50%',
-                      background: 'linear-gradient(135deg, var(--color-primary), #5c9df0)',
-                      color: '#fff', display: 'grid', placeItems: 'center',
-                      fontSize: 12, flexShrink: 0, marginTop: 2,
-                    }}>
+                  <div className="cb-streaming-row">
+                    <div className="cb-avatar-ai">
                       <Sparkles size={13} />
                     </div>
-                    <div className="msg-ai-content" style={{ flex: 1, minWidth: 0 }}>
+                    <div className="msg-ai-content cb-msg-ai-body">
                       <MarkdownMessage content={streamingContent} streaming />
                     </div>
                   </div>
@@ -1054,13 +915,10 @@ export default function ChatboxPanel() {
         {/* ── Cheatsheet ── */}
         {showCheatsheet && isOpen && (
           <div onClick={() => setShowCheatsheet(false)}
-            style={{ position: 'absolute', inset: 0, zIndex: 300, background: 'rgba(0,0,0,0.3)', display: 'grid', placeItems: 'center' }}>
-            <div onClick={e => e.stopPropagation()} style={{
-              background: 'var(--color-surface)', borderRadius: 12, padding: '20px 24px',
-              maxWidth: 300, width: '90%', boxShadow: 'var(--shadow-lg)',
-            }}>
-              <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 12 }}>⌨️ Shortcuts</div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8, fontSize: 12.5 }}>
+            className="cb-cheatsheet-overlay">
+            <div onClick={e => e.stopPropagation()} className="cb-cheatsheet-card">
+              <div className="cb-cheatsheet-title">⌨️ Shortcuts</div>
+              <div className="cb-cheatsheet-list">
                 {[
                   { keys: '⌘K', desc: 'Open AI panel' },
                   { keys: '⏎', desc: 'Send message' },
@@ -1068,14 +926,14 @@ export default function ChatboxPanel() {
                   { keys: 'Esc', desc: 'Close panel' },
                   { keys: '?', desc: 'Toggle shortcuts' },
                 ].map(s => (
-                  <div key={s.keys} style={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <kbd style={{ fontFamily: 'inherit', fontSize: 11, padding: '1px 6px', background: 'var(--color-surface-offset)', border: '1px solid var(--color-border)', borderRadius: 4, fontWeight: 600 }}>{s.keys}</kbd>
-                    <span style={{ color: 'var(--color-text-muted)' }}>{s.desc}</span>
+                  <div key={s.keys} className="cb-cheatsheet-row">
+                    <kbd className="cb-kbd">{s.keys}</kbd>
+                    <span className="cb-cheatsheet-desc">{s.desc}</span>
                   </div>
                 ))}
               </div>
               <button onClick={() => setShowCheatsheet(false)}
-                style={{ marginTop: 14, width: '100%', padding: '6px 0', border: '1px solid var(--color-border)', borderRadius: 8, background: 'transparent', cursor: 'pointer', fontSize: 12, color: 'var(--color-text)' }}>
+                className="cb-cheatsheet-close">
                 {t('common.close')}
               </button>
             </div>
