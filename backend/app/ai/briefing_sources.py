@@ -10,6 +10,7 @@ never crash the whole briefing.
 """
 from __future__ import annotations
 
+import re
 import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Any
@@ -485,9 +486,70 @@ async def news_industry(ctx: AISessionContext, db: AsyncSession) -> list[dict[st
     return items
 
 
-async def traffic_commute(ctx: AISessionContext, db: AsyncSession) -> list[dict[str, Any]]:
-    """Live HK traffic incidents from Transport Department (data.gov.hk)."""
+def _simplify_traffic(text: str, is_en: bool) -> str:
+    """壓縮交通消息成「地點：事件」重點格式；無法分析時 fallback 用原文。"""
+    t = (text or "").strip()
+    if not t:
+        return t
+    if is_en:
+        # e.g. "Due to a traffic accident, some lanes at the junction of Canton
+        #       Road and Austin Road are now closed."
+        m = re.match(
+            r"(?:due to|owing to|because of)\s+(.+?)[,;]\s*(.+?)\s+(?:are|is|have been|has been)\s+(.+?)[.]?$",
+            t,
+            re.IGNORECASE,
+        )
+        if m:
+            event = m.group(1).strip()
+            loc = m.group(2).strip()
+            cons = m.group(3).strip()
+            mm = re.search(r"\b(?:at|on|near|along)\s+(.+)$", loc, re.IGNORECASE)
+            if mm:
+                loc = mm.group(1).strip()
+            action = ""
+            for kw in ("reopened", "resumed", "cleared", "closed", "blocked", "suspended", "flooded"):
+                if kw in cons.lower():
+                    action = f", {kw}"
+                    break
+            return f"{loc}: {event}{action}"
+        return t
+
+    # zh-HK / zh-TW：因/由於/因為 <事件>，<地點> 的 <結果>
+    m = re.match(r"(?:因|由於|因為)(.+?)[，,]\s*([^，。]+?)(?:的|嘅)(.+?)[。]?$", t)
+    if m:
+        event = m.group(1).strip()
+        loc = m.group(2).strip()
+        result = m.group(3).strip()
+        action = ""
+        for kw in ("封閉", "封路", "受阻", "暫停", "改道", "擠塞", "關閉", "封鎖"):
+            if kw in result:
+                action = kw
+                break
+        if not action:
+            for kw in ("重開", "恢復", "解封"):
+                if kw in result:
+                    action = kw
+                    break
+        return f"{loc}：{event}{action}"
+    # 「較早前因 <事件> 而 <動作> 的 <地點> 已重開」類
+    m2 = re.match(r"較?早前?因(.+?)而(.+?)的(.+?)(?:已|經)?(重開|恢復|解封)[。]?$", t)
+    if m2:
+        return f"{m2.group(3).strip()}：{m2.group(1).strip()}{m2.group(4)}"
+    return t
+
+
+async def traffic_commute(
+    ctx: AISessionContext,
+    db: AsyncSession,
+    lang_pref: str = "zh-HK",
+) -> list[dict[str, Any]]:
+    """Live HK traffic incidents from Transport Department (data.gov.hk).
+
+    用 ChinShort/EngShort 短版 + 分析壓縮成「地點：事件」重點，只保留
+    status 1/3，limit 5。`lang_pref` 控制語言（zh-HK → 中文，en → 英文）。
+    """
     items: list[dict[str, Any]] = []
+    is_en = lang_pref.startswith("en")
     try:
         async with httpx.AsyncClient(timeout=_HTTP_TIMEOUT, headers={"User-Agent": _USER_AGENT}) as client:
             r = await client.get("https://resource.data.one.gov.hk/td/en/specialtrafficnews.xml")
@@ -498,14 +560,25 @@ async def traffic_commute(ctx: AISessionContext, db: AsyncSession) -> list[dict[
                 status = msg.findtext("{http://data.one.gov.hk/td}CurrentStatus") or ""
                 if status not in ("1", "3"):  # 1 = active incident, 3 = special arrangement (2 = resolved)
                     continue
+                if is_en:
+                    raw = (
+                        msg.findtext("{http://data.one.gov.hk/td}EngShort")
+                        or msg.findtext("{http://data.one.gov.hk/td}EngText")
+                        or ""
+                    )
+                else:
+                    raw = (
+                        msg.findtext("{http://data.one.gov.hk/td}ChinShort")
+                        or msg.findtext("{http://data.one.gov.hk/td}ChinText")
+                        or ""
+                    )
                 items.append({
                     "id": msg.findtext("{http://data.one.gov.hk/td}msgID") or "",
-                    "text": msg.findtext("{http://data.one.gov.hk/td}EngText")
-                    or msg.findtext("{http://data.one.gov.hk/td}ChinText") or "",
+                    "text": _simplify_traffic(raw, is_en),
                 })
     except Exception:
         return []
-    return items[:10]
+    return items[:5]
 
 
 async def email_draft_review(ctx: AISessionContext, db: AsyncSession) -> list[dict[str, Any]]:

@@ -31,7 +31,7 @@ from app.ai.tool_registry import (
 from app.ai.tools.guard import authorize_tool_call, ScopeViolation, log_audit
 from app.ai.providers import get_provider, ProviderAdapter, UsageReport
 from app.ai.quota.service import QuotaService, QuotaExceeded, TIER_LIMITS
-from app.models.ai import ActionRequest, AISession, Message, UserMemory, UsageEvent, PromptTemplate
+from app.models.ai import ActionRequest, AISession, Message, UserMemory, UsageEvent, PromptTemplate, SecretarySettings
 
 # ---------------------------------------------------------------------------
 # Default provider configuration
@@ -1500,6 +1500,19 @@ async def get_briefing(
     if not ctx:
         raise HTTPException(400, "AI session context not initialized")
 
+    # ── User language preference (ai_secretary_settings) — ai_tip 跟語言 ──
+    lang_pref = "zh-HK"
+    try:
+        srow = (
+            await db.execute(
+                select(SecretarySettings).where(SecretarySettings.user_id == ctx.user_id)
+            )
+        ).scalar_one_or_none()
+        if srow is not None:
+            lang_pref = str(srow.lang_pref or "zh-HK")
+    except Exception:
+        pass
+
     # ── Latest LLM-generated briefing (AI-app pipeline) ──
     gen_content, gen_slot, gen_at = "", "", ""
     try:
@@ -1519,7 +1532,7 @@ async def get_briefing(
     # ── Source registry: crm_core is implemented; others fall back ──
     if source != "crm_core":
         try:
-            fallback = await _build_crm_briefing(ctx, db)
+            fallback = await _build_crm_briefing(ctx, db, lang_pref)
             return BriefingResponse(
                 weather=fallback.get("weather", {}),
                 schedule=fallback["schedule"],
@@ -1531,13 +1544,14 @@ async def get_briefing(
             )
         except Exception:
             return BriefingResponse(
-                weather={}, schedule=[], tasks=[], ai_tip=_DEFAULT_TIP,
+                weather={}, schedule=[], tasks=[],
+                ai_tip=(_DEFAULT_TIP_EN if lang_pref.startswith("en") else _DEFAULT_TIP_ZH),
                 content=gen_content, slot=gen_slot, generated_at=gen_at,
                 source=source, source_fallback=True,
             )
 
     try:
-        brief = await _build_crm_briefing(ctx, db)
+        brief = await _build_crm_briefing(ctx, db, lang_pref)
         return BriefingResponse(
             weather=brief.get("weather", {}),
             schedule=brief["schedule"],
@@ -1552,17 +1566,18 @@ async def get_briefing(
             weather={},
             schedule=[],
             tasks=[],
-            ai_tip=_DEFAULT_TIP,
+            ai_tip=(_DEFAULT_TIP_EN if lang_pref.startswith("en") else _DEFAULT_TIP_ZH),
             source=source,
             source_fallback=False,
         )
 
 
-async def _build_crm_briefing(ctx, db) -> dict:
+async def _build_crm_briefing(ctx, db, lang_pref: str = "zh-HK") -> dict:
     """CRM Core source: schedule + P0/P1 tasks + dashboard stats tip.
 
     All data comes from G08's OWN database (ProjectCalendarEvent + tasks).
     Weather comes from G08's own HKO Open Data source (briefing_sources).
+    `lang_pref` controls the ai_tip language (zh-HK → 繁體中文, en → English).
     """
     schedule: list[dict[str, Any]] = []
     try:
@@ -1605,8 +1620,9 @@ async def _build_crm_briefing(ctx, db) -> dict:
     except Exception:
         pass
 
-    # ── Dashboard stats for AI tip ──
-    ai_tip = _DEFAULT_TIP
+    # ── Dashboard stats for AI tip（跟用戶 lang_pref：zh-HK 中文 / en 英文）──
+    is_en = lang_pref.startswith("en")
+    ai_tip = _DEFAULT_TIP_EN if is_en else _DEFAULT_TIP_ZH
     try:
         dash = await _get_dashboard_summary(ctx, {"period": "30d"}, db)
         if dash:
@@ -1614,16 +1630,28 @@ async def _build_crm_briefing(ctx, db) -> dict:
             open_tasks = dash.get("open_tasks", 0)
             new_contacts = dash.get("recent", {}).get("new_contacts", 0)
             if open_deals > 0:
-                ai_tip = (
-                    f"You have {open_deals} open deal{'s' if open_deals > 1 else ''} "
-                    f"and {open_tasks} open task{'s' if open_tasks > 1 else ''}. "
-                    f"Prioritise deals in late-stage for follow-up this week."
-                )
+                if is_en:
+                    ai_tip = (
+                        f"You have {open_deals} open deal{'s' if open_deals > 1 else ''} "
+                        f"and {open_tasks} open task{'s' if open_tasks > 1 else ''}. "
+                        f"Prioritise deals in late-stage for follow-up this week."
+                    )
+                else:
+                    ai_tip = (
+                        f"您目前有 {open_deals} 個進行中的交易及 {open_tasks} 個待辦任務，"
+                        f"建議優先跟進後期階段的交易。"
+                    )
             elif new_contacts > 0:
-                ai_tip = (
-                    f"{new_contacts} new contact{'s' if new_contacts > 1 else ''} added "
-                    f"in the last 30 days — consider scheduling introductory touchpoints."
-                )
+                if is_en:
+                    ai_tip = (
+                        f"{new_contacts} new contact{'s' if new_contacts > 1 else ''} added "
+                        f"in the last 30 days — consider scheduling introductory touchpoints."
+                    )
+                else:
+                    ai_tip = (
+                        f"過去 30 日新增了 {new_contacts} 個聯絡人，"
+                        f"建議安排初步聯絡，把握時機建立關係。"
+                    )
     except Exception:
         pass
 
@@ -1644,7 +1672,8 @@ async def _build_crm_briefing(ctx, db) -> dict:
     return {"schedule": schedule, "tasks": brief_tasks, "ai_tip": ai_tip, "weather": weather}
 
 
-_DEFAULT_TIP = "Review your dashboard for today's priorities — check pending tasks and upcoming events."
+_DEFAULT_TIP_ZH = "請先查看今日儀表板，了解待辦任務及即將來臨的會議。"
+_DEFAULT_TIP_EN = "Review your dashboard for today's priorities — check pending tasks and upcoming events."
 
 
 @router.get("/prompts/suggested")

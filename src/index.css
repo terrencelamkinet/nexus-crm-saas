@@ -2441,3 +2441,6 @@ textarea.input-field{resize:vertical;min-height:60px}
      specificity tie; full selector also beats .dash-toolbar h1 18px from dashboard.css (later file) */
   .dash01-shell .dash-toolbar h1.greeting-title{font-size:22px}
 }
+
+/* ── G08 2026-08-04: aiTip 併入 ab-summary-text — 保留 \n\n 換行顯示 💡 tip ── */
+.ab-summary-text{white-space:pre-wrap}

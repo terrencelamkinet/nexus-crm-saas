@@ -288,6 +288,7 @@ async def get_briefing(
 
     user_id, tenant_id = _ctx_ids(request)
     row = await _get_or_create(db, user_id, tenant_id)
+    lang_pref = str(row.lang_pref or "zh-HK")  # 用戶語言偏好 — 控制 ai_tip / 交通路況語言
     # NOTE: NO commit here — get_tenant_session's set_config GUCs are
     # transaction-scoped (3rd arg=true); a commit would end the transaction
     # and strip RLS context, making every subsequent DB query return 0 rows.
@@ -296,7 +297,7 @@ async def get_briefing(
     ctx = getattr(request.state, "ai_context", None)
     if ctx is None:
         raise HTTPException(401, "AI session context not initialized")
-    brief = await _build_crm_briefing(ctx, db)
+    brief = await _build_crm_briefing(ctx, db, lang_pref=lang_pref)
 
     from zoneinfo import ZoneInfo
     now_local = datetime.now(ZoneInfo("Asia/Hong_Kong"))
@@ -335,7 +336,7 @@ async def get_briefing(
     unread = await bs.unread_messages(ctx, db) if "unread_messages" in mods else []
     conflicts = await bs.calendar_conflicts(ctx, db) if "calendar_conflicts" in mods else []
     news = await bs.news_industry(ctx, db) if "news_industry" in mods else []
-    traffic = await bs.traffic_commute(ctx, db) if "traffic_commute" in mods else []
+    traffic = await bs.traffic_commute(ctx, db, lang_pref=lang_pref) if "traffic_commute" in mods else []
     drafts = await bs.email_draft_review(ctx, db) if "email_draft_review" in mods else []
     sentiment = await bs.customer_sentiment(ctx, db) if "customer_sentiment" in mods else []
     expenses = await bs.expense_reminders(ctx, db) if "expense_reminders" in mods else []

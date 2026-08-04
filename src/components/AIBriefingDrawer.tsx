@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { apiClient } from '../lib/api'
 import { useAuth } from '../lib/AuthContext'
 import { useSecretarySettings, isInWorkingHours } from '../hooks/useSecretarySettings'
-import { Sparkles, X, ChevronDown, Send, RefreshCw, AlertTriangle, CheckSquare, Calendar, History, Lightbulb } from 'lucide-react'
+import { Sparkles, X, ChevronDown, Send, RefreshCw, AlertTriangle, CheckSquare, Calendar, History } from 'lucide-react'
 
 // ─────────────────────────────────────────────────────────────
 // Types
@@ -311,9 +311,12 @@ export default function AIBriefingDrawer() {
   useEffect(() => {
     if (!expanded || !payload) return
 
+    // aiTip 併入 summary — greeting 之後以 💡 換行顯示
+    const fullText = payload.greeting + (payload.aiTip ? `\n\n💡 ${payload.aiTip}` : '')
+
     // If animation already played once, just show full text instantly
     if (animationPlayedRef.current) {
-      setTypedText(payload.greeting)
+      setTypedText(fullText)
       setShowInsights(true)
       return
     }
@@ -322,7 +325,7 @@ export default function AIBriefingDrawer() {
     setTypedText('')
     setShowInsights(false)
     let i = 0
-    const text = payload.greeting
+    const text = fullText
     timerRef.current = setInterval(() => {
       i += 2
       setTypedText(text.slice(0, i))
@@ -491,21 +494,6 @@ export default function AIBriefingDrawer() {
           {/* Insights (progressive disclosure) */}
           {showInsights && payload && (
             <div className="ab-insights">
-              {/* ── AI Tip (daily briefing tip) ── */}
-              {payload.aiTip && (
-                <InsightSection
-                  icon={<Lightbulb size={14} style={{ color: 'var(--color-purple)' }} />}
-                  title={t('pages.briefing.aiTip')}
-                  badge={''}
-                  badgeColor="var(--color-purple)"
-                  defaultOpen
-                >
-                  <span style={{ fontSize: 12.5, color: 'var(--color-text-muted)', lineHeight: 1.5 }}>
-                    {payload.aiTip}
-                  </span>
-                </InsightSection>
-              )}
-
               {/* ── High-risk deals ── */}
               {payload.risks.length > 0 && (
                 <InsightSection
