@@ -80,6 +80,7 @@ export default function AIAppsPage() {
         chat_id: tgChatId.trim(),
       });
       if (r.status === 'connected') {
+        setTgRemoteConnected(true);
         update({ channels: { ...settings.channels, telegram: { connected: true, enabled: true } } });
         setTgBindOpen(false); setTgBotToken(''); setTgChatId('');
         flashSaved();
@@ -98,6 +99,7 @@ export default function AIAppsPage() {
     setTgBusy(true); setTgError('');
     try {
       await apiClient.post('/api/v1/telegram/disconnect');
+      setTgRemoteConnected(false);
       update({ channels: { ...settings.channels, telegram: { connected: false, enabled: false } } });
       flashSaved();
     } catch { /* keep local */ } finally { setTgBusy(false); }

@@ -26,7 +26,34 @@ async def lifespan(app: FastAPI):
         await conn.execute(text("CREATE SCHEMA IF NOT EXISTS nexus_auth"))
         await conn.execute(text("CREATE SCHEMA IF NOT EXISTS nexus_crm"))
         await conn.run_sync(Base.metadata.create_all)
+
+    # Telegram inbound poller — getUpdates loop for all active bots
+    import asyncio
+    from app.services.telegram_inbound import poll_once
+
+    poller_stop = asyncio.Event()
+
+    async def _tg_poll_loop():
+        from app.db import async_session
+        while not poller_stop.is_set():
+            try:
+                async with async_session() as db:
+                    await poll_once(db)
+            except Exception:
+                pass  # poller must never crash the app
+            try:
+                await asyncio.wait_for(poller_stop.wait(), timeout=30)
+            except asyncio.TimeoutError:
+                continue
+
+    poller_task = asyncio.create_task(_tg_poll_loop())
+
     yield
+    poller_stop.set()
+    try:
+        await asyncio.wait_for(poller_task, timeout=5)
+    except Exception:
+        pass
     await engine.dispose()
 
 app = FastAPI(title=settings.app_name, lifespan=lifespan)

@@ -54,3 +54,18 @@ async def delete_webhook(token: str) -> dict:
     async with httpx.AsyncClient(timeout=15) as client:
         resp = await client.post(url)
         return resp.json()
+
+
+async def get_updates(token: str, offset: int | None = None, timeout: int = 30) -> dict:
+    """Long-poll Telegram for new updates (inbound messages).
+
+    offset: pass the highest processed update_id + 1 to confirm delivery.
+    timeout: long-poll seconds (Telegram supports up to 50).
+    """
+    url = BOT_API.format(token=token, method="getUpdates")
+    payload: dict = {"timeout": timeout, "allowed_updates": ["message", "edited_message"]}
+    if offset is not None:
+        payload["offset"] = offset
+    async with httpx.AsyncClient(timeout=timeout + 15) as client:
+        resp = await client.post(url, json=payload)
+        return resp.json()
