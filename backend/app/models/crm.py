@@ -28,6 +28,10 @@ class Company(Base):
     ceo_name = Column(String(255))
     linkedin_url = Column(String(255))
     status = Column(String(50), default='ACTIVE')
+    # --- AI governance (006) ---
+    enriched_by_ai = Column(Boolean, default=False)
+    enrichment_source_url = Column(Text)
+    data_completeness_pct = Column(Integer, default=0)
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
@@ -66,6 +70,11 @@ class Contact(Base):
     owner_id = Column(UUID(as_uuid=True), ForeignKey("nexus_auth.nexus_auth_users.id", ondelete="SET NULL"))
     custom_fields = Column(JSON, default=lambda: {})
     namecard_path = Column(Text)
+    # --- AI governance (006) ---
+    source_signal_id = Column(UUID(as_uuid=True))  # triggering signal (name_card.id / email.id / meeting.id)
+    confidence_score = Column(Numeric(4, 3))
+    dedup_status = Column(Text, default="none")  # none | auto_matched | llm_review | unresolved | user_override
+    last_verified_at = Column(DateTime(timezone=True))
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
@@ -103,6 +112,9 @@ class Touchpoint(Base):
     date = Column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc))
     duration_minutes = Column(Integer)
     location = Column(Text)
+    # --- AI governance (006) ---
+    channel_type = Column(Text)      # meeting | call | email | social | other
+    extracted_from = Column(Text)    # namecard | email | meeting | manual
     created_by = Column(UUID(as_uuid=True), ForeignKey("nexus_auth.nexus_auth_users.id", ondelete="SET NULL"))
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
@@ -131,6 +143,10 @@ class Task(Base):
     parent_task_id = Column(UUID(as_uuid=True), ForeignKey("nexus_crm.tasks.id", ondelete="SET NULL"))
     recurring = Column(Boolean, default=False)
     area = Column(Text)
+    # --- AI governance (006) ---
+    auto_suggested = Column(Boolean, default=False)
+    suggestion_confidence = Column(Numeric(4, 3))
+    linked_via_signal = Column(UUID(as_uuid=True))
     created_by = Column(UUID(as_uuid=True), ForeignKey("nexus_auth.nexus_auth_users.id", ondelete="SET NULL"))
     completed_at = Column(DateTime(timezone=True))
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
@@ -240,10 +256,15 @@ class NameCard(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     tenant_id = Column(UUID(as_uuid=True), ForeignKey("nexus_auth.nexus_auth_tenants.id", ondelete="CASCADE"), nullable=False)
     contact_id = Column(UUID(as_uuid=True), ForeignKey("nexus_crm.contacts.id", ondelete="SET NULL"))
-    image_url = Column(Text)
+    image_url = Column(Text)  # legacy: display image (kept for backward compat)
+    original_image_url = Column(Text)  # as-photographed original
+    cropped_image_url = Column(Text)   # perspective-corrected crop (NULL = crop failed/not verified)
+    display_image = Column(Text, default="cropped")  # 'original' | 'cropped' — which one UI shows
     raw_ocr_text = Column(Text)
     parsed_data = Column(JSON, default=lambda: {})
-    status = Column(Text, default="pending")  # pending, matched, created, ignored
+    review_candidates = Column(JSON, default=lambda: [])  # potential duplicates for user resolution
+    dedup_status = Column(Text)  # none | auto_matched | llm_review | unresolved | user_override
+    status = Column(Text, default="pending")  # pending, matched, created, review, ignored
     scanned_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     matched_by = Column(UUID(as_uuid=True), ForeignKey("nexus_auth.nexus_auth_users.id", ondelete="SET NULL"))
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
@@ -363,3 +384,32 @@ class ProjectCalendarEvent(Base):
     updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
     project = relationship("Project")
+
+
+class AiAgentLog(Base):
+    """AI agent execution audit trail — full reasoning chain per decision (migration 006).
+
+    One row per agent step in the pipeline (ingestion → extraction →
+    entity_resolution → enrichment → inference). Input/output snapshots keep
+    the evidence; user_decision records the human's final call for
+    calibration of confidence thresholds.
+    """
+    __tablename__ = "ai_agent_log"
+    __table_args__ = {"schema": "nexus_crm"}
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id = Column(UUID(as_uuid=True), ForeignKey("nexus_auth.nexus_auth_tenants.id", ondelete="CASCADE"), nullable=False)
+    signal_type = Column(Text, nullable=False)   # namecard | email | meeting | manual
+    signal_id = Column(UUID(as_uuid=True))        # triggering signal id (name_card.id …)
+    agent_name = Column(Text, nullable=False)     # ingestion | extraction | entity_resolution | enrichment | inference
+    agent_version = Column(Text)                  # prompt/model version tag
+    provider = Column(Text)                       # deepseek | perplexity | heuristic
+    model = Column(Text)                          # actual model name
+    input_snapshot = Column(JSON, default=lambda: {})
+    output_snapshot = Column(JSON, default=lambda: {})
+    confidence = Column(Numeric(4, 3))
+    decision = Column(Text)                       # auto_link | review | create | enrich | suggest
+    user_decision = Column(Text)                  # accept | reject | override | none
+    latency_ms = Column(Integer)
+    success = Column(Boolean, default=True)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))

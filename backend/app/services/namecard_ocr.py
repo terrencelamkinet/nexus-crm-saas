@@ -206,21 +206,7 @@ def ocr_image(image_path: str | Path, langs: str = "chi_tra+eng") -> str:
             pass
 
     def score(txt: str) -> float:
-        s = len(txt) * 0.05
-        if re.search(r"@", txt):
-            s += 300
-        if re.search(r"\b\+?\d{8,}\b", txt):
-            s += 150
-        if re.search(r"\.com|\.hk|www\.", txt):
-            s += 100
-        if re.search(r"\b(manager|director|sales|engineer|consultant|officer|account)\b", txt, re.I):
-            s += 50
-        cjk = sum(1 for ch in txt if "\u4e00" <= ch <= "\u9fff")
-        total_alpha = sum(1 for ch in txt if ch.isalpha())
-        if total_alpha and cjk / total_alpha > 0.4:
-            s -= 400
-        s -= sum(1 for ch in txt if ch in "|\\/=-_~*#@&%^") * 0.5
-        return s
+        return signal_score(txt)
 
     ranked = sorted(candidates, key=score, reverse=True)
     if not ranked or not ranked[0]:
@@ -276,6 +262,46 @@ _COMPANY_HINTS = (
 def _is_company(line: str) -> bool:
     low = line.lower()
     return any(h in low for h in _COMPANY_HINTS) and len(line) <= 50
+
+
+def signal_score(text: str) -> float:
+    """Signal-richness score of OCR text — email/phone/domain/title signals.
+
+    Shared by ocr_image() candidate ranking and verify_crop() baseline check.
+    """
+    s = len(text) * 0.05
+    if re.search(r"@", text):
+        s += 300
+    if re.search(r"\b\+?\d{8,}\b", text):
+        s += 150
+    if re.search(r"\.com|\.hk|www\.", text):
+        s += 100
+    if re.search(r"\b(manager|director|sales|engineer|consultant|officer|account)\b", text, re.I):
+        s += 50
+    cjk = sum(1 for ch in text if "\u4e00" <= ch <= "\u9fff")
+    total_alpha = sum(1 for ch in text if ch.isalpha())
+    if total_alpha and cjk / total_alpha > 0.4:
+        s -= 400
+    s -= sum(1 for ch in text if ch in "|\\/=-_~*#@&%^") * 0.5
+    return s
+
+
+def verify_crop(original_path: str | Path, cropped_path: str | Path,
+                min_ratio: float = 0.85) -> bool:
+    """OCR-based crop completeness check — did the crop cut anything off?
+
+    Baseline = signal score of the full original photo; the crop passes only
+    if it preserves >= min_ratio of that signal. A crop that clipped part of
+    the card (missing email / phone / name) scores lower and is rejected, so
+    the caller falls back to the original instead of storing a damaged crop.
+    """
+    orig_text = ocr_image(original_path)
+    crop_text = ocr_image(cropped_path)
+    base = signal_score(orig_text)
+    crop = signal_score(crop_text)
+    if base <= 0:
+        return crop > 0  # original unreadable → any readable crop is an improvement
+    return crop >= base * min_ratio
 
 
 def parse_namecard(raw_text: str) -> dict[str, Any]:

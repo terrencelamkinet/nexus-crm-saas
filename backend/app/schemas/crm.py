@@ -287,6 +287,9 @@ class NameCardCreate(BaseModel):
 
 class NameCardUpdate(BaseModel):
     image_url: Optional[str] = None
+    original_image_url: Optional[str] = None
+    cropped_image_url: Optional[str] = None
+    display_image: Optional[str] = None  # 'original' | 'cropped'
     raw_ocr_text: Optional[str] = None
     parsed_data: Optional[dict[str, Any]] = None
     status: Optional[str] = None
@@ -297,14 +300,23 @@ class NameCardResponse(BaseModel):
     id: UUID
     tenant_id: UUID
     image_url: Optional[str] = None
+    original_image_url: Optional[str] = None
+    cropped_image_url: Optional[str] = None
+    display_image: Optional[str] = None
     raw_ocr_text: Optional[str] = None
     parsed_data: Optional[dict[str, Any]] = None
+    review_candidates: Optional[list[dict[str, Any]]] = None
     status: Optional[str] = None
     contact_id: Optional[UUID] = None
     created_at: datetime
     updated_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class NameCardResolveRequest(BaseModel):
+    action: str  # 'overwrite' | 'keep_both'
+    contact_id: Optional[UUID] = None  # required for overwrite (existing contact)
 
 
 # ===========================================================================

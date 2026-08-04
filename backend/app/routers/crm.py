@@ -14,7 +14,7 @@ Every write operation (create / update / delete) records an ActivityLog row.
 """
 
 from uuid import UUID
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -39,6 +39,7 @@ from app.models.crm import (
     TouchpointParticipant,
 )
 from app.models.crm_module_b import Deal, DealStage
+from app.services import namecard_agents, namecard_llm
 from app.schemas.crm import (
     ActivityLogCreate,
     ActivityLogResponse,
@@ -53,6 +54,7 @@ from app.schemas.crm import (
     ListResponse,
     NameCardCreate,
     NameCardResponse,
+    NameCardResolveRequest,
     NameCardUpdate,
     NoteCreate,
     NoteResponse,
@@ -1369,101 +1371,170 @@ async def upload_name_card(
         raise HTTPException(status_code=400, detail="Empty file")
     abs_path.write_bytes(content)
 
-    image_url = f"/api/v1/crm/name-cards/image/{rel_path}"
+    original_image_url = f"/api/v1/crm/name-cards/image/{rel_path}"
+    image_url = original_image_url  # default display = original until crop verified
 
-    # 2. OCR
-    raw_text = namecard_ocr.ocr_image(abs_path)
+    # 2. Crop + OCR-verify: keep a crop only if it preserves card content.
+    from app.services import namecard_crop_pipeline
+    crop_result = namecard_crop_pipeline.crop_card_best(abs_path)
+    crop_path = None
+    cropped_image_url = None
+    if crop_result["crop"] is not None:
+        try:
+            crop_path = namecard_crop_pipeline.save_crop(crop_result["crop"], abs_path)
+            if namecard_ocr.verify_crop(abs_path, crop_path):
+                cropped_image_url = f"/api/v1/crm/name-cards/image/{crop_path.name}"
+            else:
+                crop_path.unlink(missing_ok=True)
+                crop_path = None
+        except OSError:
+            crop_path = None
+
+    # 3. OCR — use the verified crop when available (cleaner input → better parse)
+    ocr_source = crop_path if crop_path is not None else abs_path
+    raw_text = namecard_ocr.ocr_image(ocr_source)
     parsed = namecard_ocr.parse_namecard(raw_text) if raw_text else {}
 
-    # 3. Company match/create
+    # 3.5 Agent pipeline — Ingestion → Extraction (LLM JSON mode, fail-safe)
+    s1 = namecard_agents.ingestion_agent(raw_text, parsed, image_url)
+    await namecard_agents.persist_step(
+        db, tenant_id=tenant_id, signal_id=card_id, step=s1)
+    s2 = namecard_agents.extraction_agent(s1.output["signal"])
+    await namecard_agents.persist_step(
+        db, tenant_id=tenant_id, signal_id=card_id, step=s2)
+    parsed = s2.output["parsed"]
+
+    # 3. Company match/create (normalised exact → fuzzy → create + enrich)
     company_id = None
     company_name = (parsed.get("company") or "").strip()
+    comp = None
     if company_name:
-        comp = (
-            await db.execute(
-                select(Company).where(
-                    Company.tenant_id == tenant_id,
-                    func.lower(Company.name) == company_name.lower(),
+        _norm = namecard_llm.normalize_company_name(company_name)
+        if _norm:
+            comp = (
+                await db.execute(
+                    select(Company).where(
+                        Company.tenant_id == tenant_id,
+                        func.lower(Company.name) == company_name.lower(),
+                    )
                 )
-            )
-        ).scalar_one_or_none()
-        if comp is None:
-            comp = Company(tenant_id=tenant_id, workspace_id=workspace_id, name=company_name)
-            db.add(comp)
-            await db.flush()
-            await _log_activity(
-                db, tenant_id=tenant_id, actor_id=user_id,
-                action="created", entity_type="company", entity_id=comp.id,
-                summary=f"Created company '{company_name}' (from namecard)", workspace_id=workspace_id,
-            )
-        company_id = comp.id
+            ).scalar_one_or_none()
+            if comp is None and _norm:
+                # fuzzy: normalised name contains the other (case-insensitive)
+                comp_rows = (
+                    await db.execute(
+                        select(Company).where(Company.tenant_id == tenant_id)
+                    )
+                ).scalars().all()
+                for _c in comp_rows:
+                    _cn = namecard_llm.normalize_company_name(_c.name or "")
+                    if _cn and (_norm in _cn or _cn in _norm):
+                        comp = _c
+                        break
+    if company_name and comp is None:
+        # Enrichment Agent — web research (Perplexity; {} on failure)
+        s4 = namecard_agents.enrichment_agent(company_name)
+        await namecard_agents.persist_step(
+            db, tenant_id=tenant_id, signal_id=card_id, step=s4)
+        research = s4.output.get("research") or {}
+        comp = Company(
+            tenant_id=tenant_id, workspace_id=workspace_id, name=company_name,
+            website=research.get("website") or None,
+            industry=research.get("industry") or None,
+            address=research.get("address") or None,
+            size=research.get("size") or None,
+            notes=research.get("description") or None,
+            enriched_by_ai=bool(research),
+            enrichment_source_url=research.get("source_url") or None,
+            data_completeness_pct=namecard_agents.company_completeness_pct(
+                {"name": company_name, **research}),
+        )
+        db.add(comp)
+        await db.flush()
+        await _log_activity(
+            db, tenant_id=tenant_id, actor_id=user_id,
+            action="created", entity_type="company", entity_id=comp.id,
+            summary=f"Created company '{company_name}' (from namecard, web-enriched)",
+            workspace_id=workspace_id,
+        )
+    company_id = comp.id if comp else None
 
-    # 4. Contact dedup (email → phone → name) then create/link
+    # 4. Contact dedup — Entity Resolution Agent (3-layer, tiered routing)
     contact_id = None
     status = "pending"
+    dedup_status = "none"
+    review_candidates: list[dict] = []
     email = (parsed.get("email") or "").strip().lower()
     phone = (parsed.get("phone") or "").strip()
     person_name = (parsed.get("name") or "").strip()
 
-    existing = None
-    if email:
-        existing = (
-            await db.execute(
-                select(Contact).where(
-                    Contact.tenant_id == tenant_id,
-                    func.lower(Contact.email) == email,
-                )
-            )
-        ).scalar_one_or_none()
-    if existing is None and phone:
-        digits = "".join(ch for ch in phone if ch.isdigit())
-        if digits:
-            rows = (
-                await db.execute(
-                    select(Contact).where(
-                        Contact.tenant_id == tenant_id,
-                        or_(Contact.phone.isnot(None), Contact.office_phone.isnot(None)),
-                    )
-                )
-            ).scalars().all()
-            for c in rows:
-                c_digits = "".join(ch for ch in (c.phone or "") if ch.isdigit())
-                o_digits = "".join(ch for ch in (c.office_phone or "") if ch.isdigit())
-                if digits in c_digits or digits in o_digits:
-                    existing = c
-                    break
-    if existing is None and person_name:
-        existing = (
-            await db.execute(
-                select(Contact).where(
-                    Contact.tenant_id == tenant_id,
-                    func.lower(Contact.name) == person_name.lower(),
-                )
-            )
-        ).scalar_one_or_none()
+    # Gather tenant contacts once (with company names for the agent)
+    cand_rows = (
+        await db.execute(
+            select(Contact)
+            .options(selectinload(Contact.company))
+            .where(Contact.tenant_id == tenant_id)
+        )
+    ).scalars().all()
+    existing_contacts = [{
+        "id": str(c.id), "name": c.name, "chinese_name": c.chinese_name,
+        "job_title": c.job_title,
+        "company_id": str(c.company_id) if c.company_id else "",
+        "company_name": c.company.name if c.company else "",
+        "email": c.email, "phone": c.phone, "office_phone": c.office_phone,
+    } for c in cand_rows]
 
-    if existing is not None:
-        contact_id = existing.id
-        status = "matched"
-        # Backfill missing fields from the card (never overwrite existing)
-        updates = {}
-        if not existing.email and email:
-            updates["email"] = email
-        if not existing.phone and phone:
-            updates["phone"] = phone
-        if not existing.job_title and parsed.get("title"):
-            updates["job_title"] = parsed["title"]
-        if not existing.company_id and company_id:
-            updates["company_id"] = company_id
-        if updates:
-            for k, v in updates.items():
-                setattr(existing, k, v)
-            await _log_activity(
-                db, tenant_id=tenant_id, actor_id=user_id,
-                action="updated", entity_type="contact", entity_id=existing.id,
-                summary=f"Backfilled contact from namecard: {', '.join(updates)}", workspace_id=workspace_id,
-            )
+    s3 = namecard_agents.entity_resolution_agent(parsed, existing_contacts, company_id)
+    await namecard_agents.persist_step(
+        db, tenant_id=tenant_id, signal_id=card_id, step=s3)
+    resolution = s3.output
+    candidate = resolution.get("candidate")
+    conf = s3.confidence
+
+    if s3.decision == "auto_link" and candidate:
+        # HIGH tier (>0.95): exact match → auto link, log only
+        existing = next(
+            (c for c in cand_rows if str(c.id) == candidate["id"]), None)
+        if existing is not None:
+            contact_id = existing.id
+            status = "matched"
+            dedup_status = "auto_matched"
+            existing.dedup_status = "auto_matched"
+            existing.confidence_score = conf
+            existing.last_verified_at = datetime.now(timezone.utc)
+            existing.source_signal_id = card_id
+            # Backfill missing fields from the card (never overwrite existing)
+            updates = {}
+            if not existing.email and email:
+                updates["email"] = email
+            if not existing.phone and phone:
+                updates["phone"] = phone
+            if not existing.job_title and parsed.get("title"):
+                updates["job_title"] = parsed["title"]
+            if not existing.company_id and company_id:
+                updates["company_id"] = company_id
+            if updates:
+                for k, v in updates.items():
+                    setattr(existing, k, v)
+                await _log_activity(
+                    db, tenant_id=tenant_id, actor_id=user_id,
+                    action="updated", entity_type="contact", entity_id=existing.id,
+                    summary=f"Backfilled contact from namecard: {', '.join(updates)}", workspace_id=workspace_id,
+                )
+    elif s3.decision == "review" and candidate:
+        # MEDIUM tier (0.7-0.95): user decides override vs keep-both
+        status = "review"
+        dedup_status = "llm_review"
+        review_candidates = [{
+            "contact_id": candidate["id"],
+            "confidence": round(conf, 2),
+            "reason": resolution.get("reason", ""),
+            "name": candidate["name"], "email": candidate["email"],
+            "phone": candidate["phone"], "company": candidate["company"],
+            "title": candidate["title"],
+        }]
     elif person_name:
+        # LOW tier / no candidates — create (flag unresolved when weak)
         contact = Contact(
             tenant_id=tenant_id,
             workspace_id=workspace_id,
@@ -1477,6 +1548,10 @@ async def upload_name_card(
             address=(parsed.get("address") or "").strip() or None,
             source="namecard",
             namecard_path=image_url,
+            source_signal_id=card_id,
+            confidence_score=conf if conf else None,
+            dedup_status="unresolved" if resolution.get("tier") == "low" else "none",
+            last_verified_at=datetime.now(timezone.utc),
             custom_fields={
                 "namecard_website": parsed.get("website") or "",
                 "namecard_linkedin": parsed.get("linkedin") or "",
@@ -1486,19 +1561,60 @@ async def upload_name_card(
         await db.flush()
         contact_id = contact.id
         status = "created"
+        # LOW tier weak hint → surface candidate for later manual review
+        if resolution.get("tier") == "low" and candidate:
+            review_candidates = [{
+                "contact_id": candidate["id"],
+                "confidence": round(conf, 2),
+                "reason": resolution.get("reason", ""),
+                "name": candidate["name"], "email": candidate["email"],
+                "phone": candidate["phone"], "company": candidate["company"],
+                "title": candidate["title"],
+            }]
         await _log_activity(
             db, tenant_id=tenant_id, actor_id=user_id,
             action="created", entity_type="contact", entity_id=contact.id,
             summary=f"Created contact '{person_name}' from namecard", workspace_id=workspace_id,
         )
 
+    # 4.5 AI context suggestion — could this person have been met recently?
+    context_note = ""
+    try:
+        recent_tps = (
+            await db.execute(
+                select(Touchpoint).where(
+                    Touchpoint.tenant_id == tenant_id,
+                    Touchpoint.type.in_(["meeting", "call", "event"]),
+                    Touchpoint.date >= datetime.now(timezone.utc) - timedelta(days=30),
+                ).order_by(Touchpoint.date.desc()).limit(10)
+            )
+        ).scalars().all()
+        if recent_tps:
+            _events = [{"title": t.title, "date": str(t.date),
+                        "location": t.location or ""} for t in recent_tps]
+            s5 = namecard_agents.inference_agent(parsed, _events)
+            await namecard_agents.persist_step(
+                db, tenant_id=tenant_id, signal_id=card_id, step=s5)
+            if s5.output.get("suggestion"):
+                context_note = s5.output["suggestion"]
+                parsed["context_note"] = context_note
+                parsed["context_match"] = s5.output.get("matched_event") or ""
+    except Exception:  # noqa: BLE001 — enrichment never breaks upload
+        context_note = ""
+
     # 5. Store NameCard row
     name_card = NameCard(
+        id=card_id,
         tenant_id=tenant_id,
         contact_id=contact_id,
         image_url=image_url,
+        original_image_url=original_image_url,
+        cropped_image_url=cropped_image_url,
+        display_image="cropped" if cropped_image_url else "original",
         raw_ocr_text=raw_text,
         parsed_data=parsed,
+        review_candidates=review_candidates if status == "review" else [],
+        dedup_status=dedup_status,
         status=status,
         matched_by=user_id,
     )
@@ -1571,6 +1687,16 @@ async def update_name_card(
 
     changes = {}
     for field, value in body.model_dump(exclude_unset=True).items():
+        if field == "display_image":
+            if value not in ("original", "cropped"):
+                raise HTTPException(status_code=422, detail="display_image must be 'original' or 'cropped'")
+            target_url = name_card.original_image_url if value == "original" else name_card.cropped_image_url
+            if not target_url:
+                raise HTTPException(status_code=422, detail=f"No {value} image exists on this card")
+            name_card.display_image = value
+            name_card.image_url = target_url  # keep legacy field in sync
+            changes[field] = str(value)
+            continue
         setattr(name_card, field, value)
         changes[field] = str(value)
 
@@ -1625,9 +1751,280 @@ async def delete_name_card(
     return None
 
 
-# ===========================================================================
-# NOTES
-# ===========================================================================
+def _resolve_image_file(url: str | None) -> Path | None:
+    """Map a stored image URL to its file on disk (name-guarded)."""
+    if not url:
+        return None
+    path = UPLOAD_DIR / Path(url.rsplit("/", 1)[-1]).name
+    return path if path.is_file() else None
+
+
+@router.delete("/name-cards/{name_card_id}/image/{variant}", response_model=NameCardResponse)
+async def delete_name_card_image(
+    request: Request,
+    name_card_id: UUID,
+    variant: str,
+    db: AsyncSession = Depends(get_tenant_session),
+):
+    """Delete one image version (original | cropped).
+
+    The remaining version automatically becomes the default; if both are gone
+    the card has no image at all.
+    """
+    if variant not in ("original", "cropped"):
+        raise HTTPException(status_code=422, detail="variant must be 'original' or 'cropped'")
+    tenant_id = _get_tenant_id(request)
+    user_id = _get_user_id(request)
+
+    result = await db.execute(
+        select(NameCard).where(NameCard.id == name_card_id, NameCard.tenant_id == tenant_id)
+    )
+    name_card = result.scalar_one_or_none()
+    if not name_card:
+        raise HTTPException(status_code=404, detail="NameCard not found")
+
+    url = name_card.original_image_url if variant == "original" else name_card.cropped_image_url
+    if not url:
+        raise HTTPException(status_code=404, detail=f"No {variant} image on this card")
+
+    fpath = _resolve_image_file(url)
+    if fpath is not None:
+        try:
+            fpath.unlink()
+        except OSError:
+            pass
+
+    if variant == "original":
+        name_card.original_image_url = None
+    else:
+        name_card.cropped_image_url = None
+
+    # Auto-switch default: the remaining version wins; none left → no image.
+    remaining = name_card.cropped_image_url if variant == "original" else name_card.original_image_url
+    if remaining:
+        name_card.display_image = "cropped" if name_card.cropped_image_url else "original"
+        name_card.image_url = remaining
+    else:
+        name_card.display_image = None
+        name_card.image_url = None
+
+    name_card.updated_at = datetime.now(timezone.utc)
+
+    await _log_activity(
+        db,
+        tenant_id=tenant_id,
+        actor_id=user_id,
+        action="updated",
+        entity_type="name_card",
+        entity_id=name_card.id,
+        summary=f"Deleted {variant} image from name card",
+        changes={"image_removed": variant, "display_image": name_card.display_image},
+    )
+
+    await db.flush()
+    await db.refresh(name_card)
+    return name_card
+
+
+@router.post("/name-cards/{name_card_id}/recrop", response_model=NameCardResponse)
+async def recrop_name_card(
+    request: Request,
+    name_card_id: UUID,
+    db: AsyncSession = Depends(get_tenant_session),
+):
+    """(Re)generate the cropped version for an existing card, OCR-verified."""
+    from app.services import namecard_crop_pipeline
+    from app.services import namecard_ocr
+
+    tenant_id = _get_tenant_id(request)
+    user_id = _get_user_id(request)
+
+    result = await db.execute(
+        select(NameCard).where(NameCard.id == name_card_id, NameCard.tenant_id == tenant_id)
+    )
+    name_card = result.scalar_one_or_none()
+    if not name_card:
+        raise HTTPException(status_code=404, detail="NameCard not found")
+
+    src_path = _resolve_image_file(name_card.original_image_url or name_card.image_url)
+    if src_path is None:
+        raise HTTPException(status_code=404, detail="Source image file missing")
+
+    crop_result = namecard_crop_pipeline.crop_card_best(src_path)
+    if crop_result["crop"] is None:
+        raise HTTPException(status_code=422, detail=f"Crop failed ({crop_result['method']})")
+
+    crop_path = namecard_crop_pipeline.save_crop(crop_result["crop"], src_path)
+    if not namecard_ocr.verify_crop(src_path, crop_path):
+        crop_path.unlink(missing_ok=True)
+        raise HTTPException(
+            status_code=422,
+            detail="Crop rejected: OCR verification found content cut off",
+        )
+
+    cropped_url = f"/api/v1/crm/name-cards/image/{crop_path.name}"
+    name_card.cropped_image_url = cropped_url
+    if name_card.display_image != "original":
+        name_card.display_image = "cropped"
+        name_card.image_url = cropped_url
+    name_card.updated_at = datetime.now(timezone.utc)
+
+    await _log_activity(
+        db,
+        tenant_id=tenant_id,
+        actor_id=user_id,
+        action="updated",
+        entity_type="name_card",
+        entity_id=name_card.id,
+        summary=f"Regenerated crop ({crop_result['method']})",
+        changes={"cropped_image_url": cropped_url, "method": crop_result["method"]},
+    )
+
+    await db.flush()
+    await db.refresh(name_card)
+    return name_card
+
+
+@router.post("/name-cards/{name_card_id}/resolve", response_model=NameCardResponse)
+async def resolve_name_card(
+    request: Request,
+    name_card_id: UUID,
+    body: NameCardResolveRequest,
+    db: AsyncSession = Depends(get_tenant_session),
+):
+    """User decision on a review-status card (LLM flagged potential duplicate).
+
+    action='overwrite' → update the existing contact with card data.
+    action='keep_both' → create a new contact (keep both records).
+    """
+    if body.action not in ("overwrite", "keep_both"):
+        raise HTTPException(status_code=422, detail="action must be 'overwrite' or 'keep_both'")
+    tenant_id = _get_tenant_id(request)
+    user_id = _get_user_id(request)
+
+    result = await db.execute(
+        select(NameCard).where(NameCard.id == name_card_id, NameCard.tenant_id == tenant_id)
+    )
+    name_card = result.scalar_one_or_none()
+    if not name_card:
+        raise HTTPException(status_code=404, detail="NameCard not found")
+    if name_card.status != "review" or not name_card.review_candidates:
+        raise HTTPException(status_code=422, detail="Card is not awaiting review")
+
+    parsed = name_card.parsed_data or {}
+    email = (parsed.get("email") or "").strip().lower()
+    phone = (parsed.get("phone") or "").strip()
+    person_name = (parsed.get("name") or "").strip()
+    cand = name_card.review_candidates[0]
+    target_id = body.contact_id or UUID(cand["contact_id"])
+
+    if body.action == "overwrite":
+        existing = (
+            await db.execute(
+                select(Contact).where(Contact.id == target_id, Contact.tenant_id == tenant_id)
+            )
+        ).scalar_one_or_none()
+        if not existing:
+            raise HTTPException(status_code=404, detail="Target contact not found")
+        updates = []
+        if parsed.get("name"):
+            existing.name = parsed["name"]; updates.append("name")
+        if parsed.get("chinese_name"):
+            existing.chinese_name = parsed["chinese_name"]; updates.append("chinese_name")
+        if email:
+            existing.email = email; updates.append("email")
+        if phone:
+            existing.phone = phone; updates.append("phone")
+        if parsed.get("title"):
+            existing.job_title = parsed["title"]; updates.append("job_title")
+        if parsed.get("address"):
+            existing.address = parsed["address"]; updates.append("address")
+        cf = dict(existing.custom_fields or {})
+        if parsed.get("website"):
+            cf["namecard_website"] = parsed["website"]
+        if parsed.get("linkedin"):
+            cf["namecard_linkedin"] = parsed["linkedin"]
+        existing.custom_fields = cf
+        contact_id = existing.id
+        await _log_activity(
+            db, tenant_id=tenant_id, actor_id=user_id,
+            action="updated", entity_type="contact", entity_id=existing.id,
+            summary=f"Overwrote contact from namecard review: {', '.join(updates) or 'custom_fields'}",
+            workspace_id=getattr(request.state, "workspace_id", None),
+        )
+        new_status = "matched"
+    else:  # keep_both — create a fresh contact, leave the existing one untouched
+        contact = Contact(
+            tenant_id=tenant_id,
+            workspace_id=getattr(request.state, "workspace_id", None),
+            name=person_name,
+            chinese_name=(parsed.get("chinese_name") or "").strip() or None,
+            email=email or None,
+            phone=phone or None,
+            job_title=(parsed.get("title") or "").strip() or None,
+            address=(parsed.get("address") or "").strip() or None,
+            source="namecard",
+            namecard_path=name_card.image_url,
+            custom_fields={
+                "namecard_website": parsed.get("website") or "",
+                "namecard_linkedin": parsed.get("linkedin") or "",
+            },
+        )
+        db.add(contact)
+        await db.flush()
+        contact_id = contact.id
+        await _log_activity(
+            db, tenant_id=tenant_id, actor_id=user_id,
+            action="created", entity_type="contact", entity_id=contact.id,
+            summary=f"Created contact '{person_name}' (kept both from namecard review)",
+            workspace_id=getattr(request.state, "workspace_id", None),
+        )
+        new_status = "created"
+
+    name_card.contact_id = contact_id
+    name_card.status = new_status
+    name_card.review_candidates = []
+    name_card.dedup_status = "user_override"
+    name_card.matched_by = user_id
+    name_card.updated_at = datetime.now(timezone.utc)
+
+    # Record the human's decision on the entity-resolution step (audit + calibration)
+    user_decision = "accept" if body.action == "overwrite" else "reject"
+    try:
+        await db.execute(
+            text(
+                "UPDATE nexus_crm.ai_agent_log "
+                "SET user_decision = :ud WHERE signal_id = :sid "
+                "AND agent_name = 'entity_resolution'"
+            ),
+            {"ud": user_decision, "sid": name_card.id},
+        )
+        # Mark the contact's dedup status resolved
+        await db.execute(
+            text(
+                "UPDATE nexus_crm.contacts SET dedup_status = :ds, "
+                "last_verified_at = now() WHERE id = :cid"
+            ),
+            {"ds": "user_override" if body.action == "overwrite" else "none",
+             "cid": contact_id},
+        )
+    except Exception:  # noqa: BLE001 — audit write must never fail the resolve
+        pass
+
+    await _log_activity(
+        db,
+        tenant_id=tenant_id,
+        actor_id=user_id,
+        action="updated",
+        entity_type="name_card",
+        entity_id=name_card.id,
+        summary=f"Resolved namecard review → {body.action}",
+        changes={"action": body.action, "status": new_status},
+    )
+
+    await db.flush()
+    await db.refresh(name_card)
+    return name_card
 
 
 @router.get("/notes", response_model=ListResponse[NoteResponse])

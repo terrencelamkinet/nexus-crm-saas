@@ -1,5 +1,5 @@
-import { useRef, useState } from 'react';
-import { ChevronRight, Upload, X, Loader2, Link2, UserPlus, FileWarning } from 'lucide-react';
+import { useRef, useState, useEffect } from 'react';
+import { ChevronRight, Upload, X, Loader2, Link2, UserPlus, FileWarning, Trash2, Check, Wand2, ZoomIn } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useApi, CardSkeleton, ErrorBox } from '../lib/useApi';
@@ -13,9 +13,13 @@ interface NameCard {
   phone: string | null;
   email: string | null;
   image_url: string | null;
+  original_image_url: string | null;
+  cropped_image_url: string | null;
+  display_image: string | null; // 'original' | 'cropped'
   raw_ocr_text: string | null;
   parsed_data: Record<string, any> | null;
-  status: string; // pending | matched | created
+  review_candidates: any[] | null;
+  status: string; // pending | matched | created | review
   contact_id: string | null;
   created_at: string;
 }
@@ -28,6 +32,7 @@ interface NameCardListResponse {
 const STATUS_META: Record<string, { icon: React.ReactNode; label: string; color: string }> = {
   created: { icon: <UserPlus size={13} />, label: '已建立聯絡人', color: 'var(--color-success)' },
   matched: { icon: <Link2 size={13} />, label: '已連結聯絡人', color: 'var(--color-primary)' },
+  review: { icon: <FileWarning size={13} />, label: '⚠️ 待確認', color: 'var(--color-warning, #b58a2a)' },
   pending: { icon: <FileWarning size={13} />, label: '待處理', color: 'var(--color-warning, #b58a2a)' },
 };
 
@@ -71,6 +76,98 @@ export default function NameCardsPage() {
       setSelected(card);
     }
   };
+
+  // ── Dual-image helpers ────────────────────────────────────────────────
+  const displayUrl = (card: NameCard) =>
+    card.display_image === 'cropped' && card.cropped_image_url
+      ? card.cropped_image_url
+      : (card.original_image_url || card.image_url || undefined);
+
+  const refreshDetail = async (cardId: string) => {
+    try {
+      const detail = await apiClient.get<NameCard>(`/api/v1/crm/name-cards/${cardId}`);
+      setSelected(detail);
+      refresh();
+    } catch { /* keep current */ }
+  };
+
+  const setDefault = async (variant: 'original' | 'cropped') => {
+    if (!selected) return;
+    try {
+      await apiClient.patch(`/api/v1/crm/name-cards/${selected.id}`, { display_image: variant });
+      await refreshDetail(selected.id);
+    } catch (e: any) {
+      alert(e?.detail || e?.message || '設定失敗');
+    }
+  };
+
+  const deleteImage = async (variant: 'original' | 'cropped') => {
+    if (!selected) return;
+    const label = variant === 'original' ? '原裝' : '裁剪版';
+    if (!window.confirm(`刪除${label}圖片？刪除後另一張會自動成為預設。`)) return;
+    try {
+      await apiClient.delete(`/api/v1/crm/name-cards/${selected.id}/image/${variant}`);
+      await refreshDetail(selected.id);
+    } catch (e: any) {
+      alert(e?.detail || e?.message || '刪除失敗');
+    }
+  };
+
+  const deleteAllImages = async () => {
+    if (!selected) return;
+    if (!window.confirm('刪除全部圖片？此動作無法復原。')) return;
+    try {
+      const id = selected.id;
+      if (selected.cropped_image_url) await apiClient.delete(`/api/v1/crm/name-cards/${id}/image/cropped`);
+      if (selected.original_image_url) await apiClient.delete(`/api/v1/crm/name-cards/${id}/image/original`);
+      await refreshDetail(id);
+    } catch (e: any) {
+      alert(e?.detail || e?.message || '刪除失敗');
+    }
+  };
+
+  const recrop = async () => {
+    if (!selected) return;
+    setBusy(true);
+    try {
+      await apiClient.post(`/api/v1/crm/name-cards/${selected.id}/recrop`);
+      await refreshDetail(selected.id);
+    } catch (e: any) {
+      alert(e?.detail || e?.message || '裁剪失敗');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const resolveReview = async (action: 'overwrite' | 'keep_both') => {
+    if (!selected || !selected.review_candidates?.length) return;
+    const cand = selected.review_candidates[0];
+    const label = action === 'overwrite' ? '覆蓋現有聯絡人' : '兩者保存';
+    if (!window.confirm(`${label}？確定執行？`)) return;
+    setBusy(true);
+    try {
+      await apiClient.post(`/api/v1/crm/name-cards/${selected.id}/resolve`, {
+        action,
+        contact_id: action === 'overwrite' ? cand.contact_id : undefined,
+      });
+      await refreshDetail(selected.id);
+    } catch (e: any) {
+      alert(e?.detail || e?.message || '操作失敗');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const [busy, setBusy] = useState(false);
+  const [zoomImage, setZoomImage] = useState<string | null>(null);
+
+  // Close lightbox on Escape
+  useEffect(() => {
+    if (!zoomImage) return;
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setZoomImage(null);
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [zoomImage]);
 
   return (
     <div className="page-content">
@@ -130,15 +227,124 @@ export default function NameCardsPage() {
               <button className="modal-x" onClick={() => setSelected(null)} aria-label="Close"><X size={18} /></button>
             </div>
             <div className="modal-body">
-              {selected.image_url && (
-                <div style={{ textAlign: 'center', marginBottom: 14 }}>
-                  <img
-                    src={selected.image_url}
-                    alt="namecard"
-                    style={{ maxWidth: '100%', maxHeight: 240, borderRadius: 8, border: '1px solid var(--color-divider)' }}
-                  />
+              {/* Dual-image viewer: original + cropped side by side */}
+              {(selected.original_image_url || selected.cropped_image_url) && (
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 14 }}>
+                  {selected.original_image_url && (
+                    <div style={{ border: '1px solid var(--color-divider)', borderRadius: 8, overflow: 'hidden' }}>
+                      <div style={{ position: 'relative', minHeight: 150, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--color-surface-dynamic)' }}>
+                        <img
+                          src={selected.original_image_url}
+                          alt="原裝名片"
+                          style={{ maxWidth: '100%', maxHeight: 170, objectFit: 'contain', cursor: 'zoom-in' }}
+                          onClick={() => setZoomImage(selected.original_image_url!)}
+                        />
+                        <span style={{ position: 'absolute', bottom: 6, right: 6, display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 10.5, color: 'var(--color-text-muted)', background: 'rgba(255,255,255,0.75)', borderRadius: 999, padding: '2px 7px' }}>
+                          <ZoomIn size={11} /> 放大
+                        </span>
+                        {selected.display_image === 'original' && (
+                          <span style={{ position: 'absolute', top: 6, left: 6, display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 11, fontWeight: 600, color: '#fff', background: 'var(--color-success)', borderRadius: 999, padding: '2px 8px' }}>
+                            <Check size={11} /> 預設
+                          </span>
+                        )}
+                      </div>
+                      <div style={{ padding: '7px 9px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6 }}>
+                        <span style={{ fontSize: 12, fontWeight: 600 }}>🖼 原裝</span>
+                        <div style={{ display: 'flex', gap: 4 }}>
+                          {selected.display_image !== 'original' && (
+                            <button className="btn-ghost" style={{ fontSize: 11.5, padding: '3px 8px' }} onClick={() => setDefault('original')}>設為預設</button>
+                          )}
+                          <button className="btn-ghost" style={{ fontSize: 11.5, padding: '3px 8px', color: 'var(--color-error, #ab4b59)' }} onClick={() => deleteImage('original')} aria-label="刪除原裝">
+                            <Trash2 size={13} />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  {selected.cropped_image_url && (
+                    <div style={{ border: '1px solid var(--color-divider)', borderRadius: 8, overflow: 'hidden' }}>
+                      <div style={{ position: 'relative', minHeight: 150, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--color-surface-dynamic)' }}>
+                        <img
+                          src={selected.cropped_image_url}
+                          alt="裁剪版名片"
+                          style={{ maxWidth: '100%', maxHeight: 170, objectFit: 'contain', cursor: 'zoom-in' }}
+                          onClick={() => setZoomImage(selected.cropped_image_url!)}
+                        />
+                        <span style={{ position: 'absolute', bottom: 6, right: 6, display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 10.5, color: 'var(--color-text-muted)', background: 'rgba(255,255,255,0.75)', borderRadius: 999, padding: '2px 7px' }}>
+                          <ZoomIn size={11} /> 放大
+                        </span>
+                        {selected.display_image === 'cropped' && (
+                          <span style={{ position: 'absolute', top: 6, left: 6, display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 11, fontWeight: 600, color: '#fff', background: 'var(--color-success)', borderRadius: 999, padding: '2px 8px' }}>
+                            <Check size={11} /> 預設
+                          </span>
+                        )}
+                      </div>
+                      <div style={{ padding: '7px 9px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6 }}>
+                        <span style={{ fontSize: 12, fontWeight: 600 }}>✂️ 裁剪版</span>
+                        <div style={{ display: 'flex', gap: 4 }}>
+                          {selected.display_image !== 'cropped' && (
+                            <button className="btn-ghost" style={{ fontSize: 11.5, padding: '3px 8px' }} onClick={() => setDefault('cropped')}>設為預設</button>
+                          )}
+                          <button className="btn-ghost" style={{ fontSize: 11.5, padding: '3px 8px', color: 'var(--color-error, #ab4b59)' }} onClick={() => deleteImage('cropped')} aria-label="刪除裁剪版">
+                            <Trash2 size={13} />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
+              {/* No crop yet → offer to generate one (legacy cards fall back to image_url) */}
+              {(selected.original_image_url || selected.image_url) && !selected.cropped_image_url && (
+                <div style={{ textAlign: 'center', marginBottom: 14 }}>
+                  <button className="btn-ghost" style={{ fontSize: 12.5 }} onClick={recrop} disabled={busy}>
+                    {busy ? <Loader2 size={13} className="spin" style={{ verticalAlign: -2 }} /> : <Wand2 size={13} style={{ verticalAlign: -2 }} />} 生成裁剪版
+                  </button>
+                </div>
+              )}
+              {/* Delete everything */}
+              {(selected.original_image_url || selected.cropped_image_url) && (
+                <div style={{ textAlign: 'center', marginBottom: 14 }}>
+                  <button className="btn-ghost" style={{ fontSize: 12.5, color: 'var(--color-error, #ab4b59)' }} onClick={deleteAllImages}>
+                    <Trash2 size={13} style={{ verticalAlign: -2 }} /> 刪除全部圖片
+                  </button>
+                </div>
+              )}
+              {/* LLM duplicate review — user decides overwrite vs keep both */}
+              {selected.status === 'review' && (selected.review_candidates ?? []).length > 0 && (() => {
+                const cand = (selected.review_candidates ?? [])[0];
+                const pd = selected.parsed_data || {};
+                return (
+                  <div style={{ border: '1px solid var(--color-warning, #b58a2a)', borderRadius: 8, padding: 12, marginBottom: 14, background: 'rgba(181,138,42,0.06)' }}>
+                    <p style={{ fontSize: 13, fontWeight: 600, marginBottom: 4 }}>⚠️ 可能係重複聯絡人</p>
+                    <p style={{ fontSize: 12.5, color: 'var(--color-text-muted)', marginBottom: 10 }}>
+                      AI 發現呢張卡可能同現有聯絡人相同{cand.reason ? ` — ${cand.reason}` : ''}
+                    </p>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, fontSize: 12.5, marginBottom: 10 }}>
+                      <div style={{ padding: 8, background: 'var(--color-surface-offset)', borderRadius: 6 }}>
+                        <p style={{ fontWeight: 600, marginBottom: 4 }}>現有聯絡人</p>
+                        <p>{cand.name || '—'}</p>
+                        <p style={{ color: 'var(--color-text-muted)', wordBreak: 'break-all' }}>{cand.email || '—'} · {cand.phone || '—'}</p>
+                        <p style={{ color: 'var(--color-text-muted)' }}>{cand.company || cand.title || ''}</p>
+                      </div>
+                      <div style={{ padding: 8, background: 'var(--color-surface-offset)', borderRadius: 6 }}>
+                        <p style={{ fontWeight: 600, marginBottom: 4 }}>名片資料</p>
+                        <p>{pd.name || '—'}</p>
+                        <p style={{ color: 'var(--color-text-muted)', wordBreak: 'break-all' }}>{pd.email || '—'} · {pd.phone || '—'}</p>
+                        <p style={{ color: 'var(--color-text-muted)' }}>{pd.company || pd.title || ''}</p>
+                      </div>
+                    </div>
+                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                      <button className="btn-primary" style={{ fontSize: 12.5, padding: '6px 12px' }} disabled={busy} onClick={() => resolveReview('overwrite')}>
+                        覆蓋現有聯絡人
+                      </button>
+                      <button className="btn-ghost" style={{ fontSize: 12.5, padding: '6px 12px' }} disabled={busy} onClick={() => resolveReview('keep_both')}>
+                        兩者保存
+                      </button>
+                    </div>
+                  </div>
+                );
+              })()}
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 12 }}>
                 {(() => {
                   const meta = STATUS_META[selected.status] || STATUS_META.pending;
@@ -185,6 +391,30 @@ export default function NameCardsPage() {
         </div>
       )}
 
+      {/* Lightbox: click-to-zoom fullscreen view — contain fit keeps aspect ratio */}
+      {zoomImage && (
+        <div
+          style={{ position: 'fixed', inset: 0, zIndex: 2000, background: 'rgba(0,0,0,0.88)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'zoom-out' }}
+          onClick={() => setZoomImage(null)}
+          role="dialog"
+          aria-modal="true"
+        >
+          <img
+            src={zoomImage}
+            alt="名片放大檢視"
+            style={{ maxWidth: '94vw', maxHeight: '90vh', objectFit: 'contain', borderRadius: 4, boxShadow: '0 8px 40px rgba(0,0,0,0.5)' }}
+            onClick={e => e.stopPropagation()}
+          />
+          <button
+            onClick={() => setZoomImage(null)}
+            aria-label="關閉"
+            style={{ position: 'fixed', top: 14, right: 14, width: 38, height: 38, borderRadius: '50%', border: 'none', background: 'rgba(255,255,255,0.15)', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+          >
+            <X size={20} />
+          </button>
+        </div>
+      )}
+
       {loading ? (
         <CardSkeleton count={6} />
       ) : error ? (
@@ -203,9 +433,9 @@ export default function NameCardsPage() {
             return (
               <div key={card.id} className="panel" style={{ cursor: 'pointer', overflow: 'hidden' }} onClick={() => openCard(card)}>
                 <div style={{ height: 170, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--color-surface-dynamic)', position: 'relative' }}>
-                  {card.image_url ? (
+                  {displayUrl(card) ? (
                     <img
-                      src={card.image_url}
+                      src={displayUrl(card)}
                       alt={card.name}
                       style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }}
                       loading="lazy"
