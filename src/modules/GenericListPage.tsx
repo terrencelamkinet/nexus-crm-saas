@@ -155,11 +155,21 @@ const [filters, setFilters] = useState<Record<string, FilterEntry>>(() => ({ ...
       const ms = settings?.find(s => s.module_key === filterModuleKey)
       if (ms?.settings?.filterPreset) {
         const p = ms.settings.filterPreset
-        if (p.filters) setFilters({ ...((config as any).defaultFilters || {}), ...p.filters })
-        if (p.query) setQuery(p.query)
-        if (p.sortBy) { setSortBy(p.sortBy); setSortOrder(p.sortOrder || 'desc') }
-        if (p.visibleCols) setVisibleCols(p.visibleCols)
-        if (p.view) setView(p.view)
+        // Defensive: preset comes from the tenant DB and may be stale/malformed (older app
+        // versions, manual edits). A non-array visibleCols used to crash GenericListPage at
+        // render (visibleCols.filter) and blank the whole app (no error boundary) — which
+        // surfaced as the toolbar/menu bar losing its buttons. Validate types before applying.
+        const VALID_VIEWS = ['table', 'gallery', 'board', 'kanban'] as const
+        if (p.filters && typeof p.filters === 'object' && !Array.isArray(p.filters))
+          setFilters({ ...((config as any).defaultFilters || {}), ...p.filters })
+        if (typeof p.query === 'string') setQuery(p.query)
+        if (typeof p.sortBy === 'string' && p.sortBy) { setSortBy(p.sortBy); setSortOrder(p.sortOrder === 'asc' ? 'asc' : 'desc') }
+        if (Array.isArray(p.visibleCols) && p.visibleCols.length > 0) {
+          const known = new Set(config.fields.map(f => f.key))
+          const cols = p.visibleCols.filter((c: any) => typeof c === 'string' && known.has(c))
+          if (cols.length > 0) setVisibleCols(cols)
+        }
+        if (p.view && (VALID_VIEWS as readonly string[]).includes(p.view)) setView(p.view)
       }
     } catch { /* no-op — use defaults */ }
   }, [filterModuleKey])
