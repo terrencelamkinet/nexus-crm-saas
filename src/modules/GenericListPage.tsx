@@ -364,8 +364,7 @@ const [filters, setFilters] = useState<Record<string, FilterEntry>>({})
         if (href) {
           return (
             <a href={href} onClick={e => { e.preventDefault(); e.stopPropagation(); navigate(href) }}
-              className="badge badge-p3"
-              style={{ color: 'var(--color-primary)', cursor: 'pointer', textDecoration: 'none' }}>
+              className="badge badge-p3 glp-rel-link">
               {item[fieldKey].name || item[fieldKey].title || item[fieldKey].id}
             </a>
           )
@@ -395,13 +394,13 @@ const [filters, setFilters] = useState<Record<string, FilterEntry>>({})
           <p>{total} {t('pages.' + filterModuleKey + '.title').toLowerCase()}</p>
         </div>
         <div className="header-actions">
-          <button className="btn-secondary" title={t('common.export')} style={{ width: 36, height: 36, padding: 0, justifyContent: 'center' }}>
+          <button className="btn-secondary glp-icon-btn" title={t('common.export')}>
             <Download className="w-4 h-4" />
           </button>
-          <button className="btn-secondary" title="Upload" style={{ width: 36, height: 36, padding: 0, justifyContent: 'center' }}>
+          <button className="btn-secondary glp-icon-btn" title="Upload">
             <Upload className="w-4 h-4" />
           </button>
-          <button onClick={openCreate} className="btn-primary" title={t('pages.' + filterModuleKey + '.new')} style={{ width: 36, height: 36, padding: 0, justifyContent: 'center' }}>
+          <button onClick={openCreate} className="btn-primary glp-icon-btn" title={t('pages.' + filterModuleKey + '.new')}>
             <Plus className="w-4 h-4" />
           </button>
         </div>
@@ -449,26 +448,25 @@ const [filters, setFilters] = useState<Record<string, FilterEntry>>({})
           <div className="toolbar-popover-layer">
             {sortOpen && (
               <div className="sort-panel">
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                  <select value={sortField} onChange={e => setSortField(e.target.value)} className="input-field"
-                    style={{ fontSize: '12px', padding: '6px 8px' }}>
+                <div className="glp-sort-body">
+                  <select value={sortField} onChange={e => setSortField(e.target.value)} className="input-field glp-sort-select">
                     <option value="">{t('filter.sortBy')}</option>
                     {config.fields.filter(f => f.sortable !== false).map(f => (
                       <option key={f.key} value={f.key}>{f.label}</option>
                     ))}
                   </select>
-                  <div style={{ display: 'flex', gap: '6px' }}>
-                    <button className={`${sortOrder === 'asc' ? 'btn-primary' : 'btn-ghost'}`}
-                      onClick={() => setSortOrder('asc')} style={{ flex: 1, height: '30px', fontSize: '12px', padding: '0 8px' }}>{t('filter.ascending')}</button>
-                    <button className={`${sortOrder === 'desc' ? 'btn-primary' : 'btn-ghost'}`}
-                      onClick={() => setSortOrder('desc')} style={{ flex: 1, height: '30px', fontSize: '12px', padding: '0 8px' }}>{t('filter.descending')}</button>
+                  <div className="glp-sort-op-row">
+                    <button className={`${sortOrder === 'asc' ? 'btn-primary' : 'btn-ghost'} glp-sort-op-btn`}
+                      onClick={() => setSortOrder('asc')}>{t('filter.ascending')}</button>
+                    <button className={`${sortOrder === 'desc' ? 'btn-primary' : 'btn-ghost'} glp-sort-op-btn`}
+                      onClick={() => setSortOrder('desc')}>{t('filter.descending')}</button>
                   </div>
-                  <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end', borderTop: '1px solid var(--color-divider)', paddingTop: '8px' }}>
-                    <button className="btn-ghost" style={{ fontSize: '12px', padding: '4px 10px' }}
+                  <div className="glp-sort-footer">
+                    <button className="btn-ghost glp-sort-btn"
                       onClick={() => { setSortBy(''); setSortOrder('desc'); setSortField(''); setSortOpen(false); setPage(1) }}>
                       {t('common.clear')}
                     </button>
-                    <button className="btn-primary" style={{ fontSize: '12px', padding: '4px 10px' }}
+                    <button className="btn-primary glp-sort-btn"
                       disabled={!sortField}
                       onClick={() => { setSortBy(sortField); setSortOrder(sortOrder); setSortOpen(false); setPage(1) }}>
                       {t('common.apply')}
@@ -491,20 +489,20 @@ const [filters, setFilters] = useState<Record<string, FilterEntry>>({})
               </div>
             )}
             {propsOpen && (
-              <div className="view-dropdown" style={{ width: '200px' }}>
+              <div className="view-dropdown glp-props-dropdown">
                 {config.fields.filter(f => f.type !== 'created_time' && f.type !== 'last_edited_time').map(f => {
                   const locked = f.type === 'title'
                   const checked = visibleCols.includes(f.key)
                   return (
-                    <label key={f.key} className="view-option" style={{ opacity: locked ? 0.55 : 1, cursor: locked ? 'default' : 'pointer' }}>
+                    <label key={f.key} className={"view-option" + (locked ? ' glp-view-option-locked' : '')}>
                       <input type="checkbox" checked={checked} disabled={locked}
                         onChange={() => {
                           if (locked) return
                           setVisibleCols(prev => prev.includes(f.key) ? prev.filter(k => k !== f.key) : [...prev, f.key])
                         }}
-                        style={{ width: '15px', height: '15px', accentColor: 'var(--color-primary)' }} />
-                      <span style={{ flex: 1 }}>{f.label}</span>
-                      {locked && <span style={{ fontSize: '10px', color: 'var(--color-text-faint)' }}>Always</span>}
+                        className="glp-view-checkbox" />
+                      <span className="glp-view-option-label">{f.label}</span>
+                      {locked && <span className="glp-view-option-always">Always</span>}
                     </label>
                   )
                 })}
@@ -639,7 +637,7 @@ const [filters, setFilters] = useState<Record<string, FilterEntry>>({})
                 const selectedField = filterableFields.find(x => x.key === filterField)
                 if (selectedField?.type === 'select' || selectedField?.type === 'status') {
                   return (
-                    <select value={filterOp} onChange={e => setFilterOp(e.target.value as FilterOp)} className="input-field filter-op-select" style={{ minWidth: 72, width: 72 }}>
+                    <select value={filterOp} onChange={e => setFilterOp(e.target.value as FilterOp)} className="input-field filter-op-select glp-filter-op-select">
                       <option value="is">is</option>
                       <option value="is_not">is not</option>
                     </select>
@@ -652,7 +650,7 @@ const [filters, setFilters] = useState<Record<string, FilterEntry>>({})
                 const opts = f?.options
                 if (f && opts && opts.length > 0) {
                   return (
-                    <div className="pos-relative" style={{ minWidth: 160 }}>
+                    <div className="pos-relative glp-filter-value-wrap">
                       <button ref={filterBtnRef} onClick={() => {
                         setFilterValueOpen(o => {
                           if (!o && filterBtnRef.current) {
@@ -662,12 +660,11 @@ const [filters, setFilters] = useState<Record<string, FilterEntry>>({})
                           return !o
                         })
                       }}
-                        className="input-field filter-value-input"
-                        style={{ textAlign: 'left', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6, width: '100%' }}>
-                        <span style={{ color: filterChecked.length ? 'var(--color-text)' : 'var(--color-text-faint)', fontSize: 12 }}>
+                        className="input-field filter-value-input glp-filter-value-btn">
+                        <span className={"glp-filter-value-text" + (filterChecked.length ? ' has-value' : '')}>
                           {filterChecked.length > 0 ? `${filterChecked.length} selected` : 'Select values'}
                         </span>
-                        <span style={{ fontSize: 10, opacity: 0.5 }}>{filterValueOpen ? '▲' : '▼'}</span>
+                        <span className="glp-filter-value-caret">{filterValueOpen ? '▲' : '▼'}</span>
                       </button>
                       {filterValueOpen && <div className="popover-backdrop" onClick={() => setFilterValueOpen(false)} />}
                     </div>
@@ -704,7 +701,7 @@ const [filters, setFilters] = useState<Record<string, FilterEntry>>({})
                 ? `${vals.map(v => v.trim()).join(' + ')} ⊘`
                 : vals.map(v => v.trim()).join(' + ')
               return (
-                <span key={k} className="filter-tag" style={{ cursor: 'pointer' }}
+                <span key={k} className="filter-tag glp-filter-tag"
                   onClick={() => {
                     setFilterField(k)
                     setFilterOp(v.op)
@@ -722,7 +719,7 @@ const [filters, setFilters] = useState<Record<string, FilterEntry>>({})
         )}
 
         {loading ? (
-          <div style={{ padding: '32px', textAlign: 'center', color: 'var(--color-text-faint)' }}>{t('common.loading')}</div>
+          <div className="glp-loading">{t('common.loading')}</div>
         ) : error ? (
           <div className="error-box p-20">
             <span className="error-text">{error}</span>
@@ -766,7 +763,7 @@ const [filters, setFilters] = useState<Record<string, FilterEntry>>({})
               <table>
               <thead>
                 <tr>
-                  {config.name === 'task' && <th className="th-complete" style={{width:36,minWidth:36}}></th>}
+                  {config.name === 'task' && <th className="th-complete"></th>}
                   <th className="th-checkbox">
                     <input type="checkbox" className="row-checkbox"
                       checked={items.length > 0 && selectedIds.size === items.length}
@@ -777,8 +774,7 @@ const [filters, setFilters] = useState<Record<string, FilterEntry>>({})
                     const canSort = field?.sortable !== false
                     return (
                       <th key={col}
-                        className={canSort ? 'th-sortable' : ''}
-                        style={field?.type === 'title' || col === config.titleField ? { width: '28%' } : undefined}
+                        className={(canSort ? 'th-sortable' : '') + (field?.type === 'title' || col === config.titleField ? ' glp-th-title' : '')}
                         onClick={() => canSort && toggleSort(col)}>
                         {field?.label || col}
                         {sortBy === col && (
@@ -848,13 +844,13 @@ const [filters, setFilters] = useState<Record<string, FilterEntry>>({})
       </div>
 
       {totalPages > 1 && (
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginTop: 14, padding: '10px 0' }}>
-          <span className="text-faint" style={{ fontSize: 12 }}>{total} {t('pages.' + filterModuleKey + '.title').toLowerCase()}</span>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+        <div className="glp-pager">
+          <span className="text-faint glp-pager-count">{total} {t('pages.' + filterModuleKey + '.title').toLowerCase()}</span>
+          <div className="glp-pager-actions">
             <button className="toolbar-btn" disabled={page <= 1} onClick={() => setPage(p => Math.max(1, p - 1))}>
               {t('common.previous')}
             </button>
-            <span style={{ fontSize: 12, color: 'var(--color-text-muted)', padding: '0 8px' }}>
+            <span className="glp-pager-info">
               Page {page} of {totalPages}
             </span>
             <button className="toolbar-btn" disabled={page >= totalPages} onClick={() => setPage(p => p + 1)}>
@@ -939,7 +935,7 @@ const [filters, setFilters] = useState<Record<string, FilterEntry>>({})
               <button onClick={() => setBulkOpen(false)} className="modal-x"><X className="icon-16" /></button>
             </div>
             <div className="modal-body form-body">
-              <p style={{ fontSize: 13, color: 'var(--color-text-muted)', marginBottom: 16 }}>
+              <p className="glp-bulk-note">
                 Updating <strong>{selectedIds.size}</strong> {config.labelPlural.toLowerCase()}. Only fields with <strong>bulk editable</strong> permission are shown. Empty fields = unchanged.
               </p>
               <div className="grid-2col-16">
@@ -983,27 +979,22 @@ const [filters, setFilters] = useState<Record<string, FilterEntry>>({})
           )
         }
         return (
-          <div style={{ position: 'fixed', top: filterPos.top, left: filterPos.left, width: filterPos.width, maxHeight: 260, overflowY: 'auto', zIndex: 99999, background: 'var(--color-surface)', border: '1px solid var(--color-divider)', borderRadius: 'var(--radius-md)', boxShadow: '0 8px 32px rgba(0,0,0,.15)', padding: 8 }}>
+          <div className="glp-filter-popover" style={{ top: filterPos.top, left: filterPos.left, width: filterPos.width }}>
             {opts.map(o => {
               const checked = filterChecked.includes(o.value)
               return (
                 <label key={o.value}
-                  style={{
-                    display: 'flex', alignItems: 'center', gap: 8, padding: '6px 8px',
-                    borderRadius: 6, cursor: 'pointer', fontSize: 13,
-                    background: checked ? 'var(--color-surface-offset)' : 'transparent',
-                  }}>
+                  className={"glp-filter-option" + (checked ? ' checked' : '')}>
                   <input type="checkbox" checked={checked}
                     onChange={() => toggleVal(o.value)}
-                    style={{ margin: 0, width: 14, height: 14, accentColor: 'var(--color-primary)' }} />
+                    className="glp-filter-option-checkbox" />
                   {o.label}
                 </label>
               )
             })}
             {filterChecked.length > 0 && (
               <button onClick={() => setFilterChecked([])}
-                style={{ width: '100%', marginTop: 6, fontSize: 12, padding: '4px 8px' }}
-                className="btn-ghost">Clear all</button>
+                className="btn-ghost glp-filter-clear-all">Clear all</button>
             )}
           </div>
         )

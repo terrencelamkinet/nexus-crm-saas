@@ -1997,3 +1997,89 @@ textarea.input-field{resize:vertical;min-height:60px}
 .mkt-url-input:focus{border-color:var(--color-primary)}
 @keyframes fadeIn{from{opacity:0}to{opacity:1}}
 @keyframes slideUp{from{transform:translateY(12px);opacity:0}to{transform:translateY(0);opacity:1}}
+
+/* ═══════════════════════════════════════════
+   GenericListPage refactor (GG-Work)
+   Semantic glp- classes replacing inline styles
+   in src/modules/GenericListPage.tsx
+   ═══════════════════════════════════════════ */
+
+/* Relation cell link (badge style) */
+.glp-rel-link{color:var(--color-primary);cursor:pointer;text-decoration:none}
+.glp-rel-link:hover{color:var(--color-primary-hover);text-decoration:underline}
+
+/* Icon-only square header action button (export / upload / create) */
+.glp-icon-btn{width:36px;height:36px;padding:0;justify-content:center;flex-shrink:0}
+
+/* Sort panel */
+.glp-sort-body{display:flex;flex-direction:column;gap:8px}
+/* iOS zoom guard: select needs >=16px under 768px, shrinks back on desktop */
+.glp-sort-select{font-size:16px;padding:6px 8px}
+.glp-sort-op-row{display:flex;gap:6px}
+.glp-sort-op-btn{flex:1;height:30px;font-size:12px;padding:0 8px}
+.glp-sort-footer{display:flex;gap:6px;justify-content:flex-end;border-top:1px solid var(--color-divider);padding-top:8px}
+.glp-sort-btn{font-size:12px;padding:4px 10px}
+
+/* View / property dropdown */
+.glp-props-dropdown{width:200px}
+.glp-view-option-locked{opacity:.55;cursor:default}
+.glp-view-option-locked:hover{background:none;color:var(--color-text-muted)}
+.glp-view-checkbox{width:15px;height:15px;accent-color:var(--color-primary);flex-shrink:0}
+.glp-view-option-label{flex:1;min-width:0}
+.glp-view-option-always{font-size:10px;color:var(--color-text-faint);flex-shrink:0}
+
+/* Filter panel */
+.glp-filter-op-select{min-width:72px;width:72px;font-size:16px}
+.glp-filter-value-wrap{min-width:160px}
+.glp-filter-value-btn{text-align:left;cursor:pointer;display:flex;align-items:center;justify-content:space-between;gap:6px;width:100%}
+.glp-filter-value-text{font-size:12px;color:var(--color-text-faint)}
+.glp-filter-value-text.has-value{color:var(--color-text)}
+.glp-filter-value-caret{font-size:10px;opacity:.5;flex-shrink:0}
+.glp-filter-tag{cursor:pointer}
+.glp-filter-tag:hover{background:var(--color-surface-offset-2)}
+
+/* Loading state */
+.glp-loading{padding:32px;text-align:center;color:var(--color-text-faint)}
+
+/* Table: title column keeps 28% width (was inline conditional) */
+.glp-th-title{width:28%}
+
+/* Pagination bar */
+.glp-pager{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:14px;padding:10px 0}
+.glp-pager-count{font-size:12px}
+.glp-pager-actions{display:flex;align-items:center;gap:6px}
+.glp-pager-info{font-size:12px;color:var(--color-text-muted);padding:0 8px;white-space:nowrap}
+
+/* Bulk update modal note */
+.glp-bulk-note{font-size:13px;color:var(--color-text-muted);margin-bottom:16px}
+
+/* Filter value popover (top/left/width positioned via JS getBoundingClientRect, stays inline) */
+.glp-filter-popover{position:fixed;max-height:260px;overflow-y:auto;z-index:99999;background:var(--color-surface);border:1px solid var(--color-divider);border-radius:var(--radius-md);box-shadow:var(--shadow-lg);padding:8px}
+.glp-filter-option{display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:var(--radius-sm);cursor:pointer;font-size:13px;background:transparent;transition:background var(--transition-interactive)}
+.glp-filter-option:hover{background:var(--color-surface-offset-2)}
+.glp-filter-option:active{background:var(--color-surface-offset-2)}
+.glp-filter-option.checked{background:var(--color-surface-offset)}
+.glp-filter-option-checkbox{margin:0;width:14px;height:14px;accent-color:var(--color-primary);flex-shrink:0}
+.glp-filter-clear-all{width:100%;margin-top:6px;font-size:12px;padding:4px 8px}
+
+/* Desktop: shrink form controls back to design size (iOS zoom guard: >=16px below 768px) */
+@media (min-width:768px){
+  .glp-sort-select{font-size:12px}
+  .glp-filter-op-select{font-size:13px}
+}
+
+/* <=768px adjustments */
+@media (max-width:768px){
+  .glp-pager{flex-wrap:wrap;gap:8px}
+  .glp-filter-value-wrap{min-width:0;flex:1}
+  .glp-props-dropdown{width:min(200px,calc(100vw - 32px))}
+}
+
+/* <=480px: wins at 390px (390px matches both queries, later one wins) */
+@media (max-width:480px){
+  .glp-pager{justify-content:center}
+  .glp-pager-count{width:100%;text-align:center}
+  .glp-filter-value-wrap{width:100%}
+  .glp-icon-btn{width:40px;height:40px}
+  .glp-sort-footer{flex-wrap:wrap}
+}
