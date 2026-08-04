@@ -31,6 +31,8 @@ from app.models.ai.secretary_settings import (
     VALID_LANGS,
     VALID_CHANNELS,
 )
+from app.models.whatsapp import WhatsAppMapping
+from app.models.telegram_bot import TelegramBotMapping
 
 router = APIRouter(prefix="/api/v1/ai-secretary", tags=["AI Secretary"])
 
@@ -196,6 +198,57 @@ def _to_out(row: SecretarySettings) -> SettingsOut:
     )
 
 
+async def _to_out_connected(row: SecretarySettings, db: AsyncSession, tenant_id: uuid.UUID) -> SettingsOut:
+    """Build SettingsOut, reconciling real WhatsApp/Telegram connection state.
+
+    The stored `channels` JSONB may be stale (e.g. whatsapp connected via OTP
+    flow but the ai-secretary row never flipped). Ground truth lives in
+    nexus_crm.nexus_whatsapp_mappings / nexus_telegram_mappings, so we query
+    those and overlay connected=True on top of the stored row.
+    """
+    out = _to_out(row)
+    channels = dict(out.channels or DEFAULT_CHANNELS)
+
+    # WhatsApp: mirror im_push.get_prefs — active mapping ⇒ connected
+    wa = (
+        await db.execute(
+            select(WhatsAppMapping).where(
+                WhatsAppMapping.tenant_id == tenant_id,
+                WhatsAppMapping.user_id == row.user_id,
+                WhatsAppMapping.status == "active",
+            )
+        )
+    ).scalar_one_or_none()
+    wa_state = dict(channels.get("whatsapp", {}))
+    if wa is not None and not wa_state.get("connected"):
+        wa_state["connected"] = True
+        # Keep previously-toggled enabled state if set, else default on like im_push
+        if wa_state.get("enabled") is None:
+            wa_state["enabled"] = True
+        channels["whatsapp"] = wa_state
+
+    # Telegram: active mapping ⇒ connected (kept in sync by telegram router,
+    # but harden here too so a stale row never under-reports an active bot).
+    tg = (
+        await db.execute(
+            select(TelegramBotMapping).where(
+                TelegramBotMapping.tenant_id == tenant_id,
+                TelegramBotMapping.user_id == row.user_id,
+                TelegramBotMapping.status == "active",
+            )
+        )
+    ).scalar_one_or_none()
+    tg_state = dict(channels.get("telegram", {}))
+    if tg is not None and not tg_state.get("connected"):
+        tg_state["connected"] = True
+        if tg_state.get("enabled") is None:
+            tg_state["enabled"] = True
+        channels["telegram"] = tg_state
+
+    out.channels = channels
+    return out
+
+
 async def _get_or_create(db: AsyncSession, user_id, tenant_id) -> SecretarySettings:
     row = (
         await db.execute(
@@ -217,9 +270,10 @@ async def get_settings(
     db: AsyncSession = Depends(get_tenant_session),
 ):
     user_id, _ = _ctx_ids(request)
-    row = await _get_or_create(db, user_id, _ctx_ids(request)[1])
+    tenant_id = _ctx_ids(request)[1]
+    row = await _get_or_create(db, user_id, tenant_id)
     await db.commit()
-    return _to_out(row)
+    return await _to_out_connected(row, db, tenant_id)
 
 
 @router.patch("/settings", response_model=SettingsOut)
@@ -248,7 +302,7 @@ async def patch_settings(
     await db.flush()
     await db.refresh(row)  # same transaction — RLS GUC still active, picks up trigger-updated_at
     await db.commit()
-    return _to_out(row)
+    return await _to_out_connected(row, db, tenant_id)
 
 
 @router.post("/settings/reset", response_model=SettingsOut)
@@ -275,7 +329,7 @@ async def reset_settings(
     await db.flush()
     await db.refresh(row)
     await db.commit()
-    return _to_out(row)
+    return await _to_out_connected(row, db, tenant_id)
 
 
 @router.get("/briefing")
