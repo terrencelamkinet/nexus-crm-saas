@@ -401,90 +401,66 @@ export default function AIBriefingDrawer() {
         aria-expanded={expanded}
         tabIndex={0}
         onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') toggleExpand() }}
+        className="ab-trigger"
         style={{
-          display: 'flex', alignItems: 'center', gap: 12,
-          background: 'linear-gradient(135deg, rgba(124,93,250,0.10), rgba(99,102,241,0.06))',
           border: `1px solid ${expanded ? 'var(--color-purple)' : 'color-mix(in oklch, var(--color-purple) 22%, var(--color-divider))'}`,
-          borderRadius: 'var(--radius-lg)',
-          padding: '12px 16px', cursor: 'pointer',
-          transition: 'border-color 150ms, background 150ms',
           marginBottom: expanded ? 0 : 20,
         }}
         onMouseEnter={e => (e.currentTarget.style.borderColor = 'var(--color-purple)')}
         onMouseLeave={e => (e.currentTarget.style.borderColor = expanded ? 'var(--color-purple)' : 'color-mix(in oklch, var(--color-purple) 22%, var(--color-divider))')}
       >
         {/* Pulse orb */}
-        <div style={{ position: 'relative', width: 34, height: 34, flexShrink: 0 }}>
-          <div style={{
-            position: 'absolute', inset: 0, borderRadius: '50%',
-            background: 'radial-gradient(circle, #a78bfa, #6366f1)',
-            boxShadow: '0 0 0 0 rgba(139,92,246,0.45)',
-            animation: 'ai-pulse 2.2s infinite',
-          }} />
-          <div style={{
-            position: 'absolute', inset: 7, borderRadius: '50%', background: '#fff',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-          }}>
-            <Sparkles size={13} style={{ color: '#7c3aed' }} />
+        <div className="ab-orb-wrap">
+          <div className="ab-orb-pulse" />
+          <div className="ab-orb-core">
+            <Sparkles size={13} className="ab-orb-sparkles" />
           </div>
         </div>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--color-text)' }}>
+        <div className="ab-trigger-text">
+          <div className="ab-trigger-title">
             {greeting.emoji} {t('greeting.' + greeting.key, { name: user?.displayName || user?.email?.split('@')[0] || '' })}
           </div>
-          <div style={{ fontSize: 12, color: 'var(--color-text-muted)', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          <div className="ab-trigger-summary">
             {loading ? t('common.loading') : payload ? payload.summary : t('pages.briefing.triggerFallback')}
           </div>
         </div>
-        <span style={{
-          display: 'inline-flex', alignItems: 'center', gap: 4, flexShrink: 0,
-          fontSize: 12, fontWeight: 600, color: '#7c3aed',
-          background: 'rgba(124,93,250,0.12)', padding: '6px 12px', borderRadius: 999,
-        }}>
-          {expanded ? t('pages.briefing.collapse') : t('pages.briefing.more')} <ChevronDown size={13} style={{ transform: expanded ? 'rotate(180deg)' : 'none', transition: 'transform 200ms' }} />
+        <span className="ab-trigger-pill">
+          {expanded ? t('pages.briefing.collapse') : t('pages.briefing.more')} <ChevronDown size={13} className="ab-chevron" style={{ transform: expanded ? 'rotate(180deg)' : 'none' }} />
         </span>
       </div>
 
       {/* Expandable panel — push-down (推移式), inline in document flow */}
-      <div style={{
-        display: 'grid',
-        gridTemplateRows: expanded ? '1fr' : '0fr',
-        transition: 'grid-template-rows 320ms cubic-bezier(0.4, 0, 0.2, 1)',
-        marginBottom: expanded ? 20 : 0,
-      }}>
-        <div style={{
-          overflow: 'hidden', minHeight: 0,
-          visibility: expanded ? 'visible' : 'hidden',
-          transition: expanded ? 'visibility 0s' : 'visibility 0s linear 320ms',
-        }}>
+      <div
+        className="ab-panel"
+        style={{
+          gridTemplateRows: expanded ? '1fr' : '0fr',
+          marginBottom: expanded ? 20 : 0,
+        }}
+      >
+        <div
+          className="ab-panel-clip"
+          style={{
+            visibility: expanded ? 'visible' : 'hidden',
+            transition: expanded ? 'visibility 0s' : 'visibility 0s linear 320ms',
+          }}
+        >
           <div
             aria-hidden={!expanded}
             {...(!expanded ? { inert: true } : {})}
+            className="ab-panel-card"
             style={{
-            border: '1px solid var(--color-divider)',
-            borderRadius: 'var(--radius-lg)',
-            background: 'var(--color-surface)',
-            boxShadow: '0 8px 24px rgba(0,0,0,0.10)',
-            padding: '14px 16px 16px',
-            marginTop: 12,
-            display: 'flex', flexDirection: 'column', gap: 16,
             animation: expanded ? 'ai-fadein 0.3s ease' : 'none',
           }}>
           {/* Panel header */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <span style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--color-text)' }}>
+          <div className="ab-panel-head">
+            <span className="ab-panel-title">
               {t('pages.briefing.title')}
             </span>
-            <span style={{ marginLeft: 'auto' }} />
+            <span className="ab-panel-head-spacer" />
             <button
               onClick={e => { e.stopPropagation(); setExpanded(false) }}
               aria-label={t('pages.briefing.collapse')}
-              style={{
-                display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                width: 26, height: 26, borderRadius: 8, cursor: 'pointer',
-                background: 'var(--color-surface-offset)', border: 'none',
-                color: 'var(--color-text-faint)', transition: 'background 150ms, color 150ms',
-              }}
+              className="ab-close-btn"
               onMouseEnter={e => { e.currentTarget.style.background = 'var(--color-divider)'; e.currentTarget.style.color = 'var(--color-text)' }}
               onMouseLeave={e => { e.currentTarget.style.background = 'var(--color-surface-offset)'; e.currentTarget.style.color = 'var(--color-text-faint)' }}
             >
@@ -494,45 +470,37 @@ export default function AIBriefingDrawer() {
 
           {/* Loading skeleton */}
           {loading && !payload && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-              <div className="animate-pulse" style={{ height: 44, background: 'var(--color-surface-offset)', borderRadius: 'var(--radius-md)' }} />
-              <div className="animate-pulse" style={{ height: 90, background: 'var(--color-surface-offset)', borderRadius: 'var(--radius-md)' }} />
-              <div className="animate-pulse" style={{ height: 90, background: 'var(--color-surface-offset)', borderRadius: 'var(--radius-md)' }} />
+            <div className="ab-skeleton-wrap">
+              <div className="animate-pulse ab-skeleton-bar" style={{ height: 44 }} />
+              <div className="animate-pulse ab-skeleton-bar" style={{ height: 90 }} />
+              <div className="animate-pulse ab-skeleton-bar" style={{ height: 90 }} />
             </div>
           )}
 
           {/* AI conversation summary */}
           {payload && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <div className="ab-summary-wrap">
               {typing && (
-                <div className="ai-typing-dots" style={{ display: 'flex', gap: 4, padding: '6px 0' }}>
-                  <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#a78bfa', animation: 'ai-bounce 1.2s infinite' }} />
-                  <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#a78bfa', animation: 'ai-bounce 1.2s infinite 0.15s' }} />
-                  <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#a78bfa', animation: 'ai-bounce 1.2s infinite 0.3s' }} />
+                <div className="ai-typing-dots ab-typing-dots">
+                  <span className="ab-typing-dot" />
+                  <span className="ab-typing-dot" />
+                  <span className="ab-typing-dot" />
                 </div>
               )}
-              <p style={{
-                fontSize: 14, lineHeight: 1.65, color: 'var(--color-text)',
-                fontWeight: 500, minHeight: 46,
-              }}>
+              <p className="ab-summary-text">
                 {typedText}
-                {typing && <span style={{ borderRight: '2px solid #a78bfa', marginLeft: 2 }}>&nbsp;</span>}
+                {typing && <span className="ab-caret">&nbsp;</span>}
               </p>
             </div>
           )}
 
           {/* ── LLM-generated briefing (AI-app pipeline) ── */}
           {payload?.content && (
-            <div style={{
-              background: 'color-mix(in oklch, var(--color-purple) 8%, var(--color-surface))',
-              border: '1px solid color-mix(in oklch, var(--color-purple) 25%, transparent)',
-              borderRadius: 'var(--radius-md)',
-              padding: '10px 12px',
-            }}>
-              <div style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--color-purple)', marginBottom: 6, letterSpacing: 0.3 }}>
+            <div className="ab-ai-box">
+              <div className="ab-ai-label">
                 🤖 AI 簡報{payload.slot ? ` · ${slotLabel(payload.slot)}` : ''}
               </div>
-              <div style={{ fontSize: 12.5, color: 'var(--color-text)', lineHeight: 1.65, whiteSpace: 'pre-wrap' }}>
+              <div className="ab-ai-content">
                 {payload.content}
               </div>
             </div>
@@ -540,33 +508,25 @@ export default function AIBriefingDrawer() {
 
           {/* Insights (progressive disclosure) */}
           {showInsights && payload && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10, animation: 'ai-fadein 0.4s ease' }}>
+            <div className="ab-insights">
               {/* ── High-risk deals ── */}
               {payload.risks.length > 0 && (
                 <InsightSection
-                  icon={<AlertTriangle size={14} style={{ color: 'var(--color-notification)' }} />}
+                  icon={<AlertTriangle size={14} className="ab-ic-notification" />}
                   title={t('pages.briefing.riskSection', { count: payload.riskCount })}
                   badge={t('pages.briefing.riskBadge')}
                   badgeColor="var(--color-notification)"
                   defaultOpen
                 >
                   {payload.risks.map(risk => (
-                    <div key={risk.dealId} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                      <p style={{ fontSize: 13, color: 'var(--color-text)', lineHeight: 1.55 }}>
+                    <div key={risk.dealId} className="ab-risk-item">
+                      <p className="ab-risk-text">
                         <strong>{risk.dealName}</strong> {t('pages.briefing.riskDesc')}
                         <span
-                          style={{
-                            display: 'inline-flex', alignItems: 'center', gap: 3,
-                            marginLeft: 6, fontSize: 11.5, color: '#7c3aed', cursor: 'help',
-                            borderBottom: '1px dashed #c4b5fd', position: 'relative',
-                          }}
+                          className="ab-why"
                           data-tooltip={risk.reason}
                         >
-                          <span style={{
-                            display: 'inline-flex', width: 14, height: 14, borderRadius: '50%',
-                            background: 'rgba(124,93,250,0.15)', alignItems: 'center', justifyContent: 'center',
-                            fontSize: 10, fontWeight: 700,
-                          }}>?</span>
+                          <span className="ab-why-badge">?</span>
                           {t('pages.briefing.whyThis')}
                         </span>
                       </p>
@@ -574,30 +534,17 @@ export default function AIBriefingDrawer() {
                       {editorFor !== risk.dealId ? (
                         <button
                           onClick={() => startDraft(risk)}
-                          style={{
-                            display: 'inline-flex', alignItems: 'center', gap: 6, alignSelf: 'flex-start',
-                            fontSize: 12, fontWeight: 600, color: '#7c3aed',
-                            background: 'rgba(124,93,250,0.10)', border: '1px solid rgba(124,93,250,0.25)',
-                            borderRadius: 'var(--radius-md)', padding: '7px 12px', cursor: 'pointer',
-                            transition: 'background 150ms',
-                          }}
+                          className="ab-draft-btn"
                           onMouseEnter={e => (e.currentTarget.style.background = 'rgba(124,93,250,0.18)')}
                           onMouseLeave={e => (e.currentTarget.style.background = 'rgba(124,93,250,0.10)')}
                         >
                           ✨ {t('pages.briefing.draftEmail')}
                         </button>
                       ) : (
-                        <div style={{
-                          border: '1px solid var(--color-divider)',
-                          borderRadius: 'var(--radius-md)', overflow: 'hidden',
-                        }}>
-                          <div style={{
-                            fontSize: 11.5, fontWeight: 600, color: 'var(--color-text-muted)',
-                            padding: '8px 12px', background: 'var(--color-surface-offset)',
-                            display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                          }}>
+                        <div className="ab-editor">
+                          <div className="ab-editor-head">
                             {sentOk ? t('pages.briefing.sentRecorded') : drafting ? t('pages.briefing.aiDrafting') : t('pages.briefing.draftReady')}
-                            <button onClick={cancelDraft} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-text-faint)' }}>
+                            <button onClick={cancelDraft} className="ab-editor-close">
                               <X size={13} />
                             </button>
                           </div>
@@ -606,34 +553,21 @@ export default function AIBriefingDrawer() {
                             onChange={e => setDraftText(e.target.value)}
                             readOnly={drafting || sentOk}
                             rows={5}
-                            style={{
-                              width: '100%', border: 'none', outline: 'none', resize: 'vertical',
-                              fontSize: 12.5, lineHeight: 1.55, padding: '10px 12px',
-                              background: 'var(--color-surface)', color: 'var(--color-text)',
-                              fontFamily: 'inherit',
-                            }}
+                            className="ab-editor-textarea"
                           />
                           {!sentOk && (
-                            <div style={{ display: 'flex', gap: 8, padding: '8px 12px', borderTop: '1px solid var(--color-divider)' }}>
+                            <div className="ab-editor-foot">
                               <button
                                 onClick={cancelDraft}
-                                style={{
-                                  fontSize: 12, fontWeight: 600, padding: '6px 14px', borderRadius: 'var(--radius-md)',
-                                  background: 'var(--color-surface-offset)', color: 'var(--color-text-muted)',
-                                  border: 'none', cursor: 'pointer',
-                                }}
+                                className="ab-btn-cancel"
                               >
                                 {t('pages.briefing.cancel')}
                               </button>
                               <button
                                 onClick={sendDraft}
                                 disabled={drafting || draftText.trim() === ''}
-                                style={{
-                                  display: 'inline-flex', alignItems: 'center', gap: 5,
-                                  fontSize: 12, fontWeight: 600, padding: '6px 14px', borderRadius: 'var(--radius-md)',
-                                  background: 'var(--color-primary)', color: '#fff', border: 'none', cursor: 'pointer',
-                                  opacity: drafting || draftText.trim() === '' ? 0.5 : 1,
-                                }}
+                                className="ab-btn-send"
+                                style={{ opacity: drafting || draftText.trim() === '' ? 0.5 : 1 }}
                               >
                                 <Send size={12} /> {t('pages.briefing.sendEmail')}
                               </button>
@@ -649,20 +583,16 @@ export default function AIBriefingDrawer() {
               {/* ── Overdue tasks ── */}
               {payload.overdueTasks.length > 0 && (
                 <InsightSection
-                  icon={<CheckSquare size={14} style={{ color: 'var(--color-warning)' }} />}
+                  icon={<CheckSquare size={14} className="ab-ic-warning" />}
                   title={t('pages.briefing.taskSection', { count: payload.taskCount })}
                   badge={t('pages.briefing.overdueBadge')}
                   badgeColor="var(--color-warning)"
                 >
                   {payload.overdueTasks.map(task => (
-                    <label key={task.id} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, cursor: 'pointer', padding: '2px 0' }}>
-                      <input type="checkbox" style={{ accentColor: 'var(--color-primary)' }} />
-                      <span style={{ color: 'var(--color-text)', flex: 1 }}>{task.title}</span>
-                      <span style={{
-                        fontSize: 10.5, fontWeight: 700, padding: '1px 7px', borderRadius: 999,
-                        background: 'color-mix(in oklch, var(--color-notification) 15%, var(--color-surface))',
-                        color: 'var(--color-notification)',
-                      }}>
+                    <label key={task.id} className="ab-task-row">
+                      <input type="checkbox" className="ab-task-check" />
+                      <span className="ab-task-title">{task.title}</span>
+                      <span className="ab-badge-overdue">
                         {task.due_date ? t('pages.briefing.overdueDays', { count: daysSince(task.due_date) }) : t('pages.briefing.overduePlain')}
                       </span>
                     </label>
@@ -673,18 +603,18 @@ export default function AIBriefingDrawer() {
               {/* ── Today's events ── */}
               {payload.todayEvents.length > 0 && (
                 <InsightSection
-                  icon={<Calendar size={14} style={{ color: 'var(--color-blue)' }} />}
+                  icon={<Calendar size={14} className="ab-ic-blue" />}
                   title={t('pages.briefing.eventSection', { count: payload.eventCount })}
                   badge={t('pages.briefing.todayBadge')}
                   badgeColor="var(--color-blue)"
                 >
                   {payload.todayEvents.map(ev => (
-                    <div key={ev.id} style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 13, padding: '2px 0' }}>
-                      <span style={{ fontWeight: 700, color: 'var(--color-text-muted)', fontSize: 12.5, minWidth: 46, fontVariantNumeric: 'tabular-nums' }}>
+                    <div key={ev.id} className="ab-event-row">
+                      <span className="ab-event-time">
                         {ev.time.slice(11, 16)}
                       </span>
-                      <span style={{ color: 'var(--color-text)' }}>{ev.title}</span>
-                      {ev.location && <span style={{ marginLeft: 'auto', fontSize: 11.5, color: 'var(--color-text-faint)' }}>{ev.location}</span>}
+                      <span className="ab-event-title">{ev.title}</span>
+                      {ev.location && <span className="ab-event-loc">{ev.location}</span>}
                     </div>
                   ))}
                 </InsightSection>
@@ -693,18 +623,18 @@ export default function AIBriefingDrawer() {
               {/* ── Weather ── */}
               {payload.weather.length > 0 && (
                 <InsightSection
-                  icon={<span style={{ fontSize: 13 }}>🌤️</span>}
+                  icon={<span className="ab-emoji-icon">🌤️</span>}
                   title={t('pages.briefing.weatherSection')}
                   badge={""}
                   badgeColor="var(--color-text-faint)"
                 >
                   {payload.weather.slice(0, 2).map((w: any, i: number) => (
-                    <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 13, padding: '2px 0' }}>
-                      <span style={{ fontWeight: 700, color: 'var(--color-text)' }}>
+                    <div key={i} className="ab-weather-row">
+                      <span className="ab-weather-place">
                         {w.place}: {w.temperature != null ? `${w.temperature}°C` : ''}
                       </span>
-                      {w.humidity != null && <span style={{ color: 'var(--color-text-muted)' }}>{t('pages.briefing.weatherHumidity', { hum: w.humidity })}</span>}
-                      {w.rainfall_mm != null && <span style={{ color: 'var(--color-blue)' }}>{t('pages.briefing.weatherRain', { mm: w.rainfall_mm })}</span>}
+                      {w.humidity != null && <span className="ab-weather-hum">{t('pages.briefing.weatherHumidity', { hum: w.humidity })}</span>}
+                      {w.rainfall_mm != null && <span className="ab-weather-rain">{t('pages.briefing.weatherRain', { mm: w.rainfall_mm })}</span>}
                     </div>
                   ))}
                 </InsightSection>
@@ -713,17 +643,17 @@ export default function AIBriefingDrawer() {
               {/* ── Schedule conflicts ── */}
               {payload.conflicts.length > 0 && (
                 <InsightSection
-                  icon={<AlertTriangle size={14} style={{ color: 'var(--color-notification)' }} />}
+                  icon={<AlertTriangle size={14} className="ab-ic-notification" />}
                   title={t('pages.briefing.conflictSection')}
                   badge={t('pages.briefing.riskBadge')}
                   badgeColor="var(--color-notification)"
                 >
                   {payload.conflicts.map((c: any, i: number) => (
-                    <div key={i} style={{ display: 'flex', flexDirection: 'column', gap: 3, fontSize: 13, padding: '2px 0' }}>
-                      <span style={{ color: 'var(--color-text)' }}>
+                    <div key={i} className="ab-conflict-item">
+                      <span className="ab-conflict-text">
                         <strong>{c.event_a}</strong> ↔ <strong>{c.event_b}</strong>
                       </span>
-                      <span style={{ fontSize: 11.5, color: 'var(--color-text-faint)' }}>
+                      <span className="ab-conflict-meta">
                         {c.overlap_start ? t('pages.briefing.conflictOverlap', { time: c.overlap_start.slice(11, 16) }) : ''}
                       </span>
                     </div>
@@ -734,13 +664,13 @@ export default function AIBriefingDrawer() {
               {/* ── Traffic ── */}
               {payload.traffic.length > 0 && (
                 <InsightSection
-                  icon={<span style={{ fontSize: 13 }}>🚗</span>}
+                  icon={<span className="ab-emoji-icon">🚗</span>}
                   title={t('pages.briefing.trafficSection')}
                   badge={""}
                   badgeColor="var(--color-text-faint)"
                 >
                   {payload.traffic.slice(0, 4).map((tr: any, i: number) => (
-                    <div key={i} style={{ fontSize: 12.5, color: 'var(--color-text)', lineHeight: 1.5, padding: '2px 0' }}>
+                    <div key={i} className="ab-traffic-text">
                       {tr.text || tr.ChinText || tr.EngText || ''}
                     </div>
                   ))}
@@ -750,15 +680,15 @@ export default function AIBriefingDrawer() {
               {/* ── Birthdays ── */}
               {payload.birthdays.length > 0 && (
                 <InsightSection
-                  icon={<span style={{ fontSize: 13 }}>🎂</span>}
+                  icon={<span className="ab-emoji-icon">🎂</span>}
                   title={t('pages.briefing.birthdaySection')}
                   badge={""}
                   badgeColor="var(--color-text-faint)"
                 >
                   {payload.birthdays.slice(0, 5).map((b: any) => (
-                    <div key={b.id} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, padding: '2px 0' }}>
-                      <span style={{ color: 'var(--color-text)' }}>{b.name}</span>
-                      {b.company_name && <span style={{ fontSize: 11.5, color: 'var(--color-text-faint)' }}>{b.company_name}</span>}
+                    <div key={b.id} className="ab-bday-row">
+                      <span className="ab-bday-name">{b.name}</span>
+                      {b.company_name && <span className="ab-bday-company">{b.company_name}</span>}
                     </div>
                   ))}
                 </InsightSection>
@@ -767,15 +697,15 @@ export default function AIBriefingDrawer() {
               {/* ── Drafts to review ── */}
               {payload.drafts.length > 0 && (
                 <InsightSection
-                  icon={<span style={{ fontSize: 13 }}>✉️</span>}
+                  icon={<span className="ab-emoji-icon">✉️</span>}
                   title={t('pages.briefing.draftSection')}
                   badge={""}
                   badgeColor="var(--color-text-faint)"
                 >
                   {payload.drafts.slice(0, 5).map((d: any) => (
-                    <div key={d.id} style={{ display: 'flex', flexDirection: 'column', gap: 3, fontSize: 13, padding: '2px 0' }}>
-                      <span style={{ color: 'var(--color-text)', fontWeight: 600 }}>{d.title}</span>
-                      <span style={{ fontSize: 11.5, color: 'var(--color-text-faint)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    <div key={d.id} className="ab-draft-item">
+                      <span className="ab-draft-title">{d.title}</span>
+                      <span className="ab-draft-content">
                         {d.content || ''}
                       </span>
                     </div>
@@ -786,15 +716,15 @@ export default function AIBriefingDrawer() {
               {/* ── Expenses ── */}
               {payload.expenses.length > 0 && (
                 <InsightSection
-                  icon={<span style={{ fontSize: 13 }}>🧾</span>}
+                  icon={<span className="ab-emoji-icon">🧾</span>}
                   title={t('pages.briefing.expenseSection')}
                   badge={""}
                   badgeColor="var(--color-text-faint)"
                 >
                   {payload.expenses.slice(0, 5).map((e: any) => (
-                    <div key={e.id} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, padding: '2px 0' }}>
-                      <span style={{ color: 'var(--color-text)' }}>{e.title}</span>
-                      <span style={{ marginLeft: 'auto', fontWeight: 700, color: 'var(--color-text)' }}>
+                    <div key={e.id} className="ab-expense-row">
+                      <span className="ab-expense-title">{e.title}</span>
+                      <span className="ab-expense-amount">
                         {e.amount != null ? `$${Number(e.amount).toLocaleString()}` : ''} {e.currency || ''}
                       </span>
                     </div>
@@ -805,16 +735,16 @@ export default function AIBriefingDrawer() {
               {/* ── Personal reminders ── */}
               {payload.personal.length > 0 && (
                 <InsightSection
-                  icon={<span style={{ fontSize: 13 }}>📌</span>}
+                  icon={<span className="ab-emoji-icon">📌</span>}
                   title={t('pages.briefing.personalSection')}
                   badge={""}
                   badgeColor="var(--color-text-faint)"
                 >
                   {payload.personal.slice(0, 5).map((p: any) => (
-                    <div key={p.id} style={{ display: 'flex', flexDirection: 'column', gap: 3, fontSize: 13, padding: '2px 0' }}>
-                      <span style={{ color: 'var(--color-text)', fontWeight: 600 }}>{p.title}</span>
-                      {p.content && <span style={{ fontSize: 11.5, color: 'var(--color-text-faint)' }}>{p.content}</span>}
-                      {p.remind_at && <span style={{ fontSize: 11, color: 'var(--color-warning)' }}>⏰ {p.remind_at.slice(0, 16).replace('T', ' ')}</span>}
+                    <div key={p.id} className="ab-personal-item">
+                      <span className="ab-personal-title">{p.title}</span>
+                      {p.content && <span className="ab-personal-content">{p.content}</span>}
+                      {p.remind_at && <span className="ab-personal-remind">⏰ {p.remind_at.slice(0, 16).replace('T', ' ')}</span>}
                     </div>
                   ))}
                 </InsightSection>
@@ -823,17 +753,17 @@ export default function AIBriefingDrawer() {
               {/* ── Unread messages ── */}
               {payload.unread.length > 0 && (
                 <InsightSection
-                  icon={<span style={{ fontSize: 13 }}>💬</span>}
+                  icon={<span className="ab-emoji-icon">💬</span>}
                   title={t('pages.briefing.unreadSection')}
                   badge={""}
                   badgeColor="var(--color-text-faint)"
                 >
                   {payload.unread.slice(0, 5).map((u: any, i: number) => (
-                    <div key={i} style={{ display: 'flex', flexDirection: 'column', gap: 2, fontSize: 13, padding: '2px 0' }}>
-                      <span style={{ color: 'var(--color-text)' }}>
+                    <div key={i} className="ab-unread-item">
+                      <span className="ab-unread-text">
                         <strong>{u.from || ''}</strong>{u.subject ? ` — ${u.subject}` : ''}
                       </span>
-                      {u.snippet && <span style={{ fontSize: 11.5, color: 'var(--color-text-faint)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{u.snippet}</span>}
+                      {u.snippet && <span className="ab-unread-snippet">{u.snippet}</span>}
                     </div>
                   ))}
                 </InsightSection>
@@ -842,7 +772,7 @@ export default function AIBriefingDrawer() {
               {/* ── Industry news ── */}
               {payload.news.length > 0 && (
                 <InsightSection
-                  icon={<span style={{ fontSize: 13 }}>📰</span>}
+                  icon={<span className="ab-emoji-icon">📰</span>}
                   title={t('pages.briefing.newsSection')}
                   badge={""}
                   badgeColor="var(--color-text-faint)"
@@ -853,10 +783,10 @@ export default function AIBriefingDrawer() {
                       href={n.link || '#'}
                       target="_blank"
                       rel="noreferrer"
-                      style={{ display: 'flex', flexDirection: 'column', gap: 2, fontSize: 13, padding: '2px 0', color: 'var(--color-text)', textDecoration: 'none' }}
+                      className="ab-news-link"
                     >
-                      <span style={{ fontWeight: 500, lineHeight: 1.45 }}>{n.title}</span>
-                      <span style={{ fontSize: 11, color: 'var(--color-text-faint)' }}>{n.feed || ''}</span>
+                      <span className="ab-news-title">{n.title}</span>
+                      <span className="ab-news-feed">{n.feed || ''}</span>
                     </a>
                   ))}
                 </InsightSection>
@@ -865,17 +795,17 @@ export default function AIBriefingDrawer() {
               {/* ── Customer sentiment ── */}
               {payload.sentiment.length > 0 && payload.sentiment[0].total_messages > 0 && (
                 <InsightSection
-                  icon={<span style={{ fontSize: 13 }}>🙂</span>}
+                  icon={<span className="ab-emoji-icon">🙂</span>}
                   title={t('pages.briefing.sentimentSection')}
                   badge={""}
                   badgeColor="var(--color-text-faint)"
                 >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 12, fontSize: 12.5, color: 'var(--color-text)', padding: '2px 0' }}>
+                  <div className="ab-sentiment-row">
                     <span>😊 {payload.sentiment[0].positive ?? 0}</span>
                     <span>😐 {payload.sentiment[0].neutral ?? 0}</span>
                     <span>😠 {payload.sentiment[0].negative ?? 0}</span>
                     {payload.sentiment[0].negative_pct != null && payload.sentiment[0].negative_pct >= 30 && (
-                      <span style={{ color: 'var(--color-notification)', fontWeight: 700 }}>{t('pages.briefing.riskBadge')}</span>
+                      <span className="ab-sentiment-warn">{t('pages.briefing.riskBadge')}</span>
                     )}
                   </div>
                 </InsightSection>
@@ -887,22 +817,19 @@ export default function AIBriefingDrawer() {
                 payload.birthdays.length === 0 && payload.drafts.length === 0 && payload.expenses.length === 0 &&
                 payload.personal.length === 0 && payload.conflicts.length === 0 && payload.sentiment.length === 0 &&
                 payload.unread.length === 0 && (
-                <div style={{
-                  textAlign: 'center', padding: '28px 16px', fontSize: 13, color: 'var(--color-text-muted)',
-                  border: '1px dashed var(--color-divider)', borderRadius: 'var(--radius-md)',
-                }}>
+                <div className="ab-empty">
                   {t('pages.briefing.allGood')}
                 </div>
               )}
 
               {/* Footer */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: 'var(--color-text-faint)', marginTop: 4 }}>
+              <div className="ab-footer">
                 <History size={11} />
                 <span>{t('pages.briefing.footer')}</span>
                 <button
                   onClick={loadBriefing}
                   disabled={loading}
-                  style={{ marginLeft: 'auto', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-text-faint)', display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 11 }}
+                  className="ab-refresh-btn"
                 >
                   <RefreshCw size={11} style={{ animation: loading ? 'ai-spin 1s linear infinite' : 'none' }} /> {t('pages.briefing.refresh')}
                 </button>
@@ -968,38 +895,26 @@ function InsightSection({
   const [open, setOpen] = useState(!!defaultOpen)
 
   return (
-    <div style={{
-      border: '1px solid var(--color-divider)',
-      borderRadius: 'var(--radius-md)',
-      overflow: 'hidden',
-      background: 'var(--color-surface)',
-    }}>
+    <div className="ab-section">
       <button
         onClick={() => setOpen(!open)}
-        style={{
-          width: '100%', display: 'flex', alignItems: 'center', gap: 8,
-          padding: '11px 12px', background: 'var(--color-surface-offset)',
-          border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 700,
-          color: 'var(--color-text)',
-        }}
+        className="ab-section-btn"
       >
         {icon}
-        <span style={{ flex: 1, textAlign: 'left' }}>{title}</span>
-        <span style={{
-          fontSize: 10.5, fontWeight: 700, padding: '1px 8px', borderRadius: 999,
-          background: `color-mix(in oklch, ${badgeColor} 14%, var(--color-surface))`,
-          color: badgeColor,
-        }}>
+        <span className="ab-section-title">{title}</span>
+        <span
+          className="ab-section-badge"
+          style={{
+            background: `color-mix(in oklch, ${badgeColor} 14%, var(--color-surface))`,
+            color: badgeColor,
+          }}
+        >
           {badge}
         </span>
-        <ChevronDown size={14} style={{
-          color: 'var(--color-text-faint)',
-          transform: open ? 'rotate(180deg)' : 'none',
-          transition: 'transform 150ms',
-        }} />
+        <ChevronDown size={14} className="ab-section-chevron" style={{ transform: open ? 'rotate(180deg)' : 'none' }} />
       </button>
       {open && (
-        <div style={{ padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+        <div className="ab-section-body">
           {children}
         </div>
       )}

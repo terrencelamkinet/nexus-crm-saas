@@ -2083,3 +2083,179 @@ textarea.input-field{resize:vertical;min-height:60px}
   .glp-icon-btn{width:40px;height:40px}
   .glp-sort-footer{flex-wrap:wrap}
 }
+
+/* ═══════════════════════════════════════════════════════════
+   AIBriefingDrawer refactor (GG-Work)
+   Inline style={{...}} -> semantic ab- classes.
+   Dynamic values (expanded/open/loading state, badgeColor prop,
+   per-bar skeleton heights) stay inline in the component.
+   Keyframes ai-pulse / ai-bounce / ai-fadein / ai-spin are
+   injected by the component's <style> tag, so classes below
+   only reference them.
+   ═══════════════════════════════════════════════════════════ */
+
+/* ── Trigger widget ── */
+.ab-trigger{display:flex;align-items:center;gap:12px;background:linear-gradient(135deg,rgba(124,93,250,.10),rgba(99,102,241,.06));border-radius:var(--radius-lg);padding:12px 16px;cursor:pointer;transition:border-color 150ms,background 150ms}
+.ab-trigger:hover{border-color:var(--color-purple)}
+.ab-orb-wrap{position:relative;width:34px;height:34px;flex-shrink:0}
+.ab-orb-pulse{position:absolute;inset:0;border-radius:50%;background:radial-gradient(circle,#a78bfa,#6366f1);box-shadow:0 0 0 0 rgba(139,92,246,.45);animation:ai-pulse 2.2s infinite}
+.ab-orb-core{position:absolute;inset:7px;border-radius:50%;background:#fff;display:flex;align-items:center;justify-content:center}
+.ab-orb-sparkles{color:#7c3aed}
+.ab-trigger-text{flex:1;min-width:0}
+.ab-trigger-title{font-size:13.5px;font-weight:700;color:var(--color-text)}
+.ab-trigger-summary{font-size:12px;color:var(--color-text-muted);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ab-trigger-pill{display:inline-flex;align-items:center;gap:4px;flex-shrink:0;font-size:12px;font-weight:600;color:#7c3aed;background:rgba(124,93,250,.12);padding:6px 12px;border-radius:999px}
+.ab-chevron{transition:transform 200ms}
+
+/* ── Expandable panel (push-down) ── */
+.ab-panel{display:grid;transition:grid-template-rows 320ms cubic-bezier(.4,0,.2,1)}
+.ab-panel-clip{overflow:hidden;min-height:0}
+.ab-panel-card{border:1px solid var(--color-divider);border-radius:var(--radius-lg);background:var(--color-surface);box-shadow:0 8px 24px rgba(0,0,0,.10);padding:14px 16px 16px;margin-top:12px;display:flex;flex-direction:column;gap:16px}
+.ab-panel-head{display:flex;align-items:center;gap:8px}
+.ab-panel-title{font-size:13.5px;font-weight:700;color:var(--color-text)}
+.ab-panel-head-spacer{margin-left:auto}
+.ab-close-btn{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:8px;cursor:pointer;background:var(--color-surface-offset);border:none;color:var(--color-text-faint);transition:background 150ms,color 150ms}
+.ab-close-btn:hover{background:var(--color-divider);color:var(--color-text)}
+
+/* ── Loading skeleton ── */
+.ab-skeleton-wrap{display:flex;flex-direction:column;gap:12px}
+.ab-skeleton-bar{background:var(--color-surface-offset);border-radius:var(--radius-md)}
+
+/* ── Typewriter summary ── */
+.ab-summary-wrap{display:flex;flex-direction:column;gap:8px}
+.ab-typing-dots{display:flex;gap:4px;padding:6px 0}
+.ab-typing-dot{width:6px;height:6px;border-radius:50%;background:#a78bfa;animation:ai-bounce 1.2s infinite}
+.ab-typing-dot:nth-child(2){animation-delay:.15s}
+.ab-typing-dot:nth-child(3){animation-delay:.3s}
+.ab-summary-text{font-size:14px;line-height:1.65;color:var(--color-text);font-weight:500;min-height:46px}
+.ab-caret{border-right:2px solid #a78bfa;margin-left:2px}
+
+/* ── AI briefing box ── */
+.ab-ai-box{background:color-mix(in oklch,var(--color-purple) 8%,var(--color-surface));border:1px solid color-mix(in oklch,var(--color-purple) 25%,transparent);border-radius:var(--radius-md);padding:10px 12px}
+.ab-ai-label{font-size:11.5px;font-weight:700;color:var(--color-purple);margin-bottom:6px;letter-spacing:.3px}
+.ab-ai-content{font-size:12.5px;color:var(--color-text);line-height:1.65;white-space:pre-wrap}
+
+/* ── Insights (progressive disclosure) ── */
+.ab-insights{display:flex;flex-direction:column;gap:10px;animation:ai-fadein .4s ease}
+.ab-ic-notification{color:var(--color-notification)}
+.ab-ic-warning{color:var(--color-warning)}
+.ab-ic-blue{color:var(--color-blue)}
+.ab-emoji-icon{font-size:13px}
+
+/* ── Risk insights ── */
+.ab-risk-item{display:flex;flex-direction:column;gap:8px}
+.ab-risk-text{font-size:13px;color:var(--color-text);line-height:1.55}
+.ab-why{display:inline-flex;align-items:center;gap:3px;margin-left:6px;font-size:11.5px;color:#7c3aed;cursor:help;border-bottom:1px dashed #c4b5fd;position:relative}
+.ab-why-badge{display:inline-flex;width:14px;height:14px;border-radius:50%;background:rgba(124,93,250,.15);align-items:center;justify-content:center;font-size:10px;font-weight:700}
+.ab-draft-btn{display:inline-flex;align-items:center;gap:6px;align-self:flex-start;font-size:12px;font-weight:600;color:#7c3aed;background:rgba(124,93,250,.10);border:1px solid rgba(124,93,250,.25);border-radius:var(--radius-md);padding:7px 12px;cursor:pointer;transition:background 150ms}
+.ab-draft-btn:hover{background:rgba(124,93,250,.18)}
+
+/* ── Inline email draft editor ── */
+.ab-editor{border:1px solid var(--color-divider);border-radius:var(--radius-md);overflow:hidden}
+.ab-editor-head{font-size:11.5px;font-weight:600;color:var(--color-text-muted);padding:8px 12px;background:var(--color-surface-offset);display:flex;justify-content:space-between;align-items:center}
+.ab-editor-close{background:none;border:none;cursor:pointer;color:var(--color-text-faint)}
+/* iOS zoom guard: textarea needs >=16px below 768px to prevent auto-zoom on focus */
+.ab-editor-textarea{width:100%;border:none;outline:none;resize:vertical;font-size:16px;line-height:1.55;padding:10px 12px;background:var(--color-surface);color:var(--color-text);font-family:inherit}
+.ab-editor-foot{display:flex;gap:8px;padding:8px 12px;border-top:1px solid var(--color-divider)}
+.ab-btn-cancel{font-size:12px;font-weight:600;padding:6px 14px;border-radius:var(--radius-md);background:var(--color-surface-offset);color:var(--color-text-muted);border:none;cursor:pointer}
+.ab-btn-send{display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:600;padding:6px 14px;border-radius:var(--radius-md);background:var(--color-primary);color:#fff;border:none;cursor:pointer}
+.ab-btn-send:disabled{opacity:.5;cursor:not-allowed}
+
+/* ── Overdue tasks ── */
+.ab-task-row{display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;padding:2px 0}
+.ab-task-check{accent-color:var(--color-primary)}
+.ab-task-title{color:var(--color-text);flex:1}
+.ab-badge-overdue{font-size:10.5px;font-weight:700;padding:1px 7px;border-radius:999px;background:color-mix(in oklch,var(--color-notification) 15%,var(--color-surface));color:var(--color-notification)}
+
+/* ── Today's events ── */
+.ab-event-row{display:flex;align-items:center;gap:10px;font-size:13px;padding:2px 0}
+.ab-event-time{font-weight:700;color:var(--color-text-muted);font-size:12.5px;min-width:46px;font-variant-numeric:tabular-nums}
+.ab-event-title{color:var(--color-text)}
+.ab-event-loc{margin-left:auto;font-size:11.5px;color:var(--color-text-faint)}
+
+/* ── Weather ── */
+.ab-weather-row{display:flex;align-items:center;gap:10px;font-size:13px;padding:2px 0}
+.ab-weather-place{font-weight:700;color:var(--color-text)}
+.ab-weather-hum{color:var(--color-text-muted)}
+.ab-weather-rain{color:var(--color-blue)}
+
+/* ── Schedule conflicts ── */
+.ab-conflict-item{display:flex;flex-direction:column;gap:3px;font-size:13px;padding:2px 0}
+.ab-conflict-text{color:var(--color-text)}
+.ab-conflict-meta{font-size:11.5px;color:var(--color-text-faint)}
+
+/* ── Traffic ── */
+.ab-traffic-text{font-size:12.5px;color:var(--color-text);line-height:1.5;padding:2px 0}
+
+/* ── Birthdays ── */
+.ab-bday-row{display:flex;align-items:center;gap:8px;font-size:13px;padding:2px 0}
+.ab-bday-name{color:var(--color-text)}
+.ab-bday-company{font-size:11.5px;color:var(--color-text-faint)}
+
+/* ── Drafts to review ── */
+.ab-draft-item{display:flex;flex-direction:column;gap:3px;font-size:13px;padding:2px 0}
+.ab-draft-title{color:var(--color-text);font-weight:600}
+.ab-draft-content{font-size:11.5px;color:var(--color-text-faint);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+/* ── Expenses ── */
+.ab-expense-row{display:flex;align-items:center;gap:8px;font-size:13px;padding:2px 0}
+.ab-expense-title{color:var(--color-text)}
+.ab-expense-amount{margin-left:auto;font-weight:700;color:var(--color-text)}
+
+/* ── Personal reminders ── */
+.ab-personal-item{display:flex;flex-direction:column;gap:3px;font-size:13px;padding:2px 0}
+.ab-personal-title{color:var(--color-text);font-weight:600}
+.ab-personal-content{font-size:11.5px;color:var(--color-text-faint)}
+.ab-personal-remind{font-size:11px;color:var(--color-warning)}
+
+/* ── Unread messages ── */
+.ab-unread-item{display:flex;flex-direction:column;gap:2px;font-size:13px;padding:2px 0}
+.ab-unread-text{color:var(--color-text)}
+.ab-unread-snippet{font-size:11.5px;color:var(--color-text-faint);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+/* ── Industry news ── */
+.ab-news-link{display:flex;flex-direction:column;gap:2px;font-size:13px;padding:2px 0;color:var(--color-text);text-decoration:none}
+.ab-news-link:hover .ab-news-title{color:var(--color-primary)}
+.ab-news-title{font-weight:500;line-height:1.45}
+.ab-news-feed{font-size:11px;color:var(--color-text-faint)}
+
+/* ── Customer sentiment ── */
+.ab-sentiment-row{display:flex;align-items:center;gap:12px;font-size:12.5px;color:var(--color-text);padding:2px 0}
+.ab-sentiment-warn{color:var(--color-notification);font-weight:700}
+
+/* ── Empty state + footer ── */
+.ab-empty{text-align:center;padding:28px 16px;font-size:13px;color:var(--color-text-muted);border:1px dashed var(--color-divider);border-radius:var(--radius-md)}
+.ab-footer{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--color-text-faint);margin-top:4px}
+.ab-refresh-btn{margin-left:auto;background:none;border:none;cursor:pointer;color:var(--color-text-faint);display:inline-flex;align-items:center;gap:4px;font-size:11px}
+.ab-refresh-btn:hover{color:var(--color-text-muted)}
+
+/* ── InsightSection (accordion) ── */
+.ab-section{border:1px solid var(--color-divider);border-radius:var(--radius-md);overflow:hidden;background:var(--color-surface)}
+.ab-section-btn{width:100%;display:flex;align-items:center;gap:8px;padding:11px 12px;background:var(--color-surface-offset);border:none;cursor:pointer;font-size:13px;font-weight:700;color:var(--color-text);transition:background 150ms}
+.ab-section-btn:hover{background:var(--color-surface-offset-2)}
+.ab-section-title{flex:1;text-align:left}
+.ab-section-badge{font-size:10.5px;font-weight:700;padding:1px 8px;border-radius:999px}
+.ab-section-chevron{color:var(--color-text-faint);transition:transform 150ms}
+.ab-section-body{padding:10px 12px;display:flex;flex-direction:column;gap:8px}
+
+/* Desktop: shrink textarea back to design size (iOS zoom guard: >=16px below 768px) */
+@media (min-width:768px){
+  .ab-editor-textarea{font-size:12.5px}
+}
+
+/* <=768px adjustments */
+@media (max-width:768px){
+  .ab-trigger{padding:10px 14px}
+  .ab-panel-card{padding:12px 14px 14px}
+  .ab-trigger-pill{padding:5px 10px}
+}
+
+/* <=480px: wins at 390px (390px matches both queries, later one wins) */
+@media (max-width:480px){
+  .ab-trigger{padding:10px 12px;gap:10px}
+  .ab-trigger-title{font-size:13px}
+  .ab-trigger-pill{font-size:11px;padding:4px 8px}
+  .ab-panel-card{gap:12px}
+  .ab-section-btn{padding:10px 10px}
+  .ab-event-time{min-width:40px}
+}
