@@ -18,6 +18,9 @@ venv/
 __pycache__/
 *.pyc
 *.pyo
+
+# Runtime uploads (namecard images, pending files)
+backend/uploads/
 *.egg-info/
 
 # Editor

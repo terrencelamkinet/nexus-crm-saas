@@ -15,7 +15,13 @@ SOC 2:
   - CC7.2: All AI interactions routed through platform's audit trail
 """
 import uuid
+import json
+import os
+import re
+import subprocess
+import tempfile
 from datetime import datetime, timezone, timedelta
+from pathlib import Path
 from typing import Any
 
 import httpx
@@ -28,6 +34,12 @@ from app.models.telegram_bot import TelegramBotMapping
 from app.models.ai.secretary_settings import SecretarySettings, ChannelCredential
 from app.services.auth_service import _load_private_key
 from app.services import telegram_service
+
+# NameCard pipeline helper (OCR detect + upload → G08 CRM)
+NAMECARD_SCRIPT = Path(__file__).resolve().parents[2] / "scripts" / "upload_namecard_to_g08.py"
+PENDING_DIR = Path(__file__).resolve().parents[2] / "uploads" / "namecards" / "pending"
+# Run the helper with the backend venv python so OpenCV/tesseract deps resolve
+VENV_PY = Path(__file__).resolve().parents[2] / "venv" / "bin" / "python3"
 
 AI_INTERNAL_URL = "http://localhost:8001/api/v1/ai"
 
@@ -217,14 +229,169 @@ async def _get_bot_token(db, mapping: TelegramBotMapping) -> str:
     return tok if tok and tok != "None" else ""
 
 
+async def _download_photo(token: str, photo_sizes: list[dict]) -> str | None:
+    """Download the largest photo size → temp file. Returns local path or None."""
+    if not photo_sizes:
+        return None
+    largest = max(photo_sizes, key=lambda p: p.get("file_size", 0) or 0)
+    file_id = largest.get("file_id")
+    if not file_id:
+        return None
+    try:
+        async with httpx.AsyncClient(timeout=15) as client:
+            info = (await client.post(
+                f"https://api.telegram.org/bot{token}/getFile",
+                json={"file_id": file_id},
+            )).json()
+        file_path = (info.get("result") or {}).get("file_path")
+        if not file_path:
+            return None
+        async with httpx.AsyncClient(timeout=30) as client:
+            resp = await client.get(f"https://api.telegram.org/file/bot{token}/{file_path}")
+        if resp.status_code != 200:
+            return None
+        PENDING_DIR.mkdir(parents=True, exist_ok=True)
+        tmp = PENDING_DIR / f"pending_{uuid.uuid4().hex[:12]}.jpg"
+        tmp.write_bytes(resp.content)
+        return str(tmp)
+    except Exception:
+        return None
+
+
+def _run_namecard_script(args: list[str]) -> dict:
+    """Run upload_namecard_to_g08.py (detect/upload) and parse JSON output."""
+    try:
+        r = subprocess.run(
+            [str(VENV_PY), str(NAMECARD_SCRIPT), *args],
+            capture_output=True, text=True, timeout=120,
+        )
+        out = r.stdout.strip()
+        if not out:
+            return {"ok": False, "error": f"script no output (exit {r.returncode}): {r.stderr[-200:]}"}
+        return json.loads(out)
+    except Exception as e:
+        return {"ok": False, "error": str(e)}
+
+
+async def _handle_photo(mapping: TelegramBotMapping, token: str, photo_sizes: list[dict]) -> str | None:
+    """Photo message → detect namecard → store pending → ask user."""
+    path = await _download_photo(token, photo_sizes)
+    if not path:
+        return "⚠️ 圖片下載失敗，請再試一次。"
+
+    det = _run_namecard_script(["--detect", path])
+    if not det.get("is_namecard"):
+        # Clean up non-namecard image
+        try:
+            os.remove(path)
+        except OSError:
+            pass
+        return None  # Not a namecard — no reply (plain photo)
+
+    # Store pending upload path in mapping config for the "係/是" follow-up
+    # Preview: use parsed name + company when available (friendlier than raw OCR)
+    preview = (det.get("ocr_preview") or "")[:80]
+    async with async_session() as db:
+        m = (
+            await db.execute(
+                select(TelegramBotMapping).where(TelegramBotMapping.id == mapping.id)
+            )
+        ).scalar_one_or_none()
+        if m:
+            m_cfg: dict[str, Any] = dict(m.config or {})
+            m_cfg["pending_namecard_path"] = path
+            m_cfg["pending_namecard_preview"] = preview
+            m.config = m_cfg
+            await db.commit()
+
+    # Try to extract a clean name/company for the confirmation message
+    try:
+        from app.services.namecard_ocr import parse_namecard, ocr_image
+        det_txt = det.get("ocr_preview") or ""
+        # Re-OCR full text for parse (detect only returns preview)
+        full_txt = ocr_image(path)
+        parsed = parse_namecard(full_txt or det_txt)
+        p_name = parsed.get("name") or ""
+        p_company = parsed.get("company") or ""
+        if p_name:
+            preview = f"{p_name}" + (f" · {p_company}" if p_company else "")
+        elif det_txt:
+            preview = det_txt[:80]
+    except Exception:
+        pass
+
+    return (
+        f"📇 偵測到名片：{preview}\n\n"
+        f"需要上載到名片庫嗎？（自動 OCR + 存入 CRM 聯絡人）\n"
+        f"回覆「係」上載，或「唔使」取消"
+    )
+
+
+async def _handle_namecard_confirm(mapping: TelegramBotMapping, text: str) -> str | None:
+    """User replied '係/是/好/yes' after a namecard photo → run upload pipeline."""
+    low = text.strip().lower()
+    YES = {"係", "是", "好", "yes", "y", "ok", "可以", "上載", "上傳", "upload"}
+    NO = {"唔使", "不用", "no", "n", "取消", "cancel", "不要", "唔好"}
+    is_yes = low in YES or low in {w.lower() for w in YES}
+    is_no = low in NO or low in {w.lower() for w in NO}
+    if not is_yes and not is_no:
+        return None  # not a confirmation — treat as normal message
+
+    async with async_session() as db:
+        m = (
+            await db.execute(
+                select(TelegramBotMapping).where(TelegramBotMapping.id == mapping.id)
+            )
+        ).scalar_one_or_none()
+        if not m:
+            return None
+        cfg: dict[str, Any] = dict(m.config or {})
+        pending = cfg.get("pending_namecard_path")
+        # Clear pending immediately (single-use)
+        for k in ("pending_namecard_path", "pending_namecard_preview"):
+            cfg.pop(k, None)
+        m.config = cfg
+        await db.commit()
+
+    if is_no:
+        if pending:
+            try:
+                os.remove(pending)
+            except OSError:
+                pass
+        return "✅ 已取消，名片唔會上載。"
+    if not pending or not os.path.isfile(pending):
+        return None  # no pending namecard — treat as normal message
+
+    res = _run_namecard_script(["--upload", pending])
+    try:
+        os.remove(pending)
+    except OSError:
+        pass
+    if not res.get("ok"):
+        return f"⚠️ 上載失敗：{res.get('error', 'unknown error')}"
+    status = res.get("status", "unknown")
+    status_txt = {"created": "✅ 已建立新聯絡人", "matched": "🔗 已連結現有聯絡人"}.get(
+        status, f"狀態：{status}"
+    )
+    lines = [f"{status_txt}並存入名片庫"]
+    if res.get("contact_name"):
+        lines.append(f"• 聯絡人：{res['contact_name']}")
+    if res.get("email"):
+        lines.append(f"• Email：{res['email']}")
+    if res.get("company"):
+        lines.append(f"• 公司：{res['company']}")
+    if res.get("title"):
+        lines.append(f"• 職位：{res['title']}")
+    return "\n".join(lines)
+
+
 async def process_update(mapping: TelegramBotMapping, update: dict) -> None:
-    """Process one Telegram update: extract text message → AI reply → send back."""
+    """Process one Telegram update: extract message → AI reply → send back."""
     msg = update.get("message") or update.get("edited_message")
     if not msg:
         return
     text = (msg.get("text") or "").strip()
-    if not text:
-        return
     chat_id = str(msg.get("chat", {}).get("id", ""))
     if not chat_id:
         return
@@ -232,14 +399,27 @@ async def process_update(mapping: TelegramBotMapping, update: dict) -> None:
     if msg.get("from", {}).get("is_bot"):
         return
 
-    reply = await handle_telegram_message(mapping, text)
-    if not reply:
-        return
-
-    # Send reply back via Telegram
     async with async_session() as db:
         token = await _get_bot_token(db, mapping)
     if not token:
+        return
+
+    # Namecard photo flow
+    if not text and msg.get("photo"):
+        reply = await _handle_photo(mapping, token, msg["photo"])
+        if reply:
+            await telegram_service.send_message(token, chat_id, reply)
+        return
+
+    # Namecard confirmation flow (係/唔使 after a photo)
+    if text:
+        confirm_reply = await _handle_namecard_confirm(mapping, text)
+        if confirm_reply is not None:
+            await telegram_service.send_message(token, chat_id, confirm_reply)
+            return
+
+    reply = await handle_telegram_message(mapping, text)
+    if not reply:
         return
 
     result = await telegram_service.send_message(token, chat_id, reply)
