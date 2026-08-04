@@ -231,6 +231,8 @@ table{border-collapse:collapse;width:100%}
   .login-page .hero-copy h1{max-width:14ch}
   .login-page .mini-proof{grid-template-columns:1fr 1fr 1fr}
   .login-page .auth-pane{padding:20px;background:var(--color-bg);border-left:none;order:1}
+  /* iOS Safari zoom guard — inputs <16px trigger auto-zoom on focus (Apple HIG) */
+  .login-page .input{font-size:16px}
 }
 
 /* ── Responsive: ≤640px ── */

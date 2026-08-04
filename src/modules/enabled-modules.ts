@@ -6,7 +6,7 @@
 //  via the /module-settings API endpoint.
 //  ═══════════════════════════════════════════
 
-import { apiClient } from '../lib/api'
+import { apiClient, isAuthenticated } from '../lib/api'
 
 /** All known module keys */
 const KNOWN_MODULES = [
@@ -40,8 +40,10 @@ async function loadFromApi(): Promise<void> {
   }
 }
 
-// Start loading immediately but don't block
-if (typeof window !== 'undefined') {
+// Start loading immediately but don't block — skip when not authenticated
+// (module-settings requires a valid JWT; calling it on the public login page
+// produces a noisy 403 in the console)
+if (typeof window !== 'undefined' && isAuthenticated()) {
   loadFromApi()
 }
 
