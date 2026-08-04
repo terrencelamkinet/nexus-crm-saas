@@ -996,13 +996,12 @@ export default function DashboardNew() {
       {/* Toolbar — dashboard-specific controls */}
       <div className="dash-toolbar" style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:18,flexWrap:'wrap',gap:10}}>
         <div>
-          <h1 style={{fontSize:22,fontWeight:700}}>{t('greeting.morning', { name: user?.displayName || user?.email?.split('@')[0] || '' })}</h1>
+          <h1 className="greeting-title">{t('greeting.morning', { name: user?.displayName || user?.email?.split('@')[0] || '' })}</h1>
           <p style={{fontSize:13,color:'var(--color-text-muted)',marginTop:2}}>{todayStr(i18n.language)}</p>
         </div>
         <div style={{display:'flex',alignItems:'center',gap:8}}>
           <div className="new-menu-wrap" ref={newRef} style={{position:'relative'}}>
-            <button className="new-btn" aria-label="Create new" onClick={() => setNewOpen(!newOpen)}
-              style={{width:38,height:38,borderRadius:'999px',background:'var(--color-primary)',color:'#fff',display:'flex',alignItems:'center',justifyContent:'center',border:'none',cursor:'pointer'}}>
+            <button className="new-btn" aria-label="Create new" onClick={() => setNewOpen(!newOpen)}>
               <Plus size={20} />
             </button>
             {newOpen && (
@@ -1073,10 +1072,10 @@ export default function DashboardNew() {
                 </h3>
                 {editing && (
                   <div style={{display:'flex',gap:2}}>
-                    <button aria-label={t('greeting.drag')} style={{width:24,height:24,display:'flex',alignItems:'center',justifyContent:'center',borderRadius:'var(--radius-sm)',color:'var(--color-text-faint)',background:'none',border:'none',cursor:'pointer'}} title={t('greeting.drag')}>
+                    <button aria-label={t('greeting.drag')} className="widget-icon-btn" title={t('greeting.drag')}>
                       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="9" cy="6" r="1"/><circle cx="9" cy="12" r="1"/><circle cx="9" cy="18" r="1"/><circle cx="15" cy="6" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="15" cy="18" r="1"/></svg>
                     </button>
-                    <button aria-label={t('greeting.remove')} onClick={(e) => { e.stopPropagation(); removeW(k) }} style={{width:24,height:24,display:'flex',alignItems:'center',justifyContent:'center',borderRadius:'var(--radius-sm)',color:'var(--color-text-faint)',background:'none',border:'none',cursor:'pointer'}} title={t('greeting.remove')}>
+                    <button aria-label={t('greeting.remove')} onClick={(e) => { e.stopPropagation(); removeW(k) }} className="widget-icon-btn" title={t('greeting.remove')}>
                       <X size={14} />
                     </button>
                   </div>

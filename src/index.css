@@ -330,7 +330,7 @@ table{border-collapse:collapse;width:100%}
 /* ═══════════════════════════════════════════
    MAIN CONTENT
    ═══════════════════════════════════════════ */
-.main-content{grid-area:main;overflow-y:auto;padding:24px 28px 60px;background:var(--color-bg)}
+.main-content{grid-area:main;overflow-y:auto;padding:24px 32px 60px;background:var(--color-bg)}
 .page-header{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:22px;flex-wrap:wrap}
 .page-header h1{font-family:var(--font-display);font-size:23px;font-weight:700;letter-spacing:-.015em}
 .page-header p{color:var(--color-text-muted);font-size:13px;margin-top:3px}
@@ -508,6 +508,20 @@ tbody tr:hover .menu-dots{opacity:1}
   .detail-grid{grid-template-columns:1fr}
 }
 
+/* ── Guide §10.2: Tablet sidebar collapses to icon-only 64px,
+   expands to 240px overlay on hover ── */
+@media (min-width:769px) and (max-width:1024px){
+  .app-shell{grid-template-columns:64px 1fr;transition:grid-template-columns .25s var(--ease-out)}
+  .app-shell:hover{grid-template-columns:240px 1fr}
+  .sidebar{width:auto;min-width:0}
+  .sidebar .nav-section-label,.sidebar .sidebar-brand span,.sidebar .sidebar-user .info{display:none}
+  .sidebar .nav-item span{display:none}
+  .sidebar .nav-item{justify-content:center;padding-left:0;padding-right:0}
+  .app-shell:hover .sidebar .nav-section-label,.app-shell:hover .sidebar .sidebar-brand span,.app-shell:hover .sidebar .sidebar-user .info{display:block}
+  .app-shell:hover .sidebar .nav-item span{display:inline}
+  .app-shell:hover .sidebar .nav-item{justify-content:flex-start}
+}
+
 /* ═══════════════════════════════════════════
    RESPONSIVE — Tablet (≤768px)
    Sidebar → off-canvas drawer with scrim
@@ -516,7 +530,8 @@ tbody tr:hover .menu-dots{opacity:1}
 @media (max-width:768px){
   .app-shell{grid-template-columns:0 1fr}
   .sidebar{position:fixed;inset:0 auto 0 0;width:var(--sidebar-w);z-index:40;will-change:transform;backface-visibility:hidden;transform:translateY(var(--topbar-h)) translateX(-100%);transition:transform .3s cubic-bezier(.4,0,.2,1);box-shadow:var(--shadow-lg);height:calc(100vh - var(--topbar-h));height:calc(100dvh - var(--topbar-h));padding-top:env(safe-area-inset-top)}
-  .app-shell.mobile-open .sidebar{transform:translateY(var(--topbar-h)) translateX(0)}
+  /* Guide §10.1: hamburger triggers a FULL-SCREEN overlay drawer (not a narrow slide-in) */
+  .app-shell.mobile-open .sidebar{transform:translateY(var(--topbar-h)) translateX(0);width:100vw;max-width:100vw}
   .topbar-search{display:none}
   .topbar-search-icon{display:flex !important}
   .topbar-hamburger{display:flex !important}
@@ -528,6 +543,7 @@ tbody tr:hover .menu-dots{opacity:1}
   .detail-form-grid{grid-template-columns:1fr}
   .contact-detail-page{padding:0}
   .title-row h1{font-size:18px}
+  /* Guide §2.1 mobile H1 22px — live in the end-of-file overrides block (must come after the base 28px rule to win the tie) */
 
   /* ── Pull page toolbars up to dashboard level ──
      Hide breadcrumb + pin the Filter/Sort toolbar directly under
@@ -1563,6 +1579,9 @@ textarea.input-field{resize:vertical;min-height:60px}
    DESIGN 01 — DASHBOARD NEW (standalone shell)
    ═══════════════════════════════════════════ */
 .dash01-shell{--color-bg:#f7f6f2;--color-surface:#f9f8f5;--color-surface-2:#fbfbf9;--color-surface-offset:#f3f0ec;--color-surface-offset-2:#edeae5;--color-divider:#dcd9d5;--color-border:#d4d1ca;--color-text:#28251d;--color-text-muted:#7a7974;--color-text-faint:#bab9b4;--color-text-inverse:#f9f8f4;--color-primary:#01696f;--color-primary-hover:#0c4e54;--color-primary-active:#0f3638;--color-primary-highlight:#cedcd8;--color-purple:#7a39bb;--color-purple-hover:#5f2699;--color-purple-highlight:#dacfde;--color-warning:#964219;--color-success:#437a22;--color-error:#a12c7b;--color-blue:#006494;--shadow-sm:0 1px 2px oklch(0 0 0/.2);--shadow-md:0 4px 12px oklch(0 0 0/.3);--shadow-lg:0 12px 32px oklch(0 0 0/.4)}
+/* ── Dashboard dark mode — overrides the .dash01-shell light values above
+   (same pattern as .login-page: [data-theme] lives on <html>) ── */
+[data-theme="dark"] .dash01-shell{--color-bg:#151513;--color-surface:#1b1b19;--color-surface-2:#212120;--color-surface-offset:#212120;--color-surface-offset-2:#292927;--color-divider:#2a2a28;--color-border:#38372f;--color-text:#e9e8e4;--color-text-muted:#9c9a94;--color-text-faint:#5f5d57;--color-text-inverse:#1b1b19;--color-primary:#54a6a6;--color-primary-hover:#3f8f8f;--color-primary-active:#2e7373;--color-primary-highlight:#233332;--color-purple:#a888de;--color-purple-hover:#8f6fd0;--color-purple-highlight:#302a3c;--color-warning:#dba360;--color-warning-highlight:#3c3120;--color-success:#7fbf7f;--color-success-highlight:#28361f;--color-error:#dd7d8b;--color-error-highlight:#402a2e;--color-blue:#68aae0;--color-blue-highlight:#212f3c;--shadow-sm:0 1px 2px rgba(0,0,0,.3);--shadow-md:0 4px 12px rgba(0,0,0,.36);--shadow-lg:0 12px 32px rgba(0,0,0,.5)}
 .dash01-shell .app{display:flex;min-height:100dvh}
 .dash01-shell .sidebar{width:240px;background:var(--color-surface);border-right:1px solid var(--color-divider);display:flex;flex-direction:column;flex-shrink:0}
 .dash01-shell .sidebar-logo{display:flex;align-items:center;gap:10px;padding:20px 20px 16px}
@@ -1582,6 +1601,13 @@ textarea.input-field{resize:vertical;min-height:60px}
 .dash01-shell .topbar{height:64px;border-bottom:1px solid var(--color-divider);display:flex;align-items:center;justify-content:space-between;padding:0 24px;gap:16px;background:var(--color-surface);flex-shrink:0;position:relative;z-index:20}
 .dash01-shell .topbar-left{display:flex;align-items:center;gap:14px}
 .dash01-shell .page-title{font-size:20px;font-weight:700;letter-spacing:-.01em}
+/* Guide §2.3: desktop H1 28px (was inline 22px).
+   Full selector .dash-toolbar h1.greeting-title (0,3,1) so it beats
+   .dash-toolbar h1 rules in index.css (0,2,1) AND dashboard.css (later file). */
+.dash01-shell .dash-toolbar h1.greeting-title{font-size:28px;font-weight:700;letter-spacing:-.015em;line-height:1.2}
+/* Guide §3: widget row action buttons — 32px desktop (≥WCAG 24px), 44px on mobile */
+.widget-icon-btn{width:32px;height:32px;display:flex;align-items:center;justify-content:center;border-radius:var(--radius-sm);color:var(--color-text-faint);background:none;border:none;cursor:pointer;transition:background 120ms,color 120ms}
+.widget-icon-btn:hover{background:var(--color-surface-offset);color:var(--color-text)}
 .dash01-shell .ai-toggle{display:flex;align-items:center;gap:8px;padding:6px 12px;border-radius:999px;background:var(--color-surface-offset);border:1px solid var(--color-border);font-size:13px;font-weight:600}
 .dash01-shell .ai-toggle svg{width:15px;height:15px}
 .dash01-shell .switch{width:34px;height:19px;border-radius:999px;background:var(--color-border);position:relative;transition:background var(--transition-interactive);cursor:pointer;border:none;padding:0}
@@ -1600,7 +1626,7 @@ textarea.input-field{resize:vertical;min-height:60px}
 .dash01-shell .new-dropdown-item svg{width:16px;height:16px;color:var(--color-text-muted)}
 .dash01-shell .content{flex:1;overflow-y:auto;padding:24px 24px 100px}
 .dash01-shell .dash-toolbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;flex-wrap:wrap;gap:10px}
-.dash01-shell .dash-toolbar h1{font-size:22px;font-weight:700}
+.dash01-shell .dash-toolbar h1{font-size:28px;font-weight:700} /* Guide §2.3: desktop H1 28px (greeting is the only h1 in dash-toolbar) */
 .dash01-shell .dash-toolbar p{font-size:13px;color:var(--color-text-muted);margin-top:2px}
 .dash01-shell .btn{display:inline-flex;align-items:center;gap:6px;padding:9px 16px;border-radius:var(--radius-md);font-size:13.5px;font-weight:600;transition:background var(--transition-interactive),color var(--transition-interactive),border-color var(--transition-interactive);cursor:pointer;border:none}
 .dash01-shell .btn-primary{background:var(--color-primary);color:#fff}
@@ -2375,4 +2401,39 @@ textarea.input-field{resize:vertical;min-height:60px}
   .cb-msg-user-bubble{max-width:92%}
   .cb-header{padding:0 10px 0 12px}
   .cb-cheatsheet-card{max-width:280px;padding:14px 16px}
+}
+
+/* ═══════════════════════════════════════════
+   NEXUS DESIGN GUIDE 2026 — responsive overrides
+   (placed last so they win the cascade over base component styles)
+   ═══════════════════════════════════════════ */
+
+/* Guide §10.2: Tablet sidebar → icon-only 64px, expands to 240px on hover.
+   .dash01-shell uses flex (not .app-shell grid), so both layouts are covered. */
+@media (min-width:769px) and (max-width:1024px){
+  .app-shell{grid-template-columns:64px 1fr;transition:grid-template-columns .25s var(--ease-out)}
+  .app-shell:hover{grid-template-columns:240px 1fr}
+  .dash01-shell .sidebar{width:64px;transition:width .25s var(--ease-out)}
+  .dash01-shell:hover .sidebar{width:240px}
+  .sidebar .nav-section-label,.sidebar .sidebar-brand span,.sidebar .sidebar-user .info{display:none}
+  .sidebar .nav-item span{display:none}
+  .sidebar .nav-item{justify-content:center;padding-left:0;padding-right:0}
+  .app-shell:hover .sidebar .nav-section-label,.app-shell:hover .sidebar .sidebar-brand span,.app-shell:hover .sidebar .sidebar-user .info{display:block}
+  .app-shell:hover .sidebar .nav-item span{display:inline}
+  .app-shell:hover .sidebar .nav-item{justify-content:flex-start}
+  .dash01-shell:hover .sidebar .nav-section-label,.dash01-shell:hover .sidebar .sidebar-brand span,.dash01-shell:hover .sidebar .sidebar-user .info{display:block}
+  .dash01-shell:hover .sidebar .nav-item span{display:inline}
+  .dash01-shell:hover .sidebar .nav-item{justify-content:flex-start}
+}
+
+/* Guide §3/§12: mobile touch targets ≥44px (Apple HIG) */
+@media (max-width:768px){
+  .topbar .icon-btn{width:44px;height:44px}
+  .dash01-shell .dash-toolbar .new-btn{width:44px;height:44px} /* beats dashboard.css 34px rule (later stylesheet) + inline styles removed from JSX */
+  .btn-ghost{height:44px}
+  .ab-close-btn{width:44px;height:44px}
+  .widget-icon-btn{width:44px;height:44px}
+  /* Guide §2.1: mobile H1 22px — placed after the base 28px rule (line ~1605) so it wins the
+     specificity tie; full selector also beats .dash-toolbar h1 18px from dashboard.css (later file) */
+  .dash01-shell .dash-toolbar h1.greeting-title{font-size:22px}
 }
