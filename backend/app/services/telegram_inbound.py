@@ -478,7 +478,11 @@ async def poll_once(db) -> int:
         for upd in updates:
             try:
                 await process_update(mapping, upd)
-            except Exception:  # noqa: BLE001 — per-update isolation
+            except Exception as e:  # noqa: BLE001 — per-update isolation
+                import logging
+                logging.getLogger("telegram_inbound").exception(
+                    "process_update failed for update %s: %s", upd.get("update_id"), e
+                )
                 continue
 
         if updates:
