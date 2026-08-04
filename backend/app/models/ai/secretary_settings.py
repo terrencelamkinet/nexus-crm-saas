@@ -14,10 +14,10 @@ DEFAULT_CHANNELS = {
     "sms": {"connected": False, "enabled": False},
 }
 DEFAULT_GREETING_SLOTS = [
-    {"key": "morning", "emoji": "🌅", "start": "05:00"},
+    {"key": "morning", "emoji": "🌅", "start": "07:00"},
     {"key": "afternoon", "emoji": "☀️", "start": "12:00"},
     {"key": "evening", "emoji": "🌆", "start": "18:00"},
-    {"key": "lateNight", "emoji": "🌙", "start": "23:00"},
+    {"key": "lateNight", "emoji": "🌙", "start": "00:00"},
 ]
 
 VALID_TONES = ("professional", "friendly", "direct", "encouraging", "formal")

@@ -86,10 +86,10 @@ export const DEFAULT_SETTINGS: SecretarySettings = {
   work_start: '09:00',
   work_end: '18:00',
   greeting_slots: [
-    { key: 'morning', emoji: '🌅', start: '05:00' },
+    { key: 'morning', emoji: '🌅', start: '07:00' },
     { key: 'afternoon', emoji: '☀️', start: '12:00' },
     { key: 'evening', emoji: '🌆', start: '18:00' },
-    { key: 'lateNight', emoji: '🌙', start: '23:00' },
+    { key: 'lateNight', emoji: '🌙', start: '00:00' },
   ],
 };
 

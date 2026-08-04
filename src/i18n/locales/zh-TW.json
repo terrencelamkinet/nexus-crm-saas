@@ -202,11 +202,11 @@
     "aiApps": {
       "title": "AI 應用",
       "greetingSchedule": "日常問候時段",
-      "greetingDesc": "問候語會按固定時段自動切換，無需設定。",
+      "greetingDesc": "問候語會按以下時段自動切換，可自行修改時間。",
       "morning": "早安",
       "afternoon": "午安",
       "evening": "晚安",
-      "lateNight": "夜深",
+      "lateNight": "深夜",
       "workingHours": "工作時段",
       "workingHoursDesc": "用拉杆選擇工作時段。任務與專案相關事項只會在工作時段內通知。",
       "workingStart": "開始",

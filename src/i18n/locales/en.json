@@ -202,7 +202,7 @@
     "aiApps": {
       "title": "AI Apps",
       "greetingSchedule": "Greeting Schedule",
-      "greetingDesc": "Greetings switch automatically on a fixed schedule — no setup needed.",
+      "greetingDesc": "Greetings switch automatically at the times below — edit any slot.",
       "morning": "Morning",
       "afternoon": "Afternoon",
       "evening": "Evening",

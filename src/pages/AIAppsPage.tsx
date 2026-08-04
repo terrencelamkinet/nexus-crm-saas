@@ -147,6 +147,24 @@ export default function AIAppsPage() {
     flashSaved();
   };
 
+  // ── Greeting slots (editable time per slot) ──
+  const updateGreetingSlot = (key: string, start: string) => {
+    const next = (settings.greeting_slots ?? []).map(s => (s.key === key ? { ...s, start } : s));
+    update({ greeting_slots: next });
+    flashSaved();
+  };
+  const resetGreetings = () => {
+    update({
+      greeting_slots: [
+        { key: 'morning', emoji: '🌅', start: '07:00' },
+        { key: 'afternoon', emoji: '☀️', start: '12:00' },
+        { key: 'evening', emoji: '🌆', start: '18:00' },
+        { key: 'lateNight', emoji: '🌙', start: '00:00' },
+      ],
+    });
+    flashSaved();
+  };
+
   // ── Detail preview ──
   const detailPreview = useMemo(() => {
     const lvl = settings.detail_level;
@@ -277,17 +295,28 @@ export default function AIAppsPage() {
                 <p className="asec-card-hint">{t('settings.aiApps.greetingDesc')}</p>
                 <div className="stg-greeting-list">
                   {(settings.greeting_slots?.length ? settings.greeting_slots : [
-                    { key: 'morning', emoji: '🌅', start: '05:00' },
+                    { key: 'morning', emoji: '🌅', start: '07:00' },
                     { key: 'afternoon', emoji: '☀️', start: '12:00' },
                     { key: 'evening', emoji: '🌆', start: '18:00' },
-                    { key: 'lateNight', emoji: '🌙', start: '23:00' },
+                    { key: 'lateNight', emoji: '🌙', start: '00:00' },
                   ]).map(slot => (
                     <div key={slot.key} className="stg-greeting-row">
                       <span className="stg-greeting-emoji">{slot.emoji}</span>
                       <span className="stg-greeting-name">{t('settings.aiApps.' + slot.key)}</span>
-                      <span className="stg-greeting-time">{slot.start}</span>
+                      <input
+                        type="time"
+                        value={slot.start}
+                        onChange={e => updateGreetingSlot(slot.key, e.target.value)}
+                        className="stg-greeting-time"
+                        aria-label={t('settings.aiApps.' + slot.key)}
+                      />
                     </div>
                   ))}
+                </div>
+                <div className="asec-actions">
+                  <button className="btn-ghost" onClick={resetGreetings} style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+                    <RotateCcw size={14} /> {t('settings.aiApps.resetDefault')}
+                  </button>
                 </div>
               </div>
 
