@@ -12,7 +12,6 @@ import {
 } from 'lucide-react'
 import SlideDrawer from '../components/SlideDrawer'
 import AIBriefingDrawer from '../components/AIBriefingDrawer'
-import DailyBriefingCard from '../components/DailyBriefingCard'
 import WidgetAskAI from '../components/WidgetAskAI'
 
 interface Task { id: string; title: string; priority: string; status: string; due_date: string | null; area?: string; custom_fields?: Record<string, any> }
@@ -1033,11 +1032,6 @@ export default function DashboardNew() {
       {/* AI Daily Brief — compact trigger + drawer (V2) */}
       <div className={aiOn ? '' : 'hidden'} style={aiOn ? {} : { display: 'none' }}>
         <AIBriefingDrawer />
-      </div>
-
-      {/* Daily Briefing Card — LLM-generated briefing (same style as drawer block) */}
-      <div className={aiOn ? '' : 'hidden'} style={aiOn ? { marginBottom: 16 } : { display: 'none' }}>
-        <DailyBriefingCard />
       </div>
 
       {/* WIDGET GRID — CSS grid, 12-column, span classes */}
