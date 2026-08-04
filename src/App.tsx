@@ -1,4 +1,5 @@
-import { BrowserRouter, Routes, Route, Navigate, useParams } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useParams, useLocation } from 'react-router-dom';
+import { useEffect } from 'react';
 import Layout from './components/Layout';
 import AuthGuard from './components/AuthGuard';
 import LoginPage from './pages/LoginPage';
@@ -28,6 +29,7 @@ import ProjectGate from './components/ProjectGate';
 function App() {
   return (
     <BrowserRouter>
+      <ScrollReflow />
       <Routes>
         {/* Public routes — no auth needed */}
         <Route path="/sign-in" element={<LoginPage />} />
@@ -99,6 +101,19 @@ function App() {
 function DeepLinkTask() {
   const { id } = useParams<{ id: string }>();
   return <Navigate to={`/tasks/${id}`} replace />;
+}
+
+/**
+ * Global route-change reflow (iOS Safari URL-bar fix, Layer 3).
+ * Forces the browser to re-measure layout on every navigation so the
+ * collapsed/expanded URL bar never leaves a stale "dropped a layer" gap.
+ */
+function ScrollReflow() {
+  const { pathname } = useLocation();
+  useEffect(() => {
+    requestAnimationFrame(() => window.scrollTo(0, window.scrollY));
+  }, [pathname]);
+  return null;
 }
 
 export default App;
