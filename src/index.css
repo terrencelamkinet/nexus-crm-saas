@@ -85,8 +85,10 @@
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 html{-webkit-font-smoothing:antialiased;scroll-behavior:smooth}
 body{font-family:var(--font-body);background:var(--color-bg);color:var(--color-text);font-size:14.5px;line-height:1.5;overflow:hidden;min-height:100dvh}
-/* Login page needs to be scrollable on mobile */
-.login-page{overflow-y:auto;-webkit-overflow-scrolling:touch;min-height:100dvh}
+/* Login page needs to be scrollable on mobile — fixed height + inner scroll
+   (body has overflow:hidden for the app shell; min-height would let the
+   element grow past 100dvh and never become a scroll container) */
+.login-page{overflow-y:auto;-webkit-overflow-scrolling:touch;height:100dvh}
 input,select,textarea{font:inherit;color:inherit}
 :focus-visible{outline:2px solid var(--color-primary);outline-offset:2px;border-radius:var(--radius-sm)}
 ::selection{background:color-mix(in oklch,var(--color-primary) 25%,transparent)}
@@ -136,6 +138,10 @@ table{border-collapse:collapse;width:100%}
    Primary: #0e6b70  |  Font: Cabinet Grotesk + General Sans
    ═══════════════════════════════════════════ */
 .login-page{--color-bg:#f7f6f2;--color-surface:#fbfaf7;--color-surface-2:#ffffff;--color-surface-offset:#f1eee8;--color-surface-offset-2:#e8e3db;--color-divider:#ddd8d0;--color-border:#d3cec6;--color-text:#23211d;--color-text-muted:#69655f;--color-text-faint:#9f9a92;--color-text-inverse:#f9f8f4;--color-primary:#0e6b70;--color-primary-hover:#0b565a;--color-primary-active:#083f42;--color-primary-highlight:#d9e7e6;--color-error:#ab4b59;--color-error-highlight:#f4e1e4;--color-success:#437a22;--color-success-highlight:#dce9d4;--radius-sm:.375rem;--radius-md:.625rem;--radius-lg:.95rem;--radius-xl:1.25rem;--radius-full:9999px;--shadow-sm:0 1px 2px oklch(0.2 0.01 80 / 0.05);--shadow-md:0 10px 30px oklch(0.2 0.01 80 / 0.08);--shadow-lg:0 24px 60px oklch(0.2 0.01 80 / 0.12);--text-xs:clamp(.75rem,.72rem + .15vw,.825rem);--text-sm:clamp(.875rem,.84rem + .2vw,.95rem);--text-base:clamp(1rem,.96rem + .2vw,1.05rem);--text-lg:clamp(1.125rem,1.04rem + .4vw,1.3rem);--text-xl:clamp(1.55rem,1.3rem + .9vw,2rem);--space-1:.25rem;--space-2:.5rem;--space-3:.75rem;--space-4:1rem;--space-5:1.25rem;--space-6:1.5rem;--space-8:2rem;--space-10:2.5rem;--space-12:3rem;--space-16:4rem;--font-body:'General Sans','Inter',sans-serif;--font-display:'Cabinet Grotesk','Inter',sans-serif;--transition:180ms cubic-bezier(.16,1,.3,1)}
+/* ── Login dark mode — overrides the .login-page light values above.
+   NOTE: data-theme lives on <html>, so the selector must be
+   [data-theme="dark"] .login-page (NOT .login-page [data-theme="dark"]) ── */
+[data-theme="dark"] .login-page{--color-bg:#151513;--color-surface:#1b1b19;--color-surface-2:#212120;--color-surface-offset:#212120;--color-surface-offset-2:#292927;--color-divider:#2a2a28;--color-border:#38372f;--color-text:#e9e8e4;--color-text-muted:#9c9a94;--color-text-faint:#5f5d57;--color-text-inverse:#1b1b19;--color-primary:#54a6a6;--color-primary-hover:#3f8f8f;--color-primary-active:#2e7373;--color-primary-highlight:#233332;--color-error:#dd7d8b;--color-error-highlight:#402a2e;--color-success:#7fbf7f;--color-success-highlight:#28361f;--shadow-sm:0 1px 2px rgba(0,0,0,.3);--shadow-md:0 10px 30px rgba(0,0,0,.36);--shadow-lg:0 24px 60px rgba(0,0,0,.5)}
 .login-page .app{min-height:100dvh;display:grid;grid-template-columns:1.05fr minmax(420px,520px)}
 .login-page .brand-pane{position:relative;padding:32px;display:flex;flex-direction:column;justify-content:space-between;background:linear-gradient(180deg,color-mix(in oklch,var(--color-primary) 4%, var(--color-bg)),var(--color-bg))}
 .login-page .brand-top{display:flex;align-items:center;justify-content:space-between;gap:16px}
@@ -233,21 +239,25 @@ table{border-collapse:collapse;width:100%}
   .login-page .auth-pane{padding:20px;background:var(--color-bg);border-left:none;order:1}
   /* iOS Safari zoom guard — inputs <16px trigger auto-zoom on focus (Apple HIG) */
   .login-page .input{font-size:16px}
+  /* Theme toggle pinned top-right — brand-pane drops below the form (order:2),
+     so the button must float. 44px = Apple HIG touch target. */
+  .login-page .theme-btn{position:fixed;top:max(12px,env(safe-area-inset-top));right:max(12px,env(safe-area-inset-right));z-index:20;width:44px;height:44px}
 }
 
 /* ── Responsive: ≤640px ── */
 @media (max-width:640px){
   .login-page .brand-pane{padding:18px 16px}
   .login-page .mini-proof{grid-template-columns:1fr;max-width:none}
-  .login-page .auth-pane{padding:14px}
+  .login-page .auth-pane{padding:16px}
   .login-page .auth-head,.login-page .auth-body{padding-left:18px;padding-right:18px}
   .login-page .row-2{grid-template-columns:1fr}
   .login-page .btn,.login-page .input{min-height:48px}
   .login-page .brand-bottom{display:none}
 }
 
-/* ── Dark mode ── */
-.login-page [data-theme="dark"] .brand-pane{background:linear-gradient(180deg,color-mix(in oklch,var(--color-primary) 8%,var(--color-bg)),var(--color-bg))}
+/* ── Dark mode ──
+   (login dark tokens defined in the .login-page block above — brand-pane
+   gradient follows --color-primary/--color-bg automatically) */
 
 /* ── Reduced motion ── */
 @media (prefers-reduced-motion:reduce){
