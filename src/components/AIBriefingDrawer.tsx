@@ -108,10 +108,10 @@ const fmtMoney = (n: number | null): string => {
 /** Pick the active greeting slot for `now` (HKT) from backend slots. */
 function currentGreetingSlot(slots: { key: string; emoji: string; start: string }[] | undefined) {
   const list = (slots && slots.length ? slots : [
-    { key: 'morning', emoji: '🌅', start: '05:00' },
+    { key: 'morning', emoji: '🌅', start: '07:00' },
     { key: 'afternoon', emoji: '☀️', start: '12:00' },
     { key: 'evening', emoji: '🌆', start: '18:00' },
-    { key: 'lateNight', emoji: '🌙', start: '23:00' },
+    { key: 'lateNight', emoji: '🌙', start: '00:00' },
   ])
   const toM = (hhmm: string) => {
     const [h, m] = hhmm.split(':').map(Number)
