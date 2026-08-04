@@ -48,7 +48,7 @@ export default function GenericListPage({ config, extraData }: Props) {
 
   type FilterOp = 'is' | 'is_not'
 interface FilterEntry { op: FilterOp; value: string }
-const [filters, setFilters] = useState<Record<string, FilterEntry>>({})
+const [filters, setFilters] = useState<Record<string, FilterEntry>>(() => ({ ...((config as any).defaultFilters || {}) }))
   const [filterOpen, setFilterOpen] = useState(false)
   const [filterField, setFilterField] = useState('')
   const [filterOp, setFilterOp] = useState<FilterOp>('is')
@@ -714,7 +714,7 @@ const [filters, setFilters] = useState<Record<string, FilterEntry>>({})
                 </span>
               )
             })}
-            <button onClick={() => { setFilters({}); setPage(1) }} className="btn-ghost filter-clear">{t('filter.clear')}</button>
+            <button onClick={() => { setFilters({ ...((config as any).defaultFilters || {}) }); setPage(1) }} className="btn-ghost filter-clear">{t('filter.clear')}</button>
           </div>
         )}
 

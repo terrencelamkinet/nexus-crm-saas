@@ -4,7 +4,11 @@
 
 import type { ResourceConfig } from '../module-types'
 
-const taskConfig: ResourceConfig = {
+type TaskResourceConfig = ResourceConfig & {
+  defaultFilters?: Record<string, { op: 'is' | 'is_not'; value: string }>
+}
+
+const taskConfig: TaskResourceConfig = {
   name: 'task',
   label: 'Task',
   labelPlural: 'Tasks',
@@ -39,6 +43,7 @@ const taskConfig: ResourceConfig = {
   ],
 
   listColumns: ['title', 'priority', 'status', 'due_date', 'contact_id', 'company_id'],
+  defaultFilters: { status: { op: 'is_not', value: 'done' } },
   defaultSort: [{ field: 'created_at', direction: 'desc' }],
   defaultView: 'table',
   allowedBulkActions: ['update', 'archive', 'export'],
