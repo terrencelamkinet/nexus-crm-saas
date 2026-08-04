@@ -4,12 +4,14 @@ import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { apiClient } from '../lib/api';
 import { useTranslation } from 'react-i18next';
+import MobileSearchSheet from './MobileSearchSheet';
 
 export default function Header() {
   const { t } = useTranslation();
   const { user, logout } = useAuth();
   const [menuOpen, setMenuOpen] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const [aiEnabled, setAiEnabled] = useState(true); // default show until loaded
 
@@ -106,13 +108,19 @@ export default function Header() {
   const displayName = user?.email?.split('@')[0].replace('.', ' ') || 'User';
 
   return (
-    <header className="topbar">
+    <>
+      <header className="topbar">
       {/* Hamburger — mobile only */}
       <button className="topbar-hamburger icon-btn" onClick={() => setMobileOpen(!mobileOpen)}
         aria-label={t('common.close')}>
         <div className={`ham-icon${mobileOpen ? ' open' : ''}`}>
           <span></span><span></span><span></span>
         </div>
+      </button>
+      {/* Mobile search icon — opens bottom sheet (design04 pattern) */}
+      <button className="topbar-search-icon icon-btn" onClick={() => setSearchOpen(true)}
+        aria-label={t('header.searchPlaceholder')}>
+        <Search size={19} />
       </button>
       <div className="topbar-search">
         <Search />
@@ -181,6 +189,8 @@ export default function Header() {
           )}
         </div>
       </div>
-    </header>
+      </header>
+      <MobileSearchSheet open={searchOpen} onClose={() => setSearchOpen(false)} />
+    </>
   );
 }

@@ -25,15 +25,17 @@ class AISessionMiddleware(BaseHTTPMiddleware):
     """
 
     AI_PREFIX = "/api/v1/ai/"
+    AI_SECRETARY_PREFIX = "/api/v1/ai-secretary/"
 
     async def dispatch(
         self, request: Request, call_next: RequestResponseEndpoint
     ) -> Response:
-        if not request.url.path.startswith(self.AI_PREFIX):
+        path = request.url.path
+        if not (path.startswith(self.AI_PREFIX) or path.startswith(self.AI_SECRETARY_PREFIX)):
             return await call_next(request)
 
         # /api/v1/ai/health is public — no auth, no session context
-        if request.url.path == "/api/v1/ai/health":
+        if path == "/api/v1/ai/health":
             return await call_next(request)
 
         async with async_session() as db:

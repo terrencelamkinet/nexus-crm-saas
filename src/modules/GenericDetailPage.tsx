@@ -19,9 +19,11 @@ interface Props {
     refresh: () => void
   }>>
   extraData?: Record<string, any>
+  /** Optional header action buttons (rendered in non-edit mode, before delete/edit) */
+  actions?: React.ReactNode
 }
 
-export default function GenericDetailPage({ config, tabRenderers, extraData }: Props) {
+export default function GenericDetailPage({ config, tabRenderers, extraData, actions }: Props) {
   const { t } = useTranslation()
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
@@ -181,6 +183,7 @@ export default function GenericDetailPage({ config, tabRenderers, extraData }: P
             </>
           ) : (
             <>
+              {actions}
               <button onClick={handleDeleteClick} className="btn-danger">
                 <Trash2 className="icon-16" /> {t('common.delete')}
               </button>

@@ -6,13 +6,14 @@ from app.db import engine, Base
 from app.models import User, Session, Tenant, TenantMember  # Register all models
 from app.models.crm import Company, Contact, Touchpoint, Task, NameCard, Note, ActivityLog, Tag  # Register CRM models
 from app.models.crm_module_b import DealPipeline, DealStage, Deal, Product, DealLineItem, Quote, QuoteItem, SalesReport, ModuleSetting  # Register Module B models
+from app.models.crm_module_c import AiDraft, Expense, PersonalNote  # Register Batch B/C module models
 from app.models.notification import Notification, NotificationPreference  # Register Notification models
 from app.models.dashboard_layout import DashboardLayout  # Register Dashboard layout model
 from app.models.integration import Integration, OAuthState  # Register Integration models
 from app.models.whatsapp import WhatsAppMapping, WhatsAppOTP  # Register WhatsApp models
 from app.models.im_push import IMDeliveryPref, PushLog  # Register IM Push models
 from app.models.oauth_client import OAuthClientSetting  # Register OAuth client settings model
-from app.models.ai import Agent, AISession, Message, Tool, ActionRequest, Quota, UsageEvent, ModelProfile, ProviderCredential, ProviderHealth  # Register AI models
+from app.models.ai import Agent, AISession, Message, Tool, ActionRequest, Quota, UsageEvent, ModelProfile, ProviderCredential, ProviderHealth, SecretarySettings, ChannelCredential  # Register AI models
 from app.middleware.tenant import TenantMiddleware
 from app.middleware.ai_session import AISessionMiddleware
 
@@ -70,6 +71,8 @@ from app.routers import ai
 from app.routers import ai_rag
 app.include_router(ai.router)
 app.include_router(ai_rag.router)
+from app.routers import ai_secretary
+app.include_router(ai_secretary.router)
 
 @app.get("/health")
 async def health():

@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useParams } from 'react-router-dom';
 import Layout from './components/Layout';
 import AuthGuard from './components/AuthGuard';
 import LoginPage from './pages/LoginPage';
@@ -20,6 +20,7 @@ import IntegrationDetailPage from './pages/IntegrationDetailPage';
 import OAuthCallbackPage from './pages/OAuthCallbackPage';
 import NameCardsPage from './pages/NameCardsPage';
 import SettingsPage from './pages/SettingsPage';
+import AIAppsPage from './pages/AIAppsPage';
 import NotificationsPage from './pages/NotificationsPage';
 import SalesGate from './components/SalesGate';
 import ProjectGate from './components/ProjectGate';
@@ -45,8 +46,12 @@ function App() {
         >
           <Route index element={<Navigate to="/dashboard" replace />} />
           <Route path="dashboard" element={<DashboardNew />} />
+          {/* IM push deep links — WhatsApp briefing links resolve to real pages */}
+          <Route path="l/dashboard" element={<Navigate to="/dashboard" replace />} />
+          <Route path="l/t/:id" element={<DeepLinkTask />} />
+          <Route path="l/m/:id" element={<Navigate to="/dashboard" replace />} />
           <Route path="contacts" element={<ContactsPage />} />
-          <Route path="contacts/calendar" element={<ContactCalendarPage />} />
+          <Route path="calendar" element={<ContactCalendarPage />} />
           <Route path="contacts/:id" element={<ContactDetailPage />} />
           <Route path="companies" element={<CompaniesPage />} />
           <Route path="companies/:id" element={<CompaniesDetailPage />} />
@@ -78,12 +83,7 @@ function App() {
               <p className="c-text-muted">Team management coming soon</p>
             </div>
           } />
-          <Route path="ai-apps" element={
-            <div className="p-8">
-              <h1 className="text-2xl font-bold c-text">AI Apps</h1>
-              <p className="c-text-muted">AI-powered applications coming soon</p>
-            </div>
-          } />
+          <Route path="ai-apps" element={<AIAppsPage />} />
           <Route path="settings" element={<SettingsPage />} />
           <Route path="notifications" element={<NotificationsPage />} />
         </Route>
@@ -93,6 +93,12 @@ function App() {
       </Routes>
     </BrowserRouter>
   );
+}
+
+/** Deep link /l/t/{id} → real task detail page (from WhatsApp briefing) */
+function DeepLinkTask() {
+  const { id } = useParams<{ id: string }>();
+  return <Navigate to={`/tasks/${id}`} replace />;
 }
 
 export default App;

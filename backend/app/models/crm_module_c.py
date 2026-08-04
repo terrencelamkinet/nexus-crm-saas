@@ -662,3 +662,60 @@ class DispatchScoringLog(Base):
     score = Column(Numeric(5, 2))
     score_factors_json = Column(JSONB)
     computed_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+
+
+class AiDraft(Base):
+    """AI-generated content awaiting user review (email_draft_review module)."""
+    __tablename__ = "ai_drafts"
+    __table_args__ = {"schema": "nexus_crm"}
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id = Column(UUID(as_uuid=True), nullable=False, index=True)
+    user_id = Column(UUID(as_uuid=True), nullable=False, index=True)
+    workspace_id = Column(UUID(as_uuid=True))
+    title = Column(Text, default="")
+    content = Column(Text, default="")
+    entity_type = Column(String(50), default="email")
+    entity_id = Column(UUID(as_uuid=True))
+    status = Column(String(50), default="pending_review")
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc),
+                        onupdate=lambda: datetime.now(timezone.utc))
+
+
+class Expense(Base):
+    """Expense record awaiting approval/reimbursement (expense_reminders module)."""
+    __tablename__ = "expenses"
+    __table_args__ = {"schema": "nexus_crm"}
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id = Column(UUID(as_uuid=True), nullable=False, index=True)
+    user_id = Column(UUID(as_uuid=True), nullable=False, index=True)
+    workspace_id = Column(UUID(as_uuid=True))
+    title = Column(Text, default="")
+    amount = Column(Numeric(18, 2), default=0)
+    currency = Column(String(10), default="HKD")
+    category = Column(String(50), default="other")
+    expense_date = Column(DateTime(timezone=True))
+    status = Column(String(50), default="pending")
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc),
+                        onupdate=lambda: datetime.now(timezone.utc))
+
+
+class PersonalNote(Base):
+    """Personal reminder / memo (personal_reminders module)."""
+    __tablename__ = "personal_notes"
+    __table_args__ = {"schema": "nexus_crm"}
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id = Column(UUID(as_uuid=True), nullable=False, index=True)
+    user_id = Column(UUID(as_uuid=True), nullable=False, index=True)
+    workspace_id = Column(UUID(as_uuid=True))
+    title = Column(Text, default="")
+    content = Column(Text, default="")
+    remind_at = Column(DateTime(timezone=True))
+    done = Column(Boolean, default=False)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc),
+                        onupdate=lambda: datetime.now(timezone.utc))

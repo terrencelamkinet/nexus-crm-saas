@@ -186,8 +186,8 @@
 }
 .dash01-shell .widget {
   grid-column: span 4; background: var(--color-surface-2);
-  border: 1px solid var(--color-border); border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-sm); padding: 16px;
+  border: 1px solid var(--color-divider); border-radius: var(--radius-lg);
+  padding: 16px;
   display: flex; flex-direction: column;
   position: relative; min-height: 120px;
 }
@@ -290,9 +290,9 @@
 .dash01-shell .ai-tag svg { width: 12px; height: 12px; }
 
 /* ── Drawer ── */
-.dash01-shell .drawer-overlay {
+.dash01-shell .drawer-overlay{
   position: fixed; inset: 0;
-  background: oklch(0.15 0 0 / 0.35);
+  background: transparent;
   opacity: 0; visibility: hidden;
   transition: opacity var(--transition-interactive), visibility var(--transition-interactive);
   z-index: 90;
@@ -515,6 +515,16 @@
   .dash01-shell .new-dropdown { right: -8px; }
   .dash01-shell .topbar { padding: 0 16px; }
   .dash01-shell .dash-toolbar h1 { font-size: 18px; }
+  /* KPI stat cards → half-width 2-per-row squares on mobile/tablet
+     (!important needed: widget spans are inline styles) */
+  .dash01-shell .widget[data-key^="kpi_"] {
+    grid-column: span 6 !important;
+    aspect-ratio: 1 / 1;
+    min-height: 0;
+  }
+  .dash01-shell .widget[data-key^="kpi_"] .kpi-val {
+    font-size: 48px !important;
+  }
 }
 
 @media (max-width: 640px) {

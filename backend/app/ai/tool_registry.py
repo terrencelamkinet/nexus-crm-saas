@@ -63,6 +63,15 @@ def _row_to_dict(row: Any) -> dict[str, Any]:
     return d
 
 
+def _contact_with_company(row: Any) -> dict[str, Any]:
+    """Serialize a Contact incl. resolved company name (eager-loaded via selectinload)."""
+    d = _row_to_dict(row)
+    comp = getattr(row, "company", None)
+    if comp is not None:
+        d["company"] = {"id": str(comp.id), "name": comp.name}
+    return d
+
+
 # ---------------------------------------------------------------------------
 # 10 READ tool handlers
 # ---------------------------------------------------------------------------
@@ -142,12 +151,17 @@ async def _search_contacts(
     company_id = params.get("company_id")
 
     # Step 1: ILIKE match
-    base = select(Contact).where(Contact.tenant_id == ctx.tenant_id)
+    base = (
+        select(Contact)
+        .options(selectinload(Contact.company))
+        .where(Contact.tenant_id == ctx.tenant_id)
+    )
 
     if query:
         base = base.where(
             or_(
                 Contact.name.ilike(f"%{query}%"),
+                Contact.chinese_name.ilike(f"%{query}%"),
                 Contact.email.ilike(f"%{query}%"),
                 Contact.phone.ilike(f"%{query}%"),
             )
@@ -159,7 +173,7 @@ async def _search_contacts(
     rows = (await db.execute(base)).scalars().all()
 
     if rows:
-        return [_row_to_dict(r) for r in rows]
+        return [_contact_with_company(r) for r in rows]
 
     # Step 2: Fuzzy trigram fallback
     if query:
@@ -167,7 +181,7 @@ async def _search_contacts(
             text("""
                 SELECT id FROM nexus_crm.contacts
                 WHERE tenant_id = :tid
-                AND (similarity(name, :q) > 0.2 OR similarity(email, :q) > 0.2)
+                AND (similarity(name, :q) > 0.2 OR similarity(chinese_name, :q) > 0.2 OR similarity(email, :q) > 0.2)
                 ORDER BY similarity(name, :q) DESC
                 LIMIT :lim
             """),
@@ -175,9 +189,14 @@ async def _search_contacts(
         )
         fids = [r[0] for r in fuzzy.fetchall()]
         if fids:
-            base = select(Contact).where(Contact.id.in_(fids)).order_by(Contact.created_at.desc())
+            base = (
+                select(Contact)
+                .options(selectinload(Contact.company))
+                .where(Contact.id.in_(fids))
+                .order_by(Contact.created_at.desc())
+            )
             rows = (await db.execute(base)).scalars().all()
-            return [_row_to_dict(r) for r in rows]
+            return [_contact_with_company(r) for r in rows]
 
     return []
 
@@ -208,9 +227,10 @@ async def _search_projects(
     params: dict[str, Any],
     db: AsyncSession,
 ) -> list[dict[str, Any]]:
-    """Search projects by name/code, optionally filtered by status."""
+    """Search projects by name/code, optionally filtered by status/company."""
     query = params.get("query", "")
     status = params.get("status")
+    company_id = params.get("company_id")
     limit = min(params.get("limit", 20), 100)
 
     base = (
@@ -223,6 +243,8 @@ async def _search_projects(
         base = base.where(Project.name.ilike(f"%{query}%"))
     if status:
         base = base.where(Project.status == status)
+    if company_id:
+        base = base.where(Project.company_id == UUID(company_id))
 
     base = base.order_by(Project.created_at.desc()).limit(limit)
     rows = (await db.execute(base)).scalars().all()
@@ -241,10 +263,12 @@ async def _list_tasks(
     params: dict[str, Any],
     db: AsyncSession,
 ) -> list[dict[str, Any]]:
-    """List tasks, optionally filtered by project/assignee/status."""
+    """List tasks, optionally filtered by project/assignee/status/contact/company."""
     project_id = params.get("project_id")
     assignee_id = params.get("assignee_id")
     status = params.get("status")
+    contact_id = params.get("contact_id")
+    company_id = params.get("company_id")
     limit = min(params.get("limit", 50), 200)
 
     base = (
@@ -259,6 +283,10 @@ async def _list_tasks(
         base = base.where(Task.assignee_id == UUID(assignee_id))
     if status:
         base = base.where(Task.status == status)
+    if contact_id:
+        base = base.where(Task.contact_id == UUID(contact_id))
+    if company_id:
+        base = base.where(Task.company_id == UUID(company_id))
 
     base = base.order_by(Task.created_at.desc()).limit(limit)
     rows = (await db.execute(base)).scalars().all()
@@ -714,7 +742,7 @@ TOOL_REGISTRY: dict[str, ToolDef] = {
         input_schema={
             "type": "object",
             "properties": {
-                "query": {"type": "string", "description": "Search term for name, email or phone"},
+                "query": {"type": "string", "description": "Search term for name (EN or Chinese), email or phone"},
                 "company_id": {"type": "string", "format": "uuid", "description": "Optional company filter"},
                 "limit": {"type": "integer", "default": 20},
             },

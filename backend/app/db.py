@@ -44,6 +44,22 @@ async def get_tenant_session(request: Request) -> AsyncGenerator[AsyncSession, N
                         text("SELECT set_config('app.user_id', :uid, true)"),
                         {"uid": str(uid)},
                     )
+                # Resolve workspace_id if middleware didn't already provide one
+                if not wid:
+                    wid_row = await conn.execute(
+                        text(
+                            """
+                            SELECT id FROM nexus_auth.workspaces
+                            WHERE tenant_id = :tid
+                            ORDER BY created_at ASC
+                            LIMIT 1
+                            """
+                        ),
+                        {"tid": str(tid)},
+                    )
+                    wid = wid_row.scalar_one_or_none()
+                    if wid:
+                        request.state.workspace_id = wid
                 if wid:
                     await conn.execute(
                         text("SELECT set_config('app.workspace_id', :wid, true)"),

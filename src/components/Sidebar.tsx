@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { NavLink } from 'react-router-dom';
-import { LayoutDashboard, Users, Building2, TrendingUp, CheckSquare, Activity, ScanLine, Settings, BarChart3, Sparkles, UserCog, FolderKanban, Bell, Truck, Bot, Calendar, Puzzle } from 'lucide-react';
+import { LayoutDashboard, Users, Building2, TrendingUp, CheckSquare, Activity, ScanLine, Settings, BarChart3, Sparkles, UserCog, FolderKanban, Bell, Calendar, Puzzle } from 'lucide-react';
 import { apiClient } from '../lib/api';
 
 export interface ModuleSetting {
@@ -21,12 +21,11 @@ export default function Sidebar() {
   const workspaceItems = [
     { to: '/dashboard', label: t('nav.dashboard'), icon: LayoutDashboard },
     { to: '/contacts', label: t('nav.contacts'), icon: Users },
-    { to: '/contacts/calendar', label: 'Calendar', icon: Calendar, indent: true },
+    { to: '/calendar', label: 'Calendar', icon: Calendar },
     { to: '/companies', label: t('nav.companies'), icon: Building2 },
     { to: '/projects', label: t('nav.projects'), icon: FolderKanban, module: 'projects' },
     { to: '/deals', label: t('nav.deals'), icon: TrendingUp, module: 'sales' },
     { to: '/tasks', label: t('nav.tasks'), icon: CheckSquare },
-    { to: '/shipping', label: t('nav.shipping'), icon: Truck, module: 'shipping' },
   ];
 
   const secondaryItems = [
@@ -78,9 +77,8 @@ export default function Sidebar() {
       <nav className="sidebar-nav">
         <p className="nav-section-label">{t('nav.workspace')}</p>
         {workspaceItems.map(item => isVisible(item) && (
-          <NavLink key={item.to} to={item.to} onClick={closeMobileMenu} className={({ isActive }) => `nav-item${isActive ? ' active' : ''}`}
-            style={item.indent ? { paddingLeft: 40, fontSize: 13 } : undefined}>
-            {item.icon && <item.icon size={item.indent ? 15 : 18} />}
+          <NavLink key={item.to} to={item.to} onClick={closeMobileMenu} className={({ isActive }) => `nav-item${isActive ? ' active' : ''}`}>
+            {item.icon && <item.icon size={18} />}
             <span>{item.label}</span>
           </NavLink>
         ))}
@@ -98,17 +96,6 @@ export default function Sidebar() {
             <span>{item.label}</span>
           </NavLink>
         ))}
-        <button
-          onClick={() => {
-            closeMobileMenu();
-            window.dispatchEvent(new CustomEvent('toggle-ai-chat'));
-          }}
-          className="nav-item"
-          style={{ width: '100%', border: 0, textAlign: 'left', cursor: 'pointer', background: 'none', fontFamily: 'inherit', fontSize: 'inherit', color: 'inherit' }}
-        >
-          <Bot />
-          <span>{t('nav.aiChat')}</span>
-        </button>
         <NavLink to="/notifications" onClick={closeMobileMenu} className={({ isActive }) => `nav-item${isActive ? ' active' : ''}`}>
           <Bell />
           <span>{t('nav.notifications')}</span>

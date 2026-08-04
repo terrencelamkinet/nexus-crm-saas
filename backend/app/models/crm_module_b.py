@@ -54,6 +54,7 @@ class Deal(Base):
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     tenant_id = Column(UUID(as_uuid=True), ForeignKey("nexus_auth.nexus_auth_tenants.id", ondelete="CASCADE"), nullable=False)
+    workspace_id = Column(UUID(as_uuid=True), nullable=False)
     name = Column(Text, nullable=False)
     company_id = Column(UUID(as_uuid=True), ForeignKey("nexus_crm.companies.id", ondelete="CASCADE"), nullable=False)
     contact_id = Column(UUID(as_uuid=True), ForeignKey("nexus_crm.contacts.id", ondelete="SET NULL"))

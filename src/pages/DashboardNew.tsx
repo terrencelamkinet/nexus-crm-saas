@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { apiClient } from '../lib/api'
+import { useAuth } from '../lib/AuthContext'
 import {
   LayoutDashboard, Users, Building2, TrendingUp, FolderKanban,
   CheckSquare, Truck, UsersRound,
@@ -11,6 +12,7 @@ import {
 } from 'lucide-react'
 import SlideDrawer from '../components/SlideDrawer'
 import AIBriefingDrawer from '../components/AIBriefingDrawer'
+import DailyBriefingCard from '../components/DailyBriefingCard'
 import WidgetAskAI from '../components/WidgetAskAI'
 
 interface Task { id: string; title: string; priority: string; status: string; due_date: string | null; area?: string; custom_fields?: Record<string, any> }
@@ -45,10 +47,12 @@ const demoTPs: Touchpoint[] = [
   { id: 'demo-tp-3', type: 'email', title: 'Proposal sent to Growth Inc', description: 'Sent enterprise proposal', company: { name: 'Growth Inc' }, contact: { name: 'Michael Lau' }, created_at: new Date(Date.now() - 172800000).toISOString() },
 ]
 
-const todayStr = () => {
+const todayStr = (lang: string) => {
   const d = new Date()
-  const days = ['日', '一', '二', '三', '四', '五', '六']
-  return `${d.getFullYear()}年${d.getMonth() + 1}月${d.getMonth() + 1}日${d.getDate()}日 · 星期${days[d.getDay()]}`
+  if (lang === 'en') {
+    return d.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })
+  }
+  return d.toLocaleDateString('zh-TW', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' })
 }
 
 const stages: Record<string, { label: string; color: string }> = {
@@ -65,10 +69,10 @@ type WidgetKey = string
 interface WidgetDef { label: string; span: number }
 const allWidgets: Record<string, WidgetDef> = {
   // Legacy (real data) widgets — keep for backward compat
-  kpi_contacts: { label: 'Contacts', span: 3 },
-  kpi_companies: { label: 'Companies', span: 3 },
-  kpi_deals: { label: 'Deal Count', span: 3 },
-  kpi_tasks: { label: 'Tasks', span: 3 },
+  kpi_contacts: { label: 'Contacts', span: 6 },
+  kpi_companies: { label: 'Companies', span: 6 },
+  kpi_deals: { label: 'Deal Count', span: 6 },
+  kpi_tasks: { label: 'Tasks', span: 6 },
   pipeline: { label: 'Deal Pipeline', span: 8 },
   tasks: { label: "Today's Tasks", span: 4 },
   touchpoints: { label: 'Recent Touchpoints', span: 4 },
@@ -254,7 +258,8 @@ const widgetLabelKey: Record<string, string> = {
 }
 
 export default function DashboardNew() {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
+  const { user } = useAuth()
   const navigate = useNavigate()
   const [modules, setModules] = useState<Record<string, boolean>>({})
   const aiOn = modules['ai_assistant'] ?? true
@@ -262,7 +267,6 @@ export default function DashboardNew() {
   const [newOpen, setNewOpen] = useState(false)
   const newRef = useRef<HTMLDivElement>(null)
   const [drawerOpen, setDrawerOpen] = useState(false)
-  const [showCompanyDrawer, setShowCompanyDrawer] = useState(false)
   const [widgetSearch, setWidgetSearch] = useState('')
   // Drag state
   const dragKey = useRef<string | null>(null)
@@ -272,6 +276,17 @@ export default function DashboardNew() {
   const [order, setOrder] = useState<WidgetKey[]>([...defaultOrder])
   const orderLoaded = useRef(false)
   const saveTimer = useRef<ReturnType<typeof setTimeout>>(undefined as any)
+  // ── Compact detection — KPI stat cards become full-width 1×1 squares.
+  // Triggered on any non-desktop surface: ≤1024px viewports OR touch devices
+  // (phones/tablets in desktop-mode webviews can report >1024px).
+  const COMPACT_MQ = '(max-width: 1024px), (pointer: coarse)'
+  const [isCompact, setIsCompact] = useState(() => window.matchMedia(COMPACT_MQ).matches)
+  useEffect(() => {
+    const mq = window.matchMedia(COMPACT_MQ)
+    const h = (e: MediaQueryListEvent) => setIsCompact(e.matches)
+    mq.addEventListener('change', h)
+    return () => mq.removeEventListener('change', h)
+  }, [])
   // Data
   const [stats, setStats] = useState({ contacts: 0, deals: 0, dealValue: '', tasks: 0, companies: 0 })
   const [tasks, setTasks] = useState<Task[]>([])
@@ -467,27 +482,36 @@ export default function DashboardNew() {
   const widgetBodies: Record<string, () => React.ReactElement> = {
     // ── Legacy widgets (real data) ──
     kpi_contacts: () => (
-      <div style={{display:'flex',alignItems:'center',justifyContent:'center',flexDirection:'column',gap:4,height:'100%'}}>
-        <span className="kpi-val" style={{fontSize:26,color:'var(--color-blue)',cursor:'pointer'}} onClick={() => openDrawer(t('contacts.title'), <div>{contacts.map(c => <div key={c.id} className="list-row" style={{cursor:'pointer'}} onClick={() => openDrawer(c.name, buildContactDetail(c))}><Users size={14} style={{color:'var(--color-blue)',flexShrink:0}} /><span className="name">{c.name}</span><span className="meta">{c.company?.name||''}</span></div>)}</div>)}>{stats.contacts}</span>
-        <span style={{fontSize:12,color:'var(--color-text-muted)',fontWeight:500}}>{t(widgetLabelKey.kpi_contacts)}</span>
+      <div style={{display:'flex',alignItems:'flex-start',justifyContent:'center',flexDirection:'column',gap:6,height:'100%',paddingLeft:8}}>
+        <span className="kpi-val" style={{fontSize:isCompact ? 48 : 36,color:'var(--color-blue)',cursor:'pointer'}} onClick={() => openDrawer(t('contacts.title'), <div>{contacts.map(c => <div key={c.id} className="list-row" style={{cursor:'pointer'}} onClick={() => openDrawer(c.name, buildContactDetail(c))}><Users size={14} style={{color:'var(--color-blue)',flexShrink:0}} /><span className="name">{c.name}</span><span className="meta">{c.company?.name||''}</span></div>)}</div>)}>{stats.contacts}</span>
+        <span style={{fontSize:13.5,color:'var(--color-text-muted)',fontWeight:500}}>{t(widgetLabelKey.kpi_contacts)}</span>
       </div>
     ),
     kpi_companies: () => (
-      <div style={{display:'flex',alignItems:'center',justifyContent:'center',flexDirection:'column',gap:4,height:'100%',cursor:'pointer'}} onClick={() => setShowCompanyDrawer(true)}>
-        <span className="kpi-val" style={{fontSize:26,color:'var(--color-purple)'}}>{stats.companies}</span>
-        <span style={{fontSize:12,color:'var(--color-text-muted)',fontWeight:500}}>{t(widgetLabelKey.kpi_companies)}</span>
+      <div style={{display:'flex',alignItems:'flex-start',justifyContent:'center',flexDirection:'column',gap:6,height:'100%',paddingLeft:8,cursor:'pointer'}} onClick={() => openDrawer(`${t('companies.title')} (${companyList.length})`, <div>{companyList.length === 0
+        ? <div style={{padding:'16px 20px',fontSize:12,color:'var(--color-text-faint)'}}>{t('companies.empty')}</div>
+        : companyList.map(c => (
+            <div key={c.id} className="list-row" style={{cursor:'pointer'}} onClick={() => { navigate(`/companies/${c.id}`); setDetailDrawer(false) }}>
+              <Building2 size={14} style={{color:'var(--color-purple)',flexShrink:0}} />
+              <span className="name">{c.name}</span>
+              <span className="meta">{c.industry || c.category || '—'}</span>
+            </div>
+          ))
+      }</div>)}>
+        <span className="kpi-val" style={{fontSize:isCompact ? 48 : 36,color:'var(--color-purple)'}}>{stats.companies}</span>
+        <span style={{fontSize:13.5,color:'var(--color-text-muted)',fontWeight:500}}>{t(widgetLabelKey.kpi_companies)}</span>
       </div>
     ),
     kpi_deals: () => (
-      <div style={{display:'flex',alignItems:'center',justifyContent:'center',flexDirection:'column',gap:4,height:'100%'}}>
-        <span className="kpi-val" style={{fontSize:26,color:'var(--color-primary)',cursor:'pointer'}} onClick={() => openDrawer(t('deals.title'), <div>{deals.map(d => <div key={d.id} className="list-row" style={{cursor:'pointer'}} onClick={() => openDrawer(d.name, buildDealDetail(d))}><TrendingUp size={14} style={{color:'var(--color-primary)',flexShrink:0}} /><span className="name">{d.name}</span><span className="meta">${d.amount?.toLocaleString()||''}</span></div>)}</div>)}>{stats.deals}</span>
-        <span style={{fontSize:12,color:'var(--color-text-muted)',fontWeight:500}}>{t(widgetLabelKey.kpi_deals)}</span>
+      <div style={{display:'flex',alignItems:'flex-start',justifyContent:'center',flexDirection:'column',gap:6,height:'100%',paddingLeft:8}}>
+        <span className="kpi-val" style={{fontSize:isCompact ? 48 : 36,color:'var(--color-primary)',cursor:'pointer'}} onClick={() => openDrawer(t('deals.title'), <div>{deals.map(d => <div key={d.id} className="list-row" style={{cursor:'pointer'}} onClick={() => openDrawer(d.name, buildDealDetail(d))}><TrendingUp size={14} style={{color:'var(--color-primary)',flexShrink:0}} /><span className="name">{d.name}</span><span className="meta">${d.amount?.toLocaleString()||''}</span></div>)}</div>)}>{stats.deals}</span>
+        <span style={{fontSize:13.5,color:'var(--color-text-muted)',fontWeight:500}}>{t(widgetLabelKey.kpi_deals)}</span>
       </div>
     ),
     kpi_tasks: () => (
-      <div style={{display:'flex',alignItems:'center',justifyContent:'center',flexDirection:'column',gap:4,height:'100%'}}>
-        <span className="kpi-val" style={{fontSize:26,color:'var(--color-warning)',cursor:'pointer'}} onClick={() => openDrawer(t('tasks.title'), <div>{tasks.map(t => <div key={t.id} className="list-row" style={{cursor:'pointer'}} onClick={() => openDrawer(t.title, buildTaskDetail(t))}><CheckSquare size={14} style={{color:'var(--color-warning)',flexShrink:0}} /><span className="name">{t.title}</span><span className="meta">{t.priority||''}</span></div>)}</div>)}>{stats.tasks}</span>
-        <span style={{fontSize:12,color:'var(--color-text-muted)',fontWeight:500}}>{t(widgetLabelKey.kpi_tasks)}</span>
+      <div style={{display:'flex',alignItems:'flex-start',justifyContent:'center',flexDirection:'column',gap:6,height:'100%',paddingLeft:8}}>
+        <span className="kpi-val" style={{fontSize:isCompact ? 48 : 36,color:'var(--color-warning)',cursor:'pointer'}} onClick={() => openDrawer(t('tasks.title'), <div>{tasks.map(t => <div key={t.id} className="list-row" style={{cursor:'pointer'}} onClick={() => openDrawer(t.title, buildTaskDetail(t))}><CheckSquare size={14} style={{color:'var(--color-warning)',flexShrink:0}} /><span className="name">{t.title}</span><span className="meta">{t.priority||''}</span></div>)}</div>)}>{stats.tasks}</span>
+        <span style={{fontSize:13.5,color:'var(--color-text-muted)',fontWeight:500}}>{t(widgetLabelKey.kpi_tasks)}</span>
       </div>
     ),
     tasks: () => {
@@ -635,7 +659,7 @@ export default function DashboardNew() {
     ),
     // ── Companies (demo data) ──
     co1: () => (
-      <div style={{display:'flex',alignItems:'center',justifyContent:'center',flexDirection:'column',gap:4,height:'100%'}}>
+      <div style={{display:'flex',alignItems:'flex-start',justifyContent:'center',flexDirection:'column',gap:6,height:'100%',paddingLeft:8}}>
         <span className="kpi-val" style={{color:'var(--color-purple)'}}>{stats.companies}</span>
         <span style={{fontSize:12,color:'var(--color-text-muted)',fontWeight:500}}>{t('dashboard.widgets.totalCustomers')}</span>
       </div>
@@ -668,7 +692,7 @@ export default function DashboardNew() {
     ),
     // ── Deals (demo data) ──
     d1: () => (
-      <div style={{display:'flex',alignItems:'center',justifyContent:'center',flexDirection:'column',gap:4,height:'100%'}}>
+      <div style={{display:'flex',alignItems:'flex-start',justifyContent:'center',flexDirection:'column',gap:6,height:'100%',paddingLeft:8}}>
         <span className="kpi-val" style={{color:'var(--color-primary)'}}>{stats.dealValue || '—'}</span>
         <span style={{fontSize:12,color:'var(--color-text-muted)',fontWeight:500}}>{t('dashboard.widgets.dealTotal')}</span>
       </div>
@@ -721,7 +745,7 @@ export default function DashboardNew() {
     ),
     // ── Projects (demo data) ──
     p1: () => (
-      <div style={{display:'flex',alignItems:'center',justifyContent:'center',flexDirection:'column',gap:4,height:'100%'}}>
+      <div style={{display:'flex',alignItems:'flex-start',justifyContent:'center',flexDirection:'column',gap:6,height:'100%',paddingLeft:8}}>
         <span className="kpi-val" style={{color:'var(--color-primary)'}}>{projectsTotal}</span>
         <span style={{fontSize:12,color:'var(--color-text-muted)',fontWeight:500}}>{t('dashboard.widgets.inProgress')}</span>
       </div>
@@ -972,8 +996,8 @@ export default function DashboardNew() {
       {/* Toolbar — dashboard-specific controls */}
       <div className="dash-toolbar" style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:18,flexWrap:'wrap',gap:10}}>
         <div>
-          <h1 style={{fontSize:22,fontWeight:700}}>{t('greeting.morning', { name: 'Terrence' })}</h1>
-          <p style={{fontSize:13,color:'var(--color-text-muted)',marginTop:2}}>{todayStr()}</p>
+          <h1 style={{fontSize:22,fontWeight:700}}>{t('greeting.morning', { name: user?.displayName || user?.email?.split('@')[0] || '' })}</h1>
+          <p style={{fontSize:13,color:'var(--color-text-muted)',marginTop:2}}>{todayStr(i18n.language)}</p>
         </div>
         <div style={{display:'flex',alignItems:'center',gap:8}}>
           <div className="new-menu-wrap" ref={newRef} style={{position:'relative'}}>
@@ -1000,8 +1024,9 @@ export default function DashboardNew() {
           </div>
           <button className={`btn ${editing ? 'btn-primary' : 'btn-ghost'}`}
             onClick={() => setEditing(!editing)}
-            style={{display:'inline-flex',alignItems:'center',gap:6,padding:'9px 16px',borderRadius:'var(--radius-md)',fontSize:13.5,fontWeight:600,cursor:'pointer',background: editing ? 'var(--color-primary)' : 'var(--color-surface-offset)',color: editing ? '#fff' : 'var(--color-text)'}}>
-            <Layout size={15} />{editing ? t('common.done') : t('dashboard.editMode')}
+            title={editing ? t('common.done') : t('dashboard.editMode')}
+            style={{display:'inline-flex',alignItems:'center',justifyContent:'center',gap:6,width:36,height:36,padding:0,borderRadius:'var(--radius-md)',fontSize:13.5,fontWeight:600,cursor:'pointer',background: editing ? 'var(--color-primary)' : 'var(--color-surface-offset)',color: editing ? '#fff' : 'var(--color-text)'}}>
+            <Layout size={15} />
           </button>
         </div>
       </div>
@@ -1011,15 +1036,24 @@ export default function DashboardNew() {
         <AIBriefingDrawer />
       </div>
 
+      {/* Daily Briefing Card — LLM-generated briefing (same style as drawer block) */}
+      <div className={aiOn ? '' : 'hidden'} style={aiOn ? { marginBottom: 16 } : { display: 'none' }}>
+        <DailyBriefingCard />
+      </div>
+
       {/* WIDGET GRID — CSS grid, 12-column, span classes */}
       <div ref={gridRef} style={{display:'grid',gridTemplateColumns:'repeat(12,1fr)',gap:16,alignItems:'start'}}>
         {order.map((k) => {
           const def = allWidgets[k]
           if (!def) return null
           const IconComp = widgetIcon(k)
+          // KPI stat cards: 2-per-row squares in compact mode (half-width span 6
+          // + 1:1 aspect). Desktop keeps the same 2-per-row layout.
+          const isKpi = k.startsWith('kpi_')
+          const effSpan = isKpi && isCompact ? 6 : def.span
           return (
             <div key={k} className={`widget${editing && dragKey.current === k ? ' dragging' : ''}`}
-              style={{gridColumn:`span ${def.span}`,background:'var(--color-surface-2)',border: editing ? '2px dashed var(--color-primary)' : '1px solid var(--color-border)',borderRadius:'var(--radius-lg)',padding:16,display:'flex',flexDirection:'column',position:'relative',minHeight:160,transition:'grid-column .12s ease, height .12s ease',cursor: editing ? 'grab' : undefined}}
+              style={{gridColumn:`span ${effSpan}`,aspectRatio: isKpi && isCompact ? '1 / 1' : undefined,background:'var(--color-surface-2)',border: editing ? '2px dashed var(--color-primary)' : '1px solid var(--color-border)',borderRadius:'var(--radius-lg)',padding:16,display:'flex',flexDirection:'column',position:'relative',minHeight:isKpi && isCompact ? 0 : 160,transition:'grid-column .12s ease, height .12s ease',cursor: editing ? 'grab' : undefined}}
               data-key={k}
               draggable={editing}
               onDragStart={() => handleDragStart(k)}
@@ -1160,26 +1194,6 @@ export default function DashboardNew() {
               </div>
             )
           })}
-        </div>
-      </aside>
-      {/* ── KPI Companies Drawer ── */}
-      <div className={`drawer-overlay${showCompanyDrawer ? ' show' : ''}`} onClick={() => setShowCompanyDrawer(false)} />
-      <aside className={`drawer${showCompanyDrawer ? ' show' : ''}`}>
-        <div className="drawer-head">
-          <h3>{t('companies.title')} ({companyList.length})</h3>
-          <button className="icon-btn" onClick={() => setShowCompanyDrawer(false)}><X size={19} /></button>
-        </div>
-        <div className="drawer-body">
-          {companyList.length === 0
-            ? <div style={{padding:'16px 0',fontSize:12,color:'var(--color-text-faint)'}}>{t('companies.empty')}</div>
-            : companyList.map(c => (
-                <div key={c.id} className="list-row" style={{cursor:'pointer'}} onClick={() => { navigate(`/companies/${c.id}`); setShowCompanyDrawer(false) }}>
-                  <Building2 size={14} style={{color:'var(--color-purple)',flexShrink:0}} />
-                  <span className="name">{c.name}</span>
-                  <span className="meta">{c.industry || c.category || '—'}</span>
-                </div>
-              ))
-          }
         </div>
       </aside>
       {/* ── Detail Drawer ── */}

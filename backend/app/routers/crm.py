@@ -89,9 +89,25 @@ async def _log_activity(
     entity_id: UUID,
     summary: str | None = None,
     changes: dict | None = None,
+    workspace_id: UUID | None = None,
 ) -> None:
+    # Fallback: resolve tenant's default workspace when caller didn't pass one
+    # (update/delete handlers historically omit it → NOT NULL violation on
+    # activity_log). Same resolution path as get_tenant_session.
+    if workspace_id is None:
+        try:
+            row = await db.execute(
+                text("SELECT id FROM nexus_auth.workspaces WHERE tenant_id = :tid ORDER BY created_at ASC LIMIT 1"),
+                {"tid": str(tenant_id)},
+            )
+            wid = row.scalar_one_or_none()
+            if wid:
+                workspace_id = UUID(str(wid))
+        except Exception:
+            pass
     entry = ActivityLog(
         tenant_id=tenant_id,
+        workspace_id=workspace_id,
         actor_id=actor_id,
         action=action,
         entity_type=entity_type,
@@ -292,9 +308,11 @@ async def create_company(
 ):
     tenant_id = _get_tenant_id(request)
     user_id = _get_user_id(request)
+    workspace_id = getattr(request.state, "workspace_id", None)
 
     company = Company(
         tenant_id=tenant_id,
+        workspace_id=workspace_id,
         **body.model_dump(),
     )
     db.add(company)
@@ -308,6 +326,7 @@ async def create_company(
         entity_type="company",
         entity_id=company.id,
         summary=f"Created company '{company.name}'",
+        workspace_id=workspace_id,
     )
 
     await db.refresh(company)
@@ -468,9 +487,11 @@ async def create_contact(
 ):
     tenant_id = _get_tenant_id(request)
     user_id = _get_user_id(request)
+    workspace_id = getattr(request.state, "workspace_id", None)
 
     contact = Contact(
         tenant_id=tenant_id,
+        workspace_id=workspace_id,
         **body.model_dump(),
     )
     db.add(contact)
@@ -484,10 +505,18 @@ async def create_contact(
         entity_type="contact",
         entity_id=contact.id,
         summary=f"Created contact '{contact.name}'",
+        workspace_id=workspace_id,
     )
 
     await db.refresh(contact)
-    return contact
+    # Re-query with company loaded (avoids MissingGreenlet on response serialization)
+    result = await db.execute(
+        select(Contact).options(selectinload(Contact.company)).where(Contact.id == contact.id)
+    )
+    contact = result.scalar_one()
+    d = {col.name: getattr(contact, col.name) for col in contact.__table__.columns}
+    d['company'] = {'id': str(contact.company.id), 'name': contact.company.name} if contact.company else None
+    return d
 
 
 @router.get("/contacts/{contact_id}", response_model=ContactResponse)
@@ -832,10 +861,12 @@ async def create_touchpoint(
 ):
     tenant_id = _get_tenant_id(request)
     user_id = _get_user_id(request)
+    workspace_id = getattr(request.state, "workspace_id", None)
 
     data = body.model_dump(exclude={"contact_ids"})
     touchpoint = Touchpoint(
         tenant_id=tenant_id,
+        workspace_id=workspace_id,
         created_by=user_id,
         **data,
     )
@@ -861,6 +892,7 @@ async def create_touchpoint(
         entity_type="touchpoint",
         entity_id=touchpoint.id,
         summary=f"Created touchpoint '{touchpoint.title}'",
+        workspace_id=workspace_id,
     )
 
     await db.refresh(touchpoint)
@@ -1083,9 +1115,11 @@ async def create_task(
 ):
     tenant_id = _get_tenant_id(request)
     user_id = _get_user_id(request)
+    workspace_id = getattr(request.state, "workspace_id", None)
 
     task = Task(
         tenant_id=tenant_id,
+        workspace_id=workspace_id,
         created_by=user_id,
         **body.model_dump(exclude={'custom_fields'}),
     )
@@ -1100,6 +1134,7 @@ async def create_task(
         entity_type="task",
         entity_id=task.id,
         summary=f"Created task '{task.title}'",
+        workspace_id=workspace_id,
     )
 
     # Write custom fields if provided
@@ -1436,9 +1471,11 @@ async def create_note(
 ):
     tenant_id = _get_tenant_id(request)
     user_id = _get_user_id(request)
+    workspace_id = getattr(request.state, "workspace_id", None)
 
     note = Note(
         tenant_id=tenant_id,
+        workspace_id=workspace_id,
         created_by=user_id,
         **body.model_dump(),
     )
@@ -1453,6 +1490,7 @@ async def create_note(
         entity_type="note",
         entity_id=note.id,
         summary=f"Created note '{note.title or '(untitled)'}'",
+        workspace_id=workspace_id,
     )
 
     await db.refresh(note)
@@ -1589,9 +1627,11 @@ async def create_activity_log_entry(
 ):
     tenant_id = _get_tenant_id(request)
     user_id = _get_user_id(request)
+    workspace_id = getattr(request.state, "workspace_id", None)
 
     entry = ActivityLog(
         tenant_id=tenant_id,
+        workspace_id=workspace_id,
         actor_id=user_id or body.actor_id if hasattr(body, "actor_id") else user_id,
         **body.model_dump(),
     )

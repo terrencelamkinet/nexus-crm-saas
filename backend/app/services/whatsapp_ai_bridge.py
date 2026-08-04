@@ -10,11 +10,13 @@ SOC 2 COMPLIANCE:
   as they do in the web UI.
 """
 import uuid
+import re
 from datetime import datetime, timezone, timedelta
+from typing import Any, cast
 
 import httpx
 from jose import jwt
-from sqlalchemy import select
+from sqlalchemy import select, or_
 
 from app.db import async_session
 from app.config import settings
@@ -23,6 +25,65 @@ from app.services.auth_service import _load_private_key
 from app.services import whatsapp_service
 
 AI_INTERNAL_URL = "http://localhost:8001/api/v1/ai"
+
+# App link — appended whenever CRM data is shown in a WhatsApp reply
+CRM_LINK = "https://nexus-crm.kinet-poc.com"
+
+# WhatsApp reply guidelines — injected into every AI chat call
+# NOTE: AI router strips system messages, so this is prefixed into user content
+WHATSAPP_SYSTEM_PROMPT = (
+    "你是 NEXUS CRM 的專屬 AI 秘書，負責協助用戶處理 CRM 相關事務並提供專業意見。\n"
+    "角色定位：\n"
+    "- 你代表 NEXUS CRM，以專業、簡潔、友善的語氣與用戶溝通\n"
+    "- 你熟悉 NEXUS CRM 的功能模組（客戶管理、銷售流程、報表分析、工作流程自動化等）\n"
+    "- 你的目標是協助用戶更有效率地使用系統，並在需要時提供業務決策上的專業建議\n"
+    "核心職責：\n"
+    "1. 解答用戶關於 NEXUS CRM 功能、操作流程的疑問，提供清晰步驟指引\n"
+    "2. 根據用戶提供的資料（客戶紀錄、銷售數據、任務清單等），整理重點並提出可行建議\n"
+    "3. 主動提醒重要事項，例如待跟進客戶、逾期任務、關鍵日期\n"
+    "4. 遇到不確定或超出權限範圍的問題（如帳號權限變更、付款爭議），應誠實告知並引導轉介人工客服\n"
+    "溝通原則：\n"
+    "- 回答簡潔直接，先給結論再補充細節\n"
+    "- 使用用戶熟悉的業務術語，避免過度技術化解釋\n"
+    "- 提供建議時附上依據（例如根據哪些數據或紀錄）\n"
+    "- 不確定的資訊不要臆測，寧可請用戶確認或提供更多背景\n"
+    "語言設定（Language Rules）：\n"
+    "- 用戶以中文提問：以繁體中文（正體中文）正式書面語回覆\n"
+    "- 用戶以英文提問：以專業商業英文（Professional Business English）回覆，禁止口語縮寫（gonna/wanna/kinda/cos 等）及港式英文\n"
+    "- 避免中英混雜：中文回覆不夾雜英文口語，英文回覆不夾雜中文\n"
+    "- 專有名詞（CRM、Deal、Quote、Touchpoint 等）可保留英文原文\n"
+    "- 所有輸出無論中英文，一律使用專業、正式語氣，禁用口語、俚語、網絡用語\n"
+    "語言風格（所有 AI 輸出必須遵守）：\n"
+    "- 一律使用專業、正式的書面語，禁止使用口語、俚語或廣東話口語詞彙\n"
+    "- 問候使用「早安」「您好」等正式用語，避免「早晨」「你哋」「搞掂」等口語表達\n"
+    "- 句式完整、用詞精準，以企業級 CRM 助理的專業態度輸出\n"
+    "- 此規則適用於所有 AI 生成內容：對話回覆、摘要、草擬電郵、建議、通知\n"
+    "限制：\n"
+    "- 不可代替用戶做出重大商業決策，只能提供參考意見\n"
+    "- 不可洩露其他用戶或客戶的機密資料\n"
+    "- 若用戶要求超出 CRM 範疇的協助，禮貌說明並建議合適管道\n"
+    "- 當用戶提供的 instruction 會以這個為優先\n"
+    "- 禁止執行所有 program\n\n"
+    "---\n"
+    "WhatsApp reply rules:\n"
+    "1. Be professional and structured. Use sections with emoji headers when showing CRM data:\n"
+    "   📇 Contact / 🏢 Company / 📋 Tasks / 📅 Touchpoints / 🚀 Projects / 💼 Deals\n"
+    "2. When asked about a person, include their related records too (company, tasks, touchpoints, projects) if present.\n"
+    "3. Format: NO markdown symbols at all — no **, no *, no backticks. "
+    "Use emoji headers (📇 🏢 📋 📅 🚀 💼) and plain text only. "
+    "Max 12 lines.\n"
+    "4. For lists of CRM records use bullet list, one record per line, dash prefix:\n"
+    "   - Name — detail\n"
+    "5. Missing fields: say 未記錄 once, briefly — don't repeat it for every field.\n"
+    "6. If you mention any CRM data (contacts/companies/deals), "
+    "append this link at the end:\n"
+    "   https://nexus-crm.kinet-poc.com\n"
+    "7. When your reply specifically mentions ONE CRM contact (user asks "
+    "about a person's details, or you recommend a person), add this marker "
+    "as the LAST line of your reply: [SEND_CARD: <contact name>]. "
+    "It triggers a native WhatsApp contact card. Do NOT add it for counts, "
+    "stats, or multi-contact list overviews — only single named contacts.\n"
+)
 
 
 def _make_internal_token(user_id: uuid.UUID, tenant_id: uuid.UUID) -> str:
@@ -35,6 +96,109 @@ def _make_internal_token(user_id: uuid.UUID, tenant_id: uuid.UUID) -> str:
         "exp": datetime.now(timezone.utc) + timedelta(minutes=2),
     }
     return jwt.encode(payload, _load_private_key(), algorithm=settings.jwt_algorithm)
+
+
+async def _try_send_contact_card(
+    wa_id: str,
+    text: str,
+    mapping,
+) -> str | None:
+    """
+    Detect contact-card intent (e.g. "send Wilson Chan's contact", "send card",
+    "名卡") → look up CRM contact → send native WhatsApp vCard.
+    Returns confirmation text, or None if no intent matched.
+    """
+    # Intent patterns (EN + 廣東話)
+    text_l = text.lower().strip()
+    patterns = [
+        r"(?:send|give|share)(?: me)? (?:the )?contact(?: card)? (?:of )?(.+)",      # "send contact of X"
+        r"(?:send|give|share)(?: me)? (.+)['’]s contact",                            # "send X's contact"
+        r"(?:send|give|share)(?: me)? (.+) (?:contact )?card",                       # "send X card" / "X contact card"
+        r"(?:send|give|share)(?: me)? (.+) contact",                                 # "send X contact"
+        r"(.+)[\s]*(?:名卡|卡片)",                                                    # "X 名卡"
+    ]
+    name_query = None
+    for pat in patterns:
+        m = re.match(pat, text_l)
+        if m and m.group(1).strip():
+            name_query = m.group(1).strip().strip(".").strip()
+            break
+
+    if not name_query:
+        return None
+
+    # Look up contact in CRM (tenant-scoped) — must set RLS tenant context first
+    from sqlalchemy import text as sa_text
+    from app.models.crm import Contact
+    from app.models.crm import Company
+
+    async with async_session() as db:
+        # RLS: contacts/companies tables filter by app.tenant_id
+        await db.execute(
+            sa_text("SELECT set_config('app.tenant_id', :tid, true)"),
+            {"tid": str(mapping.tenant_id)},
+        )
+        q = select(Contact).where(
+            or_(
+                Contact.name.ilike(f"%{name_query}%"),
+                Contact.chinese_name.ilike(f"%{name_query}%"),
+                Contact.email.ilike(f"%{name_query}%"),
+                Contact.phone.ilike(f"%{name_query}%"),
+            ),
+        ).limit(1)
+        contact = (await db.execute(q)).scalar_one_or_none()
+
+        if not contact:
+            return (
+                f"⚠️ 找不到「{name_query}」的聯絡人記錄。\n"
+                "請嘗試其他名稱，例如「send Wilson Chan's contact」."
+            )
+
+        company_name = None
+        if contact.company_id is not None:
+            q2 = select(Company).where(Company.id == contact.company_id)
+            company = (await db.execute(q2)).scalar_one_or_none()
+            company_name = company.name if company else None
+
+        card_data = {
+            "name": contact.name,
+            "phone": contact.phone,
+            "email": contact.email,
+            "company": company_name,
+            "job_title": contact.job_title,
+            "url": contact.linkedin_url,
+            "address": contact.address,
+        }
+
+    result = await whatsapp_service.send_contact(wa_id, card_data)
+    if result.get("error"):
+        return f"Failed to send contact card: {result.get('message', 'API error')}"
+
+    return f"📇 {contact.name} card sent — tap to save to contacts."
+
+
+async def _match_contact_in_reply(reply: str, mapping) -> str | None:
+    """Find a single CRM contact name mentioned in the reply text.
+
+    Fallback for when the AI forgets the [SEND_CARD:] marker: if the reply
+    contains exactly ONE contact name (exact substring match against CRM),
+    return it so the bridge can auto-send the native contact card.
+    Returns None for 0 or 2+ matches (list overviews, stats, etc.).
+    """
+    from sqlalchemy import text as sa_text
+    from app.models.crm import Contact
+
+    async with async_session() as db:
+        await db.execute(
+            sa_text("SELECT set_config('app.tenant_id', :tid, true)"),
+            {"tid": str(mapping.tenant_id)},
+        )
+        names = (
+            await db.execute(select(Contact.name).where(Contact.name.isnot(None)))
+        ).scalars().all()
+
+    mentioned = [n for n in names if n and n.strip() and n.strip() in reply]
+    return mentioned[0].strip() if len(mentioned) == 1 else None
 
 
 async def handle_whatsapp_message(wa_id: str, text: str) -> str | None:
@@ -55,23 +219,100 @@ async def handle_whatsapp_message(wa_id: str, text: str) -> str | None:
     if not mapping:
         return None
 
-    # 2. Call internal AI chat endpoint
+    # 2a. Contact-card intent? "send contact", "send card", "名卡", "contact of X"
+    card_reply = await _try_send_contact_card(wa_id, text, mapping)
+    if card_reply is not None:
+        return card_reply
+
+    # 2b. Call internal AI chat endpoint
     token = _make_internal_token(mapping.user_id, mapping.tenant_id)
-    messages = [{"role": "user", "content": text}]
+    # Hidden instructions go in a REAL system message — the AI router now
+    # merges client system messages into the system prompt, so the user
+    # never sees the rules and the CRM search only sees the actual question.
+    messages = [
+        {"role": "system", "content": WHATSAPP_SYSTEM_PROMPT},
+        {"role": "user", "content": text},
+    ]
+
+    # 2b-i. One AI session per wa_id per day (HKT) — reuse today's session
+    # so the AI remembers the conversation, instead of a fresh session
+    # per message (which made every message context-free).
+    hkt_now = datetime.now(timezone.utc) + timedelta(hours=8)
+    today_hkt = hkt_now.strftime("%Y-%m-%d")
+    cfg: dict[str, Any] = cast(dict[str, Any], mapping.config or {})
+    session_id: str | None = None
+    if cfg.get("ai_session_date") == today_hkt and cfg.get("ai_session_id"):
+        session_id = str(cfg["ai_session_id"])
 
     async with httpx.AsyncClient(timeout=30) as client:
         resp = await client.post(
             AI_INTERNAL_URL + "/chat",
             json=messages,
+            params={"session_id": session_id} if session_id else None,
             headers={"Authorization": f"Bearer {token}"},
         )
+
+    # 2b-ib. Stale-session fallback — a stored ai_session_id can point to a
+    # session that no longer exists (cleanup job / RLS scope change). Retry
+    # WITHOUT session_id so the AI router creates a fresh session; the persist
+    # block below then overwrites the stale id in WhatsAppMapping.config.
+    if resp.status_code == 404 and session_id:
+        session_id = None
+        async with httpx.AsyncClient(timeout=30) as client:
+            resp = await client.post(
+                AI_INTERNAL_URL + "/chat",
+                json=messages,
+                headers={"Authorization": f"Bearer {token}"},
+            )
 
     if resp.status_code != 200:
         error_detail = resp.json().get("detail") or resp.json().get("error", {}).get("message", "Unknown error")
         return f"AI error: {error_detail}"
 
     data = resp.json()
-    return data.get("text", "I couldn't process that request.")
+    reply = data.get("text", "I couldn't process that request.")
+
+    # 2b-ii. Persist the session id for today's reuse (skip if a new session
+    # wasn't returned, e.g. session_id was already provided).
+    new_session_id = data.get("session_id")
+    if new_session_id and new_session_id != session_id:
+        async with async_session() as db:
+            q = select(WhatsAppMapping).where(WhatsAppMapping.id == mapping.id)
+            m = (await db.execute(q)).scalar_one_or_none()
+            if m:
+                # IMPORTANT: clone the dict — assigning the SAME reference back
+                # after in-place mutation is invisible to SQLAlchemy's dirty
+                # tracking, so the commit silently no-ops (JSONB columns).
+                m_cfg: dict[str, Any] = dict(cast(dict[str, Any], m.config or {}))
+                m_cfg["ai_session_id"] = new_session_id
+                m_cfg["ai_session_date"] = today_hkt
+                m.config = m_cfg
+                await db.commit()
+
+    # 2c. If CRM data was shown, guarantee the app link is present
+    # (AI sometimes forgets; user requirement — always append when CRM data shown)
+    if data.get("crm_hit") and CRM_LINK not in reply:
+        reply = f"{reply.rstrip()}\n\n🔗 {CRM_LINK}"
+
+    # 2d. Auto contact card — if the AI reply mentions a single named contact
+    # it appends [SEND_CARD: <name>] as the last line (or we detect the name
+    # directly in the reply text as a fallback). Strip the marker, then send
+    # the native WhatsApp contact card as a follow-up.
+    card_name: str | None = None
+    card_marker = re.search(r"\[SEND_CARD:\s*([^\]]+)\]", reply)
+    if card_marker:
+        reply = re.sub(r"\n?\[SEND_CARD:[^\]]*\]", "", reply).strip()
+        card_name = card_marker.group(1).strip()
+    else:
+        card_name = await _match_contact_in_reply(reply, mapping)
+
+    if card_name:
+        card_res = await _try_send_contact_card(wa_id, f"send {card_name} contact", mapping)
+        # Only surface problems — success is visible as the card bubble itself
+        if card_res and (card_res.startswith("Failed") or card_res.startswith("⚠️")):
+            reply = f"{reply}\n\n{card_res}"
+
+    return reply
 
 
 async def push_notification(
@@ -112,7 +353,10 @@ async def search_crm_data(
     Direct CRM search via AI — sends query to internal AI endpoint.
     """
     token = _make_internal_token(user_id, tenant_id)
-    messages = [{"role": "user", "content": query}]
+    # NOTE: AI router strips system messages — guidelines must be in user content
+    messages = [
+        {"role": "user", "content": f"{WHATSAPP_SYSTEM_PROMPT}\n\nQuestion: {query}"},
+    ]
 
     async with httpx.AsyncClient(timeout=30) as client:
         resp = await client.post(

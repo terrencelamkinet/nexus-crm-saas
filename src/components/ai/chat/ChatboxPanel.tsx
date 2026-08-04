@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
-import { Sparkles, X, Plus } from 'lucide-react'
+import { Sparkles, X, Plus, Clock } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { apiClient, getStoredAuth } from '../../../lib/api'
 import MarkdownMessage from '../../MarkdownRenderer'
@@ -44,9 +44,9 @@ const FAB_SIZE = 48
 
 const emptyPrompts = [
   '📊 總結今日 CRM 重點',
-  '🔍 搵最近跟進嘅客戶',
+  '🔍 查詢近期跟進的客戶',
   '📋 今日待辦事項',
-  '🎯 最需要關注嘅 Deal',
+  '🎯 最需要關注的 Deal',
 ]
 
 const suggestedPromptsCache = { prompts: emptyPrompts, ts: 0 }
@@ -87,6 +87,8 @@ export function ChatboxToggleButton({ onClick, open }: { onClick: () => void; op
       onMouseLeave={() => { setHovered(false); setPressed(false) }}
       onMouseDown={() => setPressed(true)}
       onMouseUp={() => setPressed(false)}
+      onTouchStart={() => setPressed(true)}
+      onTouchEnd={() => setPressed(false)}
       aria-label="Toggle AI chat"
       aria-expanded={open}
       className={`fab-btn ${open ? 'fab-btn--open' : ''}`}
@@ -106,10 +108,10 @@ export function ChatboxToggleButton({ onClick, open }: { onClick: () => void; op
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        transition: 'transform 280ms cubic-bezier(0.16, 1, 0.3, 1), opacity 280ms cubic-bezier(0.16, 1, 0.3, 1), box-shadow 150ms ease-out',
+        transition: 'transform 150ms cubic-bezier(0.34, 1.56, 0.64, 1), opacity 280ms cubic-bezier(0.16, 1, 0.3, 1), box-shadow 150ms ease-out',
         opacity: 1,
         pointerEvents: 'auto',
-        transform: `scale(${pressed ? 0.9 : hovered ? 1.08 : 1})`,
+        transform: `scale(${pressed ? 0.92 : hovered ? 1.08 : 1})`,
         boxShadow: pressed
           ? '0 2px 8px rgba(0,0,0,0.18), 0 1px 3px rgba(0,0,0,0.1)'
           : '0 4px 16px rgba(0,0,0,0.2), 0 2px 6px rgba(0,0,0,0.12)',
@@ -455,6 +457,9 @@ export default function ChatboxPanel() {
   const openPanel = useCallback(() => {
     setAnimPhase('opening')
     setIsOpen(true)
+    // Start loading the latest session immediately so the panel opens
+    // straight into it — no landing-page flash while animating in.
+    setLoadingSession(true)
     setTimeout(() => setAnimPhase('open'), 320)
   }, [])
 
@@ -463,7 +468,7 @@ export default function ChatboxPanel() {
     setTimeout(() => {
       setIsOpen(false)
       setAnimPhase('closed')
-    }, 200)
+    }, 360) // must exceed animation duration so the close transition plays
   }, [])
 
   const togglePanel = useCallback(() => {
@@ -517,9 +522,11 @@ export default function ChatboxPanel() {
     return () => window.removeEventListener('toggle-ai-chat', handler)
   }, [togglePanel])
 
-  // ── Load sessions when panel opens ──
+  // ── Load sessions as soon as the panel starts opening ──
+  // (fires on 'opening' so the latest session loads during the
+  // 320ms open animation → panel opens straight into it, no flash)
   useEffect(() => {
-    if (animPhase !== 'open') return
+    if (animPhase !== 'opening') return
     loadSessions()
     const age = Date.now() - suggestedPromptsCache.ts
     if (age > 300000) {
@@ -546,7 +553,10 @@ export default function ChatboxPanel() {
       const list = resp?.sessions || []
       setSessionList(list)
       const active = list.find(s => s.status === 'active') || list[0]
-      if (active) switchSession(active.session_id)
+      // Must await: switchSession clears messages first; if we don't await,
+      // the finally below flips loadingSession=false while messages is still
+      // empty → landing page flashes before the session content arrives.
+      if (active) await switchSession(active.session_id)
       else createNewSession()
     } catch {
       setMessages([assistantMessage("Hi! I'm NEXUS AI. How can I help you today?")])
@@ -581,7 +591,7 @@ export default function ChatboxPanel() {
 
   const createNewSession = useCallback(async () => {
     setSessionId(null)
-    setMessages([assistantMessage("Hi! I'm NEXUS AI. How can I help you today?")])
+    setMessages([])  // empty → shows the Landing page (EmptyState + suggested prompts)
     setShowSidebar(false)
     setError(null)
   }, [])
@@ -779,42 +789,46 @@ export default function ChatboxPanel() {
   ]
 
   // ── Panel style by breakpoint ──
+  // Driven by animPhase, NOT isOpen — so 'closing' renders the collapsed
+  // styles while the transition is still active (isOpen flips later).
+  const visible = animPhase !== 'closed'
+  const isClosing = animPhase === 'closing'
   const panelStyle: React.CSSProperties = isMobile
     ? {
         position: 'fixed', inset: 0, zIndex: 50,
         display: 'flex', flexDirection: 'column',
         background: 'var(--color-surface)',
-        transform: isOpen
-          ? 'translateY(0)'
-          : 'translateY(100%)',
+        transform: isClosing
+          ? 'translateY(100%)'
+          : 'translateY(0)',
         transition: animPhase === 'opening' || animPhase === 'closing'
           ? 'transform 320ms cubic-bezier(0.16, 1, 0.3, 1)'
           : 'none',
-        height: !isOpen && animPhase === 'closed' ? 0 : '92dvh',
+        height: !visible ? 0 : '92dvh',
         top: '8dvh',
         borderRadius: 'var(--radius-xl) var(--radius-xl) 0 0',
-        boxShadow: isOpen ? '0 -8px 32px rgba(0,0,0,0.2)' : 'none',
+        boxShadow: visible && !isClosing ? '0 -8px 32px rgba(0,0,0,0.2)' : 'none',
       }
     : {
         position: 'fixed' as const,
         zIndex: 50,
-        height: isOpen ? '70dvh' : 0,
-        ...(isOpen && animPhase !== 'closed'
+        height: visible ? '70dvh' : 0,
+        ...(visible
           ? { top: '15dvh', right: 'max(24px, env(safe-area-inset-right, 24px))' }
           : { top: 0, right: 0 }),
         width: PANEL_WIDTH,
         maxWidth: 'calc(100vw - 48px)',
         background: 'var(--color-surface)',
-        border: isOpen ? '1px solid var(--color-border)' : 'none',
+        border: visible ? '1px solid var(--color-border)' : 'none',
         borderRadius: 'var(--radius-xl)',
-        boxShadow: isOpen ? 'var(--shadow-lg)' : 'none',
+        boxShadow: visible && !isClosing ? 'var(--shadow-lg)' : 'none',
         display: 'flex', flexDirection: 'column',
         overflow: 'hidden',
         transformOrigin: 'bottom right',
-        transform: isOpen
-          ? 'scale(1) translateY(0)'
-          : 'scale(0.85) translateY(20px)',
-        opacity: animPhase === 'closed' ? 0 : 1,
+        transform: isClosing
+          ? 'scale(0.85) translateY(20px)'
+          : 'scale(1) translateY(0)',
+        opacity: isClosing ? 0 : 1,
         transition: animPhase === 'opening' || animPhase === 'closing'
           ? 'transform 280ms cubic-bezier(0.16, 1, 0.3, 1), opacity 280ms cubic-bezier(0.16, 1, 0.3, 1), height 0s'
           : 'none',
@@ -889,8 +903,18 @@ export default function ChatboxPanel() {
               <Plus size={15} />
             </button>
 
-            {/* Session history toggle — Desktop desktop-only sidebar trigger */}
-            {!isMobile && (
+            {/* Session history toggle — Clock button on mobile, sidebar toggle on desktop */}
+            {isMobile ? (
+              <button onClick={() => setShowSidebar(v => !v)} aria-label={t('chat.sessionList')} title={t('chat.sessionList')}
+                style={{
+                  width: 28, height: 28, borderRadius: 6, display: 'grid', placeItems: 'center',
+                  background: 'transparent', border: 0,
+                  color: showSidebar ? 'var(--color-primary)' : 'var(--color-text-muted)',
+                  cursor: 'pointer',
+                }}>
+                <Clock size={15} />
+              </button>
+            ) : (
               <SessionSidebar
                 sessions={sessionList}
                 currentSessionId={sessionId}
@@ -921,7 +945,7 @@ export default function ChatboxPanel() {
 
         {/* ── Mobile session list (full screen) ── */}
         {isMobile && showSidebar && (
-          <div style={{ flex: 1, overflow: 'hidden' }}>
+          <div style={{ flex: 1, overflow: 'hidden', position: 'relative' }}>
             <SessionSidebar
               sessions={sessionList}
               currentSessionId={sessionId}

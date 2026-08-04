@@ -5,16 +5,32 @@ Order: Companies → Contacts → Projects → Tasks + Custom Fields
 Usage:
     python3 migrate_staging_to_nexus.py
 """
-import json, os, uuid
+import json, os, sys, uuid
 import psycopg2
 from psycopg2.extras import execute_values
 
 PG_DSN = "host=127.0.0.1 port=5432 dbname=nexus_crm user=gg_fighter password=F5xbTAzODUVEU4KDDIP"
 TENANT_ID = "00000000-0000-0000-0000-000000000001"
+WORKSPACE_ID = "33a46d5e-46f5-48b5-921e-da5855d5a0b9"  # Kinetix Default Workspace
 
 conn = psycopg2.connect(PG_DSN)
 conn.autocommit = False
 cur = conn.cursor()
+
+# ════════════════════════════════════════════
+# SAFETY GUARD — never double-migrate.
+# Abort if nexus_crm already has data (prevents duplicate rows on re-run).
+# ════════════════════════════════════════════
+cur.execute("SELECT set_config('app.tenant_id', %s, false)", (TENANT_ID,))
+for table in ("companies", "contacts", "tasks"):
+    cur.execute(f"SELECT COUNT(*) FROM nexus_crm.{table}")
+    row = cur.fetchone()
+    n = int(row[0]) if row else 0
+    if n > 0:
+        print(f"ABORT: nexus_crm.{table} already has {n} rows — migration already done?")
+        print("Run only when nexus_crm is empty. Exiting without changes.")
+        sys.exit(1)
+print("✓ nexus_crm is empty — safe to migrate")
 
 # Track Notion→CRM UUID mapping for relation resolution
 id_map = {"companies": {}, "contacts": {}, "projects": {}, "tasks": {}}
@@ -65,10 +81,10 @@ for row in stg_companies:
     
     try:
         cur.execute("""
-            INSERT INTO nexus_crm.companies (id, tenant_id, name, website, linkedin_url, address, ceo_name, category, notes, created_at, updated_at)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, now(), now())
+            INSERT INTO nexus_crm.companies (id, tenant_id, workspace_id, name, website, linkedin_url, address, ceo_name, category, notes, created_at, updated_at)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, now(), now())
         """, (
-            new_id, TENANT_ID,
+            new_id, TENANT_ID, WORKSPACE_ID,
             safe_str(d.get("name")),
             safe_str(d.get("website")),
             safe_str(d.get("linkedin")),
@@ -150,10 +166,10 @@ for row in stg_contacts:
     
     try:
         cur.execute("""
-            INSERT INTO nexus_crm.contacts (id, tenant_id, company_id, name, chinese_name, nick_name, email, phone, office_phone, job_title, department, linkedin_url, address, notes, contact_type, grade, source, status, namecard_path, created_at, updated_at)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, now(), now())
+            INSERT INTO nexus_crm.contacts (id, tenant_id, workspace_id, company_id, name, chinese_name, nick_name, email, phone, office_phone, job_title, department, linkedin_url, address, notes, contact_type, grade, source, status, namecard_path, created_at, updated_at)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, now(), now())
         """, (
-            new_id, TENANT_ID, company_id,
+            new_id, TENANT_ID, WORKSPACE_ID, company_id,
             safe_str(d.get("client_name")),
             safe_str(d.get("chinese_name")),
             safe_str(d.get("nick_name")),
@@ -249,10 +265,10 @@ for row in stg_projects:
     
     try:
         cur.execute("""
-            INSERT INTO nexus_crm.projects (id, tenant_id, project_code, name, company_id, stage_id, status, priority, description, start_date, deadline, created_at, updated_at)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, now(), now())
+            INSERT INTO nexus_crm.projects (id, tenant_id, workspace_id, project_code, name, company_id, stage_id, status, priority, description, start_date, deadline, created_at, updated_at)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, now(), now())
         """, (
-            new_id, TENANT_ID,
+            new_id, TENANT_ID, WORKSPACE_ID,
             f"PRJ-{d['id'][:8].upper()}",
             safe_str(d.get("project_name")),
             company_id or kinetix_id,
@@ -341,10 +357,10 @@ for row in stg_tasks:
     
     try:
         cur.execute("""
-            INSERT INTO nexus_crm.tasks (id, tenant_id, title, description, due_date, priority, status, area, recurring, company_id, created_at, updated_at)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, now(), now())
+            INSERT INTO nexus_crm.tasks (id, tenant_id, workspace_id, title, description, due_date, priority, status, area, recurring, company_id, created_at, updated_at)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, now(), now())
         """, (
-            new_id, TENANT_ID,
+            new_id, TENANT_ID, WORKSPACE_ID,
             safe_str(d.get("name")),
             safe_str(d.get("notes")),
             due,

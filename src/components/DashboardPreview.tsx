@@ -33,10 +33,10 @@ const todayStr = () => {
 type WidgetKey = string
 interface WidgetDef { label: string; span: number }
 const allWidgets: Record<string, WidgetDef> = {
-  kpi_contacts: { label: 'Contacts', span: 3 },
-  kpi_companies: { label: 'Companies', span: 3 },
-  kpi_deals: { label: 'Deal Count', span: 3 },
-  kpi_tasks: { label: 'Tasks', span: 3 },
+  kpi_contacts: { label: 'Contacts', span: 6 },
+  kpi_companies: { label: 'Companies', span: 6 },
+  kpi_deals: { label: 'Deal Count', span: 6 },
+  kpi_tasks: { label: 'Tasks', span: 6 },
   pipeline: { label: 'Deal Pipeline', span: 8 },
   tasks: { label: "Today's Tasks", span: 4 },
   touchpoints: { label: 'Recent Touchpoints', span: 4 },

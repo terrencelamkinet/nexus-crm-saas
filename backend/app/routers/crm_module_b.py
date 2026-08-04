@@ -19,7 +19,7 @@ from datetime import datetime, timezone
 from decimal import Decimal
 
 from fastapi import APIRouter, Depends, HTTPException, Request
-from sqlalchemy import func, select, or_
+from sqlalchemy import func, select, or_, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db import get_tenant_session
@@ -77,9 +77,25 @@ async def _log_activity(
     entity_id: UUID,
     summary: str | None = None,
     changes: dict | None = None,
+    workspace_id: UUID | None = None,
 ) -> None:
+    # Fallback: resolve tenant's default workspace when caller didn't pass one
+    # (update/delete handlers historically omit it → NOT NULL violation on
+    # activity_log). Same resolution path as get_tenant_session.
+    if workspace_id is None:
+        try:
+            row = await db.execute(
+                text("SELECT id FROM nexus_auth.workspaces WHERE tenant_id = :tid ORDER BY created_at ASC LIMIT 1"),
+                {"tid": str(tenant_id)},
+            )
+            wid = row.scalar_one_or_none()
+            if wid:
+                workspace_id = UUID(str(wid))
+        except Exception:
+            pass
     entry = ActivityLog(
         tenant_id=tenant_id,
+        workspace_id=workspace_id,
         actor_id=actor_id,
         action=action,
         entity_type=entity_type,
@@ -436,6 +452,7 @@ async def create_deal(
 ):
     tenant_id = _get_tenant_id(request)
     user_id = _get_user_id(request)
+    workspace_id = getattr(request.state, "workspace_id", None)
 
     data = body.model_dump()
 
@@ -448,6 +465,7 @@ async def create_deal(
 
     obj = Deal(
         tenant_id=tenant_id,
+        workspace_id=workspace_id,
         **data,
     )
     db.add(obj)
@@ -457,6 +475,7 @@ async def create_deal(
         db, tenant_id=tenant_id, actor_id=user_id,
         action="created", entity_type="deal", entity_id=obj.id,
         summary=f"Created deal '{obj.name}'",
+        workspace_id=workspace_id,
     )
 
     await db.refresh(obj)
@@ -880,6 +899,7 @@ async def create_quote(
 ):
     tenant_id = _get_tenant_id(request)
     user_id = _get_user_id(request)
+    workspace_id = getattr(request.state, "workspace_id", None)
 
     obj = Quote(
         tenant_id=tenant_id,
@@ -893,6 +913,7 @@ async def create_quote(
         db, tenant_id=tenant_id, actor_id=user_id,
         action="created", entity_type="quote", entity_id=obj.id,
         summary=f"Created quote '{obj.quote_number}'",
+        workspace_id=workspace_id,
     )
 
     await db.refresh(obj)

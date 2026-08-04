@@ -19,7 +19,7 @@ export default function TasksPage() {
   }
 
   return (
-    <>
+    <div className={view === 'table' ? 'tasks-table-mode' : ''}>
       {/* View switcher — floating toggle above the page */}
       <div style={{
         display: 'flex', justifyContent: 'flex-end', gap: 6,
@@ -53,6 +53,6 @@ export default function TasksPage() {
       </div>
 
       {view === 'todo' ? <TodoPage /> : <GenericListPage config={taskConfig} />}
-    </>
+    </div>
   )
 }

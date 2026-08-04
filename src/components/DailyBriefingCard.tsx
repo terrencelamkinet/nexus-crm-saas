@@ -42,6 +42,9 @@ interface BriefingData {
   schedule: ScheduleEvent[];
   tasks: TaskItem[];
   aiTip: AiTip;
+  content?: string;   // LLM-generated briefing (AI-app pipeline)
+  slot?: string;
+  generatedAt?: string;
 }
 
 // ── Props ──
@@ -69,6 +72,13 @@ const mockTasks: TaskItem[] = [
 ];
 
 // ── Helpers ──
+const slotLabel = (slot: string): string => {
+  const map: Record<string, string> = {
+    morning: '早安', noon: '午安', evening: '晚安', night: '深夜',
+  };
+  return map[slot] || slot;
+};
+
 const formatLastUpdated = (date: Date): string => {
   const now = new Date();
   const diffMs = now.getTime() - date.getTime();
@@ -116,6 +126,9 @@ export default function DailyBriefingCard({ className = '', style }: Props) {
         schedule: ScheduleEvent[];
         tasks: TaskItem[];
         ai_tip: string;
+        content?: string;
+        slot?: string;
+        generated_at?: string;
       }>('/api/v1/ai/briefing');
 
       setData({
@@ -123,6 +136,9 @@ export default function DailyBriefingCard({ className = '', style }: Props) {
         schedule: (res?.schedule || []).slice(0, 5),
         tasks: (res?.tasks || []).slice(0, 5) as TaskItem[],
         aiTip: { text: res?.ai_tip || mockBriefing.aiTip.text },
+        content: res?.content || '',
+        slot: res?.slot || '',
+        generatedAt: res?.generated_at || '',
       });
       setLastUpdated(new Date());
     } catch {
@@ -226,6 +242,23 @@ export default function DailyBriefingCard({ className = '', style }: Props) {
           <RefreshCw size={14} style={{ animation: loading ? 'spin 1s linear infinite' : 'none' }} />
         </button>
       </div>
+
+      {/* ── LLM-generated briefing (AI-app pipeline) ── */}
+      {data!.content && (
+        <div style={{
+          background: 'color-mix(in oklch, var(--color-purple) 8%, var(--color-surface))',
+          border: '1px solid color-mix(in oklch, var(--color-purple) 25%, transparent)',
+          borderRadius: 'var(--radius-md)',
+          padding: '10px 12px', marginBottom: 10,
+        }}>
+          <div style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--color-purple)', marginBottom: 6, letterSpacing: 0.3 }}>
+            🤖 AI 簡報{data!.slot ? ` · ${slotLabel(data!.slot)}` : ''}
+          </div>
+          <div style={{ fontSize: 12.5, color: 'var(--color-text)', lineHeight: 1.65, whiteSpace: 'pre-wrap' }}>
+            {data!.content}
+          </div>
+        </div>
+      )}
 
       {/* ── Sections ── */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>

@@ -6,6 +6,7 @@ All config read from app.config.settings at call-time.
 """
 import hmac
 import hashlib
+import re
 import httpx
 from app.config import settings
 
@@ -89,6 +90,72 @@ async def send_text(wa_id: str, text: str) -> dict:
         "to": wa_id,
         "type": "text",
         "text": {"body": text},
+    }
+    return await _post_message(payload)
+
+
+async def send_contact(wa_id: str, contact: dict) -> dict:
+    """
+    Send a native WhatsApp contact card (vCard).
+    
+    contact dict keys (all optional except name):
+      name: str          — "Wilson Chan"
+      phone: str         — "+85291234567"
+      email: str         — "wilson@example.com"
+      company: str       — "SYSTEX Information (H.K.) Ltd."
+      job_title: str     — "Sales Manager"
+      url: str           — LinkedIn / website
+      address: str       — office address
+      notes: str         — any extra info
+    """
+    name_parts = contact.get("name", "Unknown").strip().split(maxsplit=1)
+    first_name = name_parts[0] if name_parts else ""
+    last_name = name_parts[1] if len(name_parts) > 1 else ""
+
+    card: dict = {
+        "name": {
+            "formatted_name": contact.get("name", "Unknown"),
+        }
+    }
+    if first_name:
+        card["name"]["first_name"] = first_name
+    if last_name:
+        card["name"]["last_name"] = last_name
+
+    if contact.get("phone"):
+        # Normalize to E.164 (strip spaces/dashes) so WhatsApp renders the
+        # number as a tappable phone — "852 6302 3030" shows as text only.
+        raw_phone = str(contact["phone"]).strip()
+        e164_phone = re.sub(r"[\s\-\(\)]", "", raw_phone)
+        if not e164_phone.startswith("+"):
+            e164_phone = "+" + e164_phone
+        card["phones"] = [{
+            "phone": e164_phone,
+            "type": "CELL",
+            "wa_id": e164_phone.lstrip("+"),
+        }]
+    if contact.get("email"):
+        card["emails"] = [{"email": contact["email"], "type": "WORK"}]
+    if contact.get("company") or contact.get("job_title"):
+        org = {}
+        if contact.get("company"):
+            org["company"] = contact["company"]
+        if contact.get("job_title"):
+            org["title"] = contact["job_title"]
+        card["org"] = org
+    if contact.get("url"):
+        card["urls"] = [{"url": contact["url"], "type": "WORK"}]
+    if contact.get("address"):
+        card["addresses"] = [{
+            "street": contact["address"],
+            "type": "WORK",
+        }]
+
+    payload = {
+        "messaging_product": "whatsapp",
+        "to": wa_id,
+        "type": "contacts",
+        "contacts": [card],
     }
     return await _post_message(payload)
 

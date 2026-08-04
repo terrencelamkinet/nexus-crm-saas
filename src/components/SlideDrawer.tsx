@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { X } from 'lucide-react'
 
@@ -12,6 +12,23 @@ interface SlideDrawerProps {
 
 export default function SlideDrawer({ open, onClose, title, children, width }: SlideDrawerProps) {
   const ref = useRef<HTMLDivElement>(null)
+  // Keep rendering during the close animation so it can slide out (with bounce)
+  const [rendered, setRendered] = useState(open)
+  const [closing, setClosing] = useState(false)
+
+  useEffect(() => {
+    if (open) {
+      setRendered(true)
+      setClosing(false)
+    } else if (rendered) {
+      setClosing(true)
+      const t = setTimeout(() => {
+        setRendered(false)
+        setClosing(false)
+      }, 360) // match slideOutRight duration
+      return () => clearTimeout(t)
+    }
+  }, [open, rendered])
 
   useEffect(() => {
     if (!open) return
@@ -31,10 +48,13 @@ export default function SlideDrawer({ open, onClose, title, children, width }: S
     return () => { document.body.style.overflow = '' }
   }, [open])
 
-  if (!open) return null
+  if (!rendered) return null
 
   return createPortal(
-    <div className={`slide-drawer-wrap ${open ? 'open' : ''}`} onClick={onClose}>
+    <div
+      className={`slide-drawer-wrap ${open ? 'open' : ''} ${closing ? 'closing' : ''}`}
+      onClick={onClose}
+    >
       <div className="slide-drawer-scrim" onClick={onClose} />
       <div
         ref={ref}

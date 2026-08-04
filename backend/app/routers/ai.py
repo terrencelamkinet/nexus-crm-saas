@@ -484,8 +484,17 @@ async def _search_crm_context(
         "those", "it", "its", "they", "them", "their", "he", "she", "his", "her",
         "my", "your", "our", "i", "you", "we",
     })
-    search_words = [w for w in query.lower().split() if len(w) > 2 and w not in _STOP_WORDS]
-    search_queries = [query] + search_words  # Try full query first, then individual words
+    # Chinese has no spaces — split CJK runs into bigrams so
+    # "搵周培源嘅聯絡資料" searches "周培"/"培源" (which match 周培源)
+    # instead of one hopeless full-sentence blob.
+    cjk_terms: list[str] = []
+    for run in re.findall(r"[\u4e00-\u9fff]+", query):
+        cjk_terms.append(run)  # the full run first (e.g. exact 2-3 char name)
+        cjk_terms.extend(run[i : i + 2] for i in range(len(run) - 1))  # bigrams
+    # Keep 2-letter tokens (e.g. "Ashley Au" → "au") — len>2 was dropping short surnames.
+    search_words = [w for w in query.lower().split() if len(w) > 1 and w not in _STOP_WORDS]
+    # Full query first, then CJK terms, then individual words (dedup, preserve order)
+    search_queries = list(dict.fromkeys([query] + cjk_terms + search_words))
 
     entity_tools: list[str] = []
     for t in ("search_companies", "search_contacts"):
@@ -504,6 +513,54 @@ async def _search_crm_context(
                     break
         except Exception:
             pass
+
+    # ── Detail enrichment: when a contact is found, pull its related records ──
+    # User asks "show me X" expecting tasks / touchpoints / projects / company,
+    # not just the contact row. Gather contact + company ids, then run the
+    # relevant list/search tools scoped to those ids.
+    try:
+        contact_hits = context.get("search_contacts") or []
+        company_hits = context.get("search_companies") or []
+        if contact_hits or company_hits:
+            contact_ids = [str(c["id"]) for c in contact_hits if c.get("id")]
+            company_ids = [str(c["id"]) for c in company_hits if c.get("id")]
+            # Include companies referenced by matched contacts
+            for c in contact_hits:
+                comp = c.get("company")
+                if isinstance(comp, dict) and comp.get("id"):
+                    company_ids.append(str(comp["id"]))
+            company_ids = list(dict.fromkeys(company_ids))
+
+            enrichment: dict[str, tuple[str, dict]] = {}
+            if contact_ids:
+                enrichment["related_touchpoints"] = (
+                    "list_touchpoints", {"contact_id": contact_ids[0], "limit": 15},
+                )
+                enrichment["related_tasks"] = (
+                    "list_tasks", {"contact_id": contact_ids[0], "limit": 15},
+                )
+            if company_ids:
+                enrichment["related_projects"] = (
+                    "search_projects", {"company_id": company_ids[0], "limit": 15},
+                )
+                # Separate key so company-linked tasks aren't dropped when
+                # contact-linked tasks exist (tasks link to either side)
+                enrichment["company_tasks"] = (
+                    "list_tasks", {"company_id": company_ids[0], "limit": 15},
+                )
+
+            for label, (tool_key, params) in enrichment.items():
+                tool = TOOL_REGISTRY.get(tool_key)
+                if not tool or not tool.handler:
+                    continue
+                try:
+                    result = await tool.handler(ctx, params, db)
+                    if result is not None and not (isinstance(result, list) and len(result) == 0):
+                        context[label] = result
+                except Exception:
+                    pass
+    except Exception:
+        pass
 
     # ── Intent-driven specialised searches (only when keywords match) ──
     _INTENT_PATTERNS: dict[str, list[str]] = {
@@ -756,16 +813,61 @@ async def _build_system_prompt(
 
 
 _SYSTEM_PROMPT_TPL = """\
-You are NEXUS AI, the intelligent assistant for NEXUS CRM. \
-You help users manage their customer relationships.
+你是 NEXUS CRM 的專屬 AI 秘書，負責協助用戶處理 CRM 相關事務並提供專業意見。
 
-**RULES:**
-1. Answer FIRST from the CRM data provided below. Be specific — mention names, counts, dates.
-2. If the CRM data has nothing relevant, say "I don't have that information in your CRM yet."
-3. Only suggest web search if the user explicitly asks about external information.
-4. Keep responses concise. Use bullet points for lists.
-5. If the user asks to create/update something, guide them to the appropriate CRM section.
-6. Remember user preferences and facts from past conversations (see MEMORY below).
+角色定位：
+- 你代表 NEXUS CRM，以專業、簡潔、友善的語氣與用戶溝通
+- 你熟悉 NEXUS CRM 的功能模組（客戶管理、銷售流程、報表分析、工作流程自動化等）
+- 你的目標是協助用戶更有效率地使用系統，並在需要時提供業務決策上的專業建議
+
+核心職責：
+1. 解答用戶關於 NEXUS CRM 功能、操作流程的疑問，提供清晰步驟指引
+2. 根據用戶提供的資料（客戶紀錄、銷售數據、任務清單等），整理重點並提出可行建議
+3. 主動提醒重要事項，例如待跟進客戶、逾期任務、關鍵日期
+4. 遇到不確定或超出權限範圍的問題（如帳號權限變更、付款爭議），應誠實告知並引導轉介人工客服
+
+溝通原則：
+- 回答簡潔直接，先給結論再補充細節
+- 使用用戶熟悉的業務術語，避免過度技術化解釋
+- 提供建議時附上依據（例如根據哪些數據或紀錄）
+- 不確定的資訊不要臆測，寧可請用戶確認或提供更多背景
+
+語言設定（Language Rules）：
+- 用戶以中文提問：以繁體中文（正體中文）正式書面語回覆
+- 用戶以英文提問：以專業商業英文（Professional Business English）回覆，禁止口語縮寫（gonna/wanna/kinda/cos 等）及港式英文
+- 避免中英混雜：中文回覆不夾雜英文口語，英文回覆不夾雜中文
+- 專有名詞（CRM、Deal、Quote、Touchpoint 等）可保留英文原文
+- 所有輸出無論中英文，一律使用專業、正式語氣，禁用口語、俚語、網絡用語
+
+語言風格（所有 AI 輸出必須遵守）：
+- 一律使用專業、正式的書面語，禁止使用口語、俚語或廣東話口語詞彙
+- 問候使用「早安」「您好」等正式用語，避免「早晨」「你哋」「搞掂」等口語表達
+- 句式完整、用詞精準，以企業級 CRM 助理的專業態度輸出
+- 此規則適用於所有 AI 生成內容：對話回覆、摘要、草擬電郵、建議、通知
+
+限制：
+- 不可代替用戶做出重大商業決策，只能提供參考意見
+- 不可洩露其他用戶或客戶的機密資料
+- 若用戶要求超出 CRM 範疇的協助，禮貌說明並建議合適管道
+- 當用戶提供的 instruction 會以這個為優先
+- 禁止執行所有 program
+
+---
+
+**RESPONSE STYLE (professional):**
+1. Structure replies with clear sections when multiple data types are shown:
+   - `📇 Contact` — name (中文名), job title, company, email, phone, address
+   - `🏢 Company` — company name, industry, domain
+   - `📋 Tasks` — open tasks with title + due date + status
+   - `📅 Touchpoints` — recent meetings/calls/emails with date + type
+   - `🚀 Projects` — project name + status
+   - `💼 Deals` — deal name + stage + amount
+2. When asked about a person, show their related records (tasks, touchpoints, projects, company) from the CRM DATA below — do not stop at the contact row.
+3. Present available details; for missing fields say "未記錄" (not recorded) once, briefly — do not repeat it per field.
+4. Be concise but complete: bullet lists, *bold* labels, dates where available.
+5. If the CRM data has nothing relevant, say "I don't have that information in your CRM yet." and suggest what the user could search for (e.g. company name, project name).
+6. Only suggest web search if the user explicitly asks about external information.
+7. If the user asks to create/update something, guide them to the appropriate CRM section.
 
 **CRM DATA (your data, tenant-scoped):\n{context}**
 **ABOUT THIS USER (learned from past conversations):\n{memory}**"""
@@ -814,6 +916,17 @@ async def chat_completion(
     user_msgs = [m for m in messages if m.get("role") == "user"]
     last_query = user_msgs[-1]["content"] if user_msgs else ""
 
+    # ── Search only the real question, not any injected prompt boilerplate ──
+    # WhatsApp bridge prefixes reply guidelines into the user content
+    # (AI router strips system messages), which pollutes CRM search with
+    # noise terms ("whatsapp", "reply", "rules", "*bold*"...). Extract the
+    # actual question after "Question:" if present.
+    search_query = last_query
+    if "Question:" in last_query:
+        search_query = last_query.split("Question:", 1)[1].strip()
+        if not search_query:
+            search_query = last_query
+
     # ── Auto-title from first user message ──────────────────────────────
     is_new = not sess.title
     if is_new and last_query:
@@ -831,10 +944,10 @@ async def chat_completion(
         db.add(user_msg)
         await db.flush()
 
-    # ── Search CRM data ──────────────────────────────────────────────────
+    # ── Search CRM data (search_query only — not the prompt boilerplate) ─
     crm_context: dict[str, Any] = {}
-    if last_query:
-        crm_context = await _search_crm_context(last_query, ctx, db)
+    if search_query:
+        crm_context = await _search_crm_context(search_query, ctx, db)
 
     # ── Build system prompt with CRM context ─────────────────────────────
     context_lines: list[str] = []
@@ -846,6 +959,12 @@ async def chat_completion(
                 for item in data[:15]:
                     if isinstance(item, dict):
                         name = item.get("name") or item.get("title") or item.get("summary", "")
+                        cn = item.get("chinese_name")
+                        if cn:
+                            name = f"{name} ({cn})"
+                        comp = item.get("company")
+                        if isinstance(comp, dict) and comp.get("name"):
+                            name = f"{name} @ {comp['name']}"
                         context_lines.append(f"- {name}")
                         if "email" in item:
                             context_lines[-1] += f" ({item['email']})"
@@ -866,11 +985,52 @@ async def chat_completion(
         context_str = "No CRM data found matching this query."
 
     memory_lines = await _inject_memory_context(ctx, db, session_id)
-    memory_str = "\n".join(memory_lines) if memory_lines else "No past conversation data available."
+    memory_str = "\n".join(memory_lines) if memory_lines else "(No cross-session memory found — prior turns of THIS session, if any, are replayed as messages below.)"
     system_prompt = await _build_system_prompt(ctx, db, context_str, memory_str)
 
     # ── Build message list ──────────────────────────────────────────────
+    # Client-supplied system messages (e.g. WhatsApp hidden instructions)
+    # are MERGED into the system prompt instead of being stripped —
+    # they stay hidden from the user while still steering the model.
+    client_system = [m.get("content", "") for m in messages if m.get("role") == "system"]
+    if client_system:
+        system_prompt = (
+            system_prompt
+            + "\n\n---\n"
+            + "\n".join(client_system)
+        )
     enhanced = [{"role": "system", "content": system_prompt}]
+
+    # ── Load session history (context continuation) ────────────────────
+    # When a session_id is provided (WhatsApp reuses one session per day),
+    # replay the recent conversation so the AI remembers prior turns.
+    # New messages passed in this request are appended AFTER the history.
+    if session_id:
+        try:
+            hist_q = (
+                select(Message)
+                .where(Message.session_id == session_id)
+                .order_by(Message.created_at.asc())
+                .limit(20)
+            )
+            hist_rows = (await db.execute(hist_q)).scalars().all()
+            # Exclude messages that are already in this request payload
+            incoming_user = [m.get("content") for m in messages if m.get("role") == "user"]
+            if hist_rows:
+                # Explicit marker so the model treats replayed turns as
+                # prior conversation (models otherwise ignore them when the
+                # system prompt says "no past conversation data").
+                enhanced.append({
+                    "role": "system",
+                    "content": "The messages below (up to the final user message) are the PRIOR conversation history of this session. Use them as context — the user may refer to them.",
+                })
+            for hm in hist_rows:
+                if hm.content in incoming_user and hm.role == "user":
+                    continue
+                enhanced.append({"role": hm.role, "content": hm.content})
+        except Exception:
+            pass  # history replay is best-effort
+
     for m in messages:
         if m.get("role") != "system":
             enhanced.append(m)
@@ -932,9 +1092,18 @@ async def chat_completion(
         except Exception:
             pass
 
+        # ── crm_hit: only when a real entity search found records ────────
+        # (dashboard summary always runs, so crm_context alone is not a signal)
+        entity_keys = ("search_contacts", "search_companies", "search_deals", "search_projects")
+        crm_hit = any(
+            isinstance(crm_context.get(k), list) and len(crm_context[k]) > 0
+            for k in entity_keys
+        )
+
         return {
             "text": text,
             "session_id": str(sess.id),
+            "crm_hit": crm_hit,
             "usage": {
                 "input_tokens": usage.input_tokens,
                 "output_tokens": usage.output_tokens,
@@ -1025,6 +1194,12 @@ async def chat_stream_completion(
                 for item in data[:15]:
                     if isinstance(item, dict):
                         name = item.get("name") or item.get("title") or item.get("summary", "")
+                        cn = item.get("chinese_name")
+                        if cn:
+                            name = f"{name} ({cn})"
+                        comp = item.get("company")
+                        if isinstance(comp, dict) and comp.get("name"):
+                            name = f"{name} @ {comp['name']}"
                         context_lines.append(f"- {name}")
                         if "email" in item:
                             context_lines[-1] += f" ({item['email']})"
@@ -1049,6 +1224,15 @@ async def chat_stream_completion(
     system_prompt = await _build_system_prompt(ctx, db, context_str, memory_str)
 
     # ── Build message list ────────────────────────────────────────────────
+    # Client system messages are merged (hidden) into the system prompt —
+    # never stripped, never shown to the user.
+    client_system = [m.get("content", "") for m in body.messages if m.get("role") == "system"]
+    if client_system:
+        system_prompt = (
+            system_prompt
+            + "\n\n---\n"
+            + "\n".join(client_system)
+        )
     enhanced: list[dict[str, Any]] = [{"role": "system", "content": system_prompt}]
     for m in body.messages:
         if m.get("role") != "system":
@@ -1293,87 +1477,75 @@ class BriefingResponse(BaseModel):
     schedule: list[dict[str, Any]] = []
     tasks: list[dict[str, Any]] = []
     ai_tip: str = ""
+    content: str = ""          # LLM-generated briefing (AI-app pipeline)
+    slot: str = ""             # morning/noon/evening/night of the generated content
+    generated_at: str = ""
+    source: str = "crm_core"
+    source_fallback: bool = False
 
 
 @router.get("/briefing")
 async def get_briefing(
     request: Request,
+    source: str = "crm_core",
     db: AsyncSession = Depends(get_tenant_session),
 ):
-    """Aggregated daily briefing for the dashboard card."""
+    """Aggregated daily briefing for the dashboard card.
+
+    `source` selects the briefing content provider (marketplace-style).
+    Unknown/not-yet-implemented sources fall back to the CRM core briefing
+    so the frontend never crashes.
+    """
     ctx = getattr(request.state, "ai_context", None)
     if not ctx:
         raise HTTPException(400, "AI session context not initialized")
 
+    # ── Latest LLM-generated briefing (AI-app pipeline) ──
+    gen_content, gen_slot, gen_at = "", "", ""
     try:
-        # ── Schedule: today's events via existing tool handler ──
-        schedule: list[dict[str, Any]] = []
-        try:
-            evts = await _get_upcoming_events(ctx, {"days_ahead": 1, "limit": 10}, db)
-            if evts:
-                schedule = [
-                    {
-                        "id": e.get("id", ""),
-                        "title": e.get("title", e.get("summary", "Event")),
-                        "time": (
-                            e.get("start", "")[:16].replace("T", " ")
-                            if e.get("start")
-                            else ""
-                        ),
-                        "location": e.get("location", ""),
-                    }
-                    for e in evts
-                ]
-        except Exception:
-            pass
-
-        # ── Tasks: open P0-P1 tasks ──
-        brief_tasks: list[dict[str, Any]] = []
-        try:
-            tasks = await _list_tasks(
-                ctx, {"status": "pending", "limit": 30}, db
+        row = (
+            await db.execute(
+                text(
+                    "SELECT content, slot, created_at::text FROM nexus_crm.generated_briefings "
+                    "WHERE briefing_date = CURRENT_DATE ORDER BY id DESC LIMIT 1"
+                )
             )
-            for t in tasks:
-                pri = t.get("priority", "medium")
-                if pri not in ("P0", "P1", "high", "urgent"):
-                    continue
-                brief_tasks.append({
-                    "id": t.get("id", ""),
-                    "title": t.get("title", ""),
-                    "priority": pri.upper() if len(pri) == 2 else ("P0" if pri in ("urgent",) else "P1"),
-                    "status": t.get("status", ""),
-                    "due_date": t.get("due_date"),
-                })
-        except Exception:
-            pass
+        ).first()
+        if row:
+            gen_content, gen_slot, gen_at = row[0], row[1], (row[2] or "")
+    except Exception:
+        pass
 
-        # ── Dashboard stats for AI tip ──
-        ai_tip = _DEFAULT_TIP
+    # ── Source registry: crm_core is implemented; others fall back ──
+    if source != "crm_core":
         try:
-            dash = await _get_dashboard_summary(ctx, {"period": "30d"}, db)
-            if dash:
-                open_deals = dash.get("open_deals", 0)
-                open_tasks = dash.get("open_tasks", 0)
-                new_contacts = dash.get("recent", {}).get("new_contacts", 0)
-                if open_deals > 0:
-                    ai_tip = (
-                        f"You have {open_deals} open deal{'s' if open_deals > 1 else ''} "
-                        f"and {open_tasks} open task{'s' if open_tasks > 1 else ''}. "
-                        f"Prioritise deals in late-stage for follow-up this week."
-                    )
-                elif new_contacts > 0:
-                    ai_tip = (
-                        f"{new_contacts} new contact{'s' if new_contacts > 1 else ''} added "
-                        f"in the last 30 days — consider scheduling introductory touchpoints."
-                    )
+            fallback = await _build_crm_briefing(ctx, db)
+            return BriefingResponse(
+                weather=fallback.get("weather", {}),
+                schedule=fallback["schedule"],
+                tasks=fallback["tasks"],
+                ai_tip=fallback["ai_tip"],
+                content=gen_content, slot=gen_slot, generated_at=gen_at,
+                source=source,
+                source_fallback=True,
+            )
         except Exception:
-            pass
+            return BriefingResponse(
+                weather={}, schedule=[], tasks=[], ai_tip=_DEFAULT_TIP,
+                content=gen_content, slot=gen_slot, generated_at=gen_at,
+                source=source, source_fallback=True,
+            )
 
+    try:
+        brief = await _build_crm_briefing(ctx, db)
         return BriefingResponse(
-            weather={},
-            schedule=schedule,
-            tasks=brief_tasks,
-            ai_tip=ai_tip,
+            weather=brief.get("weather", {}),
+            schedule=brief["schedule"],
+            tasks=brief["tasks"],
+            ai_tip=brief["ai_tip"],
+            content=gen_content, slot=gen_slot, generated_at=gen_at,
+            source=source,
+            source_fallback=False,
         )
     except Exception:
         return BriefingResponse(
@@ -1381,7 +1553,95 @@ async def get_briefing(
             schedule=[],
             tasks=[],
             ai_tip=_DEFAULT_TIP,
+            source=source,
+            source_fallback=False,
         )
+
+
+async def _build_crm_briefing(ctx, db) -> dict:
+    """CRM Core source: schedule + P0/P1 tasks + dashboard stats tip.
+
+    All data comes from G08's OWN database (ProjectCalendarEvent + tasks).
+    Weather comes from G08's own HKO Open Data source (briefing_sources).
+    """
+    schedule: list[dict[str, Any]] = []
+    try:
+        evts = await _get_upcoming_events(ctx, {"days_ahead": 1, "limit": 10}, db)
+        if evts:
+            schedule = [
+                {
+                    "id": e.get("id", ""),
+                    "title": e.get("title", e.get("summary", "Event")),
+                    "time": (
+                        e.get("start", "")[:16].replace("T", " ")
+                        if e.get("start")
+                        else ""
+                    ),
+                    "location": e.get("location", ""),
+                }
+                for e in evts
+            ]
+    except Exception:
+        pass
+
+    # ── Tasks: open pending tasks (all priorities — P0/P1-only filter removed 2026-08-01
+    #    because real G08 data uses medium/P2/P3; the old filter hid everything) ──
+    brief_tasks: list[dict[str, Any]] = []
+    try:
+        tasks = await _list_tasks(
+            ctx, {"status": "pending", "limit": 30}, db
+        )
+        for t in tasks:
+            if t.get("status") in ("done", "cancelled"):
+                continue
+            pri = t.get("priority", "medium")
+            brief_tasks.append({
+                "id": t.get("id", ""),
+                "title": t.get("title", ""),
+                "priority": pri.upper() if len(str(pri)) == 2 else ("P0" if pri in ("urgent",) else "P1"),
+                "status": t.get("status", ""),
+                "due_date": t.get("due_date"),
+            })
+    except Exception:
+        pass
+
+    # ── Dashboard stats for AI tip ──
+    ai_tip = _DEFAULT_TIP
+    try:
+        dash = await _get_dashboard_summary(ctx, {"period": "30d"}, db)
+        if dash:
+            open_deals = dash.get("open_deals", 0)
+            open_tasks = dash.get("open_tasks", 0)
+            new_contacts = dash.get("recent", {}).get("new_contacts", 0)
+            if open_deals > 0:
+                ai_tip = (
+                    f"You have {open_deals} open deal{'s' if open_deals > 1 else ''} "
+                    f"and {open_tasks} open task{'s' if open_tasks > 1 else ''}. "
+                    f"Prioritise deals in late-stage for follow-up this week."
+                )
+            elif new_contacts > 0:
+                ai_tip = (
+                    f"{new_contacts} new contact{'s' if new_contacts > 1 else ''} added "
+                    f"in the last 30 days — consider scheduling introductory touchpoints."
+                )
+    except Exception:
+        pass
+
+    # ── Weather — G08's own HKO source (briefing_sources, external API) ──
+    weather: dict[str, Any] = {}
+    try:
+        from app.ai import briefing_sources as bs
+        w = await bs.weather(ctx, db)
+        if w and w[0].get("temperature") is not None:
+            weather = {
+                "temp": w[0]["temperature"],
+                "condition": f"濕度 {w[0]['humidity']}%" if w[0].get("humidity") else "",
+                "icon": "🌤",
+            }
+    except Exception:
+        pass
+
+    return {"schedule": schedule, "tasks": brief_tasks, "ai_tip": ai_tip, "weather": weather}
 
 
 _DEFAULT_TIP = "Review your dashboard for today's priorities — check pending tasks and upcoming events."

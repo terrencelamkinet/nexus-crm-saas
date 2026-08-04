@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Plus, Search, X, Trash2, Edit3, ChevronRight, MoreHorizontal, Download, ArrowUpDown } from 'lucide-react'
+import { Plus, Search, X, Trash2, Edit3, ChevronRight, MoreHorizontal, Download, ArrowUpDown, Upload } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { apiClient } from '../lib/api'
 import { CellRenderer, FieldsRenderer } from './shared/FieldsRenderer'
@@ -25,6 +25,8 @@ export default function GenericListPage({ config, extraData }: Props) {
   const [data, setData] = useState<ListResponse | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const tableScrollRef = useRef<HTMLDivElement>(null)
+  const [tableAtEnd, setTableAtEnd] = useState(false)
 
   const [createOpen, setCreateOpen] = useState(false)
   const [editTarget, setEditTarget] = useState<EntityRecord | null>(null)
@@ -192,6 +194,11 @@ const [filters, setFilters] = useState<Record<string, FilterEntry>>({})
   const items = data?.items ?? []
   const total = data?.total ?? 0
   const totalPages = data?.meta?.totalPages || (total ? Math.ceil(total / pageSize) : 1)
+
+  useEffect(() => {
+    const el = tableScrollRef.current
+    if (el) setTableAtEnd(el.scrollLeft + el.clientWidth >= el.scrollWidth - 4)
+  }, [data])
 
   const filterableFields = config.fields.filter(f =>
     FILTERABLE_TYPES.includes(f.type) && f.key !== 'created_at' && f.key !== 'updated_at'
@@ -379,20 +386,23 @@ const [filters, setFilters] = useState<Record<string, FilterEntry>>({})
       <div className="breadcrumb">
         <span>{t('common.home')}</span>
         <ChevronRight />
-        <span className="breadcrumb-current">{t('pages.' + config.name + '.title')}</span>
+        <span className="breadcrumb-current">{t('pages.' + filterModuleKey + '.title')}</span>
       </div>
 
       <div className="page-header">
         <div>
-          <h1>{t('pages.' + config.name + '.title')}</h1>
-          <p>{total} {t('pages.' + config.name + '.title').toLowerCase()}</p>
+          <h1>{t('pages.' + filterModuleKey + '.title')}</h1>
+          <p>{total} {t('pages.' + filterModuleKey + '.title').toLowerCase()}</p>
         </div>
         <div className="header-actions">
-          <button className="btn-secondary">
-            <Download className="w-4 h-4" /> {t('common.export')}
+          <button className="btn-secondary" title={t('common.export')} style={{ width: 36, height: 36, padding: 0, justifyContent: 'center' }}>
+            <Download className="w-4 h-4" />
           </button>
-          <button onClick={openCreate} className="btn-primary">
-            <Plus className="w-4 h-4" /> {t('pages.' + config.name + '.new')}
+          <button className="btn-secondary" title="Upload" style={{ width: 36, height: 36, padding: 0, justifyContent: 'center' }}>
+            <Upload className="w-4 h-4" />
+          </button>
+          <button onClick={openCreate} className="btn-primary" title={t('pages.' + filterModuleKey + '.new')} style={{ width: 36, height: 36, padding: 0, justifyContent: 'center' }}>
+            <Plus className="w-4 h-4" />
           </button>
         </div>
       </div>
@@ -401,7 +411,7 @@ const [filters, setFilters] = useState<Record<string, FilterEntry>>({})
         <div className="db-toolbar">
           <div className="db-search">
             <Search className="w-4 h-4" />
-            <input type="text" placeholder={t('pages.' + config.name + '.searchPlaceholder') || (t('common.search') + ' ' + t('pages.' + config.name + '.title').toLowerCase() + '...')}
+            <input type="text" placeholder={t('pages.' + filterModuleKey + '.searchPlaceholder') || (t('common.search') + ' ' + t('pages.' + filterModuleKey + '.title').toLowerCase() + '...')}
               value={query} onChange={e => setQuery(e.target.value)} />
           </div>
           <div className="toolbar-actions">
@@ -475,7 +485,7 @@ const [filters, setFilters] = useState<Record<string, FilterEntry>>({})
                     <span className="view-icon">{
                       v === 'table' ? '▦' : v === 'gallery' ? '⊞' : v === 'board' ? '📋' : '📌'
                     }</span>
-                    {v === 'table' ? t('pages.' + config.name + '.title') : v === 'gallery' ? 'Gallery' : v === 'board' ? 'Board' : 'Kanban'}
+                    {v === 'table' ? t('pages.' + filterModuleKey + '.title') : v === 'gallery' ? 'Gallery' : v === 'board' ? 'Board' : 'Kanban'}
                   </button>
                 ))}
               </div>
@@ -719,7 +729,7 @@ const [filters, setFilters] = useState<Record<string, FilterEntry>>({})
             <button onClick={() => fetchDataRef.current()} className="error-retry-btn">{t('common.retry')}</button>
           </div>
         ) : items.length === 0 ? (
-          <div className="empty-state">{t('pages.' + config.name + '.empty') || ('No ' + t('pages.' + config.name + '.title').toLowerCase() + ' found')}</div>
+          <div className="empty-state">{t('pages.' + filterModuleKey + '.empty') || ('No ' + t('pages.' + filterModuleKey + '.title').toLowerCase() + ' found')}</div>
         ) : view === 'gallery' ? (
           <div className="contact-grid">
             {items.map(item => {
@@ -748,7 +758,11 @@ const [filters, setFilters] = useState<Record<string, FilterEntry>>({})
                 <BoardView items={items} onSelect={setSelectedId} groupBy={view === 'board' ? 'status' : 'contact_type'} />
         ) : (
           <>
-            <div className="table-scroll">
+            <div className={`table-scroll${tableAtEnd ? ' at-end' : ''}`} ref={tableScrollRef}
+              onScroll={() => {
+                const el = tableScrollRef.current
+                if (el) setTableAtEnd(el.scrollLeft + el.clientWidth >= el.scrollWidth - 4)
+              }}>
               <table>
               <thead>
                 <tr>
@@ -764,6 +778,7 @@ const [filters, setFilters] = useState<Record<string, FilterEntry>>({})
                     return (
                       <th key={col}
                         className={canSort ? 'th-sortable' : ''}
+                        style={field?.type === 'title' || col === config.titleField ? { width: '28%' } : undefined}
                         onClick={() => canSort && toggleSort(col)}>
                         {field?.label || col}
                         {sortBy === col && (
@@ -834,7 +849,7 @@ const [filters, setFilters] = useState<Record<string, FilterEntry>>({})
 
       {totalPages > 1 && (
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginTop: 14, padding: '10px 0' }}>
-          <span className="text-faint" style={{ fontSize: 12 }}>{total} {t('pages.' + config.name + '.title').toLowerCase()}</span>
+          <span className="text-faint" style={{ fontSize: 12 }}>{total} {t('pages.' + filterModuleKey + '.title').toLowerCase()}</span>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
             <button className="toolbar-btn" disabled={page <= 1} onClick={() => setPage(p => Math.max(1, p - 1))}>
               {t('common.previous')}
@@ -853,7 +868,7 @@ const [filters, setFilters] = useState<Record<string, FilterEntry>>({})
         <div className="modal-overlay" onClick={e => { if (e.target === e.currentTarget) setCreateOpen(false) }}>
           <div className="modal">
             <div className="modal-head">
-              <h2>{t('pages.' + config.name + '.new')}</h2>
+              <h2>{t('pages.' + filterModuleKey + '.new')}</h2>
               <button onClick={() => setCreateOpen(false)} className="modal-x"><X className="icon-16" /></button>
             </div>
             <div className="modal-body form-body">
@@ -877,7 +892,7 @@ const [filters, setFilters] = useState<Record<string, FilterEntry>>({})
         <div className="modal-overlay" onClick={e => { if (e.target === e.currentTarget) setEditTarget(null) }}>
           <div className="modal">
             <div className="modal-head">
-              <h2>{t('common.edit')} {t('pages.' + config.name + '.title')}</h2>
+              <h2>{t('common.edit')} {t('pages.' + filterModuleKey + '.title')}</h2>
               <button onClick={() => setEditTarget(null)} className="modal-x"><X className="icon-16" /></button>
             </div>
             <div className="modal-body form-body">
@@ -902,7 +917,7 @@ const [filters, setFilters] = useState<Record<string, FilterEntry>>({})
           <div className="modal modal-sm">
             <div className="delete-body">
               <div className="delete-icon-wrap"><Trash2 /></div>
-              <h2 className="delete-heading">{t('common.delete')} {t('pages.' + config.name + '.title')}</h2>
+              <h2 className="delete-heading">{t('common.delete')} {t('pages.' + filterModuleKey + '.title')}</h2>
               <p className="delete-text">
                 Are you sure you want to delete <strong>{deleteTarget['name'] || deleteTarget.id}</strong>?
               </p>
@@ -920,7 +935,7 @@ const [filters, setFilters] = useState<Record<string, FilterEntry>>({})
         <div className="modal-overlay" onClick={e => { if (e.target === e.currentTarget) setBulkOpen(false) }}>
           <div className="modal">
             <div className="modal-head">
-              <h2>{t('common.bulkUpdate')} {t('pages.' + config.name + '.title')}</h2>
+              <h2>{t('common.bulkUpdate')} {t('pages.' + filterModuleKey + '.title')}</h2>
               <button onClick={() => setBulkOpen(false)} className="modal-x"><X className="icon-16" /></button>
             </div>
             <div className="modal-body form-body">
@@ -947,7 +962,7 @@ const [filters, setFilters] = useState<Record<string, FilterEntry>>({})
       )}
 
       {/* ─── Right-side Detail Drawer ─── */}
-      <SlideDrawer open={!!selectedId} onClose={() => setSelectedId(null)} title={`${t('pages.' + config.name + '.title')} Details`}>
+      <SlideDrawer open={!!selectedId} onClose={() => setSelectedId(null)} title={`${t('pages.' + filterModuleKey + '.title')} Details`}>
         {selectedId && (
           <DetailDrawerContent
             config={config}

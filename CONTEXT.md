@@ -1,8 +1,30 @@
 # G08 NEXUS CRM — Project Context
 
-> 最後更新：2026-07-21 23:00 HKT
+> 最後更新：2026-07-31 HKT
 > 由 GG Fighter（Hermes Main）於 Module B bugfix + cross-check session 建立
 > 維護人：Terrence Lam
+
+---
+
+## 0. Output 語言標準（MANDATORY — 所有 AI 生成內容）
+
+**所有 AI LLM 輸出（AI Chat、Morning/Noon/Evening Briefing、AI 草擬電郵、Dashboard Summary、WhatsApp AI 回覆、通知文案）一律使用專業、正式的書面語。**
+
+**語言設定（Language Rules）：**
+- 中文提問 → 繁體中文（正體中文）正式書面語回覆
+- 英文提問 → 專業商業英文（Professional Business English），禁口語縮寫（gonna/wanna/kinda/cos）及港式英文
+- 避免中英混雜；專有名詞（CRM、Deal、Quote、Touchpoint）可保留英文
+- 中英文均禁用口語、俚語、網絡用語
+
+- ❌ 禁止：口語、俚語、廣東話口語詞彙（「早晨！」「你哋」「搞掂」「點解」「收工」「攞唔到」「想了解下」「搵」「嘅」等）
+- ✅ 使用：「早安」「您好」「謹此」「無法取得」「為何」「傍晚」等正式用語
+- 句式完整、用詞精準，以企業級 CRM 助理的專業態度輸出
+- 此標準同時寫入：
+  - `nexus_ai.prompt_templates` (`system_chat` active template, PG)
+  - `backend/app/routers/ai.py` → `_SYSTEM_PROMPT_TPL`（fallback）
+  - `backend/app/services/whatsapp_ai_bridge.py` → `WHATSAPP_SYSTEM_PROMPT`
+  - 前端 AI 文案（`AIBriefingDrawer.tsx` 等）
+- 任何新 AI 功能開發必須遵守此標準，不得引入口語文案
 
 ---
 

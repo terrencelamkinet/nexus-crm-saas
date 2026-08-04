@@ -1,5 +1,8 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
+import { useTranslation } from 'react-i18next'
 import { apiClient } from '../lib/api'
+import { useAuth } from '../lib/AuthContext'
+import { useSecretarySettings, isInWorkingHours } from '../hooks/useSecretarySettings'
 import { Sparkles, X, ChevronDown, Send, RefreshCw, AlertTriangle, CheckSquare, Calendar, History } from 'lucide-react'
 
 // ─────────────────────────────────────────────────────────────
@@ -55,12 +58,26 @@ interface RiskInsight {
 
 interface BriefingPayload {
   greeting: string
+  summary: string  // compact trigger subtitle (no greeting prefix)
+  content: string  // LLM-generated briefing (AI-app pipeline)
+  slot: string
   risks: RiskInsight[]
   overdueTasks: TaskItem[]
   todayEvents: ScheduleEvent[]
   riskCount: number
   taskCount: number
   eventCount: number
+  // 20-module data (Batch B/C)
+  weather: any[]
+  news: any[]
+  traffic: any[]
+  birthdays: any[]
+  drafts: any[]
+  expenses: any[]
+  personal: any[]
+  conflicts: any[]
+  sentiment: any[]
+  unread: any[]
 }
 
 // ── Helpers ──
@@ -87,8 +104,58 @@ const fmtMoney = (n: number | null): string => {
   return `$${n.toLocaleString('en-US')}`
 }
 
+/** Slot key → friendly label (zh/en aware). */
+const slotLabel = (slot: string): string => {
+  const map: Record<string, string> = {
+    morning: '早安', noon: '午安', afternoon: '午安',
+    evening: '晚安', night: '深夜', lateNight: '深夜',
+  }
+  return map[slot] || slot
+}
+
+/** Pick the active greeting slot for `now` (HKT) from backend slots. */
+function currentGreetingSlot(slots: { key: string; emoji: string; start: string }[] | undefined) {
+  const list = (slots && slots.length ? slots : [
+    { key: 'morning', emoji: '🌅', start: '05:00' },
+    { key: 'afternoon', emoji: '☀️', start: '12:00' },
+    { key: 'evening', emoji: '🌆', start: '18:00' },
+    { key: 'lateNight', emoji: '🌙', start: '23:00' },
+  ])
+  const toM = (hhmm: string) => {
+    const [h, m] = hhmm.split(':').map(Number)
+    return h * 60 + m
+  }
+  const now = new Date()
+  const mins = now.getHours() * 60 + now.getMinutes()
+  const sorted = [...list].sort((a, b) => toM(a.start) - toM(b.start))
+  let current = sorted[sorted.length - 1]
+  for (const s of sorted) {
+    if (mins >= toM(s.start)) current = s
+    else break
+  }
+  return current
+}
+
 // ── Component ──
 export default function AIBriefingDrawer() {
+  const { t, i18n } = useTranslation()
+  const { user } = useAuth()
+  const secretary = useSecretarySettings()
+  const settings = secretary.settings
+  const mods = settings.modules
+
+  // Current greeting slot (from backend greeting_slots) — re-evaluated every minute
+  const [greeting, setGreeting] = useState(() => currentGreetingSlot(settings.greeting_slots))
+  useEffect(() => {
+    const check = () => setGreeting(prev => {
+      const next = currentGreetingSlot(settings.greeting_slots)
+      return prev.key === next.key ? prev : next
+    })
+    const timer = setInterval(check, 60_000)
+    return () => clearInterval(timer)
+  }, [settings.greeting_slots])
+
+  const inWorkingHours = isInWorkingHours(new Date(), settings)
   const [expanded, setExpanded] = useState(false)
   const [payload, setPayload] = useState<BriefingPayload | null>(null)
   const [loading, setLoading] = useState(false)
@@ -111,11 +178,13 @@ export default function AIBriefingDrawer() {
   const loadBriefing = useCallback(async () => {
     setLoading(true)
     try {
-      // 1) existing briefing endpoint (schedule + tasks + ai_tip)
+      // 1) existing briefing endpoint (schedule + tasks + ai_tip + LLM content)
       const brief = await apiClient.get<{
         schedule?: ScheduleEvent[]
         tasks?: TaskItem[]
         ai_tip?: string
+        content?: string
+        slot?: string
       }>('/api/v1/ai/briefing')
 
       // 2) open deals
@@ -142,59 +211,105 @@ export default function AIBriefingDrawer() {
       })
 
       const risks: RiskInsight[] = []
-      deals.forEach(d => {
-        const dealQuotes = (quoteByDeal.get(d.id) || []).filter(q => q.status === 'sent' || q.status === 'pending')
-        const idle = daysSince(d.updated_at || d.created_at)
-        if (dealQuotes.length > 0 && idle >= 7) {
-          const q = dealQuotes[0]
-          risks.push({
-            dealId: d.id,
-            dealName: d.name,
-            companyName: d.company_id || '',
-            amount: d.amount != null ? Number(d.amount) : (q.total != null ? Number(q.total) : 0),
-            quoteNumber: q.quote_number,
-            daysIdle: idle,
-            reason: `報價單 ${q.quote_number} 已發出 ${idle} 日未有回覆，金額 ${fmtMoney(q.total)}，建議主動跟進確認意願。`,
-          })
-        }
-      })
+      if (inWorkingHours && (mods.includes('stale_deals') || mods.includes('quote_tracking'))) {
+        deals.forEach(d => {
+          const dealQuotes = (quoteByDeal.get(d.id) || []).filter(q => q.status === 'sent' || q.status === 'pending')
+          const idle = daysSince(d.updated_at || d.created_at)
+          if (dealQuotes.length > 0 && idle >= 7) {
+            const q = dealQuotes[0]
+            risks.push({
+              dealId: d.id,
+              dealName: d.name,
+              companyName: d.company_id || '',
+              amount: d.amount != null ? Number(d.amount) : (q.total != null ? Number(q.total) : 0),
+              quoteNumber: q.quote_number,
+              daysIdle: idle,
+              reason: `報價單 ${q.quote_number} 已發出 ${idle} 日未有回覆，金額 ${fmtMoney(q.total)}，建議主動跟進確認意願。`,
+            })
+          }
+        })
+      }
       risks.sort((a, b) => b.daysIdle - a.daysIdle)
 
-      // Overdue tasks
-      const tasks = (brief?.tasks || []).filter(t => t.status !== 'done' && isOverdue(t.due_date)).slice(0, 5)
+      // Overdue tasks — task/project items are confined to working hours
+      const tasks = inWorkingHours && mods.includes('today_tasks')
+        ? (brief?.tasks || []).filter(t => t.status !== 'done' && isOverdue(t.due_date)).slice(0, 5)
+        : []
 
       // Today's events
-      const events = (brief?.schedule || []).filter(e => isToday(e.time)).slice(0, 5)
+      const events = mods.includes('meetings')
+        ? (brief?.schedule || []).filter(e => isToday(e.time)).slice(0, 5)
+        : []
+
+      // 4) 20-module briefing (Batch B/C — weather/news/traffic/birthdays/etc)
+      let extra: Record<string, any[]> = {}
+      try {
+        const res = await apiClient.get<Record<string, any>>('/api/v1/ai-secretary/briefing')
+        extra = (res || {}) as Record<string, any[]>
+      } catch { /* non-fatal */ }
+      const weather = Array.isArray(extra.weather) ? extra.weather : []
+      const news = Array.isArray(extra.news_industry) ? extra.news_industry : []
+      const traffic = Array.isArray(extra.traffic_commute) ? extra.traffic_commute : []
+      const birthdays = Array.isArray(extra.birthdays) ? extra.birthdays : []
+      const drafts = Array.isArray(extra.email_draft_review) ? extra.email_draft_review : []
+      const expenses = Array.isArray(extra.expense_reminders) ? extra.expense_reminders : []
+      const personal = Array.isArray(extra.personal_reminders) ? extra.personal_reminders : []
+      const conflicts = Array.isArray(extra.calendar_conflicts) ? extra.calendar_conflicts : []
+      const sentiment = Array.isArray(extra.customer_sentiment) ? extra.customer_sentiment : []
+      const unread = Array.isArray(extra.unread_messages) ? extra.unread_messages : []
 
       const riskCount = risks.length
       const taskCount = tasks.length
       const eventCount = events.length
 
       const parts: string[] = []
-      if (riskCount > 0) parts.push(`跟進 ${riskCount} 個高風險報價`)
-      if (taskCount > 0) parts.push(`處理 ${taskCount} 個逾期任務`)
-      if (eventCount > 0) parts.push(`準備今日 ${eventCount} 個會議`)
-      if (parts.length === 0) parts.push('今日暫時冇特別事項')
+      if (riskCount > 0) parts.push(t('pages.briefing.riskItem', { count: riskCount }))
+      if (taskCount > 0) parts.push(t('pages.briefing.taskItem', { count: taskCount }))
+      if (eventCount > 0) parts.push(t('pages.briefing.meetingItem', { count: eventCount }))
+      if (weather.length > 0) {
+        const w = weather[0]
+        parts.push(t('pages.briefing.weatherSummary', { temp: w.temperature ?? '', hum: w.humidity ?? '' }))
+      }
+      if (news.length > 0) parts.push(t('pages.briefing.newsSummary', { count: news.length }))
+      if (traffic.length > 0) parts.push(t('pages.briefing.trafficSummary', { count: traffic.length }))
+      if (birthdays.length > 0) parts.push(t('pages.briefing.birthdaySummary', { count: birthdays.length }))
+      if (drafts.length > 0) parts.push(t('pages.briefing.draftSummary', { count: drafts.length }))
+      if (expenses.length > 0) parts.push(t('pages.briefing.expenseSummary', { count: expenses.length }))
+      if (personal.length > 0) parts.push(t('pages.briefing.personalSummary', { count: personal.length }))
+      if (conflicts.length > 0) parts.push(t('pages.briefing.conflictSummary', { count: conflicts.length }))
+      if (sentiment.length > 0 && sentiment[0].negative_pct != null) {
+        parts.push(t('pages.briefing.sentimentSummary', { neg: sentiment[0].negative_pct }))
+      }
+      if (unread.length > 0) parts.push(t('pages.briefing.unreadSummary', { count: unread.length }))
+      if (parts.length === 0) parts.push(t('pages.briefing.noItems'))
 
       setPayload({
-        greeting: `早晨！幫你整理咗今日重點：${parts.join('，')}。`,
+        greeting: t(`pages.briefing.${greeting.key}Greeting`, { items: parts.join(i18n.language === 'en' ? ', ' : '，') }),
+        summary: parts.join(' · '),
+        content: brief?.content || '',
+        slot: brief?.slot || '',
         risks,
         overdueTasks: tasks,
         todayEvents: events,
         riskCount,
         taskCount,
         eventCount,
+        weather, news, traffic, birthdays, drafts, expenses, personal, conflicts, sentiment, unread,
       })
     } catch {
       setPayload({
-        greeting: '早晨！暫時攞唔到 briefing 資料，請稍後再試。',
+        greeting: t(`pages.briefing.${greeting.key}GreetingError`),
+        summary: t(`pages.briefing.${greeting.key}GreetingError`),
+        content: '', slot: '',
         risks: [], overdueTasks: [], todayEvents: [],
         riskCount: 0, taskCount: 0, eventCount: 0,
+        weather: [], news: [], traffic: [], birthdays: [], drafts: [], expenses: [],
+        personal: [], conflicts: [], sentiment: [], unread: [],
       })
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [greeting.key, inWorkingHours, mods])
 
   // ── Typewriter effect when drawer opens ──
   const animationPlayedRef = useRef(false)
@@ -248,7 +363,9 @@ export default function AIBriefingDrawer() {
     setDraftText('')
     setSentOk(false)
 
-    const draft = `Hi ${risk.companyName} 團隊，\n\n關於早前發出嘅報價單 ${risk.quoteNumber}（${fmtMoney(risk.amount)}），想了解下進度如何？如有任何問題，我隨時可以安排一個 15 分鐘電話詳細解答。\n\n期待你的回覆！`
+    const draft = i18n.language === 'en'
+      ? `Dear ${risk.companyName} team,\n\nRegarding the quotation ${risk.quoteNumber} (${fmtMoney(risk.amount)}) sent earlier, we would like to follow up on its current status. If you have any questions or require assistance, I am available for a 15-minute call to provide further details.\n\nLooking forward to your reply. Thank you!`
+      : `您好，${risk.companyName} 團隊：\n\n關於早前發出的報價單 ${risk.quoteNumber}（${fmtMoney(risk.amount)}），謹此了解目前的進度。如有任何疑問或需要協助，我隨時可以安排 15 分鐘電話詳細說明。\n\n期待您的回覆，謝謝！`
     let j = 0
     timerRef.current = setInterval(() => {
       j += 3
@@ -313,10 +430,10 @@ export default function AIBriefingDrawer() {
         </div>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--color-text)' }}>
-            AI Morning Briefing
+            {greeting.emoji} {t('greeting.' + greeting.key, { name: user?.displayName || user?.email?.split('@')[0] || '' })}
           </div>
           <div style={{ fontSize: 12, color: 'var(--color-text-muted)', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-            {loading ? '載入中…' : payload ? payload.greeting.replace('早晨！幫你整理咗今日重點：', '') : '你有幾項重點建議需處理 👉'}
+            {loading ? t('common.loading') : payload ? payload.summary : t('pages.briefing.triggerFallback')}
           </div>
         </div>
         <span style={{
@@ -324,7 +441,7 @@ export default function AIBriefingDrawer() {
           fontSize: 12, fontWeight: 600, color: '#7c3aed',
           background: 'rgba(124,93,250,0.12)', padding: '6px 12px', borderRadius: 999,
         }}>
-          {expanded ? '收起' : '更多'} <ChevronDown size={13} style={{ transform: expanded ? 'rotate(180deg)' : 'none', transition: 'transform 200ms' }} />
+          {expanded ? t('pages.briefing.collapse') : t('pages.briefing.more')} <ChevronDown size={13} style={{ transform: expanded ? 'rotate(180deg)' : 'none', transition: 'transform 200ms' }} />
         </span>
       </div>
 
@@ -356,12 +473,12 @@ export default function AIBriefingDrawer() {
           {/* Panel header */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <span style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--color-text)' }}>
-              Today's Briefing
+              {t('pages.briefing.title')}
             </span>
             <span style={{ marginLeft: 'auto' }} />
             <button
               onClick={e => { e.stopPropagation(); setExpanded(false) }}
-              aria-label="收起 Briefing"
+              aria-label={t('pages.briefing.collapse')}
               style={{
                 display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
                 width: 26, height: 26, borderRadius: 8, cursor: 'pointer',
@@ -404,6 +521,23 @@ export default function AIBriefingDrawer() {
             </div>
           )}
 
+          {/* ── LLM-generated briefing (AI-app pipeline) ── */}
+          {payload?.content && (
+            <div style={{
+              background: 'color-mix(in oklch, var(--color-purple) 8%, var(--color-surface))',
+              border: '1px solid color-mix(in oklch, var(--color-purple) 25%, transparent)',
+              borderRadius: 'var(--radius-md)',
+              padding: '10px 12px',
+            }}>
+              <div style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--color-purple)', marginBottom: 6, letterSpacing: 0.3 }}>
+                🤖 AI 簡報{payload.slot ? ` · ${slotLabel(payload.slot)}` : ''}
+              </div>
+              <div style={{ fontSize: 12.5, color: 'var(--color-text)', lineHeight: 1.65, whiteSpace: 'pre-wrap' }}>
+                {payload.content}
+              </div>
+            </div>
+          )}
+
           {/* Insights (progressive disclosure) */}
           {showInsights && payload && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10, animation: 'ai-fadein 0.4s ease' }}>
@@ -411,15 +545,15 @@ export default function AIBriefingDrawer() {
               {payload.risks.length > 0 && (
                 <InsightSection
                   icon={<AlertTriangle size={14} style={{ color: 'var(--color-notification)' }} />}
-                  title={`${payload.riskCount} 個高風險客戶需即時跟進`}
-                  badge="風險"
+                  title={t('pages.briefing.riskSection', { count: payload.riskCount })}
+                  badge={t('pages.briefing.riskBadge')}
                   badgeColor="var(--color-notification)"
                   defaultOpen
                 >
                   {payload.risks.map(risk => (
                     <div key={risk.dealId} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                       <p style={{ fontSize: 13, color: 'var(--color-text)', lineHeight: 1.55 }}>
-                        <strong>{risk.dealName}</strong> 處於報價階段，進度已停滯。
+                        <strong>{risk.dealName}</strong> {t('pages.briefing.riskDesc')}
                         <span
                           style={{
                             display: 'inline-flex', alignItems: 'center', gap: 3,
@@ -433,7 +567,7 @@ export default function AIBriefingDrawer() {
                             background: 'rgba(124,93,250,0.15)', alignItems: 'center', justifyContent: 'center',
                             fontSize: 10, fontWeight: 700,
                           }}>?</span>
-                          點解有此建議
+                          {t('pages.briefing.whyThis')}
                         </span>
                       </p>
 
@@ -450,7 +584,7 @@ export default function AIBriefingDrawer() {
                           onMouseEnter={e => (e.currentTarget.style.background = 'rgba(124,93,250,0.18)')}
                           onMouseLeave={e => (e.currentTarget.style.background = 'rgba(124,93,250,0.10)')}
                         >
-                          ✨ 草擬跟進 Email
+                          ✨ {t('pages.briefing.draftEmail')}
                         </button>
                       ) : (
                         <div style={{
@@ -462,7 +596,7 @@ export default function AIBriefingDrawer() {
                             padding: '8px 12px', background: 'var(--color-surface-offset)',
                             display: 'flex', justifyContent: 'space-between', alignItems: 'center',
                           }}>
-                            {sentOk ? '✅ 已發送並記錄於 CRM' : drafting ? 'AI 正在草擬…' : 'AI 草稿已準備完成（可手動修改）'}
+                            {sentOk ? t('pages.briefing.sentRecorded') : drafting ? t('pages.briefing.aiDrafting') : t('pages.briefing.draftReady')}
                             <button onClick={cancelDraft} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-text-faint)' }}>
                               <X size={13} />
                             </button>
@@ -489,7 +623,7 @@ export default function AIBriefingDrawer() {
                                   border: 'none', cursor: 'pointer',
                                 }}
                               >
-                                取消
+                                {t('pages.briefing.cancel')}
                               </button>
                               <button
                                 onClick={sendDraft}
@@ -501,7 +635,7 @@ export default function AIBriefingDrawer() {
                                   opacity: drafting || draftText.trim() === '' ? 0.5 : 1,
                                 }}
                               >
-                                <Send size={12} /> 發送 Email
+                                <Send size={12} /> {t('pages.briefing.sendEmail')}
                               </button>
                             </div>
                           )}
@@ -516,20 +650,20 @@ export default function AIBriefingDrawer() {
               {payload.overdueTasks.length > 0 && (
                 <InsightSection
                   icon={<CheckSquare size={14} style={{ color: 'var(--color-warning)' }} />}
-                  title={`${payload.taskCount} 個逾期任務待處理`}
-                  badge="逾期"
+                  title={t('pages.briefing.taskSection', { count: payload.taskCount })}
+                  badge={t('pages.briefing.overdueBadge')}
                   badgeColor="var(--color-warning)"
                 >
-                  {payload.overdueTasks.map(t => (
-                    <label key={t.id} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, cursor: 'pointer', padding: '2px 0' }}>
+                  {payload.overdueTasks.map(task => (
+                    <label key={task.id} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, cursor: 'pointer', padding: '2px 0' }}>
                       <input type="checkbox" style={{ accentColor: 'var(--color-primary)' }} />
-                      <span style={{ color: 'var(--color-text)', flex: 1 }}>{t.title}</span>
+                      <span style={{ color: 'var(--color-text)', flex: 1 }}>{task.title}</span>
                       <span style={{
                         fontSize: 10.5, fontWeight: 700, padding: '1px 7px', borderRadius: 999,
                         background: 'color-mix(in oklch, var(--color-notification) 15%, var(--color-surface))',
                         color: 'var(--color-notification)',
                       }}>
-                        {t.due_date ? `逾期 ${daysSince(t.due_date)} 天` : '逾期'}
+                        {task.due_date ? t('pages.briefing.overdueDays', { count: daysSince(task.due_date) }) : t('pages.briefing.overduePlain')}
                       </span>
                     </label>
                   ))}
@@ -540,8 +674,8 @@ export default function AIBriefingDrawer() {
               {payload.todayEvents.length > 0 && (
                 <InsightSection
                   icon={<Calendar size={14} style={{ color: 'var(--color-blue)' }} />}
-                  title={`今日 ${payload.eventCount} 個會議 / 活動`}
-                  badge="今日"
+                  title={t('pages.briefing.eventSection', { count: payload.eventCount })}
+                  badge={t('pages.briefing.todayBadge')}
                   badgeColor="var(--color-blue)"
                 >
                   {payload.todayEvents.map(ev => (
@@ -556,26 +690,221 @@ export default function AIBriefingDrawer() {
                 </InsightSection>
               )}
 
+              {/* ── Weather ── */}
+              {payload.weather.length > 0 && (
+                <InsightSection
+                  icon={<span style={{ fontSize: 13 }}>🌤️</span>}
+                  title={t('pages.briefing.weatherSection')}
+                  badge={""}
+                  badgeColor="var(--color-text-faint)"
+                >
+                  {payload.weather.slice(0, 2).map((w: any, i: number) => (
+                    <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 13, padding: '2px 0' }}>
+                      <span style={{ fontWeight: 700, color: 'var(--color-text)' }}>
+                        {w.place}: {w.temperature != null ? `${w.temperature}°C` : ''}
+                      </span>
+                      {w.humidity != null && <span style={{ color: 'var(--color-text-muted)' }}>{t('pages.briefing.weatherHumidity', { hum: w.humidity })}</span>}
+                      {w.rainfall_mm != null && <span style={{ color: 'var(--color-blue)' }}>{t('pages.briefing.weatherRain', { mm: w.rainfall_mm })}</span>}
+                    </div>
+                  ))}
+                </InsightSection>
+              )}
+
+              {/* ── Schedule conflicts ── */}
+              {payload.conflicts.length > 0 && (
+                <InsightSection
+                  icon={<AlertTriangle size={14} style={{ color: 'var(--color-notification)' }} />}
+                  title={t('pages.briefing.conflictSection')}
+                  badge={t('pages.briefing.riskBadge')}
+                  badgeColor="var(--color-notification)"
+                >
+                  {payload.conflicts.map((c: any, i: number) => (
+                    <div key={i} style={{ display: 'flex', flexDirection: 'column', gap: 3, fontSize: 13, padding: '2px 0' }}>
+                      <span style={{ color: 'var(--color-text)' }}>
+                        <strong>{c.event_a}</strong> ↔ <strong>{c.event_b}</strong>
+                      </span>
+                      <span style={{ fontSize: 11.5, color: 'var(--color-text-faint)' }}>
+                        {c.overlap_start ? t('pages.briefing.conflictOverlap', { time: c.overlap_start.slice(11, 16) }) : ''}
+                      </span>
+                    </div>
+                  ))}
+                </InsightSection>
+              )}
+
+              {/* ── Traffic ── */}
+              {payload.traffic.length > 0 && (
+                <InsightSection
+                  icon={<span style={{ fontSize: 13 }}>🚗</span>}
+                  title={t('pages.briefing.trafficSection')}
+                  badge={""}
+                  badgeColor="var(--color-text-faint)"
+                >
+                  {payload.traffic.slice(0, 4).map((tr: any, i: number) => (
+                    <div key={i} style={{ fontSize: 12.5, color: 'var(--color-text)', lineHeight: 1.5, padding: '2px 0' }}>
+                      {tr.text || tr.ChinText || tr.EngText || ''}
+                    </div>
+                  ))}
+                </InsightSection>
+              )}
+
+              {/* ── Birthdays ── */}
+              {payload.birthdays.length > 0 && (
+                <InsightSection
+                  icon={<span style={{ fontSize: 13 }}>🎂</span>}
+                  title={t('pages.briefing.birthdaySection')}
+                  badge={""}
+                  badgeColor="var(--color-text-faint)"
+                >
+                  {payload.birthdays.slice(0, 5).map((b: any) => (
+                    <div key={b.id} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, padding: '2px 0' }}>
+                      <span style={{ color: 'var(--color-text)' }}>{b.name}</span>
+                      {b.company_name && <span style={{ fontSize: 11.5, color: 'var(--color-text-faint)' }}>{b.company_name}</span>}
+                    </div>
+                  ))}
+                </InsightSection>
+              )}
+
+              {/* ── Drafts to review ── */}
+              {payload.drafts.length > 0 && (
+                <InsightSection
+                  icon={<span style={{ fontSize: 13 }}>✉️</span>}
+                  title={t('pages.briefing.draftSection')}
+                  badge={""}
+                  badgeColor="var(--color-text-faint)"
+                >
+                  {payload.drafts.slice(0, 5).map((d: any) => (
+                    <div key={d.id} style={{ display: 'flex', flexDirection: 'column', gap: 3, fontSize: 13, padding: '2px 0' }}>
+                      <span style={{ color: 'var(--color-text)', fontWeight: 600 }}>{d.title}</span>
+                      <span style={{ fontSize: 11.5, color: 'var(--color-text-faint)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {d.content || ''}
+                      </span>
+                    </div>
+                  ))}
+                </InsightSection>
+              )}
+
+              {/* ── Expenses ── */}
+              {payload.expenses.length > 0 && (
+                <InsightSection
+                  icon={<span style={{ fontSize: 13 }}>🧾</span>}
+                  title={t('pages.briefing.expenseSection')}
+                  badge={""}
+                  badgeColor="var(--color-text-faint)"
+                >
+                  {payload.expenses.slice(0, 5).map((e: any) => (
+                    <div key={e.id} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, padding: '2px 0' }}>
+                      <span style={{ color: 'var(--color-text)' }}>{e.title}</span>
+                      <span style={{ marginLeft: 'auto', fontWeight: 700, color: 'var(--color-text)' }}>
+                        {e.amount != null ? `$${Number(e.amount).toLocaleString()}` : ''} {e.currency || ''}
+                      </span>
+                    </div>
+                  ))}
+                </InsightSection>
+              )}
+
+              {/* ── Personal reminders ── */}
+              {payload.personal.length > 0 && (
+                <InsightSection
+                  icon={<span style={{ fontSize: 13 }}>📌</span>}
+                  title={t('pages.briefing.personalSection')}
+                  badge={""}
+                  badgeColor="var(--color-text-faint)"
+                >
+                  {payload.personal.slice(0, 5).map((p: any) => (
+                    <div key={p.id} style={{ display: 'flex', flexDirection: 'column', gap: 3, fontSize: 13, padding: '2px 0' }}>
+                      <span style={{ color: 'var(--color-text)', fontWeight: 600 }}>{p.title}</span>
+                      {p.content && <span style={{ fontSize: 11.5, color: 'var(--color-text-faint)' }}>{p.content}</span>}
+                      {p.remind_at && <span style={{ fontSize: 11, color: 'var(--color-warning)' }}>⏰ {p.remind_at.slice(0, 16).replace('T', ' ')}</span>}
+                    </div>
+                  ))}
+                </InsightSection>
+              )}
+
+              {/* ── Unread messages ── */}
+              {payload.unread.length > 0 && (
+                <InsightSection
+                  icon={<span style={{ fontSize: 13 }}>💬</span>}
+                  title={t('pages.briefing.unreadSection')}
+                  badge={""}
+                  badgeColor="var(--color-text-faint)"
+                >
+                  {payload.unread.slice(0, 5).map((u: any, i: number) => (
+                    <div key={i} style={{ display: 'flex', flexDirection: 'column', gap: 2, fontSize: 13, padding: '2px 0' }}>
+                      <span style={{ color: 'var(--color-text)' }}>
+                        <strong>{u.from || ''}</strong>{u.subject ? ` — ${u.subject}` : ''}
+                      </span>
+                      {u.snippet && <span style={{ fontSize: 11.5, color: 'var(--color-text-faint)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{u.snippet}</span>}
+                    </div>
+                  ))}
+                </InsightSection>
+              )}
+
+              {/* ── Industry news ── */}
+              {payload.news.length > 0 && (
+                <InsightSection
+                  icon={<span style={{ fontSize: 13 }}>📰</span>}
+                  title={t('pages.briefing.newsSection')}
+                  badge={""}
+                  badgeColor="var(--color-text-faint)"
+                >
+                  {payload.news.slice(0, 5).map((n: any, i: number) => (
+                    <a
+                      key={i}
+                      href={n.link || '#'}
+                      target="_blank"
+                      rel="noreferrer"
+                      style={{ display: 'flex', flexDirection: 'column', gap: 2, fontSize: 13, padding: '2px 0', color: 'var(--color-text)', textDecoration: 'none' }}
+                    >
+                      <span style={{ fontWeight: 500, lineHeight: 1.45 }}>{n.title}</span>
+                      <span style={{ fontSize: 11, color: 'var(--color-text-faint)' }}>{n.feed || ''}</span>
+                    </a>
+                  ))}
+                </InsightSection>
+              )}
+
+              {/* ── Customer sentiment ── */}
+              {payload.sentiment.length > 0 && payload.sentiment[0].total_messages > 0 && (
+                <InsightSection
+                  icon={<span style={{ fontSize: 13 }}>🙂</span>}
+                  title={t('pages.briefing.sentimentSection')}
+                  badge={""}
+                  badgeColor="var(--color-text-faint)"
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 12, fontSize: 12.5, color: 'var(--color-text)', padding: '2px 0' }}>
+                    <span>😊 {payload.sentiment[0].positive ?? 0}</span>
+                    <span>😐 {payload.sentiment[0].neutral ?? 0}</span>
+                    <span>😠 {payload.sentiment[0].negative ?? 0}</span>
+                    {payload.sentiment[0].negative_pct != null && payload.sentiment[0].negative_pct >= 30 && (
+                      <span style={{ color: 'var(--color-notification)', fontWeight: 700 }}>{t('pages.briefing.riskBadge')}</span>
+                    )}
+                  </div>
+                </InsightSection>
+              )}
+
               {/* ── Empty state ── */}
-              {payload.risks.length === 0 && payload.overdueTasks.length === 0 && payload.todayEvents.length === 0 && (
+              {payload.risks.length === 0 && payload.overdueTasks.length === 0 && payload.todayEvents.length === 0 &&
+                payload.weather.length === 0 && payload.news.length === 0 && payload.traffic.length === 0 &&
+                payload.birthdays.length === 0 && payload.drafts.length === 0 && payload.expenses.length === 0 &&
+                payload.personal.length === 0 && payload.conflicts.length === 0 && payload.sentiment.length === 0 &&
+                payload.unread.length === 0 && (
                 <div style={{
                   textAlign: 'center', padding: '28px 16px', fontSize: 13, color: 'var(--color-text-muted)',
                   border: '1px dashed var(--color-divider)', borderRadius: 'var(--radius-md)',
                 }}>
-                  ✨ 今日一切安好，冇特別需要跟進嘅事項
+                  {t('pages.briefing.allGood')}
                 </div>
               )}
 
               {/* Footer */}
               <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: 'var(--color-text-faint)', marginTop: 4 }}>
                 <History size={11} />
-                <span>Briefing 每朝自動生成 · 資料來源：Deals / Quotes / Tasks / Calendar</span>
+                <span>{t('pages.briefing.footer')}</span>
                 <button
                   onClick={loadBriefing}
                   disabled={loading}
                   style={{ marginLeft: 'auto', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-text-faint)', display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 11 }}
                 >
-                  <RefreshCw size={11} style={{ animation: loading ? 'ai-spin 1s linear infinite' : 'none' }} /> 重新整理
+                  <RefreshCw size={11} style={{ animation: loading ? 'ai-spin 1s linear infinite' : 'none' }} /> {t('pages.briefing.refresh')}
                 </button>
               </div>
             </div>
