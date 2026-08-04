@@ -24,8 +24,10 @@ from app.ai.session.context import AISessionContext
 from app.ai.tool_registry import _get_upcoming_events, _list_tasks
 from app.models.im_push import IMDeliveryPref, PushLog, DEFAULT_SLOTS
 from app.models.whatsapp import WhatsAppMapping
+from app.models.telegram_bot import TelegramBotMapping
+from app.models.ai.secretary_settings import ChannelCredential
 from app.models.notification import Notification
-from app.services import whatsapp_service
+from app.services import whatsapp_service, telegram_service
 
 router = APIRouter(prefix="/api/v1")
 
@@ -252,10 +254,21 @@ async def get_prefs(
         )
     ).scalar_one_or_none()
 
+    tg = (
+        await db.execute(
+            select(TelegramBotMapping).where(
+                TelegramBotMapping.tenant_id == tenant_id,
+                TelegramBotMapping.user_id == user_id,
+                TelegramBotMapping.status == "active",
+            )
+        )
+    ).scalar_one_or_none()
+
     connected = ["whatsapp"] if wa else []
+    connected += ["telegram"] if tg else []
     channels: dict[str, PrefItem] = {}
 
-    for ch in connected + ["telegram"]:
+    for ch in connected:
         pref = (
             await db.execute(
                 select(IMDeliveryPref).where(
@@ -321,6 +334,43 @@ async def test_push(
 ):
     tenant_id = _tid(request)
     user_id = _uid(request)
+
+    channel = body.channel
+    msg = (
+        "🤖 [AI 助理] 測試推送成功！\n\n"
+        "你已開啟 AI 每日簡報（早安 / 午間 / 傍晚）。\n"
+        "你可以隨時在 CRM 設定 > AI 助理設定 > 通知與整合 調整時段或關閉。\n\n"
+        f"🌐 進入 Dashboard：{_deep_link('dashboard')}"
+    )
+
+    if channel == "telegram":
+        tg = (
+            await db.execute(
+                select(TelegramBotMapping).where(
+                    TelegramBotMapping.tenant_id == tenant_id,
+                    TelegramBotMapping.user_id == user_id,
+                    TelegramBotMapping.status == "active",
+                )
+            )
+        ).scalar_one_or_none()
+        if not tg:
+            raise HTTPException(400, "Telegram not connected")
+        cred = (
+            await db.execute(
+                select(ChannelCredential).where(
+                    ChannelCredential.tenant_id == tenant_id,
+                    ChannelCredential.user_id == user_id,
+                    ChannelCredential.channel == "telegram",
+                )
+            )
+        ).scalar_one_or_none()
+        token = cred.access_token if cred and cred.access_token else ""
+        if not token:
+            raise HTTPException(400, "Telegram bot token missing")
+        result = await telegram_service.send_message(token, str(tg.chat_id), msg)
+        if not result.get("ok"):
+            raise HTTPException(502, f"Telegram delivery failed: {result.get('description', 'API error')}")
+        return {"status": "sent", "detail": result}
 
     mapping = (
         await db.execute(
@@ -459,6 +509,101 @@ async def run_briefing(
                 stats["failed"] += 1
         except Exception as e:  # noqa: BLE001 — per-user isolation; one failure must not kill the fan-out
             db.add(PushLog(tenant_id=pref.tenant_id, user_id=pref.user_id, channel="whatsapp", slot=slot, status="failed", error=str(e)[:300]))
+            stats["failed"] += 1
+
+    # ── Telegram fan-out (bound bots) ──
+    tg_prefs = (
+        await db.execute(
+            select(IMDeliveryPref).where(
+                IMDeliveryPref.channel == "telegram",
+                IMDeliveryPref.enabled == True,  # noqa: E712
+            )
+        )
+    ).scalars().all()
+
+    for pref in tg_prefs:
+        slots = pref.slots or {}
+        if not slots.get(slot):
+            continue
+        stats["attempted"] += 1
+
+        # ── Skip logic: weekend mute / quiet hours ──
+        if pref.weekend_mute and weekend:
+            db.add(PushLog(tenant_id=pref.tenant_id, user_id=pref.user_id, channel="telegram", slot=slot, status="skipped", reason="weekend_mute"))
+            stats["skipped"] += 1
+            continue
+        if _in_quiet_hours(pref, now):
+            db.add(PushLog(tenant_id=pref.tenant_id, user_id=pref.user_id, channel="telegram", slot=slot, status="skipped", reason="quiet_hours"))
+            stats["skipped"] += 1
+            continue
+
+        # ── Resolve mapping + token ──
+        tg = (
+            await db.execute(
+                select(TelegramBotMapping).where(
+                    TelegramBotMapping.tenant_id == pref.tenant_id,
+                    TelegramBotMapping.user_id == pref.user_id,
+                    TelegramBotMapping.status == "active",
+                )
+            )
+        ).scalar_one_or_none()
+        if not tg:
+            db.add(PushLog(tenant_id=pref.tenant_id, user_id=pref.user_id, channel="telegram", slot=slot, status="skipped", reason="no_mapping"))
+            stats["skipped"] += 1
+            continue
+        cred = (
+            await db.execute(
+                select(ChannelCredential).where(
+                    ChannelCredential.tenant_id == pref.tenant_id,
+                    ChannelCredential.user_id == pref.user_id,
+                    ChannelCredential.channel == "telegram",
+                )
+            )
+        ).scalar_one_or_none()
+        token = cred.access_token if cred and cred.access_token else ""
+        if not token:
+            db.add(PushLog(tenant_id=pref.tenant_id, user_id=pref.user_id, channel="telegram", slot=slot, status="skipped", reason="no_token"))
+            stats["skipped"] += 1
+            continue
+
+        # ── Build context + compose (same compositors, HTML-safe) ──
+        try:
+            workspace_id = await _resolve_workspace(db, pref.tenant_id)
+            ctx = _build_ctx(pref.tenant_id, pref.user_id, workspace_id)
+
+            if content.strip():
+                msg = content.strip()
+            elif slot == "morning":
+                events, tasks = await _compose_morning_data(ctx, db, now)
+                msg = _compose_morning(events, tasks, now)
+            elif slot == "noon":
+                events, tasks = await _compose_noon_data(ctx, db, now)
+                msg = _compose_noon(events, tasks, now)
+            else:
+                data = await _compose_evening_data(ctx, db, now)
+                msg = _compose_evening(now, **data)
+
+            result = await telegram_service.send_message(token, str(tg.chat_id), msg)
+            ok = isinstance(result, dict) and result.get("ok")
+            db.add(PushLog(tenant_id=pref.tenant_id, user_id=pref.user_id, channel="telegram", slot=slot, status="sent" if ok else "failed", error="" if ok else str(result)[:300]))
+            if ok:
+                stats["sent"] += 1
+                slot_title = {"morning": "☀️ 早安 Briefing", "noon": "🌤 午間 Briefing", "evening": "🌆 傍晚 Briefing"}.get(slot, "AI Briefing")
+                db.add(Notification(
+                    tenant_id=pref.tenant_id,
+                    user_id=pref.user_id,
+                    title=slot_title,
+                    body=msg.split("\n")[0] if msg else "",
+                    priority="NORMAL",
+                    status="UNREAD",
+                    group_key=f"im_push:{slot}",
+                    is_ai_generated=True,
+                    source_module="im_push",
+                ))
+            else:
+                stats["failed"] += 1
+        except Exception as e:  # noqa: BLE001 — per-user isolation
+            db.add(PushLog(tenant_id=pref.tenant_id, user_id=pref.user_id, channel="telegram", slot=slot, status="failed", error=str(e)[:300]))
             stats["failed"] += 1
 
     await db.commit()

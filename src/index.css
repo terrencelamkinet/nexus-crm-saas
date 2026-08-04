@@ -1414,6 +1414,12 @@ textarea.input-field{resize:vertical;min-height:60px}
 .asec-channel-card{background:var(--color-surface);border:1px solid var(--color-divider);border-radius:var(--radius-md);padding:16px 20px;display:flex;align-items:center;justify-content:space-between;gap:12px}
 .asec-channel-card.connected{border-color:rgba(46,204,113,.45);background:rgba(46,204,113,.04)}
 .asec-channel-card.disabled{opacity:.55}
+.asec-channel-actions{display:flex;align-items:center;gap:10px}
+.asec-field{display:flex;flex-direction:column;gap:6px;margin:14px 0}
+.asec-field span{font-size:12.5px;font-weight:600;color:var(--color-text-muted)}
+.asec-field input{height:44px;padding:0 14px;border:1px solid var(--color-border);border-radius:var(--radius-md);background:var(--color-surface);color:var(--color-text);font-size:14px}
+.asec-field input:focus{outline:2px solid var(--color-primary);outline-offset:1px;border-color:var(--color-primary)}
+.asec-error{color:var(--color-error,#ab4b59);font-size:12.5px;margin:2px 0 0}
 .asec-channel-info{display:flex;align-items:center;gap:14px}
 .asec-channel-icon{width:40px;height:40px;border-radius:10px;background:var(--color-surface-offset);display:flex;align-items:center;justify-content:center;font-size:18px}
 .asec-channel-info strong{font-size:14px;color:var(--color-text)}

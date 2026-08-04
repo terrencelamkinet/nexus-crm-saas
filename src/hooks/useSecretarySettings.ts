@@ -79,7 +79,7 @@ export const DEFAULT_SETTINGS: SecretarySettings = {
   detail_level: 2,
   channels: {
     whatsapp: { connected: false, enabled: false },
-    telegram: { connected: true, enabled: true },
+    telegram: { connected: false, enabled: false },
     email: { connected: false, enabled: false },
     sms: { connected: false, enabled: false },
   },

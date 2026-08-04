@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
-import { ChevronRight, Check, RotateCcw, Save } from 'lucide-react';
+import { ChevronRight, Check, RotateCcw, Save, X } from 'lucide-react';
+import { apiClient } from '../lib/api';
 import {
   MODULES, useSecretarySettings, CONNECTED_FALLBACK,
   type ToneId, type LangPref, type DetailLevel, type ChannelId,
@@ -48,6 +49,58 @@ export default function AIAppsPage() {
   const flashSaved = () => {
     setSavedAt(new Date());
     setSaved(true);
+  };
+
+  // ── Telegram bind modal (real connection, design doc §4) ──
+  const [tgBindOpen, setTgBindOpen] = useState(false);
+  const [tgBotToken, setTgBotToken] = useState('');
+  const [tgChatId, setTgChatId] = useState('');
+  const [tgBusy, setTgBusy] = useState(false);
+  const [tgError, setTgError] = useState('');
+
+  // Sync telegram connection state with backend status on load
+  const [tgRemoteConnected, setTgRemoteConnected] = useState<boolean | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    apiClient.get<{ status: string; bot_username?: string | null; chat_id?: string | null }>('/api/v1/telegram/status')
+      .then(r => { if (!cancelled) setTgRemoteConnected(r.status === 'active'); })
+      .catch(() => { /* backend unavailable — keep local */ });
+    return () => { cancelled = true; };
+  }, []);
+
+  // Merge backend truth for telegram connection into the rendered state
+  const tgConnected = tgRemoteConnected ?? settings.channels.telegram?.connected ?? false;
+
+  const bindTelegram = async () => {
+    if (!tgBotToken.trim() || !tgChatId.trim()) { setTgError(t('settings.aiApps.tgErrorEmpty')); return; }
+    setTgBusy(true); setTgError('');
+    try {
+      const r = await apiClient.post<{ status: string; bot_username?: string }>('/api/v1/telegram/bind', {
+        bot_token: tgBotToken.trim(),
+        chat_id: tgChatId.trim(),
+      });
+      if (r.status === 'connected') {
+        update({ channels: { ...settings.channels, telegram: { connected: true, enabled: true } } });
+        setTgBindOpen(false); setTgBotToken(''); setTgChatId('');
+        flashSaved();
+      } else {
+        setTgError(t('settings.aiApps.tgError'));
+      }
+    } catch (e: any) {
+      const detail = e?.detail || e?.message || '';
+      setTgError(typeof detail === 'string' && detail ? detail : t('settings.aiApps.tgError'));
+    } finally {
+      setTgBusy(false);
+    }
+  };
+
+  const disconnectTelegram = async () => {
+    setTgBusy(true); setTgError('');
+    try {
+      await apiClient.post('/api/v1/telegram/disconnect');
+      update({ channels: { ...settings.channels, telegram: { connected: false, enabled: false } } });
+      flashSaved();
+    } catch { /* keep local */ } finally { setTgBusy(false); }
   };
 
   // ── Working hours (backed by settings.work_start / work_end) ──
@@ -341,9 +394,12 @@ export default function AIAppsPage() {
 
               <div className="asec-channel-list">
                 {CHANNELS.map(ch => {
-                  const state = settings.channels[ch.id] || { connected: false, enabled: false };
+                  const isTelegram = ch.id === 'telegram';
+                  const connected = isTelegram ? tgConnected : settings.channels[ch.id]?.connected;
+                  const enabled = settings.channels[ch.id]?.enabled ?? false;
+                  const state = { connected, enabled };
                   return (
-                    <div key={ch.id} className={`asec-channel-card${state.connected ? ' connected' : ''}${ch.comingSoon ? ' disabled' : ''}`}>
+                    <div key={ch.id} className={`asec-channel-card${connected ? ' connected' : ''}${ch.comingSoon ? ' disabled' : ''}`}>
                       <div className="asec-channel-info">
                         <span className="asec-channel-icon">{ch.icon}</span>
                         <div>
@@ -351,7 +407,7 @@ export default function AIAppsPage() {
                           <p className="hint">
                             {ch.comingSoon
                               ? t('settings.aiApps.comingSoon')
-                              : state.connected
+                              : connected
                                 ? t('settings.aiApps.chConnected')
                                 : t('settings.aiApps.chNotConnected')}
                           </p>
@@ -359,11 +415,22 @@ export default function AIAppsPage() {
                       </div>
                       {ch.comingSoon ? (
                         <button className="btn-ghost" disabled style={{ opacity: 0.5, cursor: 'not-allowed' }}>{t('settings.aiApps.comingSoon')}</button>
-                      ) : state.connected ? (
-                        <label className="asec-switch">
-                          <input type="checkbox" checked={state.enabled} onChange={e => { update({ channels: { ...settings.channels, [ch.id]: { ...state, enabled: e.target.checked } } }); flashSaved(); }} />
-                          <span className="asec-slider" />
-                        </label>
+                      ) : connected ? (
+                        <div className="asec-channel-actions">
+                          <label className="asec-switch">
+                            <input type="checkbox" checked={enabled} onChange={e => { update({ channels: { ...settings.channels, [ch.id]: { ...state, enabled: e.target.checked } } }); flashSaved(); }} />
+                            <span className="asec-slider" />
+                          </label>
+                          {isTelegram && (
+                            <button className="btn-ghost" onClick={disconnectTelegram} disabled={tgBusy}>
+                              {t('settings.aiApps.chDisconnect')}
+                            </button>
+                          )}
+                        </div>
+                      ) : isTelegram ? (
+                        <button className="btn-primary" onClick={() => { setTgError(''); setTgBindOpen(true); }}>
+                          {t('settings.aiApps.chConnect')}
+                        </button>
                       ) : (
                         <button className="btn-primary" onClick={() => { update({ channels: { ...settings.channels, [ch.id]: { connected: true, enabled: true } } }); flashSaved(); }}>
                           {t('settings.aiApps.chConnect')}
@@ -373,6 +440,36 @@ export default function AIAppsPage() {
                   );
                 })}
               </div>
+
+              {/* ── Telegram bind modal ── */}
+              {tgBindOpen && (
+                <div className="modal-overlay" onClick={() => setTgBindOpen(false)}>
+                  <div className="modal" style={{ maxWidth: 440 }} onClick={e => e.stopPropagation()} role="dialog" aria-modal="true" aria-label={t('settings.aiApps.chTelegram')}>
+                    <div className="modal-head">
+                      <h2>{t('settings.aiApps.tgBindTitle')}</h2>
+                      <button className="modal-x" onClick={() => setTgBindOpen(false)} aria-label="Close"><X size={18} /></button>
+                    </div>
+                    <div className="modal-body">
+                      <p className="hint" style={{ marginTop: 0 }}>{t('settings.aiApps.tgBindDesc')}</p>
+                      <label className="asec-field">
+                        <span>{t('settings.aiApps.tgBotToken')}</span>
+                        <input type="password" value={tgBotToken} onChange={e => setTgBotToken(e.target.value)} placeholder="123456:ABC-DEF..." autoComplete="off" />
+                      </label>
+                      <label className="asec-field">
+                        <span>{t('settings.aiApps.tgChatId')}</span>
+                        <input type="text" value={tgChatId} onChange={e => setTgChatId(e.target.value)} placeholder="123456789" autoComplete="off" />
+                      </label>
+                      {tgError && <p className="asec-error">{tgError}</p>}
+                    </div>
+                    <div className="modal-foot">
+                      <button className="btn-secondary" onClick={() => setTgBindOpen(false)}>{t('common.cancel')}</button>
+                      <button className="btn-primary" onClick={bindTelegram} disabled={tgBusy}>
+                        {tgBusy ? t('settings.aiApps.tgBinding') : t('settings.aiApps.chConnect')}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
             </section>
           )}
 
