@@ -155,7 +155,7 @@ const [filters, setFilters] = useState<Record<string, FilterEntry>>(() => ({ ...
       const ms = settings?.find(s => s.module_key === filterModuleKey)
       if (ms?.settings?.filterPreset) {
         const p = ms.settings.filterPreset
-        if (p.filters) setFilters(p.filters)
+        if (p.filters) setFilters({ ...((config as any).defaultFilters || {}), ...p.filters })
         if (p.query) setQuery(p.query)
         if (p.sortBy) { setSortBy(p.sortBy); setSortOrder(p.sortOrder || 'desc') }
         if (p.visibleCols) setVisibleCols(p.visibleCols)
