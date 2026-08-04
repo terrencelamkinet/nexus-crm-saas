@@ -17,6 +17,131 @@ import subprocess
 from pathlib import Path
 from typing import Any
 
+import numpy as np
+
+
+def _detect_card_region(img: Any) -> Any:
+    """Detect the business-card quadrilateral → perspective-cropped copy.
+
+    Real photos have the card lying on a desk/background: background text
+    pollutes OCR. This finds the largest 4-corner contour, warp-corrects it
+    and returns only the card. Falls back to the original image when no
+    confident card boundary exists (card fills the frame, or clean edges
+    missing) so we never degrade the current behaviour.
+    """
+    h, w = img.shape[:2]
+    if h * w < 20000:
+        return img  # too small to bother
+    import cv2  # lazy import — matches ocr_image() style (module loads without cv2)
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    blurred = cv2.GaussianBlur(gray, (5, 5), 0)
+    edges = cv2.Canny(blurred, 50, 150)
+    edges = cv2.dilate(edges, cv2.getStructuringElement(cv2.MORPH_RECT, (5, 5)), iterations=2)
+    contours, _ = cv2.findContours(edges, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    if not contours:
+        return img
+
+    largest = max(contours, key=cv2.contourArea)
+    if cv2.contourArea(largest) < 0.10 * h * w:
+        return img  # card too small in frame — nothing confident to crop
+    peri = cv2.arcLength(largest, True)
+    approx = cv2.approxPolyDP(largest, 0.02 * peri, True)
+    if len(approx) != 4:
+        return img  # not a clean quadrilateral
+
+    pts = approx.reshape(4, 2).astype("float32")
+    s = pts.sum(axis=1)
+    diff = np.diff(pts, axis=1).ravel()
+    src = np.array([
+        pts[np.argmin(s)],    # top-left
+        pts[np.argmin(diff)], # top-right
+        pts[np.argmax(s)],    # bottom-right
+        pts[np.argmax(diff)], # bottom-left
+    ], dtype="float32")
+    card_w = max(int(np.linalg.norm(src[1] - src[0])), int(np.linalg.norm(src[2] - src[3])))
+    card_h = max(int(np.linalg.norm(src[3] - src[0])), int(np.linalg.norm(src[2] - src[1])))
+    if card_w < 50 or card_h < 30:
+        return img
+    # Business cards are ~1.4–2.2 : 1. Reject wildly off-ratio crops
+    # (e.g. an internal graphic boundary caught by Canny) — safer to skip crop.
+    ratio = max(card_w, card_h) / max(1, min(card_w, card_h))
+    if not (1.2 <= ratio <= 2.5):
+        return img
+
+    dst = np.array([[0, 0], [card_w - 1, 0], [card_w - 1, card_h - 1], [0, card_h - 1]], dtype="float32")
+    M = cv2.getPerspectiveTransform(src, dst)
+    return cv2.warpPerspective(img, M, (card_w, card_h))
+
+
+def _detect_card_region_vision(image_path: str | Path) -> Any | None:
+    """Vision-AI fallback: ask Qwen3-VL (SiliconFlow) for exact card corners.
+
+    Used only when OpenCV contour detection finds no confident quadrilateral —
+    messy desks / shadows / low contrast where edges fail but a vision model
+    still understands "that is a business card". Returns the warped crop, or
+    None on any failure (no key, API error, bad response) — callers fall back
+    to the original image, so this never breaks OCR.
+    """
+    import base64
+    import json
+    import os
+    import urllib.request
+
+    key = os.environ.get("SILICONFLOW_API_KEY", "")
+    if not key:
+        return None
+    try:
+        with open(image_path, "rb") as f:
+            b64 = base64.b64encode(f.read()).decode()
+    except OSError:
+        return None
+
+    prompt = (
+        "A business card lies in this photo. Find the exact four corners of "
+        "the card (the card only, not the desk/background). Return ONLY JSON: "
+        '{"corners": [[x1,y1],[x2,y2],[x3,y3],[x4,y4]]} ordered top-left, '
+        "top-right, bottom-right, bottom-left, in pixel coordinates. Be precise."
+    )
+    payload = {
+        "model": "Qwen/Qwen3-VL-8B-Instruct",
+        "messages": [{
+            "role": "user",
+            "content": [
+                {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{b64}"}},
+                {"type": "text", "text": prompt},
+            ],
+        }],
+        "max_tokens": 200,
+    }
+    req = urllib.request.Request(
+        "https://api.siliconflow.cn/v1/chat/completions",
+        data=json.dumps(payload).encode(),
+        headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json"},
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=45) as resp:
+            result = json.loads(resp.read())
+        text = result["choices"][0]["message"]["content"]
+        start, end = text.find("{"), text.rfind("}") + 1
+        corners = json.loads(text[start:end])["corners"]
+        if len(corners) != 4:
+            return None
+        import cv2
+        src = np.array(corners, dtype="float32")
+        tl, tr, br, bl = src[0], src[1], src[2], src[3]
+        cw = max(int(np.linalg.norm(tr - tl)), int(np.linalg.norm(br - bl)))
+        ch = max(int(np.linalg.norm(bl - tl)), int(np.linalg.norm(br - tr)))
+        if cw < 50 or ch < 30:
+            return None
+        dst = np.array([[0, 0], [cw - 1, 0], [cw - 1, ch - 1], [0, ch - 1]], dtype="float32")
+        M = cv2.getPerspectiveTransform(src, dst)
+        img = cv2.imread(str(image_path))
+        if img is None:
+            return None
+        return cv2.warpPerspective(img, M, (cw, ch))
+    except Exception:
+        return None
+
 
 def ocr_image(image_path: str | Path, langs: str = "chi_tra+eng") -> str:
     """Run tesseract on an image → best multi-pass OCR text.
@@ -28,10 +153,20 @@ def ocr_image(image_path: str | Path, langs: str = "chi_tra+eng") -> str:
     import cv2  # opencv-python-headless
 
     image_path = str(image_path)
-    # 1) Enhance: landscape-orient fix + CLAHE + denoise + 2x upscale
+    # 1) Auto-crop card boundary (perspective-correct), then enhance:
+    # landscape-orient fix + CLAHE + denoise + 2x upscale
     img = cv2.imread(image_path)
     enhanced_path = None
     if img is not None:
+        cropped = _detect_card_region(img)
+        if cropped is img:
+            # OpenCV found no confident card boundary → vision-AI fallback
+            # (Qwen3-VL via SiliconFlow). None on failure = keep original.
+            vision_crop = _detect_card_region_vision(image_path)
+            if vision_crop is not None:
+                img = vision_crop
+        else:
+            img = cropped
         h, w = img.shape[:2]
         if h > w * 1.2:
             img = cv2.rotate(img, cv2.ROTATE_90_CLOCKWISE)
