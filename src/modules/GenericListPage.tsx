@@ -5,6 +5,7 @@ import { useNavigate } from 'react-router-dom'
 import { apiClient } from '../lib/api'
 import { CellRenderer, FieldsRenderer } from './shared/FieldsRenderer'
 import { buildPayload, defaultForm, apiErrorToString } from './shared/field-utils'
+import useColumnLayout from './shared/useColumnLayout'
 import { statusColors, optionColorToClass } from './module-types'
 import type { ModuleConfig, EntityRecord, ListResponse, FieldConfig } from './module-types'
 import { isModuleEnabled } from './enabled-modules'
@@ -71,6 +72,9 @@ const [filters, setFilters] = useState<Record<string, FilterEntry>>(() => ({ ...
       const f = config.fields.find(x => x.key === col)
       return !f?.dependsOnModule || isModuleEnabled(f.dependsOnModule)
     }), [visibleCols, config.fields])
+
+  // Per-module column width + order (localStorage persisted), driven by config + visible fields.
+  const colLayout = useColumnLayout(config.name, config.fields, filteredCols)
 
   const [settingsOpen, setSettingsOpen] = useState(false)
 
@@ -899,17 +903,30 @@ const [filters, setFilters] = useState<Record<string, FilterEntry>>(() => ({ ...
                       checked={items.length > 0 && selectedIds.size === items.length}
                       onChange={toggleSelectAll} />
                   </th>
-                  {filteredCols.map(col => {
+                  {colLayout.orderedCols.map(col => {
                     const field = config.fields.find(f => f.key === col)
                     const canSort = field?.sortable !== false
+                    const width = colLayout.getWidth(col)
                     return (
                       <th key={col}
                         className={(canSort ? 'th-sortable' : '') + (field?.type === 'title' || col === config.titleField ? ' glp-th-title' : '')}
+                        style={{ width, minWidth: width, maxWidth: width }}
+                        draggable
+                        onDragStart={e => colLayout.onDragStart(e, col)}
+                        onDragOver={e => colLayout.onDragOver(e, col)}
+                        onDragEnd={colLayout.onDragEnd}
                         onClick={() => canSort && toggleSort(col)}>
-                        {field?.label || col}
-                        {sortBy === col && (
-                          <span className="sort-indicator">{sortOrder === 'asc' ? ' ↑' : ' ↓'}</span>
-                        )}
+                        <span className="glp-th-inner">{field?.label || col}
+                          {sortBy === col && (
+                            <span className="sort-indicator">{sortOrder === 'asc' ? ' ↑' : ' ↓'}</span>
+                          )}
+                        </span>
+                        <span
+                          className="glp-resize-handle"
+                          title="Resize column"
+                          onMouseDown={e => colLayout.onResizeStart(e, col)}
+                          onTouchStart={e => colLayout.onResizeStart(e, col)}
+                        />
                       </th>
                     )
                   })}
@@ -936,8 +953,8 @@ const [filters, setFilters] = useState<Record<string, FilterEntry>>(() => ({ ...
                       <input type="checkbox" className="row-checkbox"
                         checked={selectedIds.has(item.id)} onChange={() => toggleSelect(item.id)} />
                     </td>
-                    {visibleCols.map(col => (
-                      <td key={col}>{renderCell(item, col)}</td>
+                    {colLayout.orderedCols.map(col => (
+                      <td key={col} style={{ width: colLayout.getWidth(col), minWidth: colLayout.getWidth(col), maxWidth: colLayout.getWidth(col) }}>{renderCell(item, col)}</td>
                     ))}
                     <td className="col-menu" onClick={e => e.stopPropagation()}>
                       <div className="menu-wrap">

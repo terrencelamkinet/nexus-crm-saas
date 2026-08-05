@@ -2123,6 +2123,21 @@ textarea.input-field{resize:vertical;min-height:60px}
 /* Table: title column keeps 28% width (was inline conditional) */
 .glp-th-title{width:28%}
 
+/* ── GenericListPage column resize + drag reorder ── */
+.glp-th-inner{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.glp-resize-handle{
+  position:absolute;top:0;right:0;bottom:0;width:8px;
+  cursor:col-resize;touch-action:none;z-index:2;
+  transition:background .15s;
+}
+.glp-resize-handle:hover,.glp-resize-handle:active{background:var(--color-primary)}
+.data-table th[draggable=true]{cursor:grab}
+.data-table th[draggable=true]:active{cursor:grabbing}
+.data-table th.glp-dragging{opacity:.5}
+@media(max-width:768px){
+  .glp-resize-handle{width:12px} /* bigger touch target on mobile */
+}
+
 /* Pagination bar */
 .glp-pager{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:14px;padding:10px 0}
 .glp-pager-count{font-size:12px}
