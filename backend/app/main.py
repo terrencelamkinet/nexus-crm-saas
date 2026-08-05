@@ -35,12 +35,15 @@ async def lifespan(app: FastAPI):
 
     async def _tg_poll_loop():
         from app.db import async_session
+        import logging as _logging
         while not poller_stop.is_set():
             try:
                 async with async_session() as db:
                     await poll_once(db)
-            except Exception:
-                pass  # poller must never crash the app
+            except Exception as e:  # noqa: BLE001 — poller must never crash the app, but must NOT be silent
+                _logging.getLogger("telegram_inbound").exception(
+                    "poll_once crashed: %s", e
+                )
             try:
                 await asyncio.wait_for(poller_stop.wait(), timeout=1)
             except asyncio.TimeoutError:
