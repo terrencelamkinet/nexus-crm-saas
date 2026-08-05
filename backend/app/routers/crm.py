@@ -2461,9 +2461,11 @@ async def create_project(
 ):
     tenant_id = _get_tenant_id(request)
     user_id = _get_user_id(request)
+    workspace_id = getattr(request.state, "workspace_id", None)
 
     project = Project(
         tenant_id=tenant_id,
+        workspace_id=workspace_id,
         **body.model_dump(),
     )
     db.add(project)
@@ -2477,10 +2479,18 @@ async def create_project(
         entity_type="project",
         entity_id=project.id,
         summary=f"Created project '{project.name}'",
+        workspace_id=workspace_id,
     )
 
     await db.refresh(project)
-    return project
+    result = await db.execute(
+        select(Project).options(selectinload(Project.company)).where(Project.id == project.id)
+    )
+    project = result.scalar_one()
+    item = project.__dict__.copy()
+    if project.company:
+        item['company'] = {'id': str(project.company.id), 'name': project.company.name}
+    return item
 
 
 @router.get("/projects/{project_id}", response_model=ProjectResponse)
@@ -2539,7 +2549,14 @@ async def update_project(
 
     await db.flush()
     await db.refresh(project)
-    return project
+    result = await db.execute(
+        select(Project).options(selectinload(Project.company)).where(Project.id == project.id)
+    )
+    project = result.scalar_one()
+    item = project.__dict__.copy()
+    if project.company:
+        item['company'] = {'id': str(project.company.id), 'name': project.company.name}
+    return item
 
 
 @router.delete("/projects/{project_id}", status_code=204)

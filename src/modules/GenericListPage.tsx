@@ -281,6 +281,12 @@ const [filters, setFilters] = useState<Record<string, FilterEntry>>(() => ({ ...
   const handleCreate = async () => {
     const nameField = config.fields.find(f => f.type === 'title')
     if (nameField && !form[nameField.key]?.toString().trim()) return
+    const requiredFields = config.fields.filter(f => f.required)
+    const missing = requiredFields.filter(f => !form[f.key]?.toString().trim())
+    if (missing.length) {
+      alert(`請填寫必填欄位：${missing.map(f => f.label).join(', ')}`)
+      return
+    }
     setSaving(true)
     try {
       await apiClient.post(config.apiPath, buildPayload(form, config.fields))
@@ -295,6 +301,12 @@ const [filters, setFilters] = useState<Record<string, FilterEntry>>(() => ({ ...
     if (!editTarget) return
     const nameField = config.fields.find(f => f.type === 'title')
     if (nameField && !form[nameField.key]?.toString().trim()) return
+    const requiredFields = config.fields.filter(f => f.required)
+    const missing = requiredFields.filter(f => !form[f.key]?.toString().trim())
+    if (missing.length) {
+      alert(`請填寫必填欄位：${missing.map(f => f.label).join(', ')}`)
+      return
+    }
     setSaving(true)
     try {
       await apiClient.patch(`${config.apiPath}/${editTarget.id}`, buildPayload(form, config.fields))
@@ -887,7 +899,7 @@ const [filters, setFilters] = useState<Record<string, FilterEntry>>(() => ({ ...
             </div>
             <div className="modal-foot">
               <button onClick={() => setCreateOpen(false)} className="btn-secondary">{t('common.cancel')}</button>
-              <button onClick={handleCreate} disabled={saving || (nameField ? !form[nameField.key]?.toString().trim() : false)}
+              <button onClick={handleCreate} disabled={saving || config.fields.filter(f => f.required).some(f => !form[f.key]?.toString().trim())}
                 className="btn-primary">{saving ? t('common.processing') : t('common.create')}</button>
             </div>
           </div>
@@ -911,7 +923,7 @@ const [filters, setFilters] = useState<Record<string, FilterEntry>>(() => ({ ...
             </div>
             <div className="modal-foot">
               <button onClick={() => setEditTarget(null)} className="btn-secondary">{t('common.cancel')}</button>
-              <button onClick={handleEdit} disabled={saving || (nameField ? !form[nameField.key]?.toString().trim() : false)}
+              <button onClick={handleEdit} disabled={saving || config.fields.filter(f => f.required).some(f => !form[f.key]?.toString().trim())}
                 className="btn-primary">{saving ? t('common.processing') : t('common.save')}</button>
             </div>
           </div>

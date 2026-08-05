@@ -36,7 +36,7 @@ const projectConfig: ResourceConfig = {
     { key: 'start_date',   label: 'Start Date',    type: 'date',     sortable: true, visibleByDefault: false },
     { key: 'deadline',     label: 'Deadline',      type: 'date',     sortable: true, visibleByDefault: true },
     { key: 'budget_amount',   label: 'Budget',        type: 'number',   format: 'hkd',  sortable: true, visibleByDefault: false },
-    { key: 'company',         label: 'Company',       type: 'relation', sortable: false, filterable: true, visibleByDefault: true,
+    { key: 'company',         label: 'Company',       type: 'relation', sortable: false, filterable: true, visibleByDefault: true, required: true,
       relation: { resource: 'companies', multiple: false, displayField: 'name' }, apiKey: 'company_id' },
     { key: 'sales_owner_id',  label: 'Sales Owner',   type: 'relation', sortable: true, filterable: true, visibleByDefault: true,
       relation: { resource: 'users', multiple: false, displayField: 'display_name' } },
