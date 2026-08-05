@@ -215,18 +215,31 @@ async def handle_telegram_message(mapping: TelegramBotMapping, text: str) -> str
 
 async def _get_bot_token(db, mapping: TelegramBotMapping) -> str:
     """Bot token: ChannelCredential (encrypted store) preferred, fall back to
-    mapping.bot_token (legacy rows where the credential write failed)."""
-    cred = (
-        await db.execute(
-            select(ChannelCredential).where(
-                ChannelCredential.tenant_id == mapping.tenant_id,
-                ChannelCredential.user_id == mapping.user_id,
-                ChannelCredential.channel == "telegram",
+    mapping.bot_token (legacy rows where the credential write failed).
+
+    NOTE: ChannelCredential query previously crashed the whole poller with
+    `invalid input syntax for type uuid: ""` (empty-string UUID params in
+    some tenant rows) — wrapped in try/except so a credential-store hiccup
+    can never take down Telegram inbound processing again.
+    """
+    try:
+        cred = (
+            await db.execute(
+                select(ChannelCredential).where(
+                    ChannelCredential.tenant_id == mapping.tenant_id,
+                    ChannelCredential.user_id == mapping.user_id,
+                    ChannelCredential.channel == "telegram",
+                )
             )
+        ).scalar_one_or_none()
+        if cred and cred.access_token:
+            return cred.access_token
+    except Exception:  # noqa: BLE001 — credential store must never block inbound
+        import logging
+        logging.getLogger("telegram_inbound").exception(
+            "ChannelCredential lookup failed for bot %s — falling back to mapping token",
+            mapping.bot_username,
         )
-    ).scalar_one_or_none()
-    if cred and cred.access_token:
-        return cred.access_token
     tok = str(mapping.bot_token or "")
     return tok if tok and tok != "None" else ""
 
