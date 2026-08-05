@@ -16,6 +16,7 @@ SOC 2:
 """
 import uuid
 import json
+import logging
 import os
 import re
 import subprocess
@@ -470,8 +471,21 @@ async def poll_once(db) -> int:
 
         cfg: dict[str, Any] = dict(mapping.config or {})
         offset = cfg.get("tg_update_offset")
-        data = await telegram_service.get_updates(token, offset=offset, timeout=25)
+        try:
+            data = await telegram_service.get_updates(token, offset=offset, timeout=1)
+        except Exception as e:  # noqa: BLE001 — network errors must not kill the poller silently
+            logging.getLogger("telegram_inbound").warning(
+                "get_updates failed for %s (offset=%s): %s", mapping.bot_username, offset, e
+            )
+            continue
         if not data.get("ok"):
+            # Telegram returns ok=false on 409 conflict / 401 / 429 / network blips.
+            # A delivered-but-unconfirmed update is NOT re-sent with the same offset,
+            # so a single failed poll can permanently lose a message — log loudly.
+            logging.getLogger("telegram_inbound").warning(
+                "get_updates !ok for %s (offset=%s): %s",
+                mapping.bot_username, offset, data.get("description", data),
+            )
             continue
 
         updates = data.get("result", [])

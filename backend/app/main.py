@@ -42,7 +42,7 @@ async def lifespan(app: FastAPI):
             except Exception:
                 pass  # poller must never crash the app
             try:
-                await asyncio.wait_for(poller_stop.wait(), timeout=30)
+                await asyncio.wait_for(poller_stop.wait(), timeout=1)
             except asyncio.TimeoutError:
                 continue
 
