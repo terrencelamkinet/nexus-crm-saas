@@ -61,10 +61,12 @@ export function CellRenderer({ value, field, onNavigate }: { value: any; field: 
       const d = formatDate(value)
       const rel = formatRelativeDate(value)
       const isOverdue = new Date(value).getTime() < Date.now() && field.key === 'deadline'
-      return <span style={isOverdue ? { color: 'var(--color-notification)', fontWeight: 600 } : {}} title={rel}>{d}</span>
+      // Overdue deadline = status highlight via COLOR only (keeps cells normal-weight;
+      // only the name column is bold per table style rule). No font-weight bold here.
+      return <span style={isOverdue ? { color: 'var(--color-notification)' } : {}} title={rel}>{d}</span>
     }
     case 'number': {
-      if (field.format === 'hkd') return <span className="fw-600">{formatAmount(value)}</span>
+      if (field.format === 'hkd') return <span>{formatAmount(value)}</span>  // normal weight
       if (field.format === 'percent') return <span>{value}%</span>
       return <span>{value}</span>
     }

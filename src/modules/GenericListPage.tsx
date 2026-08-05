@@ -5,8 +5,8 @@ import { useNavigate } from 'react-router-dom'
 import { apiClient } from '../lib/api'
 import { CellRenderer, FieldsRenderer } from './shared/FieldsRenderer'
 import { buildPayload, defaultForm, apiErrorToString } from './shared/field-utils'
-import { statusColors } from './module-types'
-import type { ModuleConfig, EntityRecord, ListResponse } from './module-types'
+import { statusColors, optionColorToClass } from './module-types'
+import type { ModuleConfig, EntityRecord, ListResponse, FieldConfig } from './module-types'
 import { isModuleEnabled } from './enabled-modules'
 import SlideDrawer from '../components/SlideDrawer'
 import DetailDrawerContent from './shared/DetailDrawerContent'
@@ -77,6 +77,47 @@ const [filters, setFilters] = useState<Record<string, FilterEntry>>(() => ({ ...
   const [groupBy, setGroupBy] = useState('')
   const [condColor, setCondColor] = useState(true)
   const [selectedId, setSelectedId] = useState<string | null>(null)
+
+  // ── Inline dropdown edit for select/status fields ──
+  const [inlineEdit, setInlineEdit] = useState<{ rowId: string; fieldKey: string } | null>(null)
+  const inlineEditRef = useRef<HTMLDivElement>(null)
+
+  // Close inline dropdown on outside click (Escape handled in keydown below)
+  useEffect(() => {
+    if (!inlineEdit) return
+    const onDocClick = (e: MouseEvent) => {
+      if (inlineEditRef.current && !inlineEditRef.current.contains(e.target as Node)) {
+        setInlineEdit(null)
+      }
+    }
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setInlineEdit(null) }
+    document.addEventListener('mousedown', onDocClick)
+    document.addEventListener('keydown', onKey)
+    return () => {
+      document.removeEventListener('mousedown', onDocClick)
+      document.removeEventListener('keydown', onKey)
+    }
+  }, [inlineEdit])
+
+  const startInlineEdit = (e: React.MouseEvent, rowId: string, fieldKey: string) => {
+    e.stopPropagation()
+    e.preventDefault()
+    // Toggle: clicking same cell closes it, clicking a different cell switches
+    setInlineEdit(prev =>
+      prev && prev.rowId === rowId && prev.fieldKey === fieldKey ? null : { rowId, fieldKey }
+    )
+  }
+
+  const applyInlineEdit = async (item: EntityRecord, field: FieldConfig, optionValue: string) => {
+    const key = field.apiKey || field.key
+    setInlineEdit(null)
+    try {
+      await apiClient.patch(`${config.apiPath}/${item.id}`, { [key]: optionValue })
+      fetchDataRef.current()
+    } catch (e: any) {
+      alert(apiErrorToString(e))
+    }
+  }
 
   const quickComplete = async (item: EntityRecord) => {
     if (config.name !== 'task') return
@@ -392,12 +433,49 @@ const [filters, setFilters] = useState<Record<string, FilterEntry>>(() => ({ ...
           )
         }
       }
+      // Inline editable select/status → click to open dropdown
+      if ((field.type === 'select' || field.type === 'status') && Array.isArray(field.options) && field.options.length > 0) {
+        const isOpen = inlineEdit?.rowId === item.id && inlineEdit?.fieldKey === fieldKey
+        const opt = field.options.find(o => (o.value ?? o.label) === item[fieldKey])
+        const cls = opt?.color ? (optionColorToClass[opt.color] || 'tag-default') : 'tag-default'
+        return (
+          <div className="glp-inline-cell" ref={isOpen ? inlineEditRef : undefined}>
+            <button
+              type="button"
+              className={`glp-inline-trigger select-tag ${cls}${isOpen ? ' glp-inline-open' : ''}`}
+              onClick={e => startInlineEdit(e, item.id, fieldKey)}
+              aria-haspopup="listbox"
+              aria-expanded={isOpen}
+            >
+              {opt?.label ?? item[fieldKey] ?? ''}
+            </button>
+            {isOpen && (
+              <div className="glp-inline-dropdown" role="listbox">
+                {field.options.map(o => {
+                  const oCls = o.color ? (optionColorToClass[o.color] || 'tag-default') : 'tag-default'
+                  const selected = (o.value ?? o.label) === item[fieldKey]
+                  return (
+                    <button
+                      key={String(o.value)}
+                      type="button"
+                      role="option"
+                      aria-selected={selected}
+                      className={`glp-inline-option${selected ? ' glp-inline-selected' : ''}`}
+                      onClick={e => { e.stopPropagation(); applyInlineEdit(item, field, String(o.value)) }}
+                    >
+                      <span className={`select-tag ${oCls}`}>{o.label ?? o.value}</span>
+                    </button>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+        )
+      }
       return <CellRenderer value={item[fieldKey]} field={field} />
     }
     return <span>{item[fieldKey] ?? '—'}</span>
   }
-
-  const nameField = config.fields.find(f => f.type === 'title')
 
   const filterCount = Object.values(filters).filter(v => v.value).length
   const countFieldsHidden = config.fields.filter(f => f.type !== 'title' && f.type !== 'created_time' && f.type !== 'last_edited_time' && !visibleCols.includes(f.key)).length
@@ -980,7 +1058,7 @@ const [filters, setFilters] = useState<Record<string, FilterEntry>>(() => ({ ...
       )}
 
       {/* ─── Right-side Detail Drawer ─── */}
-      <SlideDrawer open={!!selectedId} onClose={() => setSelectedId(null)} title={`${t('pages.' + filterModuleKey + '.title')} Details`}>
+      <SlideDrawer open={!!selectedId} onClose={() => setSelectedId(null)} title={`${t('pages.' + filterModuleKey + '.title')} Details`} width="40vw">
         {selectedId && (
           <DetailDrawerContent
             config={config}

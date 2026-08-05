@@ -470,6 +470,9 @@ tbody tr:hover .menu-dots{opacity:1}
 
 /* ── Status Tags (Perplexity Notion-style) ── */
 .select-tag{display:inline-flex;align-items:center;gap:5px;font-size:11.5px;font-weight:600;padding:2px 9px;border-radius:var(--radius-full);white-space:nowrap;align-self:flex-start}
+/* GenericListPage table view: only the name cell is bold — badges/cells stay normal weight.
+   Scoped to .table-scroll td so global .select-tag (filter bar / forms / details) keeps 600. */
+.table-scroll td .select-tag{font-weight:400}
 .tag-active{background:var(--color-success-highlight);color:var(--color-success)}
 .tag-warm{background:var(--color-warning-highlight);color:var(--color-warning)}
 .tag-cold{background:var(--color-blue-highlight);color:var(--color-blue)}
@@ -1487,7 +1490,7 @@ textarea.input-field{resize:vertical;min-height:60px}
 }
 .slide-drawer{
   position:absolute;top:0;right:0;bottom:0;
-  width:min(var(--drawer-width,25vw),480px);
+  width:var(--drawer-width,40vw);
   background:var(--color-surface);
   display:flex;flex-direction:column;
   box-shadow:-4px 0 24px rgba(0,0,0,.1);
@@ -1498,8 +1501,8 @@ textarea.input-field{resize:vertical;min-height:60px}
   animation:slideOutRight .34s cubic-bezier(.4,0,1,1) forwards;
 }
 @media(max-width:768px){
-  .slide-drawer{width:85vw!important;max-width:85vw}
-  .slide-drawer-scrim{left:15vw}
+  .slide-drawer{width:100vw!important;max-width:100vw}
+  .slide-drawer-scrim{left:0}
   /* Inside drawer: force grid/full-width layout for tab content */
   .slide-drawer-body .flex-col{display:grid;grid-template-columns:1fr;gap:8px}
   .slide-drawer-body .list-row{display:grid;grid-template-columns:1fr auto;padding:12px;border:1px solid var(--color-divider);border-radius:var(--radius-md);background:var(--color-surface-offset)}
@@ -2451,3 +2454,30 @@ textarea.input-field{resize:vertical;min-height:60px}
 
 /* ── G08 2026-08-04: aiTip 併入 ab-summary-text — 保留 \n\n 換行顯示 💡 tip ── */
 .ab-summary-text{white-space:pre-wrap}
+
+/* ═══════════════════════════════════════════════
+   GenericListPage — Inline dropdown edit (select/status)
+   class prefix: glp-
+   ═══════════════════════════════════════════════ */
+.glp-inline-cell{position:relative;display:inline-flex;max-width:100%}
+.glp-inline-trigger{cursor:pointer;transition:border-color var(--transition-interactive);max-width:100%;overflow:hidden;text-overflow:ellipsis}
+.glp-inline-trigger:hover{border-color:var(--color-primary)}
+.glp-inline-trigger.glp-inline-open{border-color:var(--color-primary);box-shadow:0 0 0 2px var(--color-primary-highlight)}
+.glp-inline-dropdown{
+  position:absolute;top:calc(100% + 4px);left:0;z-index:60;
+  min-width:160px;max-height:240px;overflow-y:auto;
+  background:var(--color-surface);border:1px solid var(--color-divider);border-radius:var(--radius-md);
+  box-shadow:var(--shadow-md,0 10px 30px rgba(0,0,0,.12));
+  padding:4px;display:flex;flex-direction:column;gap:2px;
+}
+.glp-inline-option{
+  display:block;width:100%;text-align:left;cursor:pointer;
+  padding:6px 8px;border:none;background:transparent;border-radius:6px;
+  transition:background 120ms;
+}
+.glp-inline-option:hover{background:var(--color-surface-offset)}
+.glp-inline-option.glp-inline-selected{background:var(--color-primary-highlight)}
+.glp-inline-option .select-tag{pointer-events:none}
+@media(max-width:768px){
+  .glp-inline-dropdown{position:fixed;left:8px;right:8px;bottom:8px;top:auto;min-width:0;max-height:45vh}
+}
