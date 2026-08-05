@@ -18,11 +18,13 @@ import uuid
 import json
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Request, HTTPException, Depends
+from fastapi import APIRouter, Request, HTTPException, Depends, BackgroundTasks
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.config import settings
 from app.db import get_tenant_session
 from app.models.telegram_bot import TelegramBotMapping
 from app.models.ai.secretary_settings import SecretarySettings, ChannelCredential, DEFAULT_CHANNELS
@@ -270,21 +272,32 @@ async def disconnect_telegram(
     return {"status": "disconnected"}
 
 
-# ── PUBLIC: Webhook receiver (reserved — Phase C) ────────────────────
+# ── PUBLIC: Webhook receiver (production — Telegram pushes updates here) ──
 
 
 @router.post("/telegram/webhook")
-async def telegram_webhook(request: Request):
+async def telegram_webhook(request: Request, background_tasks: BackgroundTasks):
     """
-    Telegram sends updates here when a webhook is registered (Phase C).
-    Reserved endpoint — currently logs + acknowledges. Public by nature
-    (Telegram calls it); any processing must never assume tenant context.
+    Telegram pushes updates here when a webhook is registered (production mode).
+
+    Fast-ACK pattern: validate secret token → parse body → hand off to a
+    background task → return 200 immediately. Telegram retries on non-2xx,
+    so we never do slow work (AI, DB writes, media download) inside this
+    handler — that would cause duplicate deliveries.
     """
+    secret = request.headers.get("X-Telegram-Bot-Api-Secret-Token", "")
+    if not settings.tg_webhook_secret or secret != settings.tg_webhook_secret:
+        return JSONResponse({"ok": False, "error": "invalid secret token"}, status_code=403)
     body = await request.body()
-    data = json.loads(body) if body else {}
+    try:
+        data = json.loads(body) if body else {}
+    except Exception:
+        return JSONResponse({"ok": False, "error": "invalid json"}, status_code=400)
     from datetime import datetime as _dt
     with open("/tmp/telegram_webhook.log", "a") as f:
-        f.write(f"[{_dt.now().isoformat()}] update: {str(data)[:500]}\n")
+        f.write(f"[{_dt.now().isoformat()}] update_id={data.get('update_id')}\n")
+    from app.services.telegram_inbound import handle_webhook_update
+    background_tasks.add_task(handle_webhook_update, data)
     return {"ok": True}
 
 

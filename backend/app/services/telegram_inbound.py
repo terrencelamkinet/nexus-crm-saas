@@ -527,3 +527,39 @@ async def poll_once(db) -> int:
                     await db2.commit()
             processed += len(updates)
     return processed
+
+
+async def handle_webhook_update(data: dict) -> None:
+    """Background processor for webhook-delivered updates (fast-ACK pattern).
+
+    Telegram pushes the update here; the HTTP handler ACKs immediately and
+    this runs in a background task. Idempotency via tg_last_webhook_update_id
+    so Telegram retries (caused by slow ACK) never double-process.
+    """
+    import logging as _log
+    try:
+        async with async_session() as db:
+            mapping = (
+                await db.execute(
+                    select(TelegramBotMapping).where(TelegramBotMapping.status == "active")
+                )
+            ).scalars().first()
+            if not mapping:
+                _log.getLogger("telegram_inbound").warning(
+                    "webhook update received but no active bot mapping"
+                )
+                return
+            upd_id = data.get("update_id")
+            cfg: dict[str, Any] = dict(mapping.config or {})
+            last_id = cfg.get("tg_last_webhook_update_id")
+            if upd_id is not None and last_id is not None and upd_id <= last_id:
+                return  # duplicate delivery (Telegram retry) — already processed
+            await process_update(mapping, data)
+            if upd_id is not None:
+                cfg["tg_last_webhook_update_id"] = upd_id
+                mapping.config = cfg
+                await db.commit()
+    except Exception:  # noqa: BLE001 — one bad update must not kill the webhook path
+        _log.getLogger("telegram_inbound").exception(
+            "webhook update processing failed: %s", str(data)[:200]
+        )

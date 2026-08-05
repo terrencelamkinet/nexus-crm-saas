@@ -38,6 +38,8 @@ class Settings(BaseSettings):
     whatsapp_access_token: str = ""
     whatsapp_phone_number_id: str = ""
     whatsapp_webhook_verify_token: str = ""
+    tg_webhook_secret: str = ""       # NEXUS_TG_WEBHOOK_SECRET — validates X-Telegram-Bot-Api-Secret-Token
+    tg_use_webhook: bool = False      # NEXUS_TG_USE_WEBHOOK — true = webhook mode (poller disabled)
     whatsapp_app_secret: str = ""
 
     # Integration / OAuth

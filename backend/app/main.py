@@ -27,36 +27,38 @@ async def lifespan(app: FastAPI):
         await conn.execute(text("CREATE SCHEMA IF NOT EXISTS nexus_crm"))
         await conn.run_sync(Base.metadata.create_all)
 
-    # Telegram inbound poller — getUpdates loop for all active bots
-    import asyncio
-    from app.services.telegram_inbound import poll_once
+    # Telegram inbound: webhook mode (production) OR getUpdates poller (fallback)
+    if not settings.tg_use_webhook:
+        import asyncio
+        from app.services.telegram_inbound import poll_once
 
-    poller_stop = asyncio.Event()
+        poller_stop = asyncio.Event()
 
-    async def _tg_poll_loop():
-        from app.db import async_session
-        import logging as _logging
-        while not poller_stop.is_set():
-            try:
-                async with async_session() as db:
-                    await poll_once(db)
-            except Exception as e:  # noqa: BLE001 — poller must never crash the app, but must NOT be silent
-                _logging.getLogger("telegram_inbound").exception(
-                    "poll_once crashed: %s", e
-                )
-            try:
-                await asyncio.wait_for(poller_stop.wait(), timeout=1)
-            except asyncio.TimeoutError:
-                continue
+        async def _tg_poll_loop():
+            from app.db import async_session
+            import logging as _logging
+            while not poller_stop.is_set():
+                try:
+                    async with async_session() as db:
+                        await poll_once(db)
+                except Exception as e:  # noqa: BLE001 — poller must never crash the app, but must NOT be silent
+                    _logging.getLogger("telegram_inbound").exception(
+                        "poll_once crashed: %s", e
+                    )
+                try:
+                    await asyncio.wait_for(poller_stop.wait(), timeout=1)
+                except asyncio.TimeoutError:
+                    continue
 
-    poller_task = asyncio.create_task(_tg_poll_loop())
+        poller_task = asyncio.create_task(_tg_poll_loop())
 
     yield
-    poller_stop.set()
-    try:
-        await asyncio.wait_for(poller_task, timeout=5)
-    except Exception:
-        pass
+    if not settings.tg_use_webhook:
+        poller_stop.set()
+        try:
+            await asyncio.wait_for(poller_task, timeout=5)
+        except Exception:
+            pass
     await engine.dispose()
 
 app = FastAPI(title=settings.app_name, lifespan=lifespan)
