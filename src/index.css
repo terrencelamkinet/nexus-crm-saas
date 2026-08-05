@@ -435,6 +435,13 @@ tbody tr:hover .menu-dots{opacity:1}
 .search-box svg{width:15px;height:15px;color:var(--color-text-faint);flex-shrink:0}
 .pos-relative{position:relative}
 .data-table{background:var(--color-surface);border:1px solid var(--color-divider);border-radius:var(--radius-lg)}
+/* GenericListPage table horizontal scroll — applies desktop + mobile (was mobile-only).
+   overflow-x:auto lets added columns scroll; min-width:max-content stops columns being
+   pinched to fit a fixed layout. */
+.table-scroll{overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch;position:relative;max-width:100%}
+.table-scroll table{min-width:max-content}
+.table-scroll::after{content:'';position:absolute;top:0;right:0;bottom:0;width:24px;background:linear-gradient(to right,transparent,var(--color-surface));pointer-events:none;transition:opacity .2s}
+.table-scroll.at-end::after{opacity:0}
 .data-table table{width:100%;table-layout:fixed}
 .data-table th,.data-table td{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .data-table .th-checkbox,.data-table td.th-checkbox{width:40px;min-width:40px}
@@ -473,6 +480,28 @@ tbody tr:hover .menu-dots{opacity:1}
 /* GenericListPage table view: only the name cell is bold — badges/cells stay normal weight.
    Scoped to .table-scroll td so global .select-tag (filter bar / forms / details) keeps 600. */
 .table-scroll td .select-tag{font-weight:400}
+/* GenericListPage table: tags keep FULL background (never clipped by td overflow:hidden),
+   long text truncates with …. display:inline-block sizes the tag to its content (border
+   hugs the text), max-width:100% caps it at the cell, and text-overflow:ellipsis applies
+   because inline-block is a block container (inline-flex text nodes ignore text-overflow).
+   display:block would STRETCH the tag across the whole cell — wrong; inline-block keeps it
+   shrink-to-fit. */
+.table-scroll td .select-tag,
+.table-scroll td .badge,
+.table-scroll td .tag{
+  display:inline-block;
+  max-width:100%;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+/* Exclude inline-dropdown OPTIONS — they must show the full label, no truncation. */
+.table-scroll .glp-inline-dropdown .select-tag{
+  display:inline-flex;
+  max-width:none;
+  overflow:visible;
+  text-overflow:clip;
+}
 .tag-active{background:var(--color-success-highlight);color:var(--color-success)}
 .tag-warm{background:var(--color-warning-highlight);color:var(--color-warning)}
 .tag-cold{background:var(--color-blue-highlight);color:var(--color-blue)}
@@ -2478,6 +2507,12 @@ textarea.input-field{resize:vertical;min-height:60px}
 .glp-inline-option:hover{background:var(--color-surface-offset)}
 .glp-inline-option.glp-inline-selected{background:var(--color-primary-highlight)}
 .glp-inline-option .select-tag{pointer-events:none}
+/* Inline date edit */
+.glp-date-trigger{background:none;border:none;padding:2px 4px;border-radius:6px;font-size:12.5px;color:var(--color-text);cursor:pointer;line-height:1.4;text-align:left}
+.glp-date-trigger:hover{color:var(--color-primary);background:var(--color-surface-offset)}
+.glp-date-trigger .text-faint{color:var(--color-text-faint)}
+.glp-inline-date{height:36px;padding:0 9px;border:1px solid var(--color-primary);border-radius:8px;background:var(--color-surface);color:var(--color-text);font-size:13px;font-family:inherit}
+.glp-inline-date:focus{outline:2px solid var(--color-primary-highlight)}
 @media(max-width:768px){
-  .glp-inline-dropdown{position:fixed;left:8px;right:8px;bottom:8px;top:auto;min-width:0;max-height:45vh}
+  .glp-inline-dropdown{position:fixed;left:8px;right:8px;bottom:8px;top:auto;min-width:0;max-height:45vh;z-index:1000;width:auto}
 }

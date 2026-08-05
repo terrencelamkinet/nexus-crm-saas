@@ -408,7 +408,7 @@ const [filters, setFilters] = useState<Record<string, FilterEntry>>(() => ({ ...
     if (fieldKey === 'name' || fieldKey === config.titleField || (!config.titleField && fieldKey === config.fields[0]?.key)) {
       const val = item[fieldKey] || item['name'] || ''
       return (
-        <button onClick={() => setSelectedId(item.id)}
+        <button onClick={e => { e.stopPropagation(); setSelectedId(item.id) }}
           className="row-name row-name-btn">
           <div className="avatar-sm">
             {String(val).split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase()}
@@ -468,6 +468,36 @@ const [filters, setFilters] = useState<Record<string, FilterEntry>>(() => ({ ...
                   )
                 })}
               </div>
+            )}
+          </div>
+        )
+      }
+      // Inline date edit → click to open native date picker (not created_time/last_edited_time — read-only)
+      if (field.type === 'date' && field.key !== 'created_time' && field.key !== 'last_edited_time') {
+        const isOpen = inlineEdit?.rowId === item.id && inlineEdit?.fieldKey === fieldKey
+        const raw = item[fieldKey]
+        // Normalize stored value to YYYY-MM-DD for the date input (strip time/tz)
+        const iso = raw ? String(raw).slice(0, 10) : ''
+        return (
+          <div className="glp-inline-cell" ref={isOpen ? inlineEditRef : undefined}>
+            {isOpen ? (
+              <input
+                type="date"
+                className="glp-inline-date"
+                defaultValue={iso}
+                autoFocus
+                onClick={e => e.stopPropagation()}
+                onChange={e => { if (e.target.value) applyInlineEdit(item, field, e.target.value) }}
+                onKeyDown={e => { if (e.key === 'Escape') setInlineEdit(null) }}
+              />
+            ) : (
+              <button
+                type="button"
+                className={`glp-inline-trigger glp-date-trigger${isOpen ? ' glp-inline-open' : ''}`}
+                onClick={e => startInlineEdit(e, item.id, fieldKey)}
+              >
+                {raw ? <CellRenderer value={raw} field={field} /> : <span className="text-faint">—</span>}
+              </button>
             )}
           </div>
         )
@@ -888,7 +918,12 @@ const [filters, setFilters] = useState<Record<string, FilterEntry>>(() => ({ ...
               </thead>
               <tbody>
                 {items.map(item => (
-                  <tr key={item.id} className={selectedIds.has(item.id) ? 'row-selected' : ''}>
+                  <tr
+                    key={item.id}
+                    className={selectedIds.has(item.id) ? 'row-selected' : ''}
+                    onClick={() => setSelectedId(item.id)}
+                    style={{ cursor: 'pointer' }}
+                  >
                     {config.name === 'task' && (
                       <td className="td-complete" onClick={e => { e.stopPropagation(); quickComplete(item); }}>
                         <button className={`t-check${item['status'] === 'done' ? ' checked' : ''}`}
