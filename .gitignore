@@ -41,3 +41,6 @@ backend/uploads/
 # Environment
 .env
 backend/.env
+
+# App-level encryption key (NEXUS_SECRET_KEY in .env)
+backend/app/keys/secret.key
