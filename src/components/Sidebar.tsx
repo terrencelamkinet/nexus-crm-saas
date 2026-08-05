@@ -62,7 +62,8 @@ export default function Sidebar() {
   const isVisible = (item: typeof workspaceItems[0]) => {
     if (!item.module) return true;
     if (!hasSettings) return true;
-    return modules[item.module] === true;
+    // Default to visible when no explicit setting exists (mirrors enabled-modules.ts)
+    return modules[item.module] !== false;
   };
 
   return (
