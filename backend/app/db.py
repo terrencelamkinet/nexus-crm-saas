@@ -7,7 +7,19 @@ from sqlalchemy.orm import DeclarativeBase
 
 from app.config import settings
 
-engine = create_async_engine(settings.database_url, echo=settings.debug)
+engine = create_async_engine(
+    settings.database_url,
+    echo=settings.debug,
+    # Root fix for asyncpg prepared-statement cache type-collision bug
+    # ("invalid input syntax for type uuid: \"\"") — disables server-side
+    # statement caching entirely. Each execution re-prepares with correct
+    # param types. Negligible overhead vs. correctness at 50k scale.
+    connect_args={"prepared_statement_cache_size": 0},
+    pool_pre_ping=True,          # drop stale pooled connections (pg restart / pgbouncer)
+    pool_size=10,                # per-process pool — with N workers × PgBouncer this
+    max_overflow=20,             # stays well within PgBouncer's server pool
+    pool_recycle=1800,           # 30min recycle — avoids long-idle conn kill
+)
 async_session = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 
 class Base(DeclarativeBase):

@@ -15,6 +15,7 @@ SOC 2:
   - CC7.2: All AI interactions routed through platform's audit trail
 """
 import uuid
+import asyncio
 import json
 import logging
 import os
@@ -27,7 +28,7 @@ from typing import Any
 
 import httpx
 from jose import jwt
-from sqlalchemy import select
+from sqlalchemy import select, text as sa_text
 
 from app.config import settings
 from app.db import async_session
@@ -36,6 +37,7 @@ from app.models.ai.secretary_settings import SecretarySettings, ChannelCredentia
 from app.services.auth_service import _load_private_key
 from app.services import telegram_service
 from app.services import namecard_im
+from app.services.secret_crypto import decrypt_secret
 
 # NameCard pipeline helper (OCR detect + upload → G08 CRM)
 NAMECARD_SCRIPT = Path(__file__).resolve().parents[2] / "scripts" / "upload_namecard_to_g08.py"
@@ -233,7 +235,7 @@ async def _get_bot_token(db, mapping: TelegramBotMapping) -> str:
             )
         ).scalar_one_or_none()
         if cred and cred.access_token:
-            return cred.access_token
+            return decrypt_secret(str(cred.access_token))  # AES-256-GCM at rest
     except Exception:  # noqa: BLE001 — credential store must never block inbound
         import logging
         logging.getLogger("telegram_inbound").exception(
@@ -549,6 +551,18 @@ async def handle_webhook_update(data: dict) -> None:
                     "webhook update received but no active bot mapping"
                 )
                 return
+            # RLS: set tenant/user GUCs so row-level policies can match
+            # (webhook path bypasses get_tenant_session middleware). Without
+            # this, ai_secretary_settings / ai_channel_credentials queries
+            # would either return nothing or (legacy policies) crash with
+            # 'invalid input syntax for type uuid: ""'.
+            await db.execute(
+                sa_text(
+                    "SELECT set_config('app.tenant_id', :tid, true), "
+                    "set_config('app.user_id', :uid, true)"
+                ),
+                {"tid": str(mapping.tenant_id), "uid": str(mapping.user_id)},
+            )
             upd_id = data.get("update_id")
             cfg: dict[str, Any] = dict(mapping.config or {})
             last_id = cfg.get("tg_last_webhook_update_id")
@@ -563,3 +577,44 @@ async def handle_webhook_update(data: dict) -> None:
         _log.getLogger("telegram_inbound").exception(
             "webhook update processing failed: %s", str(data)[:200]
         )
+
+
+async def webhook_queue_consumer(stop_event: asyncio.Event | None = None) -> None:
+    """BRPOP loop over the durable Redis webhook queue.
+
+    Runs once per gunicorn worker (spawned in lifespan). BRPOP guarantees
+    each queued update is delivered to exactly ONE worker, so 4 workers =
+    parallel consumption with zero duplicates. If the update was already
+    processed (update_id dedup in handle_webhook_update), it's a no-op.
+
+    IMPORTANT: uses redis.asyncio (NOT sync redis) — a sync brpop would
+    block the whole event loop and make the API unresponsive.
+    """
+    import json as _json
+    import logging as _log
+    import redis.asyncio as redis_async
+
+    log = _log.getLogger("telegram_inbound.queue")
+    while True:
+        if stop_event is not None and stop_event.is_set():
+            return
+        try:
+            r = redis_async.Redis.from_url(settings.redis_url, socket_connect_timeout=2)
+            while True:
+                if stop_event is not None and stop_event.is_set():
+                    return
+                item = await r.brpop("tg:webhook:updates", timeout=5)
+                if item is None:
+                    continue
+                try:
+                    data = _json.loads(item[1])
+                except Exception:
+                    continue
+                try:
+                    await handle_webhook_update(data)
+                except Exception:
+                    log.exception("queue item processing failed: %s", str(data)[:200])
+        except Exception:
+            # Redis connection blip — back off 2s, keep the worker alive
+            log.warning("redis queue consumer error, retrying in 2s")
+            await asyncio.sleep(2)

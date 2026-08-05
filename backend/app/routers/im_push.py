@@ -28,6 +28,7 @@ from app.models.telegram_bot import TelegramBotMapping
 from app.models.ai.secretary_settings import ChannelCredential
 from app.models.notification import Notification
 from app.services import whatsapp_service, telegram_service
+from app.services.secret_crypto import decrypt_secret
 
 router = APIRouter(prefix="/api/v1")
 
@@ -364,7 +365,7 @@ async def test_push(
                 )
             )
         ).scalar_one_or_none()
-        token = cred.access_token if cred and cred.access_token else ""
+        token = decrypt_secret(cred.access_token) if cred and cred.access_token else ""
         if not token:
             raise HTTPException(400, "Telegram bot token missing")
         result = await telegram_service.send_message(token, str(tg.chat_id), msg)
@@ -560,7 +561,7 @@ async def run_briefing(
                 )
             )
         ).scalar_one_or_none()
-        token = cred.access_token if cred and cred.access_token else ""
+        token = decrypt_secret(cred.access_token) if cred and cred.access_token else ""
         if not token:
             db.add(PushLog(tenant_id=pref.tenant_id, user_id=pref.user_id, channel="telegram", slot=slot, status="skipped", reason="no_token"))
             stats["skipped"] += 1

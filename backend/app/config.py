@@ -4,8 +4,10 @@ class Settings(BaseSettings):
     app_name: str = "NEXUS CRM Auth"
     debug: bool = True
 
-    # Database
-    database_url: str = "postgresql+asyncpg://gg_fighter:F5xbTAzODUVEU4KDDIP@127.0.0.1:5432/nexus_crm"
+    # Database — via PgBouncer (transaction pool, port 6432) for 50k-scale
+    # connection multiplexing. Direct 5432 fallback kept in comments.
+    #   direct: postgresql+asyncpg://gg_fighter:...@127.0.0.1:5432/nexus_crm
+    database_url: str = "postgresql+asyncpg://gg_fighter:F5xbTAzODUVEU4KDDIP@127.0.0.1:6432/nexus_crm"
 
     # JWT — RS256 asymmetric for tenant security
     jwt_private_key_path: str = "keys/private.pem"
@@ -14,7 +16,8 @@ class Settings(BaseSettings):
     access_token_expire_minutes: int = 1440  # 24h (was 15min)
     refresh_token_expire_days: int = 1
 
-    # PgBouncer (transaction pool)
+    # PgBouncer (transaction pool) — same URL as database_url; kept for
+    # components that need the dedicated nexus_app role (e.g. migrations).
     app_database_url: str = "postgresql+asyncpg://nexus_app:NexusApp2026Secure!@127.0.0.1:6432/nexus_crm"
 
     # Redis (for OTP cache)

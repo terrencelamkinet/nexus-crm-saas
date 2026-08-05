@@ -31,6 +31,7 @@ from app.models.ai.secretary_settings import SecretarySettings, ChannelCredentia
 from app.models.integration import Integration
 from app.routers.crm_integrations import _tid, _uid, PROVIDER_DISPLAY
 from app.services import telegram_service
+from app.services.secret_crypto import decrypt_secret, encrypt_secret
 
 router = APIRouter(prefix="/api/v1")
 
@@ -86,7 +87,7 @@ async def bind_telegram(
             tenant_id=tenant_id, user_id=user_id, channel="telegram"
         )
         db.add(cred)
-    cred.access_token = bot_token
+    cred.access_token = encrypt_secret(bot_token)  # AES-256-GCM at rest
     cred.external_id = chat_id
     cred.connected_at = datetime.now(timezone.utc)
     cred.revoked_at = None
@@ -296,9 +297,22 @@ async def telegram_webhook(request: Request, background_tasks: BackgroundTasks):
     from datetime import datetime as _dt
     with open("/tmp/telegram_webhook.log", "a") as f:
         f.write(f"[{_dt.now().isoformat()}] update_id={data.get('update_id')}\n")
-    from app.services.telegram_inbound import handle_webhook_update
-    background_tasks.add_task(handle_webhook_update, data)
-    return {"ok": True}
+    # Durable queue: push to Redis (LPUSH), workers BRPOP. If a worker
+    # crashes mid-processing the update stays queued — nothing is lost,
+    # unlike in-process BackgroundTasks. 4 gunicorn workers × BRPOP =
+    # natural parallel consumption, no duplicates.
+    try:
+        import redis.asyncio as redis_async
+        _r = redis_async.Redis.from_url(settings.redis_url, socket_connect_timeout=2)
+        await _r.lpush("tg:webhook:updates", json.dumps(data))
+        await _r.aclose()
+        return {"ok": True, "queued": True}
+    except Exception:
+        # Redis down → fall back to in-process background task (degraded,
+        # not dead). Telegram retries on non-2xx, so never 5xx here.
+        from app.services.telegram_inbound import handle_webhook_update
+        background_tasks.add_task(handle_webhook_update, data)
+        return {"ok": True, "queued": False}
 
 
 # ── AUTH: Send test message ───────────────────────────────────────────
@@ -334,7 +348,7 @@ async def send_telegram_message(
             )
         )
     ).scalar_one_or_none()
-    token = cred.access_token if cred and cred.access_token else ""
+    token = decrypt_secret(cred.access_token) if cred and cred.access_token else ""
     if not token:
         raise HTTPException(400, "Telegram bot token missing")
 

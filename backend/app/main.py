@@ -1,4 +1,6 @@
 from contextlib import asynccontextmanager
+import asyncio
+import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.config import settings
@@ -20,16 +22,35 @@ from app.middleware.ai_session import AISessionMiddleware
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Startup: ensure nexus_auth and nexus_crm schemas exist
-    async with engine.begin() as conn:
-        from sqlalchemy import text
-        await conn.execute(text("CREATE SCHEMA IF NOT EXISTS nexus_auth"))
-        await conn.execute(text("CREATE SCHEMA IF NOT EXISTS nexus_crm"))
-        await conn.run_sync(Base.metadata.create_all)
+    # Startup: ensure nexus_auth and nexus_crm schemas exist.
+    # IMPORTANT: with gunicorn --preload + N workers, lifespan runs once per
+    # worker. create_all uses checkfirst (no-op when tables exist), but 4
+    # workers racing the initial DDL can deadlock on table locks. Use a
+    # file-based lock so only the first worker does DDL; others skip.
+    ddl_lock = "/tmp/nexus_crm_ddl.lock"
+    acquired = False
+    try:
+        os.makedirs("/tmp", exist_ok=True)
+        fd = os.open(ddl_lock, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+        os.close(fd)
+        acquired = True
+    except FileExistsError:
+        acquired = False
+    if acquired:
+        try:
+            async with engine.begin() as conn:
+                from sqlalchemy import text
+                await conn.execute(text("CREATE SCHEMA IF NOT EXISTS nexus_auth"))
+                await conn.execute(text("CREATE SCHEMA IF NOT EXISTS nexus_crm"))
+                await conn.run_sync(Base.metadata.create_all)
+        finally:
+            try:
+                os.remove(ddl_lock)
+            except OSError:
+                pass
 
     # Telegram inbound: webhook mode (production) OR getUpdates poller (fallback)
     if not settings.tg_use_webhook:
-        import asyncio
         from app.services.telegram_inbound import poll_once
 
         poller_stop = asyncio.Event()
@@ -51,12 +72,24 @@ async def lifespan(app: FastAPI):
                     continue
 
         poller_task = asyncio.create_task(_tg_poll_loop())
+    else:
+        # Webhook mode: spawn Redis queue consumers (one per worker).
+        # BRPOP guarantees each update goes to exactly one worker.
+        from app.services.telegram_inbound import webhook_queue_consumer
+        queue_stop = asyncio.Event()
+        queue_task = asyncio.create_task(webhook_queue_consumer(queue_stop))
 
     yield
     if not settings.tg_use_webhook:
         poller_stop.set()
         try:
             await asyncio.wait_for(poller_task, timeout=5)
+        except Exception:
+            pass
+    else:
+        queue_stop.set()
+        try:
+            await asyncio.wait_for(queue_task, timeout=5)
         except Exception:
             pass
     await engine.dispose()
