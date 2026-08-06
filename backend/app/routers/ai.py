@@ -9,7 +9,7 @@ Default provider: DeepSeek (deepseek-chat).
 import re
 import json
 import asyncio
-from uuid import UUID
+from uuid import UUID, uuid4
 from datetime import datetime, timezone, timedelta
 
 HKT = timezone(timedelta(hours=8))
@@ -819,6 +819,59 @@ async def _inject_memory_context(
     return lines
 
 
+async def _load_im_history(
+    ctx: Any,
+    db: AsyncSession,
+    current_session_id: UUID | None = None,
+    max_sessions: int = 4,
+    max_msgs_per_session: int = 4,
+    max_total: int = 16,
+) -> list[str]:
+    """Load recent IM (Telegram/WhatsApp) conversation excerpts for this user.
+
+    Portal AI sessions inject this so the assistant can answer
+    "what did I ask on WhatsApp/Telegram earlier" without the user
+    repeating themselves. Only non-portal sessions are considered;
+    the current session (if any) is excluded.
+    """
+    rows = (
+        await db.execute(
+            text(
+                """
+                SELECT s.channel, m.role, m.content, m.created_at
+                FROM nexus_ai.messages m
+                JOIN nexus_ai.sessions s ON s.id = m.session_id
+                WHERE s.user_id = :uid
+                  AND s.tenant_id = :tid
+                  AND s.channel IN ('telegram', 'whatsapp')
+                  AND s.id != :cur
+                  AND m.content IS NOT NULL AND m.content <> ''
+                  AND m.created_at >= now() - interval '14 days'
+                ORDER BY m.created_at DESC
+                LIMIT :max_total
+                """
+            ),
+            {
+                "uid": ctx.user_id,
+                "tid": ctx.tenant_id,
+                "cur": current_session_id or UUID(int=0),
+                "max_total": max_total,
+            },
+        )
+    ).fetchall()
+
+    lines = []
+    for ch, role, content, created_at in reversed(rows):  # chronological
+        if role not in ("user", "assistant"):
+            continue
+        who = "你" if role == "user" else "AI"
+        txt = (content or "").strip().replace("\n", " ")[:300]
+        if not txt:
+            continue
+        lines.append(f"- [{ch}] {who}: {txt}")
+    return lines
+
+
 # -------------------------------------------------------------------
 # Usage recording helper
 # -------------------------------------------------------------------
@@ -1233,6 +1286,7 @@ async def chat_completion(
     request: Request,
     db: AsyncSession = Depends(get_tenant_session),
     session_id: UUID | None = Query(None),
+    channel: str = Query("portal"),
     temperature: float = 0.7,
     max_tokens: int = 4096,
 ):
@@ -1256,6 +1310,7 @@ async def chat_completion(
             team_id=ctx.team_id,
             user_id=ctx.user_id,
             status="active",
+            channel=(channel or "portal")[:20],
         )
         db.add(sess)
         await db.flush()
@@ -1332,6 +1387,19 @@ async def chat_completion(
     context_str = "\n".join(context_lines).strip()
     if not context_str:
         context_str = "No CRM data found matching this query."
+
+    # ── Cross-channel IM history (Telegram/WhatsApp) ────────────────
+    # Portal sessions can reference what the user asked on IM earlier.
+    try:
+        im_lines = await _load_im_history(ctx, db, current_session_id=sess.id)
+        if im_lines:
+            context_str = (
+                context_str
+                + "\n\n## 近期 IM 對話（WhatsApp/Telegram，供你參考用戶之前喺 IM 問過咩）\n"
+                + "\n".join(im_lines)
+            )
+    except Exception:
+        pass  # IM history is best-effort
 
     memory_lines = await _inject_memory_context(ctx, db, session_id)
     memory_str = "\n".join(memory_lines) if memory_lines else "(No cross-session memory found — prior turns of THIS session, if any, are replayed as messages below.)"

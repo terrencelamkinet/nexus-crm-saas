@@ -248,7 +248,7 @@ async def handle_whatsapp_message(wa_id: str, text: str) -> str | None:
         resp = await client.post(
             AI_INTERNAL_URL + "/chat",
             json=messages,
-            params={"session_id": session_id} if session_id else None,
+            params={"session_id": session_id, "channel": "whatsapp"} if session_id else {"channel": "whatsapp"},
             headers={"Authorization": f"Bearer {token}"},
         )
 
@@ -262,6 +262,7 @@ async def handle_whatsapp_message(wa_id: str, text: str) -> str | None:
             resp = await client.post(
                 AI_INTERNAL_URL + "/chat",
                 json=messages,
+                params={"channel": "whatsapp"},
                 headers={"Authorization": f"Bearer {token}"},
             )
 
@@ -362,6 +363,7 @@ async def search_crm_data(
         resp = await client.post(
             AI_INTERNAL_URL + "/chat",
             json=messages,
+            params={"channel": "whatsapp"},
             headers={"Authorization": f"Bearer {token}"},
         )
 

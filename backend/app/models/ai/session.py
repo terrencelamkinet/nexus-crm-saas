@@ -19,6 +19,7 @@ class AISession(Base):
     agent_id: Mapped[UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("nexus_ai.agents.id", ondelete="SET NULL"), nullable=True)
     model_profile_id: Mapped[UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("nexus_ai.model_profiles.id", ondelete="SET NULL"), nullable=True)
     plan_type: Mapped[str] = mapped_column(String(50), default="chat")
+    channel: Mapped[str] = mapped_column(String(20), default="portal", nullable=False)
     status: Mapped[str] = mapped_column(String(50), default="active", nullable=False)
     title: Mapped[str | None] = mapped_column(String(200), nullable=True)
     memory_summary: Mapped[str | None] = mapped_column(Text, nullable=True)

@@ -122,7 +122,7 @@ async def handle_telegram_message(chat_id: str, text: str) -> str | None:
         resp = await client.post(
             AI_INTERNAL_URL + "/chat",
             json=messages,
-            params={"session_id": session_id} if session_id else None,
+            params={"session_id": session_id, "channel": "telegram"} if session_id else {"channel": "telegram"},
             headers={"Authorization": f"Bearer {token}"},
         )
 
@@ -133,6 +133,7 @@ async def handle_telegram_message(chat_id: str, text: str) -> str | None:
             resp = await client.post(
                 AI_INTERNAL_URL + "/chat",
                 json=messages,
+                params={"channel": "telegram"},
                 headers={"Authorization": f"Bearer {token}"},
             )
 
