@@ -1008,6 +1008,91 @@ def _strip_tool_call(text: str) -> str:
     return cleaned.strip()
 
 
+class _StreamToolCallScrubber:
+    """Streaming scrubber that removes embedded tool-call JSON blocks from
+    SSE text *before* it reaches the client.
+
+    The model sometimes emits ``{"tool": "...", "params": {...}}`` inline (or
+    inside a fenced block) in the reply.  The final message is cleaned by
+    ``_strip_tool_call``, but the SSE stream would previously expose the raw
+    JSON to the browser while streaming.  This buffers tokens, removes
+    complete tool-call blocks as soon as they are detectable, and holds any
+    partial marker at the tail until it either completes or is flushed.
+    """
+
+    _FENCE_OPEN_RE = re.compile(r"```(?:json)?\s*")
+    _PARTIAL_TOOL_RE = re.compile(r'\{\s*"tool')  # complete or partial marker
+    _HOLD = 64          # chars held back across chunks to catch split markers
+    _MAX_HOLD = 8192    # safety cap — flush raw if nothing resolves
+
+    def __init__(self) -> None:
+        self._buf = ""
+
+    def feed(self, chunk: str) -> str:
+        self._buf += chunk
+        if len(self._buf) > self._MAX_HOLD:
+            raw, self._buf = self._buf, ""
+            return raw
+        if len(self._buf) <= self._HOLD:
+            return ""
+        emit, self._buf = self._buf[: -self._HOLD], self._buf[-self._HOLD:]
+        return self._process(emit)
+
+    def flush(self) -> str:
+        rest, self._buf = self._buf, ""
+        return self._process(rest, hold=False)
+
+    def _process(self, text: str, hold: bool = True) -> str:
+        out: list[str] = []
+        buf = text
+        while buf:
+            if len(buf) > self._MAX_HOLD:
+                out.append(buf)
+                break
+            # 1. complete fenced block  ```json {...} ```
+            m = _TOOL_CALL_BLOCK_RE.search(buf)
+            if m:
+                try:
+                    obj = json.loads(m.group(1))
+                    is_tool = (
+                        isinstance(obj, dict)
+                        and isinstance(obj.get("tool"), str)
+                        and isinstance(obj.get("params"), dict)
+                    )
+                except Exception:
+                    is_tool = False
+                out.append(buf[: m.start()])
+                buf = buf[m.end() :]
+                if not is_tool:
+                    out.append(m.group(0))  # legit JSON block — keep it
+                continue
+            # 2. fence open without a complete block — hold from the fence
+            mf = self._FENCE_OPEN_RE.search(buf)
+            if mf and hold:
+                out.append(buf[: mf.start()])
+                self._buf = buf[mf.start() :] + self._buf
+                break
+            # 3. complete inline {"tool": ...} JSON (balanced braces)
+            m2 = _TOOL_CALL_START_RE.search(buf)
+            if m2:
+                try:
+                    _obj, end = json.JSONDecoder().raw_decode(buf[m2.start() :])
+                    out.append(buf[: m2.start()])
+                    buf = buf[m2.start() + end :]
+                    continue
+                except Exception:
+                    pass  # marker present but JSON incomplete — fall through
+            # 4. partial tool marker (e.g. `{"tool` split across chunks)
+            mp = self._PARTIAL_TOOL_RE.search(buf)
+            if mp and hold:
+                out.append(buf[: mp.start()])
+                self._buf = buf[mp.start() :] + self._buf
+                break
+            out.append(buf)
+            break
+        return "".join(out)
+
+
 async def _run_embedded_tool_call(
     ctx: Any,
     db: AsyncSession,
@@ -1469,6 +1554,7 @@ async def chat_stream_completion(
                 }
 
             full_text_parts: list[str] = []
+            scrubber = _StreamToolCallScrubber()
 
             async for token_text, report in adapter.chat_stream(
                 messages=enhanced,
@@ -1478,12 +1564,22 @@ async def chat_stream_completion(
             ):
                 if token_text:
                     full_text_parts.append(token_text)
-                    yield {
-                        "event": "token",
-                        "data": json.dumps({"text": token_text}),
-                    }
+                    clean_text = scrubber.feed(token_text)
+                    if clean_text:
+                        yield {
+                            "event": "token",
+                            "data": json.dumps({"text": clean_text}),
+                        }
                 if report.input_tokens > 0 or report.output_tokens > 0:
                     final_report = report
+
+            # flush any buffered tail (also drops truncated tool-call JSON)
+            tail_text = scrubber.flush()
+            if tail_text:
+                yield {
+                    "event": "token",
+                    "data": json.dumps({"text": tail_text}),
+                }
 
             full_text = "".join(full_text_parts)
 
