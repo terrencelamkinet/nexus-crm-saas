@@ -959,7 +959,11 @@ _WRITE_TOOL_GUIDE = """7. 用戶要求建立或更新 CRM 資料時，你可以�
      - create_task_draft: {"title": "...", "description": "...", "due_date": "YYYY-MM-DD", "priority": "low|medium|high|urgent"} (title 必填)
      - create_touchpoint_draft: {"type": "call|email|meeting|note|other", "summary": "...", "company_id": "...", "contact_id": "..."} (type + summary 必填)
      - update_contact_draft: {"contact_id": "...", "name": "...", "email": "...", "phone": "...", "notes": "..."} (contact_id 必填)
-   - contact_id / company_id 必須係資料庫 UUID（唔係姓名）— 先用 search_contacts / search_companies 搵出目標記錄，將結果中嘅 id 放入 params；如果搜尋結果已有 id，直接引用該 id
+     - update_company_draft: {"company_id": "...", "name": "...", "industry": "...", "phone": "...", "address": "...", "website": "...", "notes": "...", "ceo_name": "...", "status": "..."} (company_id 必填)
+     - update_project_draft: {"project_id": "...", "name": "...", "status": "...", "priority": "...", "description": "...", "budget_amount": 123, "deadline": "YYYY-MM-DD"} (project_id 必填)
+     - update_task_draft: {"task_id": "...", "title": "...", "description": "...", "due_date": "YYYY-MM-DD", "priority": "low|medium|high|urgent", "status": "..."} (task_id 必填)
+     - update_namecard_draft: {"namecard_id": "...", "status": "...", "dedup_status": "..."} (namecard_id 必填)
+   - 所有 *_id 必須係資料庫 UUID（唔係姓名/email）— 先用對應 search 工具（search_contacts / search_companies / search_projects / list_tasks）搵出目標記錄，將結果中嘅 id 放入 params；如果搜尋結果已有 id，直接引用該 id
    - 系統會產生草稿俾用戶確認（Draft → Confirm → Execute），確認後先會真正執行
    - 例如用戶要求建立任務：
      {"tool": "create_task_draft", "params": {"title": "跟進 SYSTEX 報價", "priority": "high"}}

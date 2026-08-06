@@ -20,6 +20,7 @@ from app.ai.session.context import AISessionContext
 from app.models.crm import (
     Company,
     Contact,
+    NameCard,
     Project,
     ProjectCalendarEvent,
     Task,
@@ -27,6 +28,7 @@ from app.models.crm import (
     TouchpointParticipant,
 )
 from app.models.crm_module_b import Deal, DealStage
+from app.models.crm_module_c import ProjectStage  # noqa: F401 — registers projects.stage_id FK target
 
 # ---------------------------------------------------------------------------
 # Data structures
@@ -737,8 +739,158 @@ async def _update_contact_draft(
 
 
 # ---------------------------------------------------------------------------
-# Registry
+# Generic update-draft factory — powers update_company / update_project /
+# update_task / update_namecard.  Same draft→confirm→execute contract as
+# update_contact_draft: resolve target (UUID, or name/email fallback),
+# preview changes, execute only with preview's authoritative changes.
 # ---------------------------------------------------------------------------
+
+
+def _make_update_handler(
+    model: Any,
+    id_param: str,
+    action_name: str,
+    editable_fields: tuple[str, ...],
+    match_fields: tuple[str, ...] = ("name",),
+) -> Callable[..., Coroutine[Any, Any, Any]]:
+    # Column-type coercion map: JSON-ish params arrive as strings from the AI,
+    # but DB columns are typed.  Coerce before setattr so flush() doesn't blow.
+    from sqlalchemy import Boolean, Date, DateTime, Numeric
+
+    def _coerce(field: str, value: Any) -> Any:
+        col = model.__table__.columns.get(field)
+        if col is None or not isinstance(value, str):
+            return value
+        t = col.type
+        if isinstance(t, DateTime):
+            try:
+                return datetime.fromisoformat(value.replace("Z", "+00:00"))
+            except ValueError:
+                return datetime.fromisoformat(f"{value}T00:00:00+00:00")
+        if isinstance(t, Date):
+            return datetime.strptime(value, "%Y-%m-%d").date()
+        if isinstance(t, Numeric):
+            try:
+                return float(value)
+            except ValueError:
+                return value
+        if isinstance(t, Boolean):
+            return value.strip().lower() in ("true", "1", "yes")
+        return value
+
+    async def handler(
+        ctx: AISessionContext,
+        params: dict[str, Any],
+        db: AsyncSession,
+        mode: str = "draft",
+    ) -> dict[str, Any]:
+        errors: list[str] = []
+        id_str = params.get(id_param)
+        obj = None
+        if not id_str:
+            errors.append(f"'{id_param}' is required")
+        else:
+            try:
+                obj_id = UUID(id_str)
+                result = await db.execute(
+                    select(model).where(
+                        model.id == obj_id, model.tenant_id == ctx.tenant_id
+                    )
+                )
+                obj = result.scalar_one_or_none()
+                if not obj:
+                    errors.append(f"{model.__name__} '{id_str}' not found")
+            except ValueError:
+                # Fallback: AI sometimes passes a name/email instead of a UUID.
+                q = id_str.strip().lower()
+                if match_fields:
+                    conds = [func.lower(getattr(model, f)) == q for f in match_fields]
+                    result = await db.execute(
+                        select(model)
+                        .where(model.tenant_id == ctx.tenant_id, or_(*conds))
+                        .limit(2)
+                    )
+                    matches = result.scalars().all()
+                    if len(matches) == 1:
+                        obj = matches[0]
+                        id_str = str(obj.id)
+                    elif len(matches) > 1:
+                        errors.append(
+                            f"Ambiguous {model.__name__} '{id_str}' — multiple matches, use {id_param} UUID"
+                        )
+                    else:
+                        errors.append(f"Invalid {id_param} format: {id_str}")
+                else:
+                    errors.append(f"Invalid {id_param} format: {id_str}")
+
+        changes: dict[str, Any] = {}
+        # When called from the confirm endpoint, `params` IS the stored preview
+        # dict — reuse its changes instead of re-deriving an empty dict.
+        if isinstance(params.get("changes"), dict) and params.get("action") == action_name:
+            changes = dict(params["changes"])
+        else:
+            for field in editable_fields:
+                if field in params and params[field] is not None:
+                    changes[field] = params[field]
+
+        preview: dict[str, Any] = {
+            "action": action_name,
+            id_param: id_str,
+            "current": _row_to_dict(obj) if obj else None,
+            "changes": changes,
+            "validated": len(errors) == 0,
+        }
+        if errors:
+            preview["errors"] = errors
+            return preview
+
+        if mode == "execute" and obj:
+            for field, value in changes.items():
+                if field in editable_fields:
+                    setattr(obj, field, _coerce(field, value))
+            obj.updated_at = datetime.now(timezone.utc)
+            await db.flush()
+            await db.refresh(obj)
+            preview["result"] = _row_to_dict(obj)
+        return preview
+
+    return handler
+
+
+_update_company_draft = _make_update_handler(
+    Company,
+    "company_id",
+    "update_company",
+    (
+        "name", "domain", "industry", "size", "phone", "address", "website",
+        "notes", "tags", "category", "ceo_name", "linkedin_url", "status",
+    ),
+)
+_update_project_draft = _make_update_handler(
+    Project,
+    "project_id",
+    "update_project",
+    (
+        "name", "project_code", "status", "priority", "description",
+        "budget_amount", "start_date", "deadline",
+    ),
+)
+_update_task_draft = _make_update_handler(
+    Task,
+    "task_id",
+    "update_task",
+    (
+        "title", "description", "due_date", "priority", "status",
+        "notes_html", "is_important", "reminder_at",
+    ),
+)
+_update_namecard_draft = _make_update_handler(
+    NameCard,
+    "namecard_id",
+    "update_namecard",
+    ("status", "dedup_status"),
+    match_fields=(),  # UUID only — name cards have no natural name column
+)
 
 TOOL_REGISTRY: dict[str, ToolDef] = {
     # fmt: off
@@ -923,7 +1075,7 @@ TOOL_REGISTRY: dict[str, ToolDef] = {
         input_schema={
             "type": "object",
             "properties": {
-                "contact_id": {"type": "string", "format": "uuid", "description": "Contact UUID to update"},
+                "contact_id": {"type": "string", "format": "uuid", "description": "Contact UUID"},
                 "name": {"type": "string", "description": "Updated name"},
                 "email": {"type": "string", "format": "email", "description": "Updated email"},
                 "phone": {"type": "string", "description": "Updated phone number"},
@@ -932,6 +1084,92 @@ TOOL_REGISTRY: dict[str, ToolDef] = {
             "required": ["contact_id"],
         },
         handler=_update_contact_draft,
+    ),
+    "update_company_draft": ToolDef(
+        key="update_company_draft",
+        type="write",
+        module="app.services.crm.companies",
+        requires_confirmation=True,
+        input_schema={
+            "type": "object",
+            "properties": {
+                "company_id": {"type": "string", "format": "uuid", "description": "Company UUID"},
+                "name": {"type": "string", "description": "Updated company name"},
+                "domain": {"type": "string", "description": "Company domain"},
+                "industry": {"type": "string", "description": "Industry"},
+                "size": {"type": "string", "description": "Company size"},
+                "phone": {"type": "string", "description": "Phone"},
+                "address": {"type": "string", "description": "Address"},
+                "website": {"type": "string", "description": "Website URL"},
+                "notes": {"type": "string", "description": "Notes"},
+                "tags": {"type": "array", "items": {"type": "string"}, "description": "Tags"},
+                "ceo_name": {"type": "string", "description": "CEO name"},
+                "linkedin_url": {"type": "string", "description": "LinkedIn URL"},
+                "status": {"type": "string", "description": "Status"},
+            },
+            "required": ["company_id"],
+        },
+        handler=_update_company_draft,
+    ),
+    "update_project_draft": ToolDef(
+        key="update_project_draft",
+        type="write",
+        module="app.services.crm.projects",
+        requires_confirmation=True,
+        input_schema={
+            "type": "object",
+            "properties": {
+                "project_id": {"type": "string", "format": "uuid", "description": "Project UUID"},
+                "name": {"type": "string", "description": "Updated project name"},
+                "project_code": {"type": "string", "description": "Project code"},
+                "status": {"type": "string", "description": "Status"},
+                "priority": {"type": "string", "description": "Priority"},
+                "description": {"type": "string", "description": "Description"},
+                "budget_amount": {"type": "number", "description": "Budget amount"},
+                "start_date": {"type": "string", "format": "date", "description": "Start date YYYY-MM-DD"},
+                "deadline": {"type": "string", "format": "date", "description": "Deadline YYYY-MM-DD"},
+            },
+            "required": ["project_id"],
+        },
+        handler=_update_project_draft,
+    ),
+    "update_task_draft": ToolDef(
+        key="update_task_draft",
+        type="write",
+        module="app.services.crm.tasks",
+        requires_confirmation=True,
+        input_schema={
+            "type": "object",
+            "properties": {
+                "task_id": {"type": "string", "format": "uuid", "description": "Task UUID"},
+                "title": {"type": "string", "description": "Updated title"},
+                "description": {"type": "string", "description": "Updated description"},
+                "due_date": {"type": "string", "format": "date", "description": "Due date YYYY-MM-DD"},
+                "priority": {"type": "string", "enum": ["low", "medium", "high", "urgent"]},
+                "status": {"type": "string", "description": "Status"},
+                "notes_html": {"type": "string", "description": "Rich-text notes"},
+                "is_important": {"type": "boolean", "description": "Important flag"},
+                "reminder_at": {"type": "string", "format": "date-time", "description": "Reminder timestamp"},
+            },
+            "required": ["task_id"],
+        },
+        handler=_update_task_draft,
+    ),
+    "update_namecard_draft": ToolDef(
+        key="update_namecard_draft",
+        type="write",
+        module="app.services.crm.namecards",
+        requires_confirmation=True,
+        input_schema={
+            "type": "object",
+            "properties": {
+                "namecard_id": {"type": "string", "format": "uuid", "description": "NameCard UUID"},
+                "status": {"type": "string", "description": "Status"},
+                "dedup_status": {"type": "string", "description": "Dedup status"},
+            },
+            "required": ["namecard_id"],
+        },
+        handler=_update_namecard_draft,
     ),
     # fmt: on
 }
