@@ -68,6 +68,48 @@
   border-radius: var(--radius-lg);
 }
 
+/* ── AI Briefing — trigger + panel 合併為一個卡（紫色 → 藍色） ── */
+.ai-brief-card {
+  border: 1px solid var(--color-divider);
+  background: var(--color-surface);
+  overflow: hidden;
+}
+
+/* Trigger = card header（透明，hover 藍色 tint） */
+.ab-trigger {
+  background: linear-gradient(135deg, color-mix(in srgb, var(--color-primary) 8%, transparent), color-mix(in srgb, var(--color-primary) 4%, transparent));
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  border: none;
+}
+.ab-trigger:hover {
+  background: linear-gradient(135deg, color-mix(in srgb, var(--color-primary) 14%, transparent), color-mix(in srgb, var(--color-primary) 7%, transparent));
+}
+
+/* Pulse orb — 藍色系 */
+.ab-orb-pulse {
+  background: radial-gradient(circle, #60A5FA, #2563EB);
+  box-shadow: 0 0 0 0 rgba(20, 110, 245, .45);
+}
+.ab-orb-sparkles {
+  color: #2563EB;
+}
+
+/* Trigger pill — 藍色 */
+.ab-trigger-pill {
+  color: var(--color-primary);
+  background: color-mix(in srgb, var(--color-primary) 12%, transparent);
+}
+
+/* Panel card = card body（透明，用 border-top 分隔 header） */
+.ab-panel-card {
+  border: none;
+  border-top: 1px solid var(--color-divider);
+  background: transparent;
+  box-shadow: none;
+  border-radius: 0 0 var(--radius-lg) var(--radius-lg);
+  margin-top: 0;
+}
+
 .chat-panel::before,
 .cb-panel::before,
 .cb-panel--desktop::before,

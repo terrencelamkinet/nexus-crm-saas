@@ -399,12 +399,6 @@ export default function AIBriefingDrawer() {
         tabIndex={0}
         onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') toggleExpand() }}
         className="ab-trigger"
-        style={{
-          border: `1px solid ${expanded ? 'var(--color-purple)' : 'color-mix(in oklch, var(--color-purple) 22%, var(--color-divider))'}`,
-          marginBottom: expanded ? 0 : 20,
-        }}
-        onMouseEnter={e => (e.currentTarget.style.borderColor = 'var(--color-purple)')}
-        onMouseLeave={e => (e.currentTarget.style.borderColor = expanded ? 'var(--color-purple)' : 'color-mix(in oklch, var(--color-purple) 22%, var(--color-divider))')}
       >
         {/* Pulse orb */}
         <div className="ab-orb-wrap">
@@ -431,7 +425,6 @@ export default function AIBriefingDrawer() {
         className="ab-panel"
         style={{
           gridTemplateRows: expanded ? '1fr' : '0fr',
-          marginBottom: expanded ? 20 : 0,
         }}
       >
         <div
@@ -806,9 +799,9 @@ export default function AIBriefingDrawer() {
       {/* Global keyframes + tooltip styles */}
       <style>{`
         @keyframes ai-pulse {
-          0% { box-shadow: 0 0 0 0 rgba(139,92,246,0.45); }
-          70% { box-shadow: 0 0 0 12px rgba(139,92,246,0); }
-          100% { box-shadow: 0 0 0 0 rgba(139,92,246,0); }
+          0% { box-shadow: 0 0 0 0 rgba(20,110,245,0.45); }
+          70% { box-shadow: 0 0 0 12px rgba(20,110,245,0); }
+          100% { box-shadow: 0 0 0 0 rgba(20,110,245,0); }
         }
         @keyframes ai-bounce {
           0%, 60%, 100% { transform: translateY(0); opacity: 0.5; }
