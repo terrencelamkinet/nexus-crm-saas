@@ -766,17 +766,39 @@ async def _inject_memory_context(
     db: AsyncSession,
     current_session_id: UUID | None = None,
 ) -> list[str]:
-    """Load recent cross-session memory entries for this user."""
-    result = await db.execute(
+    """Load recent cross-session memory entries for this user.
+
+    Priority: daily rollups (last 7 days) first, then other facts
+    (most recently accessed). Daily summaries give the AI a compact
+    picture of recent work; facts carry durable preferences.
+    """
+    # 1. Daily rollups — last 7 days, newest first
+    daily_res = await db.execute(
         select(UserMemory)
         .where(
             UserMemory.user_id == ctx.user_id,
             UserMemory.tenant_id == ctx.tenant_id,
+            UserMemory.category == "daily",
+        )
+        .order_by(UserMemory.created_at.desc())
+        .limit(7)
+    )
+    daily_mems = daily_res.scalars().all()
+
+    # 2. Other facts — exclude daily, most recently accessed first
+    fact_res = await db.execute(
+        select(UserMemory)
+        .where(
+            UserMemory.user_id == ctx.user_id,
+            UserMemory.tenant_id == ctx.tenant_id,
+            UserMemory.category != "daily",
         )
         .order_by(UserMemory.last_accessed.desc())
         .limit(20)
     )
-    memories = result.scalars().all()
+    fact_mems = fact_res.scalars().all()
+
+    memories = [*daily_mems, *fact_mems]
 
     if not memories:
         return []
@@ -787,7 +809,12 @@ async def _inject_memory_context(
 
     lines = []
     for m in memories:
-        label = m.category.replace("_", " ").title()
+        if m.category == "daily":
+            # Daily rollup — show the date from source (daily_rollup:YYYY-MM-DD)
+            date_tag = m.source.split(":", 1)[-1] if m.source and ":" in m.source else ""
+            label = f"昨日回顧 {date_tag}" if date_tag else "昨日回顧"
+        else:
+            label = m.category.replace("_", " ").title()
         lines.append(f"- [{label}] {m.content}")
     return lines
 
