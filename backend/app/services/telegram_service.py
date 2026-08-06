@@ -9,6 +9,7 @@ Bot token is a secret — stored in nexus_ai.ai_channel_credentials
 (ChannelCredential, encrypted at app level), NOT in the mapping table.
 """
 import httpx
+import asyncio
 
 BOT_API = "https://api.telegram.org/bot{token}/{method}"
 
@@ -48,16 +49,40 @@ async def download_file(token: str, file_id: str, ext: str = "ogg") -> bytes | N
 
 
 async def send_message(token: str, chat_id: str, text: str) -> dict:
-    """Send a text message to a chat. Returns Telegram API response JSON."""
+    """Send a text message to a chat. Returns Telegram API response JSON.
+
+    Retry pattern: Telegram API occasionally hiccups (>15s latency, 429/5xx).
+    A single failure must not drop the reply — the webhook dedup watermark
+    only advances after a successful send, so losing this call would silently
+    swallow the user's message (observed 2026-08-06: AI replied but send
+    timed out at 15s → reply never delivered, watermark stuck).
+    """
     url = BOT_API.format(token=token, method="sendMessage")
     payload = {
         "chat_id": chat_id,
         "text": text,
         "disable_web_page_preview": True,
     }
-    async with httpx.AsyncClient(timeout=15) as client:
-        resp = await client.post(url, json=payload)
-        return resp.json()
+    last_err: str = ""
+    for attempt in range(3):
+        try:
+            async with httpx.AsyncClient(timeout=30) as client:
+                resp = await client.post(url, json=payload)
+            data = resp.json()
+            # 429 Too Many Requests — Telegram asks to retry after retry_after
+            if data.get("ok"):
+                return data
+            last_err = str(data)[:200]
+            if resp.status_code == 429 and attempt < 2:
+                retry_after = (data.get("parameters") or {}).get("retry_after", 2)
+                await asyncio.sleep(min(retry_after, 5))
+                continue
+            return data  # non-429 error — surface it, no infinite retry
+        except Exception as e:  # noqa: BLE001 — network/timeout, retry
+            last_err = str(e)[:200]
+            if attempt < 2:
+                await asyncio.sleep(1.5 * (attempt + 1))
+    return {"ok": False, "error": f"send_message failed after 3 attempts: {last_err}"}
 
 
 async def set_webhook(token: str, webhook_url: str) -> dict:

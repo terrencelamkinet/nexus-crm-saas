@@ -707,6 +707,15 @@ async def handle_webhook_update(data: dict) -> None:
             last_id = cfg.get("tg_last_webhook_update_id")
             if upd_id is not None and last_id is not None and upd_id <= last_id:
                 return  # duplicate delivery (Telegram retry) — already processed
+            # Telegram webhook test pings (update_id 999999998 / 999999999)
+            # must NEVER advance the dedup watermark — they are not real
+            # updates and a later real update_id (e.g. 392261534) would be
+            # < 999999998 and dropped as a "duplicate" forever. This exact
+            # bug silently killed the whole inbound path on 2026-08-06
+            # (15:55 test ping blocked every subsequent real message).
+            # Real update_ids are ~1e6–4e8; anything ≥ 9e8 is a test ping.
+            if upd_id is not None and upd_id >= 900_000_000:
+                return  # test ping — ignore entirely, keep watermark
             await process_update(mapping, data)
             if upd_id is not None:
                 cfg["tg_last_webhook_update_id"] = upd_id

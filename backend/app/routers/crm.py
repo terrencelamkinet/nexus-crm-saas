@@ -2635,6 +2635,31 @@ async def list_all_calendar_events(
     return result.scalars().all()
 
 
+@router.get("/calendar-events/{event_id}", response_model=ProjectCalendarEventResponse)
+async def get_calendar_event(
+    event_id: UUID,
+    request: Request,
+    db: AsyncSession = Depends(get_tenant_session),
+):
+    """Fetch a single calendar event by id — powers IM-push deep links (/l/m/{id})."""
+    tenant_id = _get_tenant_id(request)
+    user_id = getattr(request.state, "user_id", None)
+    evt = (
+        await db.execute(
+            select(ProjectCalendarEvent).where(
+                ProjectCalendarEvent.tenant_id == tenant_id,
+                ProjectCalendarEvent.id == event_id,
+                # per-user calendar isolation: own events + shared (no-owner) ones
+                (ProjectCalendarEvent.owner_user_id == user_id)
+                | (ProjectCalendarEvent.owner_user_id.is_(None)),
+            )
+        )
+    ).scalar_one_or_none()
+    if not evt:
+        raise HTTPException(404, "Event not found")
+    return evt
+
+
 @router.get("/projects/{project_id}/calendar-events", response_model=list[ProjectCalendarEventResponse])
 async def list_calendar_events(
     request: Request,

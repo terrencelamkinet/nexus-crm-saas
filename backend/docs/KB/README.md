@@ -1,0 +1,62 @@
+# 📚 G08 NEXUS CRM — Knowledge Base (KB)
+
+> **用途:** 記錄所有已知問題嘅成因、解決方法、解決過程、問題 log 同成功 log。
+> **對象:** 人類工程師 + AI agent 都要睇得明。
+> **規則:** 每次解決一個新問題,必須加一條 entry。遇到疑似重複問題,先查呢度。
+
+---
+
+## 📖 點樣用呢個 KB
+
+### 人類工程師
+- 遇到問題 → 睇 `INDEX.md` 或搜尋 `grep -ri "<症狀關鍵字>" docs/KB/`
+- 每條 entry 有:症狀 → 成因 → 修復 → 驗證 → 預防
+
+### AI Agent
+- 每次 debug 前:讀 `INDEX.md`,用 `search_files` 搜尋 `docs/KB/` 匹配 symptoms
+- 匹配到 → 直接參考 entry 嘅 diagnostic protocol,唔好重新診斷
+- 解決新問題後:必須寫一條新 entry (跟 TEMPLATE)
+
+### 快速診斷手冊 (Quick Reference)
+| 症狀 | 可能成因 | Entry |
+|------|---------|-------|
+| Bot 收唔到/唔回覆訊息,零 error | dedup watermark 污染 / test ping | [KB-001](./KB-001-telegram-inbound-silent-drop.md) |
+| Journal 顯示 `SELECT → ROLLBACK` 冇下文 | dedup early-return (watermark 高過 update_id) | [KB-001](./KB-001-telegram-inbound-silent-drop.md) |
+| AI 有回覆但用戶收唔到 | sendMessage timeout 無 retry | [KB-001](./KB-001-telegram-inbound-silent-drop.md) §5 |
+
+---
+
+## 📑 Entry 索引
+
+| ID | 日期 | 標題 | Severity | 系統 |
+|----|------|------|----------|------|
+| [KB-001](./KB-001-telegram-inbound-silent-drop.md) | 2026-08-06 | Telegram inbound 靜默丟失訊息 (watermark 污染) | 🔴 Critical | backend |
+
+---
+
+## ➕ 加新 Entry 嘅 Template
+
+```markdown
+# KB-XXX — <簡短標題>
+
+## 📅 日期 / 🔴 Severity / 📍 系統
+## 1. 症狀 (Symptom) — 用戶見到咩 / 系統表現
+## 2. 問題 log (Error Log) — 實際 log 摘錄
+## 3. 成因 (Root Cause) — 根本原因,唔好只寫表面
+## 4. 解決過程 (Debug Process) — 點樣搵到,每一步
+## 5. 解決方法 (Fix) — 具體修復步驟 / patch
+## 6. 成功 log (Success Log) — 修復後嘅正常 log
+## 7. 驗證 (Verification) — 點確認真係修好
+## 8. 預防 (Prevention) — 點避免再犯
+## 9. 相關檔案 (Files Affected)
+```
+
+---
+
+## 🔗 相關資源
+- `backend/app/services/telegram_inbound.py` — webhook/queue consumer 核心邏輯
+- `backend/app/routers/telegram.py` — webhook endpoint
+- `backend/app/services/telegram_service.py` — Telegram API client (sendMessage retry)
+- `/tmp/telegram_webhook.log` — webhook 收到嘅 update 記錄
+- `journalctl -u nexus-crm.service` — backend 完整 log
+- Skill: `debug-system` (D035 有同步記錄)

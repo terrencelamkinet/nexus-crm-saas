@@ -23,6 +23,7 @@ import NameCardsPage from './pages/NameCardsPage';
 import SettingsPage from './pages/SettingsPage';
 import AIAppsPage from './pages/AIAppsPage';
 import NotificationsPage from './pages/NotificationsPage';
+import DeepLinkEventPage from './pages/DeepLinkEventPage';
 import SalesGate from './components/SalesGate';
 import ProjectGate from './components/ProjectGate';
 
@@ -51,7 +52,8 @@ function App() {
           {/* IM push deep links — WhatsApp briefing links resolve to real pages */}
           <Route path="l/dashboard" element={<Navigate to="/dashboard" replace />} />
           <Route path="l/t/:id" element={<DeepLinkTask />} />
-          <Route path="l/m/:id" element={<Navigate to="/dashboard" replace />} />
+          <Route path="l/m/:id" element={<DeepLinkEventPage mode="prep" />} />
+          <Route path="l/note/:id" element={<DeepLinkEventPage mode="note" />} />
           <Route path="contacts" element={<ContactsPage />} />
           <Route path="calendar" element={<ContactCalendarPage />} />
           <Route path="contacts/:id" element={<ContactDetailPage />} />
