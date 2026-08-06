@@ -1375,14 +1375,15 @@ async def upload_name_card(
     image_url = original_image_url  # default display = original until crop verified
 
     # 2. Crop + OCR-verify: keep a crop only if it preserves card content.
+    usage_reports: list = []  # core rule G08: central token collection
     from app.services import namecard_crop_pipeline
-    crop_result = namecard_crop_pipeline.crop_card_best(abs_path)
+    crop_result = namecard_crop_pipeline.crop_card_best(abs_path, usage_out=usage_reports)
     crop_path = None
     cropped_image_url = None
     if crop_result["crop"] is not None:
         try:
             crop_path = namecard_crop_pipeline.save_crop(crop_result["crop"], abs_path)
-            if namecard_ocr.verify_crop(abs_path, crop_path):
+            if namecard_ocr.verify_crop(abs_path, crop_path, usage_out=usage_reports):
                 cropped_image_url = f"/api/v1/crm/name-cards/image/{crop_path.name}"
             else:
                 crop_path.unlink(missing_ok=True)
@@ -1392,14 +1393,14 @@ async def upload_name_card(
 
     # 3. OCR — use the verified crop when available (cleaner input → better parse)
     ocr_source = crop_path if crop_path is not None else abs_path
-    raw_text = namecard_ocr.ocr_image(ocr_source)
+    raw_text = namecard_ocr.ocr_image(ocr_source, usage_out=usage_reports)
     parsed = namecard_ocr.parse_namecard(raw_text) if raw_text else {}
 
     # 3.5 Agent pipeline — Ingestion → Extraction (LLM JSON mode, fail-safe)
     s1 = namecard_agents.ingestion_agent(raw_text, parsed, image_url)
     await namecard_agents.persist_step(
         db, tenant_id=tenant_id, signal_id=card_id, step=s1)
-    s2 = namecard_agents.extraction_agent(s1.output["signal"])
+    s2 = namecard_agents.extraction_agent(s1.output["signal"], usage_out=usage_reports)
     await namecard_agents.persist_step(
         db, tenant_id=tenant_id, signal_id=card_id, step=s2)
     parsed = s2.output["parsed"]
@@ -1433,7 +1434,7 @@ async def upload_name_card(
                         break
     if company_name and comp is None:
         # Enrichment Agent — web research (Perplexity; {} on failure)
-        s4 = namecard_agents.enrichment_agent(company_name)
+        s4 = namecard_agents.enrichment_agent(company_name, usage_out=usage_reports)
         await namecard_agents.persist_step(
             db, tenant_id=tenant_id, signal_id=card_id, step=s4)
         research = s4.output.get("research") or {}
@@ -1484,7 +1485,7 @@ async def upload_name_card(
         "email": c.email, "phone": c.phone, "office_phone": c.office_phone,
     } for c in cand_rows]
 
-    s3 = namecard_agents.entity_resolution_agent(parsed, existing_contacts, company_id)
+    s3 = namecard_agents.entity_resolution_agent(parsed, existing_contacts, company_id, usage_out=usage_reports)
     await namecard_agents.persist_step(
         db, tenant_id=tenant_id, signal_id=card_id, step=s3)
     resolution = s3.output
@@ -1592,7 +1593,7 @@ async def upload_name_card(
         if recent_tps:
             _events = [{"title": t.title, "date": str(t.date),
                         "location": t.location or ""} for t in recent_tps]
-            s5 = namecard_agents.inference_agent(parsed, _events)
+            s5 = namecard_agents.inference_agent(parsed, _events, usage_out=usage_reports)
             await namecard_agents.persist_step(
                 db, tenant_id=tenant_id, signal_id=card_id, step=s5)
             if s5.output.get("suggestion"):
@@ -1601,6 +1602,12 @@ async def upload_name_card(
                 parsed["context_match"] = s5.output.get("matched_event") or ""
     except Exception:  # noqa: BLE001 — enrichment never breaks upload
         context_note = ""
+
+    # ── Record usage events (namecard module) — central token collection ──
+    try:
+        await namecard_agents._record_namecard_usage(db, tenant_id, usage_reports)
+    except Exception:
+        pass  # usage recording is best-effort
 
     # 5. Store NameCard row
     name_card = NameCard(
@@ -1850,12 +1857,19 @@ async def recrop_name_card(
     if src_path is None:
         raise HTTPException(status_code=404, detail="Source image file missing")
 
-    crop_result = namecard_crop_pipeline.crop_card_best(src_path)
+    # ── Record usage events (namecard module) — central token collection ──
+    usage_reports: list = []  # core rule G08
+    crop_result = namecard_crop_pipeline.crop_card_best(src_path, usage_out=usage_reports)
     if crop_result["crop"] is None:
         raise HTTPException(status_code=422, detail=f"Crop failed ({crop_result['method']})")
+    try:
+        from app.services.namecard_agents import _record_namecard_usage
+        await _record_namecard_usage(db, tenant_id, usage_reports)
+    except Exception:
+        pass  # usage recording is best-effort
 
     crop_path = namecard_crop_pipeline.save_crop(crop_result["crop"], src_path)
-    if not namecard_ocr.verify_crop(src_path, crop_path):
+    if not namecard_ocr.verify_crop(src_path, crop_path, usage_out=usage_reports):
         crop_path.unlink(missing_ok=True)
         raise HTTPException(
             status_code=422,

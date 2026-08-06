@@ -23,6 +23,7 @@ from datetime import date, datetime
 from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
+from uuid import uuid4
 
 from app.models.crm import AiAgentLog
 from app.services import namecard_llm
@@ -109,13 +110,13 @@ def ingestion_agent(raw_text: str, parsed_heuristic: dict[str, Any],
 
 
 # ── Agent 2: Extraction ───────────────────────────────────────────────
-def extraction_agent(signal: dict[str, Any]) -> AgentStep:
+def extraction_agent(signal: dict[str, Any], usage_out: list | None = None) -> AgentStep:
     """LLM (DeepSeek JSON mode): raw OCR text → clean structured fields."""
     step = AgentStep("extraction")
     raw = signal.get("raw_ocr_text", "")
     heuristic = signal.get("parsed", {})
     step.input_snapshot = {"raw_text": raw[:500], "heuristic": heuristic}
-    llm_parsed = namecard_llm.llm_structured(raw)
+    llm_parsed = namecard_llm.llm_structured(raw, usage_out=usage_out)
     merged = dict(heuristic)
     for k, v in llm_parsed.items():
         if v:
@@ -133,7 +134,8 @@ def extraction_agent(signal: dict[str, Any]) -> AgentStep:
 # ── Agent 3: Entity Resolution ────────────────────────────────────────
 def entity_resolution_agent(parsed: dict[str, Any],
                             existing_contacts: list[dict[str, Any]],
-                            company_id: Any) -> AgentStep:
+                            company_id: Any,
+                            usage_out: list | None = None) -> AgentStep:
     """Three layers: exact match → semantic similarity → LLM verdict.
 
     Returns tier routing decision: auto_link | review | create.
@@ -200,7 +202,7 @@ def entity_resolution_agent(parsed: dict[str, Any],
     # Layer 3 — LLM verdict on the grey zone
     llm_card = {k: parsed.get(k, "") for k in
                 ("name", "chinese_name", "title", "company", "email", "phone")}
-    dup = namecard_llm.llm_duplicate_analysis(llm_card, candidates)
+    dup = namecard_llm.llm_duplicate_analysis(llm_card, candidates, usage_out=usage_out)
     conf = float(dup.get("confidence") or 0.0)
     is_dup = bool(dup.get("is_duplicate")) and bool(dup.get("candidate_id"))
 
@@ -230,7 +232,7 @@ def entity_resolution_agent(parsed: dict[str, Any],
 
 
 # ── Agent 4: Enrichment ───────────────────────────────────────────────
-def enrichment_agent(company_name: str) -> AgentStep:
+def enrichment_agent(company_name: str, usage_out: list | None = None) -> AgentStep:
     """Perplexity sonar: web-search the company → fill missing fields.
 
     Output carries source_url + confidence so humans can verify AI guesses
@@ -238,7 +240,7 @@ def enrichment_agent(company_name: str) -> AgentStep:
     """
     step = AgentStep("enrichment")
     step.input_snapshot = {"company_name": company_name}
-    research = namecard_llm.llm_company_research(company_name)
+    research = namecard_llm.llm_company_research(company_name, usage_out=usage_out)
     filled = {k: v for k, v in research.items() if v}
     conf = float(research.get("confidence") or 0.0)
     return step.finish(
@@ -254,7 +256,8 @@ def enrichment_agent(company_name: str) -> AgentStep:
 
 # ── Agent 5: Inference ────────────────────────────────────────────────
 def inference_agent(parsed: dict[str, Any],
-                    recent_events: list[dict[str, Any]]) -> AgentStep:
+                    recent_events: list[dict[str, Any]],
+                    usage_out: list | None = None) -> AgentStep:
     """DeepSeek triple-verification: could this person have been met recently?
 
     Auto-link only when time + location + company all match; otherwise a weak
@@ -266,7 +269,7 @@ def inference_agent(parsed: dict[str, Any],
         "events": [{"title": e.get("title"), "date": str(e.get("date"))[:10],
                     "location": e.get("location")} for e in recent_events[:10]],
     }
-    result = namecard_llm.llm_context_suggestion(parsed, recent_events)
+    result = namecard_llm.llm_context_suggestion(parsed, recent_events, usage_out=usage_out)
     verif = result.get("verification") or {}
     checks = [bool(verif.get("time")), bool(verif.get("location")),
               bool(verif.get("company"))]
@@ -302,6 +305,38 @@ def company_completeness_pct(company: dict[str, Any]) -> int:
 
 
 # ── Sequential orchestration ──────────────────────────────────────────
+async def _record_namecard_usage(
+    db: AsyncSession,
+    tenant_id: Any,
+    usage_reports: list[dict[str, Any]],
+) -> None:
+    """Write UsageEvent rows from namecard LLM calls (core rule G08).
+
+    ``usage_reports`` entries: {provider, model, input_tokens, output_tokens,
+    cost_usd}. Namecard pipeline has no chat session → session_id=None.
+    """
+    if not usage_reports:
+        return
+    try:
+        from app.models.ai.usage import UsageEvent
+        for r in usage_reports:
+            db.add(UsageEvent(
+                session_id=None,
+                user_id=uuid4(),  # namecard pipeline is system-level; no user session
+                tenant_id=tenant_id,
+                provider=r.get("provider") or "deepseek",
+                model=r.get("model") or "",
+                input_tokens=int(r.get("input_tokens") or 0),
+                output_tokens=int(r.get("output_tokens") or 0),
+                cost_estimate=float(r.get("cost_usd") or 0) if r.get("cost_usd") else None,
+                result_status="success",
+                module="namecard",
+                currency="USD",
+            ))
+    except Exception:
+        pass  # usage recording is best-effort
+
+
 async def persist_step(db: AsyncSession, *, tenant_id: Any, signal_id: Any,
                        step: AgentStep) -> None:
     """Write one agent step to ai_agent_log. Callable between pipeline stages
@@ -336,28 +371,32 @@ async def run_namecard_pipeline(
     Returns a combined analysis dict the router uses to write DB rows.
     """
     steps: list[AgentStep] = []
+    usage_reports: list = []  # core rule G08: central token collection
 
     # 1 → 2: ingest then extract
     s1 = ingestion_agent(raw_text, parsed_heuristic, image_url)
     steps.append(s1)
     signal = s1.output["signal"]
-    s2 = extraction_agent(signal)
+    s2 = extraction_agent(signal, usage_out=usage_reports)
     steps.append(s2)
     parsed = s2.output["parsed"]
 
     # 3: entity resolution
-    s3 = entity_resolution_agent(parsed, existing_contacts, company_id)
+    s3 = entity_resolution_agent(parsed, existing_contacts, company_id, usage_out=usage_reports)
     steps.append(s3)
 
     # 4: enrichment (only when we have a company to research)
     s4 = None
     if company_name.strip():
-        s4 = enrichment_agent(company_name)
+        s4 = enrichment_agent(company_name, usage_out=usage_reports)
         steps.append(s4)
 
     # 5: inference
-    s5 = inference_agent(parsed, recent_events)
+    s5 = inference_agent(parsed, recent_events, usage_out=usage_reports)
     steps.append(s5)
+
+    # ── Record usage events (namecard_* modules) — central token collection ──
+    await _record_namecard_usage(db, tenant_id, usage_reports)
 
     # Persist audit trail — one row per step
     for st in steps:

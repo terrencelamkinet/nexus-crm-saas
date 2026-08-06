@@ -14,8 +14,11 @@ from __future__ import annotations
 import json
 import os
 import urllib.request
+from decimal import Decimal
 from pathlib import Path
 from typing import Any
+
+from app.ai.providers.base import compute_cost
 
 DEEPSEEK_URL = "https://api.deepseek.com/v1/chat/completions"
 DEEPSEEK_MODEL = "deepseek-chat"
@@ -108,7 +111,8 @@ def name_similarity(a: str, b: str) -> float:
     return jac
 
 
-def _post_json(url: str, key: str, payload: dict, timeout: int = 45) -> dict | None:
+def _post_json(url: str, key: str, payload: dict, timeout: int = 45,
+               usage_out: list | None = None) -> dict | None:
     if not key:
         return None
     req = urllib.request.Request(
@@ -120,12 +124,27 @@ def _post_json(url: str, key: str, payload: dict, timeout: int = 45) -> dict | N
         with urllib.request.urlopen(req, timeout=timeout) as resp:
             data = json.loads(resp.read())
         content = data["choices"][0]["message"]["content"]
+        # Core rule G08: collect usage for central token/cost tracking.
+        if usage_out is not None:
+            u = data.get("usage") or {}
+            inp = int(u.get("prompt_tokens") or 0)
+            out = int(u.get("completion_tokens") or 0)
+            model = payload.get("model") or ""
+            cost = compute_cost(model, inp, out)  # USD per-1K cost cards
+            usage_out.append({
+                "provider": "perplexity" if "perplexity" in url else
+                            ("deepseek" if "deepseek" in url else "siliconflow"),
+                "model": model,
+                "input_tokens": inp,
+                "output_tokens": out,
+                "cost_usd": cost,
+            })
         return {"content": content, "raw": data}
     except Exception:  # noqa: BLE001 — enrichment must never raise
         return None
 
 
-def llm_structured(raw_text: str) -> dict[str, Any]:
+def llm_structured(raw_text: str, usage_out: list | None = None) -> dict[str, Any]:
     """DeepSeek: raw OCR text → clean structured fields (fixes OCR noise)."""
     key = _env("DEEPSEEK_API_KEY")
     if not key or not raw_text.strip():
@@ -146,14 +165,14 @@ def llm_structured(raw_text: str) -> dict[str, Any]:
         "temperature": 0,
         "max_tokens": 400,
         "response_format": {"type": "json_object"},
-    })
+    }, usage_out=usage_out)
     if not resp:
         return {}
     data = _extract_json(resp["content"]) or {}
     return {k: str(data.get(k, "")).strip() for k in _FIELDS}
 
 
-def llm_company_research(company_name: str) -> dict[str, Any]:
+def llm_company_research(company_name: str, usage_out: list | None = None) -> dict[str, Any]:
     """Perplexity sonar: web-search the company → enrichment fields.
 
     Returns website/industry/address/size/description + source_url (best
@@ -178,7 +197,7 @@ def llm_company_research(company_name: str) -> dict[str, Any]:
         "messages": [{"role": "user", "content": prompt}],
         "temperature": 0.1,
         "max_tokens": 400,
-    })
+    }, usage_out=usage_out)
     if not resp:
         return {}
     data = _extract_json(resp["content"]) or {}
@@ -192,7 +211,8 @@ def llm_company_research(company_name: str) -> dict[str, Any]:
 
 
 def llm_duplicate_analysis(parsed: dict[str, Any],
-                           candidates: list[dict[str, Any]]) -> dict[str, Any]:
+                           candidates: list[dict[str, Any]],
+                           usage_out: list | None = None) -> dict[str, Any]:
     """DeepSeek: is the scanned card the same person as an existing contact?"""
     key = _env("DEEPSEEK_API_KEY")
     if not key or not candidates:
@@ -221,7 +241,7 @@ def llm_duplicate_analysis(parsed: dict[str, Any],
         "temperature": 0,
         "max_tokens": 300,
         "response_format": {"type": "json_object"},
-    })
+    }, usage_out=usage_out)
     if not resp:
         return {"is_duplicate": False, "candidate_id": None, "confidence": 0.0,
                 "reason": ""}
@@ -235,7 +255,8 @@ def llm_duplicate_analysis(parsed: dict[str, Any],
 
 
 def llm_context_suggestion(parsed: dict[str, Any],
-                           recent_events: list[dict[str, Any]]) -> dict[str, Any]:
+                           recent_events: list[dict[str, Any]],
+                           usage_out: list | None = None) -> dict[str, Any]:
     """DeepSeek Inference Agent: could this person have been met recently?
 
     Triple-verification (架構文檔 §階段四): time + location + company-name
@@ -276,7 +297,7 @@ def llm_context_suggestion(parsed: dict[str, Any],
         "temperature": 0,
         "max_tokens": 200,
         "response_format": {"type": "json_object"},
-    })
+    }, usage_out=usage_out)
     if not resp:
         return {"suggestion": "", "confidence": 0.0, "matched_event": ""}
     data = _extract_json(resp["content"]) or {}

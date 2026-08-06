@@ -10,6 +10,7 @@ SOC 2 COMPLIANCE:
   - All other endpoints require auth + tenant isolation.
 """
 import uuid
+from uuid import UUID
 import os
 import random
 import json
@@ -511,7 +512,8 @@ async def _handle_wa_namecard_image(wa_id: str, content: bytes, mime: str) -> st
     preview = (det.get("ocr_preview") or "")[:80]
     try:
         from app.services.namecard_ocr import parse_namecard, ocr_image
-        full_txt = ocr_image(str(path))
+        wa_usage: list = []  # core rule G08: central token collection
+        full_txt = ocr_image(str(path), usage_out=wa_usage)
         parsed = parse_namecard(full_txt or preview)
         p_name = parsed.get("name") or ""
         p_company = parsed.get("company") or ""
@@ -519,6 +521,27 @@ async def _handle_wa_namecard_image(wa_id: str, content: bytes, mime: str) -> st
             preview = f"{p_name}" + (f" · {p_company}" if p_company else "")
         elif full_txt:
             preview = " ".join(full_txt.split())[:80]
+        if wa_usage:
+            try:
+                from app.models.ai.usage import UsageEvent
+                async with async_session() as _db:
+                    for r in wa_usage:
+                        _db.add(UsageEvent(
+                            session_id=None,
+                            user_id=uuid4(),
+                            tenant_id=UUID("00000000-0000-0000-0000-000000000001"),
+                            provider=r.get("provider") or "siliconflow",
+                            model=r.get("model") or "",
+                            input_tokens=int(r.get("input_tokens") or 0),
+                            output_tokens=int(r.get("output_tokens") or 0),
+                            cost_estimate=float(r.get("cost_usd") or 0) if r.get("cost_usd") else None,
+                            result_status="success",
+                            module="namecard",
+                            currency="USD",
+                        ))
+                    await _db.commit()
+            except Exception:
+                pass  # usage recording is best-effort
     except Exception:
         pass
 

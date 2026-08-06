@@ -73,7 +73,8 @@ def _detect_card_region(img: Any) -> Any:
     return cv2.warpPerspective(img, M, (card_w, card_h))
 
 
-def _detect_card_region_vision(image_path: str | Path) -> Any | None:
+def _detect_card_region_vision(image_path: str | Path,
+                               usage_out: list | None = None) -> Any | None:
     """Vision-AI fallback: ask Qwen3-VL (SiliconFlow) for exact card corners.
 
     Used only when OpenCV contour detection finds no confident quadrilateral —
@@ -122,6 +123,18 @@ def _detect_card_region_vision(image_path: str | Path) -> Any | None:
         with urllib.request.urlopen(req, timeout=45) as resp:
             result = json.loads(resp.read())
         text = result["choices"][0]["message"]["content"]
+        # Core rule G08: collect SiliconFlow usage for central tracking.
+        if usage_out is not None:
+            u = result.get("usage") or {}
+            inp = int(u.get("prompt_tokens") or 0)
+            out = int(u.get("completion_tokens") or 0)
+            usage_out.append({
+                "provider": "siliconflow",
+                "model": "Qwen/Qwen3-VL-8B-Instruct",
+                "input_tokens": inp,
+                "output_tokens": out,
+                "cost_usd": 0,  # SiliconFlow pricing not in cost cards
+            })
         start, end = text.find("{"), text.rfind("}") + 1
         corners = json.loads(text[start:end])["corners"]
         if len(corners) != 4:
@@ -143,7 +156,8 @@ def _detect_card_region_vision(image_path: str | Path) -> Any | None:
         return None
 
 
-def ocr_image(image_path: str | Path, langs: str = "chi_tra+eng") -> str:
+def ocr_image(image_path: str | Path, langs: str = "chi_tra+eng",
+              usage_out: list | None = None) -> str:
     """Run tesseract on an image → best multi-pass OCR text.
 
     Real photos are noisy: PSM 6 (block) + PSM 11 (sparse) on both enhanced
@@ -162,7 +176,7 @@ def ocr_image(image_path: str | Path, langs: str = "chi_tra+eng") -> str:
         if cropped is img:
             # OpenCV found no confident card boundary → vision-AI fallback
             # (Qwen3-VL via SiliconFlow). None on failure = keep original.
-            vision_crop = _detect_card_region_vision(image_path)
+            vision_crop = _detect_card_region_vision(image_path, usage_out=usage_out)
             if vision_crop is not None:
                 img = vision_crop
         else:
@@ -287,7 +301,8 @@ def signal_score(text: str) -> float:
 
 
 def verify_crop(original_path: str | Path, cropped_path: str | Path,
-                min_ratio: float = 0.85) -> bool:
+                min_ratio: float = 0.85,
+                usage_out: list | None = None) -> bool:
     """OCR-based crop completeness check — did the crop cut anything off?
 
     Baseline = signal score of the full original photo; the crop passes only
@@ -295,8 +310,8 @@ def verify_crop(original_path: str | Path, cropped_path: str | Path,
     the card (missing email / phone / name) scores lower and is rejected, so
     the caller falls back to the original instead of storing a damaged crop.
     """
-    orig_text = ocr_image(original_path)
-    crop_text = ocr_image(cropped_path)
+    orig_text = ocr_image(original_path, usage_out=usage_out)
+    crop_text = ocr_image(cropped_path, usage_out=usage_out)
     base = signal_score(orig_text)
     crop = signal_score(crop_text)
     if base <= 0:

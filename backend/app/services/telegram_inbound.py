@@ -300,11 +300,12 @@ async def _handle_photo(mapping: TelegramBotMapping, token: str, photo_sizes: li
             await db.commit()
 
     # Try to extract a clean name/company for the confirmation message
+    tg_usage: list = []  # core rule G08: central token collection
     try:
         from app.services.namecard_ocr import parse_namecard, ocr_image
         det_txt = det.get("ocr_preview") or ""
         # Re-OCR full text for parse (detect only returns preview)
-        full_txt = ocr_image(path)
+        full_txt = ocr_image(path, usage_out=tg_usage)
         parsed = parse_namecard(full_txt or det_txt)
         p_name = parsed.get("name") or ""
         p_company = parsed.get("company") or ""
@@ -314,6 +315,28 @@ async def _handle_photo(mapping: TelegramBotMapping, token: str, photo_sizes: li
             preview = det_txt[:80]
     except Exception:
         pass
+    if tg_usage:
+        try:
+            from app.models.ai.usage import UsageEvent
+            from uuid import uuid4 as _uuid4
+            async with async_session() as db:
+                for r in tg_usage:
+                    db.add(UsageEvent(
+                        session_id=None,
+                        user_id=_uuid4(),
+                        tenant_id=mapping.tenant_id,
+                        provider=r.get("provider") or "siliconflow",
+                        model=r.get("model") or "",
+                        input_tokens=int(r.get("input_tokens") or 0),
+                        output_tokens=int(r.get("output_tokens") or 0),
+                        cost_estimate=float(r.get("cost_usd") or 0) if r.get("cost_usd") else None,
+                        result_status="success",
+                        module="namecard",
+                        currency="USD",
+                    ))
+                await db.commit()
+        except Exception:
+            pass  # usage recording is best-effort
 
     return (
         f"📇 偵測到名片：{preview}\n\n"

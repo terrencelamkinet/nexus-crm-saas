@@ -17,7 +17,8 @@ from typing import Any
 import cv2
 
 
-def crop_card_best(image_path: str | Path) -> dict[str, Any]:
+def crop_card_best(image_path: str | Path,
+                   usage_out: list | None = None) -> dict[str, Any]:
     """Run crop stages in order. Returns:
     {"crop": ndarray | None, "method": str, "meta": dict}
     """
@@ -47,7 +48,7 @@ def crop_card_best(image_path: str | Path) -> dict[str, Any]:
     # Stage 3 — vision-AI corners (SiliconFlow; no-op without API key)
     try:
         from app.services.namecard_ocr import _detect_card_region_vision
-        warped = _detect_card_region_vision(image_path)
+        warped = _detect_card_region_vision(image_path, usage_out=usage_out)
         meta["vision"] = {"attempted": True}
         if warped is not None:
             return {"crop": warped, "method": "vision", "meta": meta}

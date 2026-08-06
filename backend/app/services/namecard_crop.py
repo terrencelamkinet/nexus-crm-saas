@@ -23,7 +23,8 @@ import numpy as np
 _KEY_FIELDS = ["name", "title", "company", "email", "phone", "website", "address", "phone2"]
 
 
-def _sf_vision(img_bgr: Any, prompt: str, max_tokens: int = 400, timeout: int = 90) -> str:
+def _sf_vision(img_bgr: Any, prompt: str, max_tokens: int = 400, timeout: int = 90,
+               usage_out: list | None = None) -> str:
     key = os.environ.get("SILICONFLOW_API_KEY", "")
     if not key:
         return ""
@@ -45,10 +46,20 @@ def _sf_vision(img_bgr: Any, prompt: str, max_tokens: int = 400, timeout: int = 
     )
     with urllib.request.urlopen(req, timeout=timeout) as resp:
         r = json.loads(resp.read())
+    # Core rule G08: collect SiliconFlow usage for central tracking.
+    if usage_out is not None:
+        u = r.get("usage") or {}
+        usage_out.append({
+            "provider": "siliconflow",
+            "model": "Qwen/Qwen3-VL-8B-Instruct",
+            "input_tokens": int(u.get("prompt_tokens") or 0),
+            "output_tokens": int(u.get("completion_tokens") or 0),
+            "cost_usd": 0,  # SiliconFlow pricing not in cost cards
+        })
     return r["choices"][0]["message"]["content"]
 
 
-def _read_fields(img_bgr: Any) -> dict[str, str]:
+def _read_fields(img_bgr: Any, usage_out: list | None = None) -> dict[str, str]:
     """Read concrete field values from an image (empty string = missing)."""
     prompt = (
         "Read this business card. Return ONLY JSON with these keys (empty string "
@@ -56,7 +67,7 @@ def _read_fields(img_bgr: Any) -> dict[str, str]:
         '"phone":"", "website":"", "address":"", "phone2":""}'
     )
     try:
-        text = _sf_vision(img_bgr, prompt)
+        text = _sf_vision(img_bgr, prompt, usage_out=usage_out)
         start, end = text.find("{"), text.rfind("}") + 1
         data = json.loads(text[start:end])
         return {k: str(data.get(k, "")).strip() for k in _KEY_FIELDS}
@@ -64,10 +75,10 @@ def _read_fields(img_bgr: Any) -> dict[str, str]:
         return {}
 
 
-def _bbox_from_vision(img: Any) -> tuple[int, int, int, int] | None:
+def _bbox_from_vision(img: Any, usage_out: list | None = None) -> tuple[int, int, int, int] | None:
     prompt = 'Find the business card bounding box. Return ONLY JSON {"bbox": [x1,y1,x2,y2]}.'
     try:
-        text = _sf_vision(img, prompt, max_tokens=100)
+        text = _sf_vision(img, prompt, max_tokens=100, usage_out=usage_out)
         start, end = text.find("{"), text.rfind("}") + 1
         bbox = json.loads(text[start:end])["bbox"]
         x1, y1, x2, y2 = (int(v) for v in bbox)
@@ -113,7 +124,8 @@ def _warp_crop(img: Any, corners: np.ndarray, pad: float = 0.0) -> Any:
     return warped
 
 
-def crop_namecard(image_path: str | Path, max_attempts: int = 5) -> dict[str, Any]:
+def crop_namecard(image_path: str | Path, max_attempts: int = 5,
+                  usage_out: list | None = None) -> dict[str, Any]:
     """Crop → LLM verify against full-image baseline → widen if fields lost."""
     img = cv2.imread(str(image_path))
     if img is None:
@@ -121,13 +133,13 @@ def crop_namecard(image_path: str | Path, max_attempts: int = 5) -> dict[str, An
     h, w = img.shape[:2]
 
     # Baseline: every field the card has, read from the full frame.
-    baseline = _read_fields(img)
+    baseline = _read_fields(img, usage_out=usage_out)
     baseline_present = {k for k, v in baseline.items() if v}
     if not baseline_present:
         return {"error": "no fields readable", "crop": img, "baseline": baseline,
                 "attempts": 0, "strategy": "full_image"}
 
-    bbox = _bbox_from_vision(img)
+    bbox = _bbox_from_vision(img, usage_out=usage_out)
     quad = _opencv_quad(img)
 
     strategies: list[tuple[str, Any]] = []
@@ -147,7 +159,7 @@ def crop_namecard(image_path: str | Path, max_attempts: int = 5) -> dict[str, An
     log = []
     best = (-1, img, baseline, "full_image")
     for i, (name, crop) in enumerate(strategies[:max_attempts]):
-        fields = _read_fields(crop)
+        fields = _read_fields(crop, usage_out=usage_out)
         present = {k for k, v in fields.items() if v}
         lost = sorted(baseline_present - present)
         gained = sorted(present - baseline_present)
