@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Activity, Trash2, X } from 'lucide-react'
 import { apiClient } from '../../lib/api'
+import i18n from '../../i18n/config'
 import type { EntityRecord, ModuleConfig } from '../module-types'
 
 interface TaskItem {
@@ -75,11 +76,11 @@ function timeAgo(d: string): string {
   if (!d) return ''
   const diff = Date.now() - new Date(d).getTime()
   const mins = Math.floor(diff / 60000)
-  if (mins < 1) return 'just now'
-  if (mins < 60) return `${mins}m ago`
+  if (mins < 1) return i18n.t('common.timeAgo.justNow')
+  if (mins < 60) return i18n.t('common.timeAgo.minutes', { count: mins })
   const hrs = Math.floor(mins / 60)
-  if (hrs < 24) return `${hrs}h ago`
-  return `${Math.floor(hrs / 24)}d ago`
+  if (hrs < 24) return i18n.t('common.timeAgo.hours', { count: hrs })
+  return i18n.t('common.timeAgo.days', { count: Math.floor(hrs / 24) })
 }
 function formatAmount(v: number | null): string {
   if (v == null) return '$0'
@@ -105,8 +106,8 @@ export function TimelineTab({ entity, refresh }: { entity: EntityRecord; moduleC
   }, [entity.id])
 
   const timelineItems = [
-    ...activities.map(a => ({ id: a.id, emoji: '📝', title: a.action, date: timeAgo(a.created_at), meta: a.entity_type?.replace(/_/g, ' '), sortKey: a.created_at })),
-    ...touchpoints.map(tp => ({ id: tp.id, emoji: tp.type === 'call' ? '📞' : tp.type === 'email' ? '✉️' : tp.type === 'meeting' ? '🤝' : '📌', title: tp.title, date: timeAgo(tp.created_at), meta: tp.description || tp.type, sortKey: tp.created_at })),
+    ...activities.map(a => ({ id: a.id, emoji: '📝', title: a.action, date: timeAgo(a.created_at), meta: i18n.t(`pages.contacts.detail.entityTypes.${a.entity_type}`, { defaultValue: a.entity_type?.replace(/_/g, ' ') }), sortKey: a.created_at })),
+    ...touchpoints.map(tp => ({ id: tp.id, emoji: tp.type === 'call' ? '📞' : tp.type === 'email' ? '✉️' : tp.type === 'meeting' ? '🤝' : '📌', title: tp.title, date: timeAgo(tp.created_at), meta: tp.description || i18n.t(`pages.contacts.detail.touchpointTypes.${tp.type}`, { defaultValue: tp.type }), sortKey: tp.created_at })),
   ].sort((a, b) => new Date(b.sortKey).getTime() - new Date(a.sortKey).getTime())
 
   const handleLog = async () => {
@@ -265,7 +266,7 @@ export function TouchpointsTab({ entity, refresh }: { entity: EntityRecord; modu
                   <div className="list-title">{tp.title}</div>
                   <div className="list-sub">{tp.description || '—'}</div>
                   <div className="list-sub mt-1 flex items-center gap-2">
-                    <span className="badge badge-p3">{tp.type}</span>
+                  <span className="badge badge-p3">{t(`pages.contacts.detail.touchpointTypes.${tp.type}`, { defaultValue: tp.type })}</span>
                     {tp.company && <span>· {tp.company.name}</span>}
                     <span className="ml-auto text-faint text-xs">{timeAgo(tp.created_at)}</span>
                   </div>
@@ -292,10 +293,10 @@ export function TouchpointsTab({ entity, refresh }: { entity: EntityRecord; modu
               <div className="form-row-1">
                 <label className="field-label">{t('pages.contacts.detail.type')}</label>
                 <select value={form.type} onChange={e => setForm(f => ({ ...f, type: e.target.value }))} className="input-field">
-                  <option value="meeting">Meeting</option>
-                  <option value="call">Call</option>
-                  <option value="email">Email</option>
-                  <option value="namecard">NameCard</option>
+                  <option value="meeting">{t('pages.contacts.detail.touchpointTypes.meeting')}</option>
+                  <option value="call">{t('pages.contacts.detail.touchpointTypes.call')}</option>
+                  <option value="email">{t('pages.contacts.detail.touchpointTypes.email')}</option>
+                  <option value="namecard">{t('pages.contacts.detail.touchpointTypes.namecard')}</option>
                 </select>
               </div>
               <div className="form-row-1">

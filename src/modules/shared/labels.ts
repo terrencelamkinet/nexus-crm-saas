@@ -66,3 +66,9 @@ export function localizeResourceLabel(name: string, plural: boolean, fallback: s
   const key = RESOURCE_LABEL_KEYS[plural ? `${name}_plural` : name]
   return key ? t(key) : fallback
 }
+
+/** Data-driven select option value (Client/Vendor/Active...) → i18n; falls back to raw value */
+export function localizeOptionLabel(value: string | null | undefined, fallback: string, t: (k: string, o?: any) => string): string {
+  if (!value) return fallback
+  return t(`common.optionValues.${value}`, { defaultValue: fallback })
+}

@@ -12,6 +12,7 @@ import type { SessionItem } from './SessionSidebar'
 import type { StreamError } from './ErrorBanner'
 import SlashMentionMenu from './SlashMentionMenu'
 import type { SlashItem } from './SlashMentionMenu'
+import ActionPreviewModal from '../../ActionPreviewModal'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -345,6 +346,7 @@ export default function ChatboxPanel() {
   const [suggestedPrompts, setSuggestedPrompts] = useState<string[]>(emptyPrompts)
   const [isMobile, setIsMobile] = useState(window.innerWidth < MOBILE_BREAKPOINT)
   const [animPhase, setAnimPhase] = useState<'closed' | 'opening' | 'open' | 'closing'>('closed')
+  const [actionPreview, setActionPreview] = useState<{ tool_key: string; params: Record<string, unknown>; action_id?: string } | null>(null)
 
   // ── Slash / mention state ──
   const [menuType, setMenuType] = useState<'slash' | 'mention' | null>(null)
@@ -607,6 +609,13 @@ export default function ChatboxPanel() {
                 }
               }
               if (data.message) { setError({ type: 'streaming', message: data.message, retryable: true }) }
+              if (data.action_id && data.tool_key) {
+                setActionPreview({
+                  tool_key: data.tool_key,
+                  params: data.params || {},
+                  action_id: data.action_id,
+                })
+              }
             } catch { /* skip */ }
           }
         }
@@ -996,6 +1005,21 @@ export default function ChatboxPanel() {
           </>
         )}
       </div>
+
+      {/* ── AI action draft → confirm/execute ── */}
+      <ActionPreviewModal
+        isOpen={!!actionPreview}
+        onClose={() => setActionPreview(null)}
+        preview={actionPreview}
+        onConfirm={async (actionId: string) => {
+          await apiClient.post(`/api/v1/ai/actions/${actionId}/confirm`)
+          setActionPreview(null)
+        }}
+        onReject={async (actionId: string) => {
+          await apiClient.post(`/api/v1/ai/actions/${actionId}/reject`)
+          setActionPreview(null)
+        }}
+      />
 
       {/* ── Global styles ── */}
       <style>{`

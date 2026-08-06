@@ -10,8 +10,48 @@ from __future__ import annotations
 import uuid
 from typing import Any
 
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from app.ai.session.context import AISessionContext
 from app.ai.tool_registry import TOOL_REGISTRY
+from app.models.crm_module_b import ModuleSetting
+
+
+# ---------------------------------------------------------------------------
+# Tenant AI edit permission (module_settings.ai.allow_edit)
+# ---------------------------------------------------------------------------
+
+
+async def _ai_edit_allowed(tenant_id: uuid.UUID, db: AsyncSession | None) -> bool:
+    """Return True when the tenant has enabled AI editing (module_settings 'ai'.allow_edit).
+
+    Falls back to the shared async session when no session is passed in.
+    """
+    if db is not None:
+        result = await db.execute(
+            select(ModuleSetting).where(
+                ModuleSetting.tenant_id == tenant_id,
+                ModuleSetting.module_key == "ai",
+            )
+        )
+        obj = result.scalar_one_or_none()
+        return bool(obj and (obj.settings or {}).get("allow_edit"))
+
+    from app.db import async_session
+
+    try:
+        async with async_session() as s:
+            result = await s.execute(
+                select(ModuleSetting).where(
+                    ModuleSetting.tenant_id == tenant_id,
+                    ModuleSetting.module_key == "ai",
+                )
+            )
+            obj = result.scalar_one_or_none()
+            return bool(obj and (obj.settings or {}).get("allow_edit"))
+    except Exception:
+        return False
 
 
 # ---------------------------------------------------------------------------
@@ -81,12 +121,14 @@ async def authorize_tool_call(
     ctx: AISessionContext,
     tool_key: str,
     params: dict[str, Any],
+    db: AsyncSession | None = None,
 ) -> None:
     """Check that *ctx* is allowed to invoke *tool_key* with *params*.
 
     Validation steps (in order):
       1. Tool exists in registry
       2. Agent has a matching permission (``ai:tool:<tool_key>``)
+      2.5. Write tools require tenant AI editing enabled (allow_edit)
       3. Cross-tenant check on any ID in *params*
       4. Cross-workspace check on any ID in *params*
 
@@ -105,6 +147,16 @@ async def authorize_tool_call(
     # 2. Agent permission ----------------------------------------------------
     # Disabled for now — permission_set is empty until agent profile is wired.
     pass
+
+    # 2.5. Write-tool gate — tenant must enable AI editing -------------------
+    if tool_def.type == "write":
+        if not await _ai_edit_allowed(ctx.tenant_id, db):
+            raise ScopeViolation(
+                "AI editing is disabled. Enable 'Allow AI to edit' in AI Apps settings.",
+                tool_key=tool_key,
+                reason="ai_edit_disabled",
+                context=ctx,
+            )
 
     # 3. Cross-tenant check --------------------------------------------------
     extracted_ids = _extract_ids(params)

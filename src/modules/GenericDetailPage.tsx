@@ -6,6 +6,7 @@ import { apiClient } from '../lib/api'
 import { FieldsRenderer } from './shared/FieldsRenderer'
 import { buildPayload, formatDate, apiErrorToString } from './shared/field-utils'
 import { statusColors } from './module-types'
+import { localizeResourceLabel, localizeTabLabel } from './shared/labels'
 import MobileSection from './shared/MobileSection'
 import { useMobile } from './shared/useMobile'
 import type { ModuleConfig, EntityRecord } from './module-types'
@@ -128,10 +129,10 @@ export default function GenericDetailPage({ config, tabRenderers, extraData, act
       <div className="contact-detail-page">
         <button onClick={() => navigate(`/${config.routePrefix || config.name + 's'}`)}
           className="flex items-center gap-1 text-sm hover:underline mb-4 back-link">
-          <ArrowLeft className="w-4 h-4" /> {t('common.backToLabel', { label: config.labelPlural })}
+          <ArrowLeft className="w-4 h-4" /> {t('common.backToLabel', { label: localizeResourceLabel(config.name, true, config.labelPlural, t) })}
         </button>
         <div className="error-box">
-          <span className="error-text">{error || t('common.notFound', { label: config.label })}</span>
+          <span className="error-text">{error || t('common.notFound', { label: localizeResourceLabel(config.name, false, config.label, t) })}</span>
           <button onClick={fetchEntity} className="error-retry-btn">{t('common.retry')}</button>
         </div>
       </div>
@@ -255,7 +256,7 @@ export default function GenericDetailPage({ config, tabRenderers, extraData, act
                 if (c.id === 'details') {
                   return (
                     <div className="panel" key="details">
-                      <div className="panel-head"><h3>{t('common.infoSection', { label: config.label })}</h3></div>
+                      <div className="panel-head"><h3>{t('common.infoSection', { label: localizeResourceLabel(config.name, false, config.label, t) })}</h3></div>
                       <div className="detail-form-grid p-16">
                         {detailFields.map(f => (
                           <FieldsRenderer key={f.key} field={f} entity={entity} form={form}
@@ -268,15 +269,15 @@ export default function GenericDetailPage({ config, tabRenderers, extraData, act
                 const CustomRenderer = c.render || tabRenderers?.[c.id]
                 if (CustomRenderer) {
                   return (
-                    <Suspense key={c.id} fallback={<div className="panel"><div className="panel-head"><h3>{c.label}</h3></div><div className="empty-state">Loading {t('common.loadingTab', { label: c.label.toLowerCase() })}</div></div>}>
+                    <Suspense key={c.id} fallback={<div className="panel"><div className="panel-head"><h3>{localizeTabLabel(c.id, c.label, t)}</h3></div><div className="empty-state">Loading {t('common.loadingTab', { label: localizeTabLabel(c.id, c.label, t).toLowerCase() })}</div></div>}>
                       <CustomRenderer entity={entity} moduleConfig={config} refresh={fetchEntity} />
                     </Suspense>
                   )
                 }
                 return (
                   <div className="panel" key={c.id}>
-                    <div className="panel-head"><h3>{c.label}</h3></div>
-                    <div className="empty-state">{t('common.noDataTab', { label: c.label.toLowerCase() })}</div>
+                    <div className="panel-head"><h3>{localizeTabLabel(c.id, c.label, t)}</h3></div>
+                    <div className="empty-state">{t('common.noDataTab', { label: localizeTabLabel(c.id, c.label, t).toLowerCase() })}</div>
                   </div>
                 )
               })}
@@ -288,7 +289,7 @@ export default function GenericDetailPage({ config, tabRenderers, extraData, act
                 {visibleTabs.map(c => (
                   <div key={c.id} className={`tab ${tab === c.id ? 'active' : ''}`}
                     onClick={() => setTab(c.id)}>
-                    {c.label}
+                    {localizeTabLabel(c.id, c.label, t)}
                   </div>
                 ))}
               </div>
@@ -296,7 +297,7 @@ export default function GenericDetailPage({ config, tabRenderers, extraData, act
               {tab === 'details' && (
                 <div className="panel">
                   <div className="panel-head">
-                    <h3>{t('common.infoSection', { label: config.label })}</h3>
+                    <h3>{t('common.infoSection', { label: localizeResourceLabel(config.name, false, config.label, t) })}</h3>
                   </div>
                   <div className="detail-form-grid p-16">
                     {detailFields.map(f => (
@@ -312,7 +313,7 @@ export default function GenericDetailPage({ config, tabRenderers, extraData, act
                   const CustomRenderer = cfg.render || tabRenderers?.[cfg.id]
                   if (CustomRenderer) {
                     return (
-                      <Suspense key={cfg.id} fallback={<div className="panel"><div className="panel-head"><h3>{cfg.label}</h3></div><div className="empty-state">Loading {t('common.loadingTab', { label: cfg.label.toLowerCase() })}</div></div>}>
+                      <Suspense key={cfg.id} fallback={<div className="panel"><div className="panel-head"><h3>{localizeTabLabel(cfg.id, cfg.label, t)}</h3></div><div className="empty-state">Loading {t('common.loadingTab', { label: localizeTabLabel(cfg.id, cfg.label, t).toLowerCase() })}</div></div>}>
                         <CustomRenderer entity={entity} moduleConfig={config} refresh={fetchEntity} />
                       </Suspense>
                     )
@@ -320,9 +321,9 @@ export default function GenericDetailPage({ config, tabRenderers, extraData, act
                   return (
                     <div className="panel" key={cfg.id}>
                       <div className="panel-head">
-                        <h3>{cfg.label}</h3>
+                        <h3>{localizeTabLabel(cfg.id, cfg.label, t)}</h3>
                       </div>
-                      <div className="empty-state">{cfg.label} {t('common.noDataTab', { label: cfg.label.toLowerCase() })}</div>
+                      <div className="empty-state">{localizeTabLabel(cfg.id, cfg.label, t)} {t('common.noDataTab', { label: localizeTabLabel(cfg.id, cfg.label, t).toLowerCase() })}</div>
                     </div>
                   )
                 }
@@ -339,7 +340,7 @@ export default function GenericDetailPage({ config, tabRenderers, extraData, act
                 <MobileSection key="details" label="fields" total={fieldCount}
                   onViewAll={() => setShowFullTab('details')}>
                   <div className="panel">
-                    <div className="panel-head"><h3>{t('common.infoSection', { label: config.label })}</h3></div>
+                    <div className="panel-head"><h3>{t('common.infoSection', { label: localizeResourceLabel(config.name, false, config.label, t) })}</h3></div>
                     <div className="detail-form-grid p-16">
                       {detailFields.map(f => (
                         <FieldsRenderer key={f.key} field={f} entity={entity} form={form}
@@ -353,9 +354,9 @@ export default function GenericDetailPage({ config, tabRenderers, extraData, act
             const CustomRenderer = tabRenderers?.[c.id]
             if (CustomRenderer) {
               return (
-                <MobileSection key={c.id} label={c.label.toLowerCase()} total={0}
+                <MobileSection key={c.id} label={localizeTabLabel(c.id, c.label, t).toLowerCase()} total={0}
                   onViewAll={() => setShowFullTab(c.id)}>
-                  <Suspense fallback={<div className="empty-state">{t('common.loadingTab', { label: c.label.toLowerCase() })}</div>}>
+                  <Suspense fallback={<div className="empty-state">{t('common.loadingTab', { label: localizeTabLabel(c.id, c.label, t).toLowerCase() })}</div>}>
                     <CustomRenderer entity={entity} moduleConfig={config} refresh={fetchEntity} />
                   </Suspense>
                 </MobileSection>
@@ -363,8 +364,8 @@ export default function GenericDetailPage({ config, tabRenderers, extraData, act
             }
             return (
               <div className="panel" key={c.id}>
-                <div className="panel-head"><h3>{c.label}</h3></div>
-                <div className="empty-state">{t('common.noDataTab', { label: c.label.toLowerCase() })}</div>
+                <div className="panel-head"><h3>{localizeTabLabel(c.id, c.label, t)}</h3></div>
+                <div className="empty-state">{t('common.noDataTab', { label: localizeTabLabel(c.id, c.label, t).toLowerCase() })}</div>
               </div>
             )
           })}

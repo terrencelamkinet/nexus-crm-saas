@@ -11,14 +11,8 @@ const tabs = [
   { id: 'modules', label: 'Modules', icon: Puzzle },
   { id: 'integrations', label: 'Integrations', icon: Puzzle },
   { id: 'billing', label: 'Billing', icon: CreditCard },
-  { id: 'ai', label: 'AI Settings', icon: Monitor },
   { id: 'preferences', label: 'Preferences', icon: Monitor },
 ]
-
-const providerModels: Record<string, string[]> = {
-  deepseek: ['deepseek-chat', 'deepseek-reasoner'],
-  gemini: ['gemini-2.0-flash', 'gemini-2.5-pro'],
-}
 
 export default function SettingsPage() {
   const { t } = useTranslation();
@@ -28,50 +22,6 @@ export default function SettingsPage() {
   const [loading, setLoading] = useState(true)
   const [draft, setDraft] = useState<Record<string, boolean>>({})
   const [saveState, setSaveState] = useState<'idle' | 'saving' | 'done'>('idle')
-
-  // AI settings state
-  const [aiProvider, setAiProvider] = useState('deepseek')
-  const [aiModel, setAiModel] = useState('deepseek-chat')
-  const [temperature, setTemperature] = useState(0.7)
-  const [apiKey, setApiKey] = useState('')
-  const [showKey, setShowKey] = useState(false)
-  const [aiSaveState, setAiSaveState] = useState<'idle' | 'saving' | 'done'>('idle')
-
-  // IM Push (通知與整合) state
-  const [imChannels, setImChannels] = useState<Record<string, any>>({})
-  const [imSaving, setImSaving] = useState(false)
-  const [imSaved, setImSaved] = useState(false)
-  const [imTestState, setImTestState] = useState<'idle' | 'sending' | 'done' | 'error'>('idle')
-
-  const loadImPrefs = async () => {
-    try {
-      const res = await apiClient.get<{ channels: Record<string, any> }>('/api/v1/im-push/prefs')
-      if (res?.channels) setImChannels(res.channels)
-    } catch { /* non-fatal */ }
-  }
-  useEffect(() => { loadImPrefs() }, [])
-
-  const saveImPrefs = async (channel: string) => {
-    setImSaving(true)
-    try {
-      await apiClient.put('/api/v1/im-push/prefs', imChannels[channel])
-      setImSaved(true)
-      setTimeout(() => setImSaved(false), 1600)
-    } catch { /* surface via button state */ }
-    setImSaving(false)
-  }
-
-  const testImPush = async (channel: string) => {
-    setImTestState('sending')
-    try {
-      await apiClient.post('/api/v1/im-push/test', { channel })
-      setImTestState('done')
-      setTimeout(() => setImTestState('idle'), 2200)
-    } catch {
-      setImTestState('error')
-      setTimeout(() => setImTestState('idle'), 3200)
-    }
-  }
 
   // Integration state
   const [integrations] = useState<Record<string, boolean>>({
@@ -94,14 +44,6 @@ export default function SettingsPage() {
       ;(list || []).forEach((m: any) => { map[m.module_key] = m.enabled })
       setModules(map)
       setDraft({ ...map })
-      // Load AI settings if present
-      const aiCfg = (list || []).find((m: any) => m.module_key === 'ai')
-      if (aiCfg?.settings) {
-        if (aiCfg.settings.provider) setAiProvider(aiCfg.settings.provider)
-        if (aiCfg.settings.model) setAiModel(aiCfg.settings.model)
-        if (aiCfg.settings.temperature !== undefined) setTemperature(aiCfg.settings.temperature)
-        if (aiCfg.settings.api_key) setApiKey('••••••••')
-      }
     } catch {}
     finally { setLoading(false) }
   }
@@ -131,28 +73,6 @@ export default function SettingsPage() {
   }
 
   const cancelChanges = () => setDraft({ ...modules })
-
-  const handleProviderChange = (provider: string) => {
-    setAiProvider(provider)
-    const models = providerModels[provider]
-    if (models) setAiModel(models[0])
-  }
-
-  const saveAiSettings = async () => {
-    setAiSaveState('saving')
-    try {
-      await apiClient.put('/api/v1/crm/module-settings/ai', {
-        module_key: 'ai',
-        enabled: true,
-        settings: { provider: aiProvider, model: aiModel, temperature, api_key: apiKey ? 'stored' : '' },
-      })
-      setAiSaveState('done')
-      setTimeout(() => setAiSaveState('idle'), 2000)
-    } catch (e: any) {
-      alert(e.detail || e.message)
-      setAiSaveState('idle')
-    }
-  }
 
   return (
     <div className="stg-page">
@@ -316,181 +236,6 @@ export default function SettingsPage() {
             <div className="stg-panel">
               <h2>{t('settings.tabs.billing')}</h2>
               <p className="stg-subtitle stg-coming">Coming soon</p>
-            </div>
-          )}
-
-          {active === 'ai' && (
-            <div className="stg-panel">
-              <h2>{t('settings.tabs.ai')}</h2>
-              <p className="stg-subtitle">Configure AI provider, model, and API settings for the AI assistant features.</p>
-              <div className="stg-fields">
-                <div className="stg-field-row">
-                  <label>{t('settings.tabs.ai')}</label>
-                  <select className="input-field" value={aiProvider}
-                    onChange={e => handleProviderChange(e.target.value)}>
-                    <option value="deepseek">DeepSeek</option>
-                    <option value="gemini">Gemini</option>
-                  </select>
-                </div>
-                <div className="stg-field-row">
-                  <label>Model</label>
-                  <select className="input-field" value={aiModel}
-                    onChange={e => setAiModel(e.target.value)}>
-                    {providerModels[aiProvider]?.map(m => (
-                      <option key={m} value={m}>{m}</option>
-                    ))}
-                  </select>
-                </div>
-                <div className="stg-field-row">
-                  <label>Temperature</label>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 12, flex: 1 }}>
-                    <input type="range" min="0" max="2" step="0.1" value={temperature}
-                      onChange={e => setTemperature(parseFloat(e.target.value))}
-                      style={{ flex: 1 }} />
-                    <span style={{ fontSize: 14, fontWeight: 600, minWidth: 32, textAlign: 'right' }}>{temperature.toFixed(1)}</span>
-                  </div>
-                </div>
-                <div className="stg-field-row">
-                  <label>API Key</label>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1 }}>
-                    <input type={showKey ? 'text' : 'password'} className="input-field"
-                      placeholder="Enter your API key..." value={apiKey}
-                      onChange={e => setApiKey(e.target.value)}
-                      style={{ flex: 1 }} />
-                    <button className="btn-ghost" onClick={() => setShowKey(!showKey)}
-                      style={{ padding: '6px 10px', fontSize: 12 }}>
-                      {showKey ? 'Hide' : 'Show'}
-                    </button>
-                  </div>
-                </div>
-              </div>
-              <div className="stg-actions">
-                <button className={`btn-primary${aiSaveState === 'saving' ? ' btn-saving' : ''}${aiSaveState === 'done' ? ' btn-done' : ''}`}
-                  onClick={saveAiSettings} disabled={aiSaveState !== 'idle'}>
-                  {aiSaveState === 'idle' && 'Save AI Settings'}
-                  {aiSaveState === 'saving' && <span className="btn-spinner" />}
-                  {aiSaveState === 'done' && <span className="btn-check">✓</span>}
-                </button>
-              </div>
-
-              {/* ── 通知與整合 — AI 每日簡報推送 ── */}
-              <div style={{ marginTop: 28, borderTop: '1px solid var(--color-divider)', paddingTop: 22 }}>
-                <h3 style={{ margin: '0 0 4px', fontSize: 14.5, fontWeight: 700, color: 'var(--color-text)' }}>
-                  📲 通知與整合
-                </h3>
-                <p className="stg-subtitle" style={{ marginBottom: 14 }}>
-                  允許 AI 透過 WhatsApp / Telegram 發送每日簡報（☀️ 早晨 / ☕ 午間 / 🌙 傍晚）
-                </p>
-
-                {Object.keys(imChannels).length === 0 && (
-                  <div style={{ fontSize: 12.5, color: 'var(--color-text-faint)', padding: '10px 0' }}>
-                    尚未綁定任何通訊軟件 — 去 Marketplace 連接 WhatsApp / Telegram 後會自動啟用推送
-                  </div>
-                )}
-
-                {Object.entries(imChannels).map(([ch, pref]: [string, any]) => (
-                  <div key={ch} style={{
-                    border: '1px solid var(--color-divider)', borderRadius: 'var(--radius-md)',
-                    padding: '14px 16px', marginBottom: 12, background: 'var(--color-surface)',
-                  }}>
-                    {/* Header row: channel name + global toggle */}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <span style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--color-text)' }}>
-                        {ch === 'whatsapp' ? '💬 WhatsApp' : '✈️ Telegram'}
-                      </span>
-                      <span style={{ fontSize: 11.5, fontWeight: 600, color: pref.enabled ? '#34d399' : 'var(--color-text-faint)' }}>
-                        {pref.enabled ? '已啟用' : '已關閉'}
-                      </span>
-                      <span style={{ marginLeft: 'auto' }} />
-                      <button
-                        className={`switcher${pref.enabled ? ' on' : ''}`}
-                        onClick={() => setImChannels({ ...imChannels, [ch]: { ...pref, enabled: !pref.enabled } })}
-                        aria-label={`${ch} 推送開關`}
-                        style={{
-                          width: 34, height: 19, borderRadius: 10, border: 'none', cursor: 'pointer',
-                          position: 'relative', background: pref.enabled ? 'var(--color-purple, #7c3aed)' : 'var(--color-border)',
-                          transition: 'background .15s',
-                        }}
-                      >
-                        <span style={{
-                          position: 'absolute', top: 2, left: pref.enabled ? 18 : 2, width: 15, height: 15,
-                          borderRadius: '50%', background: '#fff', transition: 'left .15s',
-                        }} />
-                      </button>
-                    </div>
-
-                    {/* Slot checkboxes */}
-                    <div style={{ display: 'flex', gap: 8, marginTop: 12, flexWrap: 'wrap' }}>
-                      {(['morning', 'noon', 'evening'] as const).map(s => (
-                        <label
-                          key={s}
-                          style={{
-                            display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12.5, cursor: 'pointer',
-                            padding: '5px 12px', borderRadius: 999,
-                            background: pref.slots?.[s] ? 'rgba(124,93,250,0.12)' : 'var(--color-surface-offset)',
-                            color: pref.slots?.[s] ? '#7c3aed' : 'var(--color-text-muted)', fontWeight: 600,
-                            transition: 'background 150ms, color 150ms',
-                          }}
-                        >
-                          <input
-                            type="checkbox"
-                            checked={!!pref.slots?.[s]}
-                            onChange={() => setImChannels({
-                              ...imChannels,
-                              [ch]: { ...pref, slots: { ...pref.slots, [s]: !pref.slots?.[s] } },
-                            })}
-                            style={{ display: 'none' }}
-                          />
-                          {s === 'morning' ? '☀️ 早晨' : s === 'noon' ? '☕ 午間' : '🌙 傍晚'}
-                        </label>
-                      ))}
-                    </div>
-
-                    {/* Weekend mute */}
-                    <label style={{ display: 'flex', alignItems: 'center', gap: 7, marginTop: 12, fontSize: 12.5, cursor: 'pointer', color: 'var(--color-text)' }}>
-                      <input
-                        type="checkbox"
-                        checked={!!pref.weekend_mute}
-                        onChange={() => setImChannels({ ...imChannels, [ch]: { ...pref, weekend_mute: !pref.weekend_mute } })}
-                        style={{ accentColor: 'var(--color-primary)' }}
-                      />
-                      週末不推送（預設開啟）
-                    </label>
-
-                    {/* Actions */}
-                    <div style={{ display: 'flex', gap: 8, marginTop: 14, alignItems: 'center' }}>
-                      <button
-                        onClick={() => saveImPrefs(ch)}
-                        disabled={imSaving}
-                        style={{
-                          display: 'inline-flex', alignItems: 'center', gap: 5,
-                          fontSize: 12, fontWeight: 600, padding: '7px 14px', borderRadius: 'var(--radius-md)',
-                          background: 'var(--color-primary)', color: '#fff', border: 'none', cursor: 'pointer',
-                          opacity: imSaving ? 0.6 : 1,
-                        }}
-                      >
-                        💾 儲存
-                      </button>
-                      <button
-                        onClick={() => testImPush(ch)}
-                        disabled={imTestState === 'sending'}
-                        style={{
-                          display: 'inline-flex', alignItems: 'center', gap: 5,
-                          fontSize: 12, fontWeight: 600, padding: '7px 14px', borderRadius: 'var(--radius-md)',
-                          background: 'var(--color-surface-offset)', color: 'var(--color-text)',
-                          border: '1px solid var(--color-divider)', cursor: 'pointer',
-                          opacity: imTestState === 'sending' ? 0.6 : 1,
-                        }}
-                      >
-                        {imTestState === 'sending' ? '發送中…' : '📨 測試推送'}
-                      </button>
-                      {imSaved && <span style={{ fontSize: 12, fontWeight: 600, color: '#34d399' }}>✓ 已儲存</span>}
-                      {imTestState === 'done' && <span style={{ fontSize: 12, fontWeight: 600, color: '#34d399' }}>✓ 已發送</span>}
-                      {imTestState === 'error' && <span style={{ fontSize: 12, fontWeight: 600, color: '#f87171' }}>⚠️ 發送失敗（檢查 WhatsApp 連接 / token）</span>}
-                    </div>
-                  </div>
-                ))}
-              </div>
             </div>
           )}
 

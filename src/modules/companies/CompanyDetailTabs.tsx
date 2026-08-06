@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
 import { Activity, X, ChevronRight } from 'lucide-react'
 import { apiClient } from '../../lib/api'
+import i18n from '../../i18n/config'
 import type { EntityRecord, ModuleConfig } from '../module-types'
 
 // ---------- Types ----------
@@ -26,11 +27,11 @@ function timeAgo(d: string): string {
   if (!d) return ''
   const diff = Date.now() - new Date(d).getTime()
   const mins = Math.floor(diff / 60000)
-  if (mins < 1) return 'just now'
-  if (mins < 60) return `${mins}m ago`
+  if (mins < 1) return i18n.t('common.timeAgo.justNow')
+  if (mins < 60) return i18n.t('common.timeAgo.minutes', { count: mins })
   const hrs = Math.floor(mins / 60)
-  if (hrs < 24) return `${hrs}h ago`
-  return `${Math.floor(hrs / 24)}d ago`
+  if (hrs < 24) return i18n.t('common.timeAgo.hours', { count: hrs })
+  return i18n.t('common.timeAgo.days', { count: Math.floor(hrs / 24) })
 }
 
 const typeEmoji: Record<string, string> = {
@@ -114,7 +115,7 @@ export function DealsTab({ entity: company }: { entity: EntityRecord; moduleConf
               <div className="list-main">
                 <div className="list-title">{d.name}</div>
                 <div className="list-sub">
-                  <span className={`badge badge-p3`}>{d.status}</span>
+                  <span className={`badge badge-p3`}>{i18n.t(`pages.deals.${d.status}`, { defaultValue: d.status })}</span>
                   {d.probability != null && <span className="ml-2">{d.probability}%</span>}
                 </div>
               </div>
@@ -162,7 +163,7 @@ export function ProjectsTab({ entity: company }: { entity: EntityRecord; moduleC
               <div className="list-main">
                 <div className="list-title">{p.name}</div>
                 <div className="list-sub">
-                  <span className={`badge badge-p3`}>{p.status}</span>
+                  <span className={`badge badge-p3`}>{i18n.t(`pages.deals.${p.status}`, { defaultValue: p.status })}</span>
                   {p.priority && <span className="ml-2">· {p.priority}</span>}
                 </div>
               </div>
@@ -311,7 +312,7 @@ export function TouchpointsTab({ entity: company, refresh }: { entity: EntityRec
                   <div className="list-title">{tp.title}</div>
                   <div className="list-sub">{tp.description || '—'}</div>
                   <div className="list-sub mt-1 flex items-center gap-2">
-                    <span className="badge badge-p3">{tp.type}</span>
+                    <span className="badge badge-p3">{i18n.t(`pages.contacts.detail.touchpointTypes.${tp.type}`, { defaultValue: tp.type })}</span>
                     <span className="ml-auto text-faint text-xs">{timeAgo(tp.created_at)}</span>
                   </div>
                 </div>
@@ -337,10 +338,10 @@ export function TouchpointsTab({ entity: company, refresh }: { entity: EntityRec
               <div className="form-row-1">
                 <label className="field-label">{t('pages.companies.detail.type')}</label>
                 <select value={form.type} onChange={e => setForm(f => ({ ...f, type: e.target.value }))} className="input-field">
-                  <option value="meeting">{t('touchpoint.type')}</option>
-                  <option value="call">Call</option>
-                  <option value="email">Email</option>
-                  <option value="namecard">NameCard</option>
+                  <option value="meeting">{i18n.t('pages.contacts.detail.touchpointTypes.meeting')}</option>
+                  <option value="call">{i18n.t('pages.contacts.detail.touchpointTypes.call')}</option>
+                  <option value="email">{i18n.t('pages.contacts.detail.touchpointTypes.email')}</option>
+                  <option value="namecard">{i18n.t('pages.contacts.detail.touchpointTypes.namecard')}</option>
                 </select>
               </div>
               <div className="form-row-1">
@@ -465,8 +466,8 @@ export function TimelineTab({ entity: company, refresh }: { entity: EntityRecord
   }, [company.id])
 
   const timelineItems = [
-    ...activities.map(a => ({ id: a.id, emoji: '📝', title: a.action, date: timeAgo(a.created_at), meta: a.entity_type?.replace(/_/g, ' '), sortKey: a.created_at })),
-    ...touchpoints.map(tp => ({ id: tp.id, emoji: typeEmoji[tp.type] || typeEmoji.default, title: tp.title, date: timeAgo(tp.created_at), meta: tp.description || tp.type, sortKey: tp.created_at })),
+    ...activities.map(a => ({ id: a.id, emoji: '📝', title: a.action, date: timeAgo(a.created_at), meta: i18n.t(`pages.contacts.detail.entityTypes.${a.entity_type}`, { defaultValue: a.entity_type?.replace(/_/g, ' ') }), sortKey: a.created_at })),
+    ...touchpoints.map(tp => ({ id: tp.id, emoji: typeEmoji[tp.type] || typeEmoji.default, title: tp.title, date: timeAgo(tp.created_at), meta: tp.description || i18n.t(`pages.contacts.detail.touchpointTypes.${tp.type}`, { defaultValue: tp.type }), sortKey: tp.created_at })),
   ].sort((a, b) => new Date(b.sortKey).getTime() - new Date(a.sortKey).getTime())
 
   const handleLog = async () => {

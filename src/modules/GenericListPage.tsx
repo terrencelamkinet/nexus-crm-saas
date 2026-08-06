@@ -9,6 +9,7 @@ import useColumnLayout from './shared/useColumnLayout'
 import { statusColors, optionColorToClass } from './module-types'
 import type { ModuleConfig, EntityRecord, ListResponse, FieldConfig } from './module-types'
 import { isModuleEnabled } from './enabled-modules'
+import { localizeFieldLabel, localizeOptionLabel, localizeResourceLabel } from './shared/labels'
 import SlideDrawer from '../components/SlideDrawer'
 import DetailDrawerContent from './shared/DetailDrawerContent'
 
@@ -451,7 +452,7 @@ const [filters, setFilters] = useState<Record<string, FilterEntry>>(() => ({ ...
               aria-haspopup="listbox"
               aria-expanded={isOpen}
             >
-              {opt?.label ?? item[fieldKey] ?? ''}
+              {opt ? localizeOptionLabel(opt.value, opt.label, t) : String(item[fieldKey] ?? '')}
             </button>
             {isOpen && (
               <div className="glp-inline-dropdown" role="listbox">
@@ -467,7 +468,7 @@ const [filters, setFilters] = useState<Record<string, FilterEntry>>(() => ({ ...
                       className={`glp-inline-option${selected ? ' glp-inline-selected' : ''}`}
                       onClick={e => { e.stopPropagation(); applyInlineEdit(item, field, String(o.value)) }}
                     >
-                      <span className={`select-tag ${oCls}`}>{o.label ?? o.value}</span>
+                      <span className={`select-tag ${oCls}`}>{localizeOptionLabel(o.value, o.label ?? o.value, t)}</span>
                     </button>
                   )
                 })}
@@ -586,7 +587,7 @@ const [filters, setFilters] = useState<Record<string, FilterEntry>>(() => ({ ...
                   <select value={sortField} onChange={e => setSortField(e.target.value)} className="input-field glp-sort-select">
                     <option value="">{t('filter.sortBy')}</option>
                     {config.fields.filter(f => f.sortable !== false).map(f => (
-                      <option key={f.key} value={f.key}>{f.label}</option>
+                      <option key={f.key} value={f.key}>{localizeFieldLabel(f, t)}</option>
                     ))}
                   </select>
                   <div className="glp-sort-op-row">
@@ -635,8 +636,8 @@ const [filters, setFilters] = useState<Record<string, FilterEntry>>(() => ({ ...
                           setVisibleCols(prev => prev.includes(f.key) ? prev.filter(k => k !== f.key) : [...prev, f.key])
                         }}
                         className="glp-view-checkbox" />
-                      <span className="glp-view-option-label">{f.label}</span>
-                      {locked && <span className="glp-view-option-always">Always</span>}
+                      <span className="glp-view-option-label">{localizeFieldLabel(f, t)}</span>
+                      {locked && <span className="glp-view-option-always">{t('common.always')}</span>}
                     </label>
                   )
                 })}
@@ -648,13 +649,13 @@ const [filters, setFilters] = useState<Record<string, FilterEntry>>(() => ({ ...
                   <div className="settings-section-title">{t('common.seeMore')}</div>
 
                   <div className="settings-row">
-                    <span className="settings-label">Layout</span>
+                    <span className="settings-label">{t('common.layout')}</span>
                     <div className="settings-chip-group">
                       {(['table', 'gallery', 'board', 'kanban'] as const).map(v => (
                         <button key={v}
                           className={`settings-chip${view === v ? ' active' : ''}`}
                           onClick={() => setView(v)}>
-                          {v === 'table' ? '▦ Table' : v === 'gallery' ? '⊞ Gallery' : v === 'board' ? '📋 Board' : '📌 Kanban'}
+                          {v === 'table' ? `▦ ${t('common.viewTable')}` : v === 'gallery' ? `⊞ ${t('common.viewGallery')}` : v === 'board' ? `📋 ${t('common.viewBoard')}` : `📌 ${t('common.viewKanban')}`}
                         </button>
                       ))}
                     </div>
@@ -663,31 +664,31 @@ const [filters, setFilters] = useState<Record<string, FilterEntry>>(() => ({ ...
                   <div className="settings-row">
                     <span className="settings-label">{t('filter.title')}</span>
                     <button className="settings-action-btn" onClick={() => { setPropsOpen(true); setSettingsOpen(false) }}>
-                      {visibleCols.length} fields visible <span className="settings-chevron">→</span>
+                      {t('common.fieldsVisible', { count: visibleCols.length })} <span className="settings-chevron">→</span>
                     </button>
                   </div>
 
                   <div className="settings-row">
                     <span className="settings-label">{t('common.filter')}</span>
                     <button className="settings-action-btn" onClick={() => { setFilterOpen(!filterOpen); setSettingsOpen(false) }}>
-                      {filterCount > 0 ? `${filterCount} active` : 'None'} <span className="settings-chevron">→</span>
+                      {filterCount > 0 ? t('common.filtersActive', { count: filterCount }) : t('common.none')} <span className="settings-chevron">→</span>
                     </button>
                   </div>
 
                   <div className="settings-row">
                     <span className="settings-label">{t('filter.sortBy')}</span>
                     <button className="settings-action-btn" onClick={() => { setSortOpen(!sortOpen); setSettingsOpen(false) }}>
-                      {sortBy ? `${sortBy} ${sortOrder === 'asc' ? '↑' : '↓'}` : 'None'} <span className="settings-chevron">→</span>
+                      {sortBy ? `${(() => { const sf = config.fields.find(f => f.key === sortBy); return sf ? localizeFieldLabel(sf, t) : sortBy })()} ${sortOrder === 'asc' ? '↑' : '↓'}` : t('common.none')} <span className="settings-chevron">→</span>
                     </button>
                   </div>
 
                   <div className="settings-row">
-                    <span className="settings-label">Group</span>
+                    <span className="settings-label">{t('common.group')}</span>
                     <select className="settings-select" value={groupBy}
                       onChange={e => { setGroupBy(e.target.value); setPage(1) }}>
-                      <option value="">No grouping</option>
+                      <option value="">{t('common.noGrouping')}</option>
                       {config.fields.filter(f => f.type === 'status' || f.type === 'select').map(f => (
-                        <option key={f.key} value={f.key}>{f.label}</option>
+                        <option key={f.key} value={f.key}>{localizeFieldLabel(f, t)}</option>
                       ))}
                     </select>
                   </div>
@@ -696,15 +697,15 @@ const [filters, setFilters] = useState<Record<string, FilterEntry>>(() => ({ ...
                 <div className="settings-divider" />
 
                 <div className="settings-section">
-                  <div className="settings-section-title">Database</div>
+                  <div className="settings-section-title">{t('common.database')}</div>
 
                   <div className="settings-row">
-                    <span className="settings-label">Source</span>
-                    <span className="settings-value">{config.label}</span>
+                    <span className="settings-label">{t('common.source')}</span>
+                    <span className="settings-value">{localizeResourceLabel(config.name, false, config.label, t)}</span>
                   </div>
 
                   <div className="settings-row">
-                    <span className="settings-label">Conditional color</span>
+                    <span className="settings-label">{t('common.conditionalColor')}</span>
                     <label className="settings-toggle">
                       <input type="checkbox" checked={condColor}
                         onChange={e => setCondColor(e.target.checked)} />
@@ -714,43 +715,43 @@ const [filters, setFilters] = useState<Record<string, FilterEntry>>(() => ({ ...
 
                   <button className="settings-coming-btn" onClick={() => { navigator.clipboard?.writeText?.(window.location.href) }}>
                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
-                    Copy link to view
+                    {t('common.copyLink')}
                   </button>
                 </div>
 
                 <div className="settings-divider" />
 
                 <div className="settings-section">
-                  <div className="settings-section-title">Advanced</div>
+                  <div className="settings-section-title">{t('common.advanced')}</div>
 
-                  <button className="settings-coming-btn disabled" disabled title="Coming soon">
+                  <button className="settings-coming-btn disabled" disabled title={t('common.comingSoon')}>
                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
-                    Edit properties {countFieldsHidden > 0 ? <>({countFieldsHidden} hidden)</> : ''}
-                    <span className="coming-soon-badge">Soon</span>
+                    {t('common.editProperties')} {countFieldsHidden > 0 ? t('common.hiddenCount', { count: countFieldsHidden }) : ''}
+                    <span className="coming-soon-badge">{t('common.soon')}</span>
                   </button>
 
-                  <button className="settings-coming-btn disabled" disabled title="Coming soon">
+                  <button className="settings-coming-btn disabled" disabled title={t('common.comingSoon')}>
                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
-                    Automations
-                    <span className="coming-soon-badge">Soon</span>
+                    {t('common.automations')}
+                    <span className="coming-soon-badge">{t('common.soon')}</span>
                   </button>
 
-                  <button className="settings-coming-btn disabled" disabled title="Coming soon">
+                  <button className="settings-coming-btn disabled" disabled title={t('common.comingSoon')}>
                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 20h9"/><path d="M16.37 4.06a2.5 2.5 0 0 1 3.53 3.53L9 18l-4 1 1-4Z"/></svg>
-                    AI Autofill
-                    <span className="coming-soon-badge">Soon</span>
+                    {t('common.aiAutofill')}
+                    <span className="coming-soon-badge">{t('common.soon')}</span>
                   </button>
 
-                  <button className="settings-coming-btn disabled" disabled title="Coming soon">
+                  <button className="settings-coming-btn disabled" disabled title={t('common.comingSoon')}>
                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
-                    View archived
-                    <span className="coming-soon-badge">Soon</span>
+                    {t('common.viewArchived')}
+                    <span className="coming-soon-badge">{t('common.soon')}</span>
                   </button>
 
-                  <button className="settings-coming-btn disabled" disabled title="Coming soon">
+                  <button className="settings-coming-btn disabled" disabled title={t('common.comingSoon')}>
                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-                    Lock database
-                    <span className="coming-soon-badge">Soon</span>
+                    {t('common.lockDatabase')}
+                    <span className="coming-soon-badge">{t('common.soon')}</span>
                   </button>
                 </div>
               </div>
@@ -764,7 +765,7 @@ const [filters, setFilters] = useState<Record<string, FilterEntry>>(() => ({ ...
               <select value={filterField} onChange={e => { setFilterField(e.target.value); setFilterValue(''); setFilterOp('is'); setFilterChecked([]); }} className="input-field filter-field-select">
                 <option value="">— {t('filter.title')} —</option>
                 {filterableFields.map(f => (
-                  <option key={f.key} value={f.key}>{f.label}</option>
+                  <option key={f.key} value={f.key}>{localizeFieldLabel(f, t)}</option>
                 ))}
               </select>
               {filterField && (() => {
@@ -820,7 +821,7 @@ const [filters, setFilters] = useState<Record<string, FilterEntry>>(() => ({ ...
                 setFilterChecked([])
                 setFilterOpen(false)
                 setPage(1)
-              }} disabled={!filterField || (filterChecked.length === 0 && !filterValue)} className="btn-primary filter-apply">Apply ({filterChecked.length > 0 ? filterChecked.length : '✓'})</button>
+              }} disabled={!filterField || (filterChecked.length === 0 && !filterValue)} className="btn-primary filter-apply">{t('common.apply')} ({filterChecked.length > 0 ? filterChecked.length : '✓'})</button>
               <button onClick={() => setFilterOpen(false)} className="btn-ghost filter-cancel">{t('common.cancel')}</button>
             </div>
           </div>
@@ -832,8 +833,8 @@ const [filters, setFilters] = useState<Record<string, FilterEntry>>(() => ({ ...
               const field = config.fields.find(f => f.key === k)
               const vals = v.value.split(',').filter(Boolean)
               const label = v.op === 'is_not'
-                ? `${vals.map(v => v.trim()).join(' + ')} ⊘`
-                : vals.map(v => v.trim()).join(' + ')
+                ? `${vals.map(x => localizeOptionLabel(x.trim(), x.trim(), t)).join(' + ')} ⊘`
+                : vals.map(x => localizeOptionLabel(x.trim(), x.trim(), t)).join(' + ')
               return (
                 <span key={k} className="filter-tag glp-filter-tag"
                   onClick={() => {
@@ -843,7 +844,7 @@ const [filters, setFilters] = useState<Record<string, FilterEntry>>(() => ({ ...
                     setFilterValue(v.value)
                     setFilterOpen(true)
                   }}>
-                  {field?.label || k}: {label}
+                  {field ? localizeFieldLabel(field, t) : k}: {label}
                   <button onClick={() => removeFilter(k)} className="filter-tag-x"><X className="icon-12" /></button>
                 </span>
               )
@@ -916,7 +917,7 @@ const [filters, setFilters] = useState<Record<string, FilterEntry>>(() => ({ ...
                         onDragOver={e => colLayout.onDragOver(e, col)}
                         onDragEnd={colLayout.onDragEnd}
                         onClick={() => canSort && toggleSort(col)}>
-                        <span className="glp-th-inner">{field?.label || col}
+                        <span className="glp-th-inner">{field ? localizeFieldLabel(field, t) : col}
                           {sortBy === col && (
                             <span className="sort-indicator">{sortOrder === 'asc' ? ' ↑' : ' ↓'}</span>
                           )}
@@ -1088,7 +1089,7 @@ const [filters, setFilters] = useState<Record<string, FilterEntry>>(() => ({ ...
             </div>
             <div className="modal-body form-body">
               <p className="glp-bulk-note">
-                Updating <strong>{selectedIds.size}</strong> {config.labelPlural.toLowerCase()}. Only fields with <strong>bulk editable</strong> permission are shown. Empty fields = unchanged.
+                {t('common.bulkNote', { count: selectedIds.size, label: localizeResourceLabel(config.name, true, config.labelPlural, t).toLowerCase() })}
               </p>
               <div className="grid-2col-16">
                 {config.fields.filter(f => f.editable !== false && f.bulkEditable && !['rollup', 'formula', 'created_time', 'last_edited_time', 'created_by', 'last_edited_by', 'unique_id'].includes(f.type)).map(f => (
@@ -1097,7 +1098,7 @@ const [filters, setFilters] = useState<Record<string, FilterEntry>>(() => ({ ...
                 ))}
               </div>
               {config.fields.filter(f => f.editable !== false && f.bulkEditable).length === 0 && (
-                <div className="empty-state">No fields available for bulk update</div>
+                <div className="empty-state">{t('common.noBulkFields')}</div>
               )}
             </div>
             <div className="modal-foot">
@@ -1140,13 +1141,13 @@ const [filters, setFilters] = useState<Record<string, FilterEntry>>(() => ({ ...
                   <input type="checkbox" checked={checked}
                     onChange={() => toggleVal(o.value)}
                     className="glp-filter-option-checkbox" />
-                  {o.label}
+                  {localizeOptionLabel(o.value, o.label, t)}
                 </label>
               )
             })}
             {filterChecked.length > 0 && (
               <button onClick={() => setFilterChecked([])}
-                className="btn-ghost glp-filter-clear-all">Clear all</button>
+                className="btn-ghost glp-filter-clear-all">{t('common.clearAll')}</button>
             )}
           </div>
         )
@@ -1161,9 +1162,10 @@ const [filters, setFilters] = useState<Record<string, FilterEntry>>(() => ({ ...
 function BoardView({ items, onSelect, groupBy }: {
   items: any[]; onSelect: (id: string) => void; groupBy: string
 }) {
+  const { t } = useTranslation()
   const groups: Record<string, any[]> = {}
   for (const item of items) {
-    const val = item[groupBy] || 'Unassigned'
+    const val = item[groupBy] || t('common.unassigned')
     if (!groups[val]) groups[val] = []
     groups[val].push(item)
   }
@@ -1175,7 +1177,7 @@ function BoardView({ items, onSelect, groupBy }: {
         {groupKeys.map(key => (
           <div key={key} className="kanban-col">
             <div className="kanban-col-head">
-              <span className="board-col-title">{key}</span>
+              <span className="board-col-title">{localizeOptionLabel(key, key, t)}</span>
               <span className="board-col-count">{groups[key].length}</span>
             </div>
             {groups[key].map(item => {

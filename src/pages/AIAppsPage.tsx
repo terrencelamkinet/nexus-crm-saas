@@ -30,7 +30,7 @@ const CHANNELS: { id: ChannelId; icon: string; nameKey: string; hintKey: string;
   { id: 'sms', icon: '💬', nameKey: 'settings.aiApps.chSms', hintKey: 'settings.aiApps.chSmsHint', comingSoon: true },
 ];
 
-type SectionId = 'content' | 'hours' | 'tone' | 'channels' | 'detail';
+type SectionId = 'content' | 'hours' | 'tone' | 'channels' | 'detail' | 'model';
 
 export default function AIAppsPage() {
   const { t } = useTranslation();
@@ -178,12 +178,92 @@ export default function AIAppsPage() {
     return t('settings.aiApps.detailPreview2');
   }, [settings.detail_level, t]);
 
+  // ── AI model settings (provider / model / allow_edit) ──
+  const providerModels: Record<string, string[]> = {
+    deepseek: ['deepseek-chat', 'deepseek-reasoner'],
+    gemini: ['gemini-2.0-flash', 'gemini-2.5-pro'],
+  }
+  const [aiProvider, setAiProvider] = useState('deepseek')
+  const [aiModel, setAiModel] = useState('deepseek-chat')
+  const [allowEdit, setAllowEdit] = useState(false)
+  const [aiSaveState, setAiSaveState] = useState<'idle' | 'saving' | 'done'>('idle')
+
+  useEffect(() => {
+    apiClient.get('/api/v1/crm/module-settings')
+      .then((list: any) => {
+        const aiCfg = (list || []).find((m: any) => m.module_key === 'ai')
+        if (aiCfg?.settings) {
+          if (aiCfg.settings.provider) setAiProvider(aiCfg.settings.provider)
+          if (aiCfg.settings.model) setAiModel(aiCfg.settings.model)
+          if (aiCfg.settings.allow_edit !== undefined) setAllowEdit(!!aiCfg.settings.allow_edit)
+        }
+      })
+      .catch(() => {})
+  }, [])
+
+  const handleProviderChange = (provider: string) => {
+    setAiProvider(provider)
+    const models = providerModels[provider]
+    if (models) setAiModel(models[0])
+  }
+
+  const saveAiSettings = async () => {
+    setAiSaveState('saving')
+    try {
+      await apiClient.put('/api/v1/crm/module-settings/ai', {
+        module_key: 'ai',
+        enabled: true,
+        settings: { provider: aiProvider, model: aiModel, allow_edit: allowEdit },
+      })
+      setAiSaveState('done')
+      setTimeout(() => setAiSaveState('idle'), 2000)
+    } catch (e: any) {
+      alert(e.detail || e.message)
+      setAiSaveState('idle')
+    }
+  }
+
+  // ── IM Push (AI 每日簡報推送) ──
+  const [imChannels, setImChannels] = useState<Record<string, any>>({})
+  const [imSaving, setImSaving] = useState(false)
+  const [imSaved, setImSaved] = useState(false)
+  const [imTestState, setImTestState] = useState<'idle' | 'sending' | 'done' | 'error'>('idle')
+
+  useEffect(() => {
+    apiClient.get<{ channels: Record<string, any> }>('/api/v1/im-push/prefs')
+      .then(res => { if (res?.channels) setImChannels(res.channels) })
+      .catch(() => {})
+  }, [])
+
+  const saveImPrefs = async (channel: string) => {
+    setImSaving(true)
+    try {
+      await apiClient.put('/api/v1/im-push/prefs', imChannels[channel])
+      setImSaved(true)
+      setTimeout(() => setImSaved(false), 1600)
+    } catch { /* surface via button state */ }
+    setImSaving(false)
+  }
+
+  const testImPush = async (channel: string) => {
+    setImTestState('sending')
+    try {
+      await apiClient.post('/api/v1/im-push/test', { channel })
+      setImTestState('done')
+      setTimeout(() => setImTestState('idle'), 2200)
+    } catch {
+      setImTestState('error')
+      setTimeout(() => setImTestState('idle'), 3200)
+    }
+  }
+
   const nav: { id: SectionId; icon: string; labelKey: string }[] = [
     { id: 'content', icon: '📋', labelKey: 'settings.aiApps.navContent' },
     { id: 'hours', icon: '🕐', labelKey: 'settings.aiApps.navHours' },
     { id: 'tone', icon: '💬', labelKey: 'settings.aiApps.navTone' },
     { id: 'channels', icon: '🔗', labelKey: 'settings.aiApps.navChannels' },
     { id: 'detail', icon: '🔎', labelKey: 'settings.aiApps.navDetail' },
+    { id: 'model', icon: '⚙️', labelKey: 'settings.aiApps.navModel' },
   ];
 
   return (
@@ -529,6 +609,133 @@ export default function AIAppsPage() {
                   </div>
                 </div>
                 <div className="asec-detail-preview">{detailPreview}</div>
+              </div>
+            </section>
+          )}
+
+          {/* ══ SECTION 6: AI 設定（供應商 / 模型 / API） ── */}
+          {section === 'model' && (
+            <section className="asec-section">
+              <div className="asec-section-title">
+                <h2>{t('settings.aiApps.sectionModel')}</h2>
+                <p>{t('settings.aiApps.sectionModelDesc')}</p>
+              </div>
+
+              <div className="asec-card">
+                <h3>{t('settings.aiApps.modelProvider')}</h3>
+                <select className="asec-select" value={aiProvider}
+                  onChange={e => handleProviderChange(e.target.value)}>
+                  <option value="deepseek">DeepSeek</option>
+                  <option value="gemini">Gemini</option>
+                </select>
+              </div>
+
+              <div className="asec-card">
+                <h3>{t('settings.aiApps.modelName')}</h3>
+                <select className="asec-select" value={aiModel}
+                  onChange={e => setAiModel(e.target.value)}>
+                  {providerModels[aiProvider]?.map(m => (
+                    <option key={m} value={m}>{m}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="asec-card">
+                <div className="asec-toggle-row">
+                  <div>
+                    <strong>{t('settings.aiApps.allowEdit')}</strong>
+                    <p className="hint">{t('settings.aiApps.allowEditHint')}</p>
+                  </div>
+                  <label className="asec-switch">
+                    <input type="checkbox" checked={allowEdit}
+                      onChange={e => setAllowEdit(e.target.checked)} />
+                    <span className="asec-slider" />
+                  </label>
+                </div>
+              </div>
+
+              <div className="asec-actions">
+                <button className={`btn-primary${aiSaveState === 'saving' ? ' btn-saving' : ''}${aiSaveState === 'done' ? ' btn-done' : ''}`}
+                  onClick={saveAiSettings} disabled={aiSaveState !== 'idle'}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                  {aiSaveState === 'idle' && t('settings.aiApps.saveModel')}
+                  {aiSaveState === 'saving' && <><span className="btn-spinner" /> {t('settings.aiApps.saving')}</>}
+                  {aiSaveState === 'done' && <><Check size={14} /> {t('settings.aiApps.modelSaved')}</>}
+                </button>
+              </div>
+
+              {/* ── 通知與整合 — AI 每日簡報推送 ── */}
+              <div className="asec-card" style={{ marginTop: 28 }}>
+                <h3>📲 {t('settings.aiApps.notifTitle')}</h3>
+                <p className="asec-card-hint">{t('settings.aiApps.notifDesc')}</p>
+
+                {Object.keys(imChannels).length === 0 && (
+                  <div className="asec-card-hint" style={{ padding: '10px 0' }}>
+                    {t('settings.aiApps.notifEmpty')}
+                  </div>
+                )}
+
+                {Object.entries(imChannels).map(([ch, pref]: [string, any]) => (
+                  <div key={ch} className="asec-channel-card" style={{ marginTop: 10 }}>
+                    <div className="asec-channel-info">
+                      <span className="asec-channel-icon">{ch === 'whatsapp' ? '💬' : '✈️'}</span>
+                      <div>
+                        <strong>{ch === 'whatsapp' ? 'WhatsApp' : 'Telegram'}</strong>
+                        <p className="hint" style={{ fontWeight: 600, color: pref.enabled ? '#34d399' : 'var(--color-text-faint)' }}>
+                          {pref.enabled ? t('settings.aiApps.notifEnabled') : t('settings.aiApps.notifDisabled')}
+                        </p>
+                      </div>
+                      <label className="asec-switch" style={{ marginLeft: 'auto' }}>
+                        <input type="checkbox" checked={!!pref.enabled}
+                          onChange={() => setImChannels({ ...imChannels, [ch]: { ...pref, enabled: !pref.enabled } })} />
+                        <span className="asec-slider" />
+                      </label>
+                    </div>
+
+                    <div className="asec-day-row" style={{ marginTop: 12 }}>
+                      {(['morning', 'noon', 'evening'] as const).map(s => (
+                        <label key={s}
+                          className={`asec-day-chip${pref.slots?.[s] ? ' active' : ''}`}
+                          style={{ cursor: 'pointer' }}>
+                          <input
+                            type="checkbox"
+                            checked={!!pref.slots?.[s]}
+                            onChange={() => setImChannels({
+                              ...imChannels,
+                              [ch]: { ...pref, slots: { ...pref.slots, [s]: !pref.slots?.[s] } },
+                            })}
+                            style={{ display: 'none' }}
+                          />
+                          {s === 'morning' ? '☀️ ' + t('settings.aiApps.slotMorning') : s === 'noon' ? '☕ ' + t('settings.aiApps.slotNoon') : '🌙 ' + t('settings.aiApps.slotEvening')}
+                        </label>
+                      ))}
+                    </div>
+
+                    <label className="asec-toggle-row" style={{ marginTop: 12, cursor: 'pointer' }}>
+                      <input
+                        type="checkbox"
+                        checked={!!pref.weekend_mute}
+                        onChange={() => setImChannels({ ...imChannels, [ch]: { ...pref, weekend_mute: !pref.weekend_mute } })}
+                        style={{ accentColor: 'var(--color-primary)' }}
+                      />
+                      <span style={{ fontSize: 12.5 }}>{t('settings.aiApps.notifWeekendMute')}</span>
+                    </label>
+
+                    <div className="asec-actions" style={{ marginTop: 14 }}>
+                      <button className="btn-primary" onClick={() => saveImPrefs(ch)} disabled={imSaving}
+                        style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12, padding: '7px 14px' }}>
+                        💾 {t('settings.aiApps.notifSave')}
+                      </button>
+                      <button className="btn-ghost" onClick={() => testImPush(ch)} disabled={imTestState === 'sending'}
+                        style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12, padding: '7px 14px' }}>
+                        {imTestState === 'sending' ? t('settings.aiApps.notifSending') + '…' : '📨 ' + t('settings.aiApps.notifTest')}
+                      </button>
+                      {imSaved && <span style={{ fontSize: 12, fontWeight: 600, color: '#34d399' }}>✓ {t('settings.aiApps.notifSaved')}</span>}
+                      {imTestState === 'done' && <span style={{ fontSize: 12, fontWeight: 600, color: '#34d399' }}>✓ {t('settings.aiApps.notifSent')}</span>}
+                      {imTestState === 'error' && <span style={{ fontSize: 12, fontWeight: 600, color: '#f87171' }}>⚠️ {t('settings.aiApps.notifFail')}</span>}
+                    </div>
+                  </div>
+                ))}
               </div>
             </section>
           )}

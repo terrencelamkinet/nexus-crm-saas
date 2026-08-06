@@ -34,6 +34,7 @@ from app.ai.tools.guard import authorize_tool_call, ScopeViolation, log_audit
 from app.ai.providers import get_provider, ProviderAdapter, UsageReport
 from app.ai.quota.service import QuotaService, QuotaExceeded, TIER_LIMITS
 from app.models.ai import ActionRequest, AISession, Message, UserMemory, UsageEvent, PromptTemplate, SecretarySettings
+from app.models.crm_module_b import ModuleSetting
 
 # ---------------------------------------------------------------------------
 # Default provider configuration
@@ -71,6 +72,30 @@ class ChatStreamRequest(BaseModel):
 def _default_adapter() -> ProviderAdapter:
     """Build the default LLM provider adapter (DeepSeek)."""
     return get_provider(DEFAULT_PROVIDER, default_model=DEFAULT_MODEL)
+
+
+async def _get_ai_module_settings(db: AsyncSession, tenant_id: UUID) -> dict[str, Any]:
+    """Read the tenant's AI module settings (provider/model/temperature/allow_edit)."""
+    result = await db.execute(
+        select(ModuleSetting).where(
+            ModuleSetting.tenant_id == tenant_id,
+            ModuleSetting.module_key == "ai",
+        )
+    )
+    obj = result.scalar_one_or_none()
+    settings = getattr(obj, "settings", None) or {}
+    return dict(settings) if isinstance(settings, dict) else {}
+
+
+async def _resolve_adapter(db: AsyncSession, tenant_id: UUID) -> ProviderAdapter:
+    """Resolve the LLM provider adapter from tenant AI module settings.
+
+    Falls back to server defaults when the tenant has not configured one.
+    """
+    cfg = await _get_ai_module_settings(db, tenant_id)
+    provider = cfg.get("provider") or DEFAULT_PROVIDER
+    model = cfg.get("model") or DEFAULT_MODEL
+    return get_provider(provider, default_model=model)
 
 
 router = APIRouter(prefix="/api/v1/ai", tags=["AI"])
@@ -318,7 +343,7 @@ async def execute_tool(
         raise HTTPException(404, f"Tool '{tool_key}' not found")
 
     try:
-        await authorize_tool_call(ctx, tool_key, params)
+        await authorize_tool_call(ctx, tool_key, params, db=db)
     except ScopeViolation as e:
         try:
             await log_audit(ctx, "access_denied", {"tool_key": tool_key, "reason": str(e)})
@@ -662,7 +687,7 @@ async def _extract_memory_from_chat(
         return
 
     try:
-        adapter = _default_adapter()
+        adapter = await _resolve_adapter(db, ctx.tenant_id)
         try:
             text, usage = await adapter.chat(
                 messages=[
@@ -795,7 +820,13 @@ async def _build_system_prompt(
     context_str: str,
     memory_str: str,
 ) -> str:
-    """Build system prompt — prefer active template from PG, fall back to hardcoded."""
+    """Build system prompt — prefer active template from PG, fall back to hardcoded.
+
+    When the tenant has AI editing enabled (allow_edit), the write-tool guide
+    replaces the old "guide them to the CRM section" instruction so the model
+    knows it can draft CRM changes for user confirmation.
+    """
+    prompt: str | None = None
     try:
         result = await db.execute(
             select(PromptTemplate.content, PromptTemplate.variables)
@@ -818,10 +849,25 @@ async def _build_system_prompt(
                     kwargs[var] = memory_str
                 else:
                     kwargs[var] = ""
-            return tpl.format(**kwargs)
+            prompt = tpl.format(**kwargs)
     except Exception:
         pass
-    return _SYSTEM_PROMPT_TPL.format(context=context_str, memory=memory_str)
+    if prompt is None:
+        prompt = _SYSTEM_PROMPT_TPL.format(context=context_str, memory=memory_str)
+
+    # ── allow_edit-aware write guidance ────────────────────────────────
+    try:
+        cfg = await _get_ai_module_settings(db, ctx.tenant_id)
+        allow_edit = bool(cfg.get("allow_edit"))
+    except Exception:
+        allow_edit = False
+
+    if allow_edit:
+        prompt = prompt.replace(
+            "7. If the user asks to create/update something, guide them to the appropriate CRM section.",
+            _WRITE_TOOL_GUIDE,
+        )
+    return prompt
 
 
 # ====================================================================
@@ -888,6 +934,123 @@ _SYSTEM_PROMPT_TPL = """\
 
 **CRM DATA (your data, tenant-scoped):\n{context}**
 **ABOUT THIS USER (learned from past conversations):\n{memory}**"""
+
+# ── Write-tool guide (injected when tenant allow_edit = true) ────────────────
+# Replaces the old "guide them to the CRM section" instruction. The model may
+# draft CRM changes via write tools; the backend holds them as pending actions
+# that the user must confirm before execution.
+_WRITE_TOOL_GUIDE = """7. 用戶要求建立或更新 CRM 資料時，你可以在回覆中輸出工具呼叫來草擬變更：
+   - 使用工具前，先向用戶確認所需欄位資料（缺資料先問，不要臆測）
+   - 輸出格式：以 JSON code block 輸出一個物件，包含 "tool"（工具名稱）同 "params"（參數）
+   - 可用寫入工具：
+     - create_task_draft: {"title": "...", "description": "...", "due_date": "YYYY-MM-DD", "priority": "low|medium|high|urgent"} (title 必填)
+     - create_touchpoint_draft: {"type": "call|email|meeting|note|other", "summary": "...", "company_id": "...", "contact_id": "..."} (type + summary 必填)
+     - update_contact_draft: {"contact_id": "...", "name": "...", "email": "...", "phone": "...", "notes": "..."} (contact_id 必填)
+   - 系統會產生草稿俾用戶確認（Draft → Confirm → Execute），確認後先會真正執行
+   - 例如用戶要求建立任務：
+     {"tool": "create_task_draft", "params": {"title": "跟進 SYSTEX 報價", "priority": "high"}}
+   - 如果用戶冇明確授權改動，仍然只提供建議，唔好擅自輸出工具呼叫"""
+
+
+# ====================================================================
+# Embedded tool-call extraction (allow_edit flow)
+# ====================================================================
+# When allow_edit is on, the model may emit a JSON tool call inside its reply
+# (see _WRITE_TOOL_GUIDE). We extract it, run the tool in DRAFT mode, and
+# surface a pending ActionRequest for the user to confirm.
+
+_TOOL_CALL_BLOCK_RE = re.compile(
+    r"```(?:json)?\s*(\{.*?\})\s*```", re.DOTALL
+)
+_TOOL_CALL_START_RE = re.compile(r'\{"tool"\s*:\s*"[a-z_]+"')
+
+
+def _extract_tool_call(text: str) -> tuple[str, dict] | None:
+    """Extract a single {tool, params} call embedded in assistant text."""
+    raw: str | None = None
+    # Prefer a fenced JSON block
+    m = _TOOL_CALL_BLOCK_RE.search(text)
+    if m:
+        raw = m.group(1)
+    else:
+        # Fall back to balanced-brace parse from the first {"tool" ... marker
+        m2 = _TOOL_CALL_START_RE.search(text)
+        if m2:
+            try:
+                obj, _end = json.JSONDecoder().raw_decode(text[m2.start():])
+                raw = json.dumps(obj)
+            except Exception:
+                raw = None
+    if raw is None:
+        return None
+    try:
+        obj = json.loads(raw)
+    except Exception:
+        return None
+    tool_key = obj.get("tool")
+    params = obj.get("params")
+    if not isinstance(tool_key, str) or not isinstance(params, dict):
+        return None
+    return tool_key, params
+
+
+def _strip_tool_call(text: str) -> str:
+    """Remove the embedded tool-call block from assistant text for display."""
+    cleaned = _TOOL_CALL_BLOCK_RE.sub("", text)
+    # Inline form: remove from the {"tool" marker to the balanced closing brace
+    m = _TOOL_CALL_START_RE.search(cleaned)
+    if m:
+        try:
+            _obj, end = json.JSONDecoder().raw_decode(cleaned[m.start():])
+            cleaned = cleaned[: m.start()] + cleaned[m.start() + end :]
+        except Exception:
+            pass
+    return cleaned.strip()
+
+
+async def _run_embedded_tool_call(
+    ctx: Any,
+    db: AsyncSession,
+    text: str,
+    session_id: UUID | None,
+) -> dict[str, Any] | None:
+    """If *text* embeds a write-tool call, authorize + draft it.
+
+    Returns an ActionRequest envelope (action_id, tool_key, params, preview)
+    or None when there is nothing to execute.
+    """
+    extracted = _extract_tool_call(text)
+    if not extracted:
+        return None
+    tool_key, params = extracted
+    tool = TOOL_REGISTRY.get(tool_key)
+    if not tool or tool.type != "write" or tool.handler is None:
+        return None
+    try:
+        await authorize_tool_call(ctx, tool_key, params, db=db)
+    except ScopeViolation as e:
+        return {"error": str(e)}
+    preview = await tool.handler(ctx, params, db, mode="draft")
+    action = ActionRequest(
+        tenant_id=ctx.tenant_id,
+        workspace_id=ctx.workspace_id,
+        user_id=ctx.user_id,
+        session_id=session_id,
+        tool_key=tool_key,
+        target_module=tool.module,
+        payload_preview=preview,
+        status="pending",
+    )
+    db.add(action)
+    await db.flush()
+    await db.commit()  # persist NOW — SSE teardown may not commit reliably
+    await db.refresh(action)
+    return {
+        "action_id": str(action.id),
+        "tool_key": tool_key,
+        "params": params,
+        "preview": preview,
+    }
 
 
 # ====================================================================
@@ -1077,13 +1240,24 @@ async def chat_completion(
         )
 
         # ── Save AI response ──────────────────────────────────────────────
+        display_text = _strip_tool_call(text)
         assistant_msg = Message(
             session_id=sess.id,
             role="assistant",
-            content=text,
+            content=display_text,
             token_count=usage.output_tokens,
         )
         db.add(assistant_msg)
+
+        # ── Embedded write-tool call (allow_edit flow) ────────────────────
+        action: dict[str, Any] | None = None
+        try:
+            action = await _run_embedded_tool_call(ctx, db, text, UUID(str(sess.id)))
+            if action and "error" in action:
+                # Gate refused — tell the user in-band
+                action = None
+        except Exception:
+            action = None
 
         # ── Extract cross-session memory (best-effort) ────────────────────
         if last_query and text:
@@ -1118,9 +1292,10 @@ async def chat_completion(
         )
 
         return {
-            "text": text,
+            "text": display_text,
             "session_id": str(sess.id),
             "crm_hit": crm_hit,
+            "action": action,
             "usage": {
                 "input_tokens": usage.input_tokens,
                 "output_tokens": usage.output_tokens,
@@ -1326,14 +1501,29 @@ async def chat_stream_completion(
                 }
 
             # ── Save assistant message ─────────────────────────────────────
+            display_text = _strip_tool_call(full_text)
             if full_text:
                 assistant_msg = Message(
                     session_id=sess.id,
                     role="assistant",
-                    content=full_text,
+                    content=display_text,
                     token_count=final_report.output_tokens if final_report else 0,
                 )
                 db.add(assistant_msg)
+
+                # ── Embedded write-tool call (allow_edit flow) ────────────
+                action: dict[str, Any] | None = None
+                try:
+                    action = await _run_embedded_tool_call(ctx, db, full_text, UUID(str(sess.id)))
+                    if action and "error" in action:
+                        action = None
+                except Exception:
+                    action = None
+                if action:
+                    yield {
+                        "event": "action",
+                        "data": json.dumps(action),
+                    }
 
                 # ── Extract cross-session memory (best-effort) ────────────
                 if last_query:
