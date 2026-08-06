@@ -14,6 +14,7 @@ import uuid
 import secrets
 import os
 import json
+import urllib.parse
 from datetime import datetime, timezone
 from uuid import UUID
 
@@ -180,6 +181,113 @@ async def delete_integration(
     return None
 
 
+# ─── ICS URL subscription ────────────────────────────────────────
+
+
+@router.post("/integrations/ics", response_model=IntegrationResponse, status_code=201)
+async def create_ics_integration(
+    request: Request,
+    db: AsyncSession = Depends(get_tenant_session),
+):
+    """Subscribe to an iCal URL (public calendar — no OAuth needed).
+
+    Body: { "ics_url": "https://.../basic.ics", "provider_display": "..." }
+    Provider is stored as 'ics'. First sync runs immediately.
+    """
+    body = await request.json()
+    ics_url = (body.get("ics_url") or "").strip()
+    if not ics_url:
+        raise HTTPException(400, "ics_url is required")
+    if not ics_url.lower().startswith(("http://", "https://")):
+        raise HTTPException(400, "ics_url must be an http(s) URL")
+
+    tenant_id = _tid(request)
+    user_id = _uid(request)
+
+    # dedup: one ICS subscription per user per URL
+    existing = (
+        await db.execute(
+            select(Integration).where(
+                Integration.tenant_id == tenant_id,
+                Integration.user_id == user_id,
+                Integration.provider == "ics",
+                Integration.config.op("->>")("connection_url") == ics_url,
+            )
+        )
+    ).scalar_one_or_none()
+    if existing:
+        return existing
+
+    integration = Integration(
+        tenant_id=tenant_id,
+        user_id=user_id,
+        provider="ics",
+        provider_display=body.get("provider_display", "ICS Calendar"),
+        status="active",
+        config={"connection_url": ics_url},
+        metadata_={"connected_at": datetime.now(timezone.utc).isoformat()},
+    )
+    db.add(integration)
+    await db.flush()
+    await db.refresh(integration)
+
+    # immediate first sync
+    try:
+        from app.services.calendar_sync import sync_ics
+        await sync_ics(db, integration)
+        integration.last_sync_at = datetime.now(timezone.utc)
+    except Exception as e:
+        integration.status = "error"
+        integration.metadata_ = {
+            **(integration.metadata_ or {}),
+            "last_error": f"{type(e).__name__}: {str(e)[:200]}",
+        }
+    await db.flush()
+    await db.refresh(integration)
+    return integration
+
+
+# ─── Manual sync trigger ─────────────────────────────────────────
+
+
+@router.post("/integrations/{integration_id}/sync")
+async def sync_integration_now(
+    request: Request,
+    integration_id: UUID,
+    db: AsyncSession = Depends(get_tenant_session),
+):
+    """Force a calendar sync for one integration (bypasses interval policy)."""
+    tenant_id = _tid(request)
+    user_id = _uid(request)
+
+    q = select(Integration).where(
+        Integration.id == integration_id,
+        Integration.tenant_id == tenant_id,
+        Integration.user_id == user_id,
+    )
+    row = (await db.execute(q)).scalar_one_or_none()
+    if not row:
+        raise HTTPException(404, "Integration not found")
+    if row.provider not in ("google_calendar", "ics", "ical"):
+        raise HTTPException(400, "provider does not support calendar sync")
+
+    try:
+        from app.services.calendar_sync import sync_integration
+        stats = await sync_integration(db, row)
+        row.last_sync_at = datetime.now(timezone.utc)
+        row.status = "active"
+        await db.flush()
+        return {"status": "ok", "integration_id": str(integration_id), "stats": stats}
+    except Exception as e:
+        row.status = "error"
+        row.metadata_ = {
+            **(row.metadata_ or {}),
+            "last_error": f"{type(e).__name__}: {str(e)[:200]}",
+        }
+        await db.flush()
+        raise HTTPException(502, f"Sync failed: {type(e).__name__}: {str(e)[:150]}")
+
+
 # ─── OAuth: START flow ─────────────────────────────────────────
 
 
@@ -207,7 +315,6 @@ async def oauth_start(
 
     # Generate random state for CSRF protection
     state = secrets.token_urlsafe(32)
-
     oauth = OAuthState(
         tenant_id=tenant_id,
         user_id=user_id,
@@ -420,16 +527,106 @@ def _provider_display_name(provider: str) -> str:
     return PROVIDER_DISPLAY.get(provider, provider.replace("_", " ").title())
 
 
+_TOKEN_ENDPOINTS = {
+    "google_calendar": "https://oauth2.googleapis.com/token",
+    "gmail": "https://oauth2.googleapis.com/token",
+    "google_drive": "https://oauth2.googleapis.com/token",
+    "outlook_calendar": "https://login.microsoftonline.com/common/oauth2/v2.0/token",
+    "outlook_mail": "https://login.microsoftonline.com/common/oauth2/v2.0/token",
+}
+
+
+async def _http_post_json(url: str, data: dict, headers: dict | None = None) -> dict:
+    """POST form-encoded → JSON response. Raises HTTPException(502) on failure."""
+    import httpx
+
+    form = "&".join(f"{k}={urllib.parse.quote(str(v), safe='')}" for k, v in data.items())
+    try:
+        async with httpx.AsyncClient(timeout=httpx.Timeout(15.0)) as client:
+            r = await client.post(
+                url,
+                content=form,
+                headers={
+                    "Content-Type": "application/x-www-form-urlencoded",
+                    **(headers or {}),
+                },
+            )
+    except Exception:
+        raise HTTPException(502, f"Token endpoint unreachable: {url}")
+    if r.status_code >= 400:
+        raise HTTPException(502, f"Token exchange failed ({r.status_code}): {r.text[:200]}")
+    return r.json()
+
+
 async def _exchange_code(provider: str, code: str) -> dict:
+    """Exchange authorization code for tokens (real HTTP exchange).
+
+    Platform-owned OAuth client — client_id/secret come from server-side
+    oauth_clients.json / .env, never from the frontend.
+    Returns dict with at least {access_token, refresh_token, expires_at, scope}.
     """
-    Exchange authorization code for tokens.
-    In Phase 1, returns placeholder.
-    Returns dict with at least {access_token, refresh_token, expires_at}.
-    """
-    # Phase 1: placeholder — real HTTP exchange in Phase 2
+    endpoint = _TOKEN_ENDPOINTS.get(provider)
+    if not endpoint:
+        # Unknown provider — keep legacy placeholder behaviour
+        return {
+            "access_token": f"placeholder_{provider}_{code[:16]}",
+            "refresh_token": f"refresh_{provider}_{uuid.uuid4().hex[:16]}",
+            "expires_at": datetime.now(timezone.utc).timestamp() + 3600,
+            "scope": "",
+        }
+
+    client_id = _get_client_id(provider)
+    client_secret = _get_client_secret(provider)
+    if client_id == "PLACEHOLDER" or not client_secret:
+        raise HTTPException(500, f"OAuth client for {provider} not configured (platform setup required)")
+
+    # redirect_uri must match the one used in _build_oauth_url
+    frontend_origin = "https://nexus-crm.kinet-poc.com"
+    redirect_uri = f"{frontend_origin}/marketplace/oauth/callback"
+
+    token = await _http_post_json(endpoint, {
+        "client_id": client_id,
+        "client_secret": client_secret,
+        "code": code,
+        "redirect_uri": redirect_uri,
+        "grant_type": "authorization_code",
+    })
+
+    expires_in = token.get("expires_in", 3600)
     return {
-        "access_token": f"placeholder_{provider}_{code[:16]}",
-        "refresh_token": f"refresh_{provider}_{uuid.uuid4().hex[:16]}",
-        "expires_at": datetime.now(timezone.utc).timestamp() + 3600,
-        "scope": "",
+        "access_token": token.get("access_token", ""),
+        "refresh_token": token.get("refresh_token", ""),
+        "expires_at": datetime.now(timezone.utc).timestamp() + int(expires_in),
+        "scope": token.get("scope", ""),
+        "token_type": token.get("token_type", "Bearer"),
+    }
+
+
+async def refresh_access_token(provider: str, refresh_token: str) -> dict:
+    """Refresh an expired access token. Returns {access_token, expires_at, refresh_token}.
+
+    Raises HTTPException(502) on failure — caller should mark integration disconnected
+    when refresh fails (user revoked access).
+    """
+    endpoint = _TOKEN_ENDPOINTS.get(provider)
+    if not endpoint or not refresh_token:
+        raise HTTPException(502, f"No refresh endpoint/token for {provider}")
+
+    client_id = _get_client_id(provider)
+    client_secret = _get_client_secret(provider)
+
+    token = await _http_post_json(endpoint, {
+        "client_id": client_id,
+        "client_secret": client_secret,
+        "refresh_token": refresh_token,
+        "grant_type": "refresh_token",
+    })
+
+    expires_in = token.get("expires_in", 3600)
+    return {
+        "access_token": token.get("access_token", ""),
+        "refresh_token": token.get("refresh_token", refresh_token),
+        "expires_at": datetime.now(timezone.utc).timestamp() + int(expires_in),
+        "scope": token.get("scope", ""),
+        "token_type": token.get("token_type", "Bearer"),
     }

@@ -371,7 +371,7 @@ class ProjectCalendarEvent(Base):
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     tenant_id = Column(UUID(as_uuid=True), ForeignKey("nexus_auth.nexus_auth_tenants.id", ondelete="CASCADE"), nullable=False)
-    project_id = Column(UUID(as_uuid=True), ForeignKey("nexus_crm.projects.id", ondelete="CASCADE"), nullable=False)
+    project_id = Column(UUID(as_uuid=True), ForeignKey("nexus_crm.projects.id", ondelete="CASCADE"), nullable=True)
     title = Column(Text, nullable=False)
     description = Column(Text)
     event_type = Column(String(50), default="milestone")  # milestone, task, meeting, reminder
@@ -380,6 +380,12 @@ class ProjectCalendarEvent(Base):
     is_all_day = Column(Boolean, default=False)
     color = Column(String(20), default="#00693E")
     location = Column(Text)
+    owner_user_id = Column(UUID(as_uuid=True), nullable=True)
+    visibility_scope = Column(Text, default="workspace")  # workspace | private | team | tenant_admin
+    team_id = Column(UUID(as_uuid=True), nullable=True)
+    source = Column(String(20), nullable=False, default="manual")  # manual | google_oauth | ics
+    external_event_id = Column(String(500), nullable=True)
+    external_updated = Column(DateTime(timezone=True), nullable=True)
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 

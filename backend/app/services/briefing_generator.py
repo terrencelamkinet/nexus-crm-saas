@@ -88,6 +88,14 @@ async def _collect_modules(ctx: AISessionContext, db: AsyncSession, modules: lis
     from app.ai import briefing_sources as bs
     from app.routers.ai import _build_crm_briefing
 
+    # Force calendar sync before collecting schedule (mirror check — remote
+    # updates land in project_calendar_events before the briefing reads them).
+    try:
+        from app.services.calendar_sync import sync_user_calendars
+        await sync_user_calendars(db, ctx.tenant_id, ctx.user_id, force=True)
+    except Exception:
+        pass  # never block the briefing on sync failure
+
     out: dict[str, Any] = {}
     brief = await _build_crm_briefing(ctx, db)
     out["schedule"] = brief.get("schedule", [])

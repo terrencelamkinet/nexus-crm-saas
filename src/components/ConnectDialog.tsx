@@ -18,7 +18,9 @@ export default function ConnectDialog({ integration, onClose, onConnected }: Pro
   const [otp, setOtp] = useState('');
   const [otpSent, setOtpSent] = useState(false);
   const [waPending, setWaPending] = useState(false);
+  const [icsMode, setIcsMode] = useState(false);  // google-calendar: ICS URL fallback
   const isWhatsApp = integration.id === 'whatsapp';
+  const supportsIcs = integration.id === 'google-calendar';
 
   // Generate a fake webhook URL for webhook-based integrations
   const webhookUrl = `${window.location.origin}/api/v1/webhooks/${integration.id}/${Date.now().toString(36)}`;
@@ -160,6 +162,37 @@ export default function ConnectDialog({ integration, onClose, onConnected }: Pro
         });
       }
     }).catch(err => setError(err?.message || 'Failed to start OAuth'));
+  };
+
+  const handleIcsConnect = async () => {
+    // ICS URL subscription — google-calendar fallback (public calendars)
+    if (!url.trim()) {
+      setError('Please paste your ICS calendar URL');
+      return;
+    }
+    setConnecting(true);
+    setError('');
+    try {
+      const authRaw = localStorage.getItem('nexus_crm_auth');
+      if (!authRaw) { setError('Not signed in'); setConnecting(false); return; }
+      const auth = JSON.parse(authRaw);
+      const res = await fetch('/api/v1/integrations/ics', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${auth.access_token}`,
+        },
+        body: JSON.stringify({ ics_url: url.trim(), provider_display: integration.name }),
+      });
+      if (!res.ok) {
+        const errBody = await res.json().catch(() => ({}));
+        throw new Error(errBody?.detail || 'Connection failed');
+      }
+      onConnected();
+    } catch (err: any) {
+      setError(err?.message || 'Failed to connect');
+    }
+    setConnecting(false);
   };
 
   return (
@@ -310,14 +343,55 @@ export default function ConnectDialog({ integration, onClose, onConnected }: Pro
           )}
 
           {integration.connectionMethod === 'oauth' && (
-            <div style={{ textAlign: 'center', padding: 12 }}>
-              <p style={{ fontSize: 14, marginBottom: 12 }}>
-                Click Connect to authorize NEXUS via {integration.name}
-              </p>
-              <p style={{ fontSize: 12, color: 'var(--color-text-muted)', lineHeight: 1.5 }}>
-                {integration.howItWorks}
-              </p>
-            </div>
+            !icsMode ? (
+              <div style={{ textAlign: 'center', padding: 12 }}>
+                <p style={{ fontSize: 14, marginBottom: 12 }}>
+                  Click Connect to authorize NEXUS via {integration.name}
+                </p>
+                <p style={{ fontSize: 12, color: 'var(--color-text-muted)', lineHeight: 1.5 }}>
+                  {integration.howItWorks}
+                </p>
+                {supportsIcs && (
+                  <button
+                    className="mkt-card-btn"
+                    onClick={() => { setIcsMode(true); setError(''); }}
+                    style={{ marginTop: 16, background: 'none', border: '1px solid var(--border-color)' }}
+                  >
+                    Or paste an ICS calendar link instead
+                  </button>
+                )}
+              </div>
+            ) : (
+              <>
+                <div className="mkt-steps">
+                  {integration.connectSteps?.map((step, i) => (
+                    <div key={i} className="mkt-step">
+                      <span className="mkt-step-num">{i + 1}</span>
+                      <span>{step}</span>
+                    </div>
+                  ))}
+                </div>
+                <div style={{ marginTop: 16 }}>
+                  <label style={{ fontSize: 12, fontWeight: 600, display: 'block', marginBottom: 6 }}>Paste your ICS calendar URL</label>
+                  <input
+                    className="mkt-url-input"
+                    type="text"
+                    placeholder={integration.connectPlaceholder || 'https://.../basic.ics'}
+                    value={url}
+                    onChange={e => { setUrl(e.target.value); setError(''); }}
+                    autoFocus
+                  />
+                </div>
+                {error && <p style={{ color: '#ef4444', fontSize: 12, marginTop: 6 }}>{error}</p>}
+                <button
+                  className="mkt-card-btn"
+                  onClick={() => { setIcsMode(false); setUrl(''); setError(''); }}
+                  style={{ marginTop: 12, background: 'none', border: '1px solid var(--border-color)' }}
+                >
+                  ← Back to Google sign-in
+                </button>
+              </>
+            )
           )}
         </div>
 
@@ -331,9 +405,14 @@ export default function ConnectDialog({ integration, onClose, onConnected }: Pro
               {connecting ? 'Connecting...' : 'Connect'}
             </button>
           )}
-          {integration.connectionMethod === 'oauth' && (
+          {integration.connectionMethod === 'oauth' && !icsMode && (
             <button className="mkt-card-btn connect" onClick={handleOAuthConnect}>
-              Authorize with {integration.name}
+              {integration.oauthLabel || `Authorize with ${integration.name}`}
+            </button>
+          )}
+          {integration.connectionMethod === 'oauth' && icsMode && (
+            <button className="mkt-card-btn connect" onClick={handleIcsConnect} disabled={connecting}>
+              {connecting ? 'Connecting...' : 'Connect ICS Calendar'}
             </button>
           )}
         </div>

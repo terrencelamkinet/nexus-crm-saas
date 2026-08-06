@@ -522,6 +522,10 @@ async def _get_upcoming_events(
             ProjectCalendarEvent.tenant_id == ctx.tenant_id,
             ProjectCalendarEvent.start >= now,
             ProjectCalendarEvent.start <= cutoff,
+            # per-user calendar isolation: own events + shared (no-owner) ones.
+            # owner_user_id IS NULL = project/workspace events visible to all.
+            (ProjectCalendarEvent.owner_user_id == ctx.user_id)
+            | (ProjectCalendarEvent.owner_user_id.is_(None)),
         )
         .order_by(ProjectCalendarEvent.start.asc())
         .limit(limit)

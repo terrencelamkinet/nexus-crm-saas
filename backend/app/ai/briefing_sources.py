@@ -431,6 +431,9 @@ async def calendar_conflicts(ctx: AISessionContext, db: AsyncSession) -> list[di
                 ProjectCalendarEvent.start >= day_start,
                 ProjectCalendarEvent.start < day_end,
                 ProjectCalendarEvent.is_all_day.is_(False),
+                # per-user isolation — own + shared events only
+                (ProjectCalendarEvent.owner_user_id == ctx.user_id)
+                | (ProjectCalendarEvent.owner_user_id.is_(None)),
             )
             .order_by(ProjectCalendarEvent.start.asc())
         )

@@ -1,8 +1,22 @@
 # G08 NEXUS CRM — Project Context
 
-> 最後更新：2026-07-31 HKT
+> 最後更新：2026-08-04 HKT
 > 由 GG Fighter（Hermes Main）於 Module B bugfix + cross-check session 建立
 > 維護人：Terrence Lam
+
+---
+
+## Core Rules（MANDATORY — 2026-08-04 由 GG-Fighter memory migrate）
+
+1. **G08 與 GG 系統完全分離** — G08 CRM 與 GG-Fighter/GG-Work/GG-Life/Hermes/OpenClaw 不可有任何關連：唔共用 credentials/API keys/data、唔互相 call、G08 唔可以依賴 GG 系統（bots/cron/memory/skills）。G08 係客戶產品（kinet-poc.com），GG 係 Terrence 個人管家，兩邊獨立運作。G08 只 call 自己 page/file/data/LLM。任何跨系統 integration 提議 → 先問 Terrence。
+2. **Name Card Rule** — 每次入名卡必須同時開一個 Touch Point + add to 相關 Contact。
+3. **Repo Location** — code = `/home/airoot/projects/nexus-crm-saas`（`~/projects/g08-nexus-crm` 只係 stale pointer）。
+4. **Entity 雙向 Linking Audit** — 每次 entity 改動後必須 audit 雙向 linking（Contacts/Companies/Deals/Touchpoints 之間）。
+5. **RLS V2 FORCE + DB Backup** — RLS V2 FORCE mandatory（`app.tenant_id`）；NEXUS DB backup 只可以 `sudo -u postgres pg_dump` — 用 SELECT-only ALTERs toggle FORCE RLS 會整出 51-byte empty dumps（2026-07-31 bug）。Counts 需要 `set_config('app.tenant_id')`。Cron 03:00 + hourly monitor。
+6. **SOC 2 根基** — NEXUS CRM v2 以 SOC 2 為根基開發，所有新功能必須考慮 access control。
+7. **design04 範例庫** — design04 = NEXUS CRM UI/UX 範例庫（dark #5b8cff），源檔參考該庫。
+8. **50k tenants 設計原則** — settings/features 為 50k tenants 設計（非單一用戶）；Infra 修復要 phased TOTAL + clarify scope。G08 AI zh-HK = 書面語為主 + 小量廣東話口語。
+9. **SiliconFlow Qwen3-VL** — 只出軸對齊 bbox（四角定位做唔到）；vision_analyze 用於需要精確定位嘅場景。
 
 ---
 

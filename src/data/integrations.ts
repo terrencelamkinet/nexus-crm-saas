@@ -18,6 +18,8 @@ export interface Integration {
   connectSteps?: string[];
   /** Placeholder text for the URL input */
   connectPlaceholder?: string;
+  /** Optional custom label for the OAuth connect button */
+  oauthLabel?: string;
 }
 
 export const integrations: Integration[] = [
@@ -27,22 +29,22 @@ export const integrations: Integration[] = [
     name: 'Google Calendar',
     type: 'Calendar',
     typeIcon: '📅',
-    shortDesc: 'Paste your Google Calendar ICS link — no OAuth setup needed',
-    longDesc: 'Sync your Google Calendar with NEXUS CRM using the built-in ICS link. No developer console, no API keys — just copy your calendar\'s "Secret address in iCal format" from Google Calendar Settings and paste it here.',
+    shortDesc: 'Connect your Google Calendar — one-click OAuth, or paste an ICS link',
+    longDesc: 'Connect Google Calendar with NEXUS CRM. Click "Connect with Google" to authorize securely in one step — no developer console needed. Or paste a calendar\'s "Secret address in iCal format" URL to subscribe to a public calendar.',
     icon: 'GC',
     color: '#4285F4',
-    features: ['Read calendar events', 'No OAuth setup', 'Free — no API quota'],
-    howItWorks: 'Google Calendar provides a "Secret address in iCal format" — copy that URL and paste it into NEXUS. We poll it regularly for updates.',
+    features: ['One-click Google sign-in', 'Auto sync every 15 min', 'Personal + shared calendars'],
+    howItWorks: 'NEXUS uses a secure, platform-owned OAuth connection. You authorize once with your Google account, then we sync your events into NEXUS automatically. ICS links work too for public calendars.',
     popularity: 5,
     connectionCount: 2847,
     isConnected: false,
-    connectionMethod: 'url',
+    connectionMethod: 'oauth',
+    oauthLabel: 'Connect with Google',
     connectSteps: [
-      'Open Google Calendar (calendar.google.com)',
-      'Click the gear icon → "Settings"',
-      'Go to your calendar name → "Integrate calendar"',
-      'Copy the "Secret address in iCal format" URL',
-      'Paste it below and click Connect',
+      'Click "Connect with Google"',
+      'Sign in with your Google account in the popup',
+      'Allow NEXUS to read your calendar events',
+      'Done — events sync automatically',
     ],
     connectPlaceholder: 'https://calendar.google.com/calendar/ical/.../basic.ics',
   },
