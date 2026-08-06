@@ -13,12 +13,13 @@ interface MonthViewProps {
   date: Date;
   onDateChange: (d: Date) => void;
   onEventClick?: (ev: CalendarEventFormatted) => void;
+  onMoreClick?: (events: CalendarEventFormatted[], date: Date) => void;
 }
 
 const MAX_EVENTS_PER_CELL = 3;
 const MAX_DOTS = 6;
 
-export default function MonthView({ events, date, onDateChange, onEventClick }: MonthViewProps) {
+export default function MonthView({ events, date, onDateChange, onEventClick, onMoreClick }: MonthViewProps) {
   const year = date.getFullYear();
   const month = date.getMonth();
   const grid = useMemo(() => getMonthGrid(year, month), [year, month]);
@@ -102,8 +103,21 @@ export default function MonthView({ events, date, onDateChange, onEventClick }: 
                       {ev.allDay ? '' : `${ev.start.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} `}{ev.title}
                     </div>
                   ))}
-                  {dayEvents.length > MAX_EVENTS_PER_CELL && (
-                    <div className="month-more">+{dayEvents.length - MAX_EVENTS_PER_CELL} more</div>
+                  {dayEvents.length > MAX_EVENTS_PER_CELL && onMoreClick && (
+                    <div
+                      className="month-more"
+                      role="button"
+                      tabIndex={0}
+                      onClick={(e) => { e.stopPropagation(); onMoreClick(dayEvents, cellDate); }}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.stopPropagation();
+                          onMoreClick(dayEvents, cellDate);
+                        }
+                      }}
+                    >
+                      +{dayEvents.length - MAX_EVENTS_PER_CELL} more
+                    </div>
                   )}
                 </div>
               );

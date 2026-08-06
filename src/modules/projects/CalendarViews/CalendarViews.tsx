@@ -10,6 +10,7 @@ import {
   List,
   RefreshCw,
   CalendarDays,
+  X,
 } from 'lucide-react';
 import type { CalendarViewType, CalendarEventFormatted } from './types';
 import { formatMonthYear } from './calendar-utils';
@@ -72,6 +73,7 @@ export default function CalendarViews({ events, loading, onRefresh }: CalendarVi
   const [showWeekends, setShowWeekends] = useState<boolean>(getStoredShowWeekends);
   const [viewMenuOpen, setViewMenuOpen] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState<CalendarEventFormatted | null>(null);
+  const [morePopup, setMorePopup] = useState<{ events: CalendarEventFormatted[]; date: Date } | null>(null);
   const isMobile = useMediaQuery('(max-width: 768px)');
   const viewMenuRef = useRef<HTMLDivElement>(null);
 
@@ -104,6 +106,8 @@ export default function CalendarViews({ events, loading, onRefresh }: CalendarVi
   const toggleWeekends = useCallback(() => setShowWeekends((prev) => !prev), []);
   const handleEventClick = useCallback((ev: CalendarEventFormatted) => setSelectedEvent(ev), []);
   const handleReviewClose = useCallback(() => setSelectedEvent(null), []);
+  const handleMoreClick = useCallback((evs: CalendarEventFormatted[], d: Date) => setMorePopup({ events: evs, date: d }), []);
+  const handleMoreClose = useCallback(() => setMorePopup(null), []);
 
   const currentView = VIEW_TABS.find((v) => v.key === viewType) || VIEW_TABS[0];
 
@@ -112,18 +116,18 @@ export default function CalendarViews({ events, loading, onRefresh }: CalendarVi
       case 'month':
         if (isMobile) return (
           <div>
-            <MonthView events={events} date={date} onDateChange={handleDateChange} onEventClick={handleEventClick} />
+            <MonthView events={events} date={date} onDateChange={handleDateChange} onEventClick={handleEventClick} onMoreClick={handleMoreClick} />
             <MobileAgendaList events={events} date={date} onEventClick={handleEventClick} />
           </div>
         );
-        return <MonthView events={events} date={date} onDateChange={handleDateChange} onEventClick={handleEventClick} />;
+        return <MonthView events={events} date={date} onDateChange={handleDateChange} onEventClick={handleEventClick} onMoreClick={handleMoreClick} />;
       case 'week': return <WeekView events={events} date={date} onDateChange={handleDateChange} viewType={viewType} onViewChange={handleViewChange} showWeekends={showWeekends} onEventClick={handleEventClick} />;
       case 'day': return <DayView events={events} date={date} onDateChange={handleDateChange} onEventClick={handleEventClick} />;
       case 'deadline': return <DeadlineView events={events} date={date} onDateChange={handleDateChange} onEventClick={handleEventClick} />;
       case 'gantt': return <GanttView events={events} date={date} onDateChange={handleDateChange} onEventClick={handleEventClick} />;
       default:
         if (isMobile) return <MobileAgendaView events={events} date={date} onDateChange={handleDateChange} onEventClick={handleEventClick} />;
-        return <MonthView events={events} date={date} onDateChange={handleDateChange} onEventClick={handleEventClick} />;
+        return <MonthView events={events} date={date} onDateChange={handleDateChange} onEventClick={handleEventClick} onMoreClick={handleMoreClick} />;
     }
   };
 
@@ -221,6 +225,41 @@ export default function CalendarViews({ events, loading, onRefresh }: CalendarVi
           {navBar}
           {events.length === 0 ? emptyState : <div>{renderView()}</div>}
         </>
+      )}
+
+      {morePopup && (
+        <div className="month-more-overlay" onClick={handleMoreClose}>
+          <div
+            className="month-more-popup"
+            role="dialog"
+            aria-label="Day events"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="month-more-header">
+              <span className="month-more-title">
+                {morePopup.date.toLocaleDateString('en-US', { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' })}
+              </span>
+              <button className="month-more-close" onClick={handleMoreClose} aria-label="Close">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="month-more-list">
+              {morePopup.events.map((ev) => (
+                <button
+                  key={ev.id}
+                  className="month-more-item"
+                  onClick={() => { setSelectedEvent(ev); setMorePopup(null); }}
+                >
+                  <span className="month-more-dot" style={{ backgroundColor: ev.color || '#6B7280' }} />
+                  <span className="month-more-time">
+                    {ev.allDay ? 'All day' : ev.start.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                  </span>
+                  <span className="month-more-text">{ev.title}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
       )}
 
       {selectedEvent && (
