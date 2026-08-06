@@ -927,6 +927,8 @@
     "riskAlerts": "Risk Alerts",
     "allWidgetsAdded": "All widgets added",
     "drag": "Drag",
+    "moveUp": "Move up",
+    "moveDown": "Move down",
     "remove": "Remove",
     "openFullChat": "Open full chat",
     "afternoon": "Good afternoon",

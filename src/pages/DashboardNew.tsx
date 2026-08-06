@@ -485,6 +485,19 @@ export default function DashboardNew() {
   const removeW = (k: string) => {
     setOrder(order.filter(x => x !== k))
   }
+  // Mobile/touch-friendly reorder — HTML5 DnD doesn't work on touch devices,
+  // so provide ↑/↓ buttons as the reliable path (kept alongside desktop drag).
+  const moveW = (k: string, dir: -1 | 1) => {
+    setOrder(prev => {
+      const i = prev.indexOf(k)
+      if (i < 0) return prev
+      const j = i + dir
+      if (j < 0 || j >= prev.length) return prev
+      const next = [...prev]
+      ;[next[i], next[j]] = [next[j], next[i]]
+      return next
+    })
+  }
   // RAF-throttled drag
   const handleDragStart = (k: string) => { dragKey.current = k; dragPending.current = false }
   const handleDragOver = (e: React.DragEvent, k: string) => {
@@ -1112,6 +1125,12 @@ export default function DashboardNew() {
                 </h3>
                 {editing && (
                   <div style={{display:'flex',gap:2}}>
+                    <button aria-label={t('greeting.moveUp')} className="widget-icon-btn" title={t('greeting.moveUp')} onClick={(e) => { e.stopPropagation(); moveW(k, -1) }}>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M18 15l-6-6-6 6"/></svg>
+                    </button>
+                    <button aria-label={t('greeting.moveDown')} className="widget-icon-btn" title={t('greeting.moveDown')} onClick={(e) => { e.stopPropagation(); moveW(k, 1) }}>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+                    </button>
                     <button aria-label={t('greeting.drag')} className="widget-icon-btn" title={t('greeting.drag')}>
                       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="9" cy="6" r="1"/><circle cx="9" cy="12" r="1"/><circle cx="9" cy="18" r="1"/><circle cx="15" cy="6" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="15" cy="18" r="1"/></svg>
                     </button>
