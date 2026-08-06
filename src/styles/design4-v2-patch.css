@@ -57,7 +57,7 @@
 .cb-panel--desktop,
 .cb-panel--mobile,
 .ai-brief-card,
-.ab-panel,
+.ab-panel-card,
 .briefing-card,
 .ai-card {
   position: relative;
@@ -68,7 +68,7 @@
 .cb-panel--desktop::before,
 .cb-panel--mobile::before,
 .ai-brief-card::before,
-.ab-panel::before,
+.ab-panel-card::before,
 .briefing-card::before,
 .ai-card::before {
   content: '';
@@ -91,12 +91,12 @@
 .chat-panel:hover::before,
 .cb-panel:hover::before,
 .ai-brief-card:hover::before,
-.ab-panel:hover::before,
+.ab-panel-card:hover::before,
 .ai-card:hover::before,
 .chat-panel.is-thinking::before,
 .cb-panel.is-thinking::before,
 .ai-brief-card.is-thinking::before,
-.ab-panel.is-thinking::before,
+.ab-panel-card.is-thinking::before,
 .ai-card.is-thinking::before {
   opacity: 1;
 }
@@ -104,7 +104,7 @@
 .cb-panel.is-thinking,
 .chat-panel.is-thinking,
 .ai-brief-card.is-thinking,
-.ab-panel.is-thinking,
+.ab-panel-card.is-thinking,
 .ai-card.is-thinking {
   animation: ai-think-pulse 1.6s ease-in-out infinite;
 }
@@ -126,7 +126,7 @@
   .cb-panel--desktop::before,
   .cb-panel--mobile::before,
   .ai-brief-card::before,
-  .ab-panel::before,
+  .ab-panel-card::before,
   .briefing-card::before,
   .ai-card::before {
     animation: none;
@@ -135,7 +135,7 @@
   .cb-panel.is-thinking,
   .chat-panel.is-thinking,
   .ai-brief-card.is-thinking,
-  .ab-panel.is-thinking {
+  .ab-panel-card.is-thinking {
     animation: none;
   }
 }

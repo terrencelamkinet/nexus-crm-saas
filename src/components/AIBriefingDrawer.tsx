@@ -428,7 +428,7 @@ export default function AIBriefingDrawer() {
 
       {/* Expandable panel — push-down (推移式), inline in document flow */}
       <div
-        className={`ab-panel ai-card${loading ? ' is-thinking' : ''}`}
+        className="ab-panel"
         style={{
           gridTemplateRows: expanded ? '1fr' : '0fr',
           marginBottom: expanded ? 20 : 0,
@@ -444,7 +444,7 @@ export default function AIBriefingDrawer() {
           <div
             aria-hidden={!expanded}
             {...(!expanded ? { inert: true } : {})}
-            className="ab-panel-card"
+            className={`ab-panel-card ai-card${loading ? ' is-thinking' : ''}`}
             style={{
             animation: expanded ? 'ai-fadein 0.3s ease' : 'none',
           }}>
