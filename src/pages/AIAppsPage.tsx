@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { ChevronRight, Check, RotateCcw, Save, X } from 'lucide-react';
 import { apiClient } from '../lib/api';
+import { useEscapeKey } from '../lib/useEscapeKey';
 import {
   MODULES, useSecretarySettings, CONNECTED_FALLBACK,
   type ToneId, type LangPref, type DetailLevel, type ChannelId,
@@ -55,6 +56,8 @@ export default function AIAppsPage() {
   const [tgBindOpen, setTgBindOpen] = useState(false);
   const [tgBotToken, setTgBotToken] = useState('');
   const [tgChatId, setTgChatId] = useState('');
+
+  useEscapeKey(() => setTgBindOpen(false), tgBindOpen);
   const [tgBusy, setTgBusy] = useState(false);
   const [tgError, setTgError] = useState('');
 

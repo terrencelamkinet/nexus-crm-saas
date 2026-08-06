@@ -11,6 +11,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { Search, X, Plus, Loader2 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { apiClient } from '../../lib/api'
+import { useEscapeKey } from '../../lib/useEscapeKey'
 
 interface EntitySearchProps {
   searchUrl: string
@@ -68,6 +69,8 @@ export default function EntitySearch({
   const [showCreate, setShowCreate] = useState(false)
   const [createName, setCreateName] = useState('')
   const [creating, setCreating] = useState(false)
+
+  useEscapeKey(() => setShowCreate(false), showCreate)
 
   const wrapperRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)

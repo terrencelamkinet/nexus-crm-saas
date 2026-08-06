@@ -4,6 +4,7 @@
  */
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { apiClient, ApiError } from './api';
+import { useEscapeKey } from './useEscapeKey';
 
 // ---------------------------------------------------------------------------
 // Generic fetch hook
@@ -90,6 +91,7 @@ export function useCreateModal() {
   const [open, setOpen] = useState(false);
   const openModal = () => setOpen(true);
   const closeModal = () => setOpen(false);
+  useEscapeKey(closeModal, open);
   return { open, openModal, closeModal };
 }
 

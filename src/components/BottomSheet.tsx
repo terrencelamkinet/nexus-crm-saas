@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { X } from 'lucide-react';
+import { useEscapeKey } from '../lib/useEscapeKey';
 
 interface Props {
   open: boolean;
@@ -12,6 +13,8 @@ export default function BottomSheet({ open, onClose, title, children }: Props) {
   const [render, setRender] = useState(false);
   const animRef = useRef(false);
   const sheetRef = useRef<HTMLDivElement>(null);
+
+  useEscapeKey(onClose, open);
 
   // Sync open prop → render state with closing animation
   useEffect(() => {

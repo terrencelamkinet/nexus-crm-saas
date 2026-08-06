@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
+import { useEscapeKey } from '../lib/useEscapeKey';
 import {
   Search, Users, Building2, TrendingUp, CheckSquare,
   FolderKanban, Activity, FileText, X,
@@ -40,6 +41,8 @@ export default function MobileSearchSheet({ open, onClose }: Props) {
   const navigate = useNavigate();
   const [render, setRender] = useState(false);
   const [closing, setClosing] = useState(false);
+
+  useEscapeKey(onClose, open);
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<SearchResult[]>([]);
   const [loading, setLoading] = useState(false);

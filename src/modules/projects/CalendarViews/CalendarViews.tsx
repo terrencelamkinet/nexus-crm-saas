@@ -21,6 +21,7 @@ import DeadlineView from './DeadlineView';
 import GanttView from './GanttView';
 import MobileAgendaView, { MobileAgendaList } from './MobileAgendaView';
 import EventReviewModal from './EventReviewModal';
+import { useEscapeKey } from '../../../lib/useEscapeKey';
 
 /** Simple hook that tracks a CSS media query match state. */
 function useMediaQuery(query: string): boolean {
@@ -68,13 +69,14 @@ function getStoredShowWeekends(): boolean {
 }
 
 export default function CalendarViews({ events, loading, onRefresh }: CalendarViewsProps) {
-  const [viewType, setViewType] = useState<CalendarViewType>('deadline');
+  // Device-based default view: month on desktop, day on mobile.
+  const isMobile = useMediaQuery('(max-width: 768px)');
+  const [viewType, setViewType] = useState<CalendarViewType>(() => (isMobile ? 'day' : 'month'));
   const [date, setDate] = useState<Date>(new Date());
   const [showWeekends, setShowWeekends] = useState<boolean>(getStoredShowWeekends);
   const [viewMenuOpen, setViewMenuOpen] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState<CalendarEventFormatted | null>(null);
   const [morePopup, setMorePopup] = useState<{ events: CalendarEventFormatted[]; date: Date } | null>(null);
-  const isMobile = useMediaQuery('(max-width: 768px)');
   const viewMenuRef = useRef<HTMLDivElement>(null);
 
   // Close view menu on outside click
@@ -108,6 +110,12 @@ export default function CalendarViews({ events, loading, onRefresh }: CalendarVi
   const handleReviewClose = useCallback(() => setSelectedEvent(null), []);
   const handleMoreClick = useCallback((evs: CalendarEventFormatted[], d: Date) => setMorePopup({ events: evs, date: d }), []);
   const handleMoreClose = useCallback(() => setMorePopup(null), []);
+
+  // ESC closes the topmost overlay: day-events popup first, then the view menu.
+  useEscapeKey(() => {
+    if (morePopup) setMorePopup(null);
+    else if (viewMenuOpen) setViewMenuOpen(false);
+  }, !!(morePopup || viewMenuOpen));
 
   const currentView = VIEW_TABS.find((v) => v.key === viewType) || VIEW_TABS[0];
 

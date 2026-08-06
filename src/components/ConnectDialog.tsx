@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { X, Copy, Check } from 'lucide-react';
+import { useEscapeKey } from '../lib/useEscapeKey';
 import type { Integration } from '../data/integrations';
 
 interface Props {
@@ -9,6 +10,7 @@ interface Props {
 }
 
 export default function ConnectDialog({ integration, onClose, onConnected }: Props) {
+  useEscapeKey(onClose);
   const [url, setUrl] = useState('');
   const [connecting, setConnecting] = useState(false);
   const [copied, setCopied] = useState(false);

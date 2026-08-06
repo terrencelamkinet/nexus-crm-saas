@@ -3,6 +3,7 @@ import { X, Pencil, Trash2, MapPin, Clock, CalendarDays } from 'lucide-react';
 import type { CalendarEventFormatted } from './types';
 import { TYPE_COLORS, SOURCE_LABELS } from './types';
 import { apiClient } from '../../../lib/api';
+import { useEscapeKey } from '../../../lib/useEscapeKey';
 
 interface EventReviewModalProps {
   event: CalendarEventFormatted;
@@ -31,6 +32,8 @@ export default function EventReviewModal({ event, onClose, onSaved }: EventRevie
   // Touchpoints (tp-*) and tasks (task-*) are read-only here.
   const isEditable = event.id.startsWith('cal-');
   const rawId = isEditable ? event.id.replace(/^cal-/, '') : event.id;
+
+  useEscapeKey(onClose);
 
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);

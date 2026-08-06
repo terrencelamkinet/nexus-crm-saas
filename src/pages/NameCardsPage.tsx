@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useApi, CardSkeleton, ErrorBox } from '../lib/useApi';
 import { uploadFile, apiClient } from '../lib/api';
+import { useEscapeKey } from '../lib/useEscapeKey';
 
 interface NameCard {
   id: string;
@@ -49,6 +50,12 @@ export default function NameCardsPage() {
   const [uploadError, setUploadError] = useState('');
   const [selected, setSelected] = useState<NameCard | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // ESC closes the detail modal first, then the upload modal (stack order).
+  useEscapeKey(() => {
+    if (selected) setSelected(null);
+    else if (uploadOpen) setUploadOpen(false);
+  }, !!(uploadOpen || selected));
 
   const handleFile = async (file: File | undefined | null) => {
     if (!file) return;
