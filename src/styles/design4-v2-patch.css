@@ -51,11 +51,10 @@
   animation: ai-think-pulse 1.6s ease-in-out infinite;
 }
 
-/* 內建 AI 表面：Chat 面板 / AI Brief 卡自動套用（唔使逐個加 class） */
+/* 內建 AI 表面：AI Brief 卡自動套用（唔使逐個加 class）
+   注意：.cb-panel 唔可以喺呢度 — 佢係 fixed overlay，
+   加入會令 AI chat panel 變 relative 而推冧成個版面 */
 .chat-panel,
-.cb-panel,
-.cb-panel--desktop,
-.cb-panel--mobile,
 .ai-brief-card,
 .ab-panel-card,
 .briefing-card,
