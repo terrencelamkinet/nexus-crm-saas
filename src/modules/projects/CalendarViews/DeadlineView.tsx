@@ -2,12 +2,13 @@ import { useMemo } from 'react';
 import { CalendarDays } from 'lucide-react';
 import { isSameDay } from './calendar-utils';
 import type { CalendarEventFormatted } from './types';
-import { TYPE_COLORS } from './types';
+import { TYPE_COLORS, SOURCE_LABELS } from './types';
 
 interface DeadlineViewProps {
   events: CalendarEventFormatted[];
   date: Date;
   onDateChange: (d: Date) => void;
+  onEventClick?: (ev: CalendarEventFormatted) => void;
 }
 
 type DeadlineGroup = 'overdue' | 'today' | 'thisWeek' | 'thisMonth' | 'future';
@@ -62,7 +63,7 @@ function getEventBadgeColor(eventType: string | null): string {
   return '#6B7280';
 }
 
-export default function DeadlineView({ events }: DeadlineViewProps) {
+export default function DeadlineView({ events, onEventClick }: DeadlineViewProps) {
   const today = useMemo(() => {
     const d = new Date();
     d.setHours(0, 0, 0, 0);
@@ -130,7 +131,14 @@ export default function DeadlineView({ events }: DeadlineViewProps) {
 
               {/* Event rows */}
               {evs.map((ev) => (
-                <div key={ev.id} className="deadline-row">
+                <div
+                  key={ev.id}
+                  className={`deadline-row${onEventClick ? ' clickable' : ''}`}
+                  onClick={onEventClick ? () => onEventClick(ev) : undefined}
+                  role={onEventClick ? 'button' : undefined}
+                  tabIndex={onEventClick ? 0 : undefined}
+                  onKeyDown={onEventClick ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onEventClick(ev); } } : undefined}
+                >
                   {/* Date badge */}
                   <div className="deadline-date">
                     <div className="day-num">{ev.start.getDate()}</div>
@@ -149,8 +157,12 @@ export default function DeadlineView({ events }: DeadlineViewProps) {
                   {/* Event details */}
                   <div className="deadline-info">
                     <div className="dl-title truncate">{ev.title}</div>
-                    {ev.projectName && (
-                      <div className="dl-sub truncate">{ev.projectName}</div>
+                    {(ev.projectName || ev.source) && (
+                      <div className="dl-sub truncate">
+                        {ev.projectName}
+                        {ev.projectName && ev.source ? ' · ' : ''}
+                        {ev.source ? (SOURCE_LABELS[ev.source] || ev.source) : ''}
+                      </div>
                     )}
                   </div>
 
@@ -161,13 +173,13 @@ export default function DeadlineView({ events }: DeadlineViewProps) {
                     </div>
                   )}
 
-                  {/* Event type tag */}
+                  {/* Event type tag — source takes precedence for synced events */}
                   {ev.eventType && (
                     <span
                       className="deadline-tag"
-                      style={{ backgroundColor: getEventBadgeColor(ev.eventType) }}
+                      style={{ backgroundColor: ev.source && SOURCE_LABELS[ev.source] ? (ev.source === 'google_oauth' ? '#4285F4' : ev.source === 'ics' ? '#34A853' : getEventBadgeColor(ev.eventType)) : getEventBadgeColor(ev.eventType) }}
                     >
-                      {ev.eventType}
+                      {ev.source && SOURCE_LABELS[ev.source] ? SOURCE_LABELS[ev.source] : ev.eventType}
                     </span>
                   )}
                 </div>

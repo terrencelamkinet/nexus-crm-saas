@@ -12,12 +12,13 @@ interface MonthViewProps {
   events: CalendarEventFormatted[];
   date: Date;
   onDateChange: (d: Date) => void;
+  onEventClick?: (ev: CalendarEventFormatted) => void;
 }
 
 const MAX_EVENTS_PER_CELL = 3;
 const MAX_DOTS = 6;
 
-export default function MonthView({ events, date, onDateChange }: MonthViewProps) {
+export default function MonthView({ events, date, onDateChange, onEventClick }: MonthViewProps) {
   const year = date.getFullYear();
   const month = date.getMonth();
   const grid = useMemo(() => getMonthGrid(year, month), [year, month]);
@@ -92,9 +93,11 @@ export default function MonthView({ events, date, onDateChange }: MonthViewProps
                   {dayEvents.slice(0, MAX_EVENTS_PER_CELL).map((ev) => (
                     <div
                       key={ev.id}
-                      className="month-event"
+                      className={`month-event${onEventClick ? ' clickable' : ''}`}
                       style={{ background: `${ev.color}22`, color: ev.color, borderLeft: `2.5px solid ${ev.color}` }}
                       title={ev.title}
+                      onClick={onEventClick ? (e) => { e.stopPropagation(); onEventClick(ev); } : undefined}
+                      role={onEventClick ? 'button' : undefined}
                     >
                       {ev.allDay ? '' : `${ev.start.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} `}{ev.title}
                     </div>

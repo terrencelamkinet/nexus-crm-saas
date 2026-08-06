@@ -53,3 +53,21 @@ export async function createIntegration(data: {
 }): Promise<IntegrationRecord> {
   return apiClient.post('/api/v1/integrations', data);
 }
+
+export interface GoogleCalendarInfo {
+  id: string;
+  summary: string;
+  primary: boolean;
+  access_role: string;
+}
+
+export async function fetchGoogleCalendars(): Promise<GoogleCalendarInfo[]> {
+  return apiClient.get('/api/v1/integrations/google-calendar/calendars');
+}
+
+export async function saveGoogleCalendarSetting(calendarId: string, calendarName: string): Promise<IntegrationRecord> {
+  return apiClient.put('/api/v1/integrations/google-calendar/settings', {
+    calendar_id: calendarId,
+    calendar_name: calendarName,
+  });
+}

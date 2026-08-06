@@ -12,6 +12,7 @@ interface DayViewProps {
   events: CalendarEventFormatted[];
   date: Date;
   onDateChange: (d: Date) => void;
+  onEventClick?: (ev: CalendarEventFormatted) => void;
 }
 
 const HOUR_HEIGHT = 74; // px per hour row — matches design03
@@ -59,7 +60,7 @@ function getEventStatus(ev: CalendarEventFormatted): string {
   return t || 'Event';
 }
 
-export default function DayView({ events, date, onDateChange }: DayViewProps) {
+export default function DayView({ events, date, onDateChange, onEventClick }: DayViewProps) {
   const [now, setNow] = useState<Date>(new Date());
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -96,11 +97,12 @@ export default function DayView({ events, date, onDateChange }: DayViewProps) {
     onDateChange(new Date());
   }, [onDateChange]);
 
-  // Separate all-day events from time-specific events
+  // Separate all-day events from time-specific events, scoped to the selected day
   const { allDayEvents, timedEvents } = useMemo(() => {
     const allDay: CalendarEventFormatted[] = [];
     const timed: CalendarEventFormatted[] = [];
     for (const ev of events) {
+      if (!isSameDay(ev.start, date)) continue;
       if (ev.allDay) {
         allDay.push(ev);
       } else {
@@ -108,7 +110,7 @@ export default function DayView({ events, date, onDateChange }: DayViewProps) {
       }
     }
     return { allDayEvents: allDay, timedEvents: timed };
-  }, [events]);
+  }, [events, date]);
 
   // Current time line position
   const nowPercent = useMemo(() => {
@@ -204,7 +206,7 @@ export default function DayView({ events, date, onDateChange }: DayViewProps) {
             {allDayEvents.map((ev) => (
               <div
                 key={ev.id}
-                className="event-block ev-done"
+                className={`event-block ev-done${onEventClick ? ' ev-clickable' : ''}`}
                 style={{
                   position: 'relative',
                   height: 'auto',
@@ -217,6 +219,8 @@ export default function DayView({ events, date, onDateChange }: DayViewProps) {
                   maxWidth: 200,
                 }}
                 title={ev.title}
+                onClick={onEventClick ? () => onEventClick(ev) : undefined}
+                role={onEventClick ? 'button' : undefined}
               >
                 <div className="e-title" style={{ fontSize: '10px' }}>{ev.title}</div>
               </div>
@@ -253,9 +257,11 @@ export default function DayView({ events, date, onDateChange }: DayViewProps) {
               return (
                 <div
                   key={ev.id}
-                  className={`event-block ${sevClass}`}
+                  className={`event-block ${sevClass}${onEventClick ? ' ev-clickable' : ''}`}
                   style={{ top: `${top}px`, height: `${height}px`, left: '60px', right: '8px' }}
                   title={`${ev.title}\n${timeStr}`}
+                  onClick={onEventClick ? () => onEventClick(ev) : undefined}
+                  role={onEventClick ? 'button' : undefined}
                 >
                   <div className="e-status">{status}</div>
                   <div className="e-title">{ev.title}</div>

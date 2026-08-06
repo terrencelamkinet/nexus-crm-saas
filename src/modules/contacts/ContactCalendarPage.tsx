@@ -72,14 +72,13 @@ export default function ContactCalendarPage() {
           title: e.title,
           description: e.description || null,
           event_type: e.event_type || 'meeting',
-          start: e.start ? e.start.slice(0, 10) : new Date().toISOString().slice(0, 10),
-          end: e.end ? e.end.slice(0, 10) : e.start ? e.start.slice(0, 10) : new Date().toISOString().slice(0, 10),
+          start: e.start || new Date().toISOString(),
+          end: e.end || e.start || new Date().toISOString(),
           is_all_day: !!e.is_all_day,
           color: e.color || (e.source === 'google_oauth' ? '#4285F4' : e.source === 'ics' ? '#34A853' : '#00693E'),
           location: e.location || null,
-          project_name: e.source === 'google_oauth' ? 'Google Calendar'
-            : e.source === 'ics' ? 'ICS Calendar'
-            : e.project_name || 'Calendar',
+          project_name: e.project_name || null,
+          source: e.source || 'manual',
         })
       })
     } catch { /* silent */ }

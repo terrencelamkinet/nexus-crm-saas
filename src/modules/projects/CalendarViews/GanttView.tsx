@@ -8,6 +8,7 @@ interface GanttViewProps {
   events: CalendarEventFormatted[];
   date: Date;
   onDateChange: (d: Date) => void;
+  onEventClick?: (ev: CalendarEventFormatted) => void;
 }
 
 /** Minimum number of days to show in the timeline */
@@ -30,7 +31,7 @@ interface ProjectTimeline {
   maxEnd: Date;
 }
 
-export default function GanttView({ events }: GanttViewProps) {
+export default function GanttView({ events, onEventClick }: GanttViewProps) {
   // Compute project timelines
   const { projects, dayRange, dayHeaders } = useMemo(() => {
     if (events.length === 0) {
@@ -188,7 +189,7 @@ export default function GanttView({ events }: GanttViewProps) {
                     return (
                       <div
                         key={ev.id}
-                        className="gantt-event-bar"
+                        className={`gantt-event-bar${onEventClick ? ' clickable' : ''}`}
                         style={{
                           left: evStartOffset * DAY_WIDTH,
                           width: evDuration * DAY_WIDTH,
@@ -196,6 +197,8 @@ export default function GanttView({ events }: GanttViewProps) {
                           minWidth: showTitle ? undefined : DAY_WIDTH * 0.5,
                         }}
                         title={`${ev.title}\n${ev.start.toLocaleDateString()} – ${ev.end.toLocaleDateString()}`}
+                        onClick={onEventClick ? () => onEventClick(ev) : undefined}
+                        role={onEventClick ? 'button' : undefined}
                       >
                         {showTitle && (
                           <span className="gantt-event-title">{ev.title}</span>

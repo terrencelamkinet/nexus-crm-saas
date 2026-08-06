@@ -17,6 +17,7 @@ interface WeekViewProps {
   viewType?: CalendarViewType;
   onViewChange?: (v: CalendarViewType) => void;
   showWeekends?: boolean;
+  onEventClick?: (ev: CalendarEventFormatted) => void;
 }
 
 const HOUR_HEIGHT = 74;
@@ -68,7 +69,7 @@ function getEventStatus(ev: CalendarEventFormatted): string {
 const SHORT_DAY_NAMES = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
 const FULL_DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
-export default function WeekView({ events, date, onDateChange, viewType, onViewChange, showWeekends }: WeekViewProps) {
+export default function WeekView({ events, date, onDateChange, viewType, onViewChange, showWeekends, onEventClick }: WeekViewProps) {
   const [now, setNow] = useState<Date>(new Date());
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -221,7 +222,7 @@ export default function WeekView({ events, date, onDateChange, viewType, onViewC
                 {dayAllDay.map((ev) => (
                   <div
                     key={ev.id}
-                    className="event-block ev-done"
+                    className={`event-block${onEventClick ? ' ev-clickable' : ''}`}
                     style={{
                       top: 2,
                       zIndex: 3,
@@ -232,10 +233,15 @@ export default function WeekView({ events, date, onDateChange, viewType, onViewC
                       position: 'absolute',
                       padding: '2px 6px',
                       fontSize: '10px',
+                      background: `${ev.color}22`,
+                      color: ev.color,
+                      borderLeft: `2.5px solid ${ev.color}`,
                     }}
                     title={ev.title}
+                    onClick={onEventClick ? () => onEventClick(ev) : undefined}
+                    role={onEventClick ? 'button' : undefined}
                   >
-                    <div className="e-title" style={{ fontSize: '10px' }}>{ev.title}</div>
+                    <div className="e-title" style={{ fontSize: '10px', color: ev.color }}>{ev.title}</div>
                   </div>
                 ))}
 
@@ -258,9 +264,11 @@ export default function WeekView({ events, date, onDateChange, viewType, onViewC
                   return (
                     <div
                       key={ev.id}
-                      className={`event-block ${sevClass}`}
+                      className={`event-block ${sevClass}${onEventClick ? ' ev-clickable' : ''}`}
                       style={{ top: `${top}px`, height: `${height}px` }}
                       title={`${ev.title}\n${timeStr}`}
+                      onClick={onEventClick ? () => onEventClick(ev) : undefined}
+                      role={onEventClick ? 'button' : undefined}
                     >
                       <div className="e-status">{status}</div>
                       <div className="e-title">{ev.title}</div>

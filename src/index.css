@@ -2537,3 +2537,91 @@ textarea.input-field{resize:vertical;min-height:60px}
 @media(max-width:768px){
   .glp-inline-dropdown{position:fixed;left:8px;right:8px;bottom:8px;top:auto;min-width:0;max-height:45vh;z-index:1000;width:auto}
 }
+
+/* ===========================================================================
+   Calendar Views v2.6 — view dropdown + event review modal (append-only)
+   =========================================================================== */
+
+/* View mode dropdown */
+.cv-view-dropdown{position:relative;display:inline-flex}
+.cv-view-trigger{display:flex;align-items:center;gap:8px;min-height:36px;padding:0 12px;border-radius:var(--radius-lg);background:var(--color-surface-offset);color:var(--color-text);font-size:12.5px;font-weight:600;cursor:pointer;transition:background var(--transition-interactive)}
+.cv-view-trigger:hover{background:var(--color-surface-offset-2)}
+.cv-view-chevron{transition:transform .15s;color:var(--color-text-muted)}
+.cv-view-chevron.open{transform:rotate(180deg)}
+.cv-view-menu{position:absolute;top:calc(100% + 6px);right:0;min-width:170px;background:var(--color-surface);border:1px solid var(--color-divider);border-radius:var(--radius-lg);box-shadow:var(--shadow-md);padding:5px;z-index:60;animation:cvMenuIn .12s ease-out}
+@keyframes cvMenuIn{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:translateY(0)}}
+.cv-view-item{display:flex;align-items:center;gap:9px;width:100%;padding:9px 11px;border-radius:var(--radius-md);font-size:12.5px;font-weight:500;color:var(--color-text);cursor:pointer;transition:background var(--transition-interactive)}
+.cv-view-item:hover{background:var(--color-surface-offset)}
+.cv-view-item.active{background:var(--color-primary-highlight);color:var(--color-primary);font-weight:600}
+.cv-view-check{margin-left:auto;color:var(--color-primary);font-size:13px}
+
+/* Clickable event rows/cards */
+.deadline-row.clickable{cursor:pointer}
+.ma-card.clickable{cursor:pointer}
+.month-event.clickable{cursor:pointer}
+.gantt-event-bar.clickable{cursor:pointer}
+.event-block.ev-clickable{cursor:pointer}
+
+/* Event Review Modal */
+.er-overlay{position:fixed;inset:0;background:rgba(15,17,21,.55);backdrop-filter:blur(2px);display:flex;align-items:center;justify-content:center;z-index:200;padding:16px}
+.er-modal{width:100%;max-width:460px;max-height:86vh;overflow-y:auto;background:var(--color-surface);border:1px solid var(--color-divider);border-radius:var(--radius-xl);box-shadow:var(--shadow-lg);animation:cvMenuIn .15s ease-out}
+.er-header{display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid var(--color-divider);position:sticky;top:0;background:var(--color-surface);border-radius:var(--radius-xl) var(--radius-xl) 0 0;z-index:2}
+.er-header h3{font-size:14px;font-weight:700;color:var(--color-text);margin:0}
+.er-close{display:flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:var(--radius-md);color:var(--color-text-muted);cursor:pointer;transition:background var(--transition-interactive)}
+.er-close:hover{background:var(--color-surface-offset);color:var(--color-text)}
+.er-body{padding:18px 20px 20px}
+.er-title-row{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:12px}
+.er-title{font-size:17px;font-weight:700;color:var(--color-text);line-height:1.3;margin:0;word-break:break-word}
+.er-badge{flex-shrink:0;font-size:10.5px;font-weight:700;letter-spacing:.03em;color:#fff;padding:3px 9px;border-radius:999px;text-transform:uppercase}
+.er-meta{display:flex;flex-direction:column;gap:7px;margin-bottom:14px}
+.er-meta-item{display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--color-text-muted)}
+.er-meta-item svg{color:var(--color-text-faint);flex-shrink:0}
+.er-desc{font-size:13px;color:var(--color-text);background:var(--color-surface-offset);border:1px solid var(--color-divider);border-radius:var(--radius-lg);padding:11px 13px;margin-bottom:14px;white-space:pre-wrap;word-break:break-word}
+.er-note{font-size:12px;color:var(--color-text-muted);background:var(--color-primary-highlight);border:1px dashed color-mix(in oklch,var(--color-primary) 35%,transparent);border-radius:var(--radius-lg);padding:10px 12px;margin-bottom:14px}
+.er-error{font-size:12.5px;color:#B3261E;background:rgba(179,38,30,.08);border:1px solid rgba(179,38,30,.25);border-radius:var(--radius-md);padding:9px 12px;margin-bottom:12px}
+.er-actions{display:flex;justify-content:flex-end;gap:9px;margin-top:6px;flex-wrap:wrap}
+.er-btn{display:inline-flex;align-items:center;gap:6px;min-height:36px;padding:0 15px;border-radius:var(--radius-lg);font-size:12.5px;font-weight:600;cursor:pointer;transition:background var(--transition-interactive),opacity var(--transition-interactive)}
+.er-btn:disabled{opacity:.55;cursor:not-allowed}
+.er-btn.primary{background:var(--color-primary);color:#fff}
+.er-btn.primary:hover{background:color-mix(in oklch,var(--color-primary) 88%,#000)}
+.er-btn.ghost{background:var(--color-surface-offset);color:var(--color-text)}
+.er-btn.ghost:hover{background:var(--color-surface-offset-2)}
+.er-btn.danger{background:#B3261E;color:#fff}
+.er-btn.danger:hover{background:#8F1D18}
+.er-btn.danger-ghost{background:transparent;color:#B3261E}
+.er-btn.danger-ghost:hover{background:rgba(179,38,30,.08)}
+.er-field{display:flex;flex-direction:column;gap:5px;margin-bottom:13px}
+.er-field>span{font-size:11.5px;font-weight:600;color:var(--color-text-muted);letter-spacing:.02em}
+.er-input{width:100%;min-height:38px;padding:0 11px;border:1px solid var(--color-divider);border-radius:var(--radius-md);background:var(--color-surface);color:var(--color-text);font-size:14px;font-family:inherit;transition:border-color var(--transition-interactive)}
+.er-input:focus{outline:none;border-color:var(--color-primary)}
+.er-input:disabled{opacity:.5}
+.er-textarea{padding-top:9px;padding-bottom:9px;resize:vertical;min-height:74px}
+.er-row{display:flex;gap:11px}
+.er-row .er-field{flex:1}
+.er-check{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--color-text);margin-bottom:13px;cursor:pointer}
+.er-check input{width:16px;height:16px;accent-color:var(--color-primary)}
+
+@media(max-width:768px){
+  .er-overlay{align-items:flex-end;padding:0}
+  .er-modal{max-width:100%;max-height:88vh;border-radius:var(--radius-xl) var(--radius-xl) 0 0}
+  .er-header{border-radius:var(--radius-xl) var(--radius-xl) 0 0}
+  .er-input{font-size:16px}
+}
+@media(max-width:480px){
+  .er-overlay{align-items:flex-end;padding:0}
+  .er-modal{max-width:100%;max-height:90vh;border-radius:var(--radius-xl) var(--radius-xl) 0 0}
+  .er-input{font-size:16px}
+}
+
+/* ===========================================================================
+   Google Calendar picker (Marketplace integration detail) — v2.6
+   =========================================================================== */
+@keyframes gcalSpin{to{transform:rotate(360deg)}}
+.spin{animation:gcalSpin .8s linear infinite}
+.gcal-picker{display:flex;align-items:center;gap:9px;max-width:420px}
+.gcal-select{flex:1;min-height:38px;padding:0 30px 0 11px;border:1px solid var(--color-divider);border-radius:var(--radius-md);background:var(--color-surface);color:var(--color-text);font-size:13.5px;font-family:inherit;appearance:none;-webkit-appearance:none;cursor:pointer;transition:border-color var(--transition-interactive)}
+.gcal-select:focus{outline:none;border-color:var(--color-primary)}
+.gcal-select:disabled{opacity:.55;cursor:not-allowed}
+@media(max-width:768px){
+  .gcal-select{font-size:16px}
+}

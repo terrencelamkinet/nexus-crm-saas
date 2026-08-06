@@ -14,6 +14,7 @@ export interface CalendarEvent {
   color: string | null;
   location: string | null;
   project_name?: string;
+  source?: string | null;
 }
 
 export interface CalendarEventFormatted {
@@ -28,6 +29,7 @@ export interface CalendarEventFormatted {
   eventType: string | null;
   projectId: string;
   projectName?: string;
+  source?: string | null;
 }
 
 export const TYPE_COLORS: Record<string, string> = {
@@ -37,10 +39,17 @@ export const TYPE_COLORS: Record<string, string> = {
   reminder: '#E76F51',
 };
 
+/** Source label shown as a type badge for synced calendar events */
+export const SOURCE_LABELS: Record<string, string> = {
+  google_oauth: 'Google',
+  ics: 'ICS',
+  manual: 'Manual',
+};
+
 export function formatEvents(events: CalendarEvent[]): CalendarEventFormatted[] {
   return events.map((ev) => ({
     id: ev.id,
-    title: ev.project_name ? `${ev.project_name} — ${ev.title}` : ev.title,
+    title: ev.title,
     start: new Date(ev.start),
     end: new Date(ev.end || ev.start),
     allDay: ev.is_all_day,
@@ -50,5 +59,6 @@ export function formatEvents(events: CalendarEvent[]): CalendarEventFormatted[] 
     eventType: ev.event_type,
     projectId: ev.project_id,
     projectName: ev.project_name,
+    source: ev.source || null,
   }));
 }

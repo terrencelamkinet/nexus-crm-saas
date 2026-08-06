@@ -1,7 +1,8 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import {
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
   LayoutGrid,
   Presentation,
   GitBranch,
@@ -18,6 +19,7 @@ import DayView from './DayView';
 import DeadlineView from './DeadlineView';
 import GanttView from './GanttView';
 import MobileAgendaView, { MobileAgendaList } from './MobileAgendaView';
+import EventReviewModal from './EventReviewModal';
 
 /** Simple hook that tracks a CSS media query match state. */
 function useMediaQuery(query: string): boolean {
@@ -68,7 +70,22 @@ export default function CalendarViews({ events, loading, onRefresh }: CalendarVi
   const [viewType, setViewType] = useState<CalendarViewType>('deadline');
   const [date, setDate] = useState<Date>(new Date());
   const [showWeekends, setShowWeekends] = useState<boolean>(getStoredShowWeekends);
+  const [viewMenuOpen, setViewMenuOpen] = useState(false);
+  const [selectedEvent, setSelectedEvent] = useState<CalendarEventFormatted | null>(null);
   const isMobile = useMediaQuery('(max-width: 768px)');
+  const viewMenuRef = useRef<HTMLDivElement>(null);
+
+  // Close view menu on outside click
+  useEffect(() => {
+    if (!viewMenuOpen) return;
+    const handler = (e: MouseEvent) => {
+      if (viewMenuRef.current && !viewMenuRef.current.contains(e.target as Node)) {
+        setViewMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [viewMenuOpen]);
 
   // Persist weekend setting
   useEffect(() => {
@@ -80,26 +97,33 @@ export default function CalendarViews({ events, loading, onRefresh }: CalendarVi
   const handlePrev = useCallback(() => setDate((prev) => navigateDate(prev, viewType, -1)), [viewType]);
   const handleNext = useCallback(() => setDate((prev) => navigateDate(prev, viewType, 1)), [viewType]);
   const handleToday = useCallback(() => setDate(new Date()), []);
-  const handleViewChange = useCallback((newView: CalendarViewType) => setViewType(newView), []);
+  const handleViewChange = useCallback((newView: CalendarViewType) => {
+    setViewType(newView);
+    setViewMenuOpen(false);
+  }, []);
   const toggleWeekends = useCallback(() => setShowWeekends((prev) => !prev), []);
+  const handleEventClick = useCallback((ev: CalendarEventFormatted) => setSelectedEvent(ev), []);
+  const handleReviewClose = useCallback(() => setSelectedEvent(null), []);
+
+  const currentView = VIEW_TABS.find((v) => v.key === viewType) || VIEW_TABS[0];
 
   const renderView = () => {
     switch (viewType) {
       case 'month':
         if (isMobile) return (
           <div>
-            <MonthView events={events} date={date} onDateChange={handleDateChange} />
-            <MobileAgendaList events={events} date={date} />
+            <MonthView events={events} date={date} onDateChange={handleDateChange} onEventClick={handleEventClick} />
+            <MobileAgendaList events={events} date={date} onEventClick={handleEventClick} />
           </div>
         );
-        return <MonthView events={events} date={date} onDateChange={handleDateChange} />;
-      case 'week': return <WeekView events={events} date={date} onDateChange={handleDateChange} viewType={viewType} onViewChange={handleViewChange} showWeekends={showWeekends} />;
-      case 'day': return <DayView events={events} date={date} onDateChange={handleDateChange} />;
-      case 'deadline': return <DeadlineView events={events} date={date} onDateChange={handleDateChange} />;
-      case 'gantt': return <GanttView events={events} date={date} onDateChange={handleDateChange} />;
+        return <MonthView events={events} date={date} onDateChange={handleDateChange} onEventClick={handleEventClick} />;
+      case 'week': return <WeekView events={events} date={date} onDateChange={handleDateChange} viewType={viewType} onViewChange={handleViewChange} showWeekends={showWeekends} onEventClick={handleEventClick} />;
+      case 'day': return <DayView events={events} date={date} onDateChange={handleDateChange} onEventClick={handleEventClick} />;
+      case 'deadline': return <DeadlineView events={events} date={date} onDateChange={handleDateChange} onEventClick={handleEventClick} />;
+      case 'gantt': return <GanttView events={events} date={date} onDateChange={handleDateChange} onEventClick={handleEventClick} />;
       default:
-        if (isMobile) return <MobileAgendaView events={events} date={date} onDateChange={handleDateChange} />;
-        return <MonthView events={events} date={date} onDateChange={handleDateChange} />;
+        if (isMobile) return <MobileAgendaView events={events} date={date} onDateChange={handleDateChange} onEventClick={handleEventClick} />;
+        return <MonthView events={events} date={date} onDateChange={handleDateChange} onEventClick={handleEventClick} />;
     }
   };
 
@@ -135,19 +159,35 @@ export default function CalendarViews({ events, loading, onRefresh }: CalendarVi
           Weekend
         </button>
 
-        {/* View switcher */}
-        <div className="flex items-center bg-[var(--color-surface-offset)] rounded-lg p-0.5 gap-0.5">
-          {VIEW_TABS.map(({ key, label, Icon }) => (
-            <button key={key} onClick={() => handleViewChange(key)}
-              className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium transition-all min-h-[36px] whitespace-nowrap ${
-                viewType === key
-                  ? 'bg-[var(--color-surface)] text-[var(--color-text)] shadow-sm'
-                  : 'text-[var(--color-text-muted)] hover:text-[var(--color-text)]'
-              }`}>
-              <Icon className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">{label}</span>
-            </button>
-          ))}
+        {/* View switcher — dropdown */}
+        <div className="cv-view-dropdown" ref={viewMenuRef}>
+          <button
+            onClick={() => setViewMenuOpen((v) => !v)}
+            className="cv-view-trigger"
+            title="Switch view"
+            aria-expanded={viewMenuOpen}
+          >
+            <currentView.Icon className="w-3.5 h-3.5" />
+            <span>{currentView.label}</span>
+            <ChevronDown className={`w-3.5 h-3.5 cv-view-chevron${viewMenuOpen ? ' open' : ''}`} />
+          </button>
+
+          {viewMenuOpen && (
+            <div className="cv-view-menu" role="menu">
+              {VIEW_TABS.map(({ key, label, Icon }) => (
+                <button
+                  key={key}
+                  role="menuitem"
+                  onClick={() => handleViewChange(key)}
+                  className={`cv-view-item${viewType === key ? ' active' : ''}`}
+                >
+                  <Icon className="w-3.5 h-3.5" />
+                  <span>{label}</span>
+                  {viewType === key && <span className="cv-view-check">✓</span>}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Refresh */}
@@ -181,6 +221,14 @@ export default function CalendarViews({ events, loading, onRefresh }: CalendarVi
           {navBar}
           {events.length === 0 ? emptyState : <div>{renderView()}</div>}
         </>
+      )}
+
+      {selectedEvent && (
+        <EventReviewModal
+          event={selectedEvent}
+          onClose={handleReviewClose}
+          onSaved={() => { onRefresh(); }}
+        />
       )}
     </div>
   );

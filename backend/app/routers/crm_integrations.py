@@ -19,6 +19,7 @@ from datetime import datetime, timezone
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Request
+from pydantic import BaseModel
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -630,3 +631,102 @@ async def refresh_access_token(provider: str, refresh_token: str) -> dict:
         "scope": token.get("scope", ""),
         "token_type": token.get("token_type", "Bearer"),
     }
+
+
+# ─── Google Calendar picker ────────────────────────────────────
+
+
+async def _google_calendar_row(db: AsyncSession, tenant_id: UUID, user_id: UUID):
+    """Find the user's google_calendar integration row (or None)."""
+    q = select(Integration).where(
+        Integration.tenant_id == tenant_id,
+        Integration.user_id == user_id,
+        Integration.provider == "google_calendar",
+    )
+    result = await db.execute(q)
+    return result.scalar_one_or_none()
+
+
+@router.get("/integrations/google-calendar/calendars")
+async def list_google_calendars(
+    request: Request,
+    db: AsyncSession = Depends(get_tenant_session),
+):
+    """List the user's Google calendars (id + name + primary flag).
+
+    Uses the existing OAuth token — no extra consent needed
+    (calendar.readonly scope already covers calendarList).
+    """
+    tenant_id = _tid(request)
+    user_id = _uid(request)
+
+    row = await _google_calendar_row(db, tenant_id, user_id)
+    if not row:
+        raise HTTPException(404, "Google Calendar not connected")
+
+    from app.services.calendar_sync import _valid_access_token
+    try:
+        access_token, cfg_update = await _valid_access_token(row)
+    except Exception as e:
+        raise HTTPException(502, f"Cannot refresh Google token: {e}")
+    if cfg_update:
+        row.config = cfg_update
+        await db.flush()
+
+    import httpx
+    async with httpx.AsyncClient(timeout=20.0) as client:
+        r = await client.get(
+            "https://www.googleapis.com/calendar/v3/users/me/calendarList",
+            params={"minAccessRole": "reader", "maxResults": 100},
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+        if r.status_code == 401:
+            raise HTTPException(401, "Google token expired — reconnect")
+        if r.status_code == 403:
+            raise HTTPException(403, "Google API access denied")
+        r.raise_for_status()
+        items = r.json().get("items", [])
+
+    return [
+        {
+            "id": c.get("id", ""),
+            "summary": c.get("summary", "(untitled)"),
+            "primary": bool(c.get("primary", False)),
+            "access_role": c.get("accessRole", "reader"),
+        }
+        for c in items
+        if c.get("id")
+    ]
+
+
+class GoogleCalendarSettingsBody(BaseModel):
+    calendar_id: str
+    calendar_name: str = ""
+
+
+@router.put("/integrations/google-calendar/settings", response_model=IntegrationResponse)
+async def update_google_calendar_settings(
+    request: Request,
+    body: GoogleCalendarSettingsBody,
+    db: AsyncSession = Depends(get_tenant_session),
+):
+    """Pick which Google calendar to mirror into CRM.
+
+    Merges calendar_id/calendar_name into the existing config —
+    never touches access_token/refresh_token.
+    """
+    tenant_id = _tid(request)
+    user_id = _uid(request)
+
+    row = await _google_calendar_row(db, tenant_id, user_id)
+    if not row:
+        raise HTTPException(404, "Google Calendar not connected")
+
+    cfg = dict(row.config or {})
+    cfg["calendar_id"] = body.calendar_id
+    cfg["calendar_name"] = body.calendar_name
+    row.config = cfg
+    row.updated_at = datetime.now(timezone.utc)
+    await db.flush()
+    await db.refresh(row)
+    return row

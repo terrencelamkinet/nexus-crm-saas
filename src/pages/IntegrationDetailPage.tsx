@@ -1,9 +1,14 @@
 import { useParams, Link } from 'react-router-dom';
 import { useEffect, useState, useCallback } from 'react';
-import { Check, AlertCircle, RefreshCw } from 'lucide-react';
+import { Check, AlertCircle, RefreshCw, CalendarDays, ChevronDown } from 'lucide-react';
 import { integrations } from '../data/integrations';
-import { fetchIntegrations, disconnectIntegration } from '../lib/integration-api';
-import type { IntegrationRecord } from '../lib/integration-api';
+import {
+  fetchIntegrations,
+  disconnectIntegration,
+  fetchGoogleCalendars,
+  saveGoogleCalendarSetting,
+} from '../lib/integration-api';
+import type { IntegrationRecord, GoogleCalendarInfo } from '../lib/integration-api';
 import ConnectDialog from '../components/ConnectDialog';
 
 export default function IntegrationDetailPage() {
@@ -13,6 +18,16 @@ export default function IntegrationDetailPage() {
   const [connection, setConnection] = useState<IntegrationRecord | null>(null);
   const [loading, setLoading] = useState(true);
   const [showDialog, setShowDialog] = useState(false);
+
+  // Google Calendar picker state
+  const [calendars, setCalendars] = useState<GoogleCalendarInfo[]>([]);
+  const [selectedCal, setSelectedCal] = useState<string>('');
+  const [calLoading, setCalLoading] = useState(false);
+  const [calSaving, setCalSaving] = useState(false);
+  const [calSaved, setCalSaved] = useState(false);
+  const [calError, setCalError] = useState<string | null>(null);
+
+  const isGoogleCal = id === 'google-calendar';
 
   const loadConnection = useCallback(async () => {
     if (!id) return;
@@ -26,6 +41,51 @@ export default function IntegrationDetailPage() {
   }, [id]);
 
   useEffect(() => { loadConnection(); }, [loadConnection]);
+
+  // Load the user's Google calendars once connected
+  useEffect(() => {
+    if (!isGoogleCal || !connection) return;
+    let cancelled = false;
+    (async () => {
+      setCalLoading(true);
+      setCalError(null);
+      try {
+        const list = await fetchGoogleCalendars();
+        if (cancelled) return;
+        setCalendars(list);
+        const current = (connection.config?.calendar_id as string) || '';
+        if (current && list.some(c => c.id === current)) {
+          setSelectedCal(current);
+        } else {
+          const primary = list.find(c => c.primary);
+          setSelectedCal(current || primary?.id || (list[0]?.id ?? ''));
+        }
+      } catch (e: any) {
+        if (!cancelled) setCalError(e?.message || 'Failed to load calendars');
+      } finally {
+        if (!cancelled) setCalLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [isGoogleCal, connection]);
+
+  const handleCalChange = async (calId: string) => {
+    setSelectedCal(calId);
+    setCalSaving(true);
+    setCalSaved(false);
+    setCalError(null);
+    const cal = calendars.find(c => c.id === calId);
+    try {
+      await saveGoogleCalendarSetting(calId, cal?.summary || '');
+      setCalSaved(true);
+      // update local connection state so the picker stays in sync
+      setConnection((prev) => prev ? { ...prev, config: { ...prev.config, calendar_id: calId, calendar_name: cal?.summary || '' } } : prev);
+    } catch (e: any) {
+      setCalError(e?.message || 'Failed to save selection');
+    } finally {
+      setCalSaving(false);
+    }
+  };
 
   // Listen for OAuth popup completion
   useEffect(() => {
@@ -179,6 +239,55 @@ export default function IntegrationDetailPage() {
           </div>
         )}
       </div>
+
+      {/* Google Calendar picker — choose which calendar to sync */}
+      {isGoogleCal && isConnected && (
+        <div className="mkt-detail-section">
+          <h2>Sync calendar</h2>
+          <p style={{ fontSize: 13, color: 'var(--color-text-muted)', margin: '4px 0 14px' }}>
+            Choose which Google Calendar to mirror into NEXUS CRM. Events sync within 15 minutes of a change.
+          </p>
+
+          {calLoading ? (
+            <div className="mkt-detail-status" style={{ color: 'var(--color-text-muted)' }}>
+              <RefreshCw size={14} className="spin" style={{ marginRight: 8 }} />
+              <span>Loading your calendars…</span>
+            </div>
+          ) : (
+            <>
+              <div className="gcal-picker">
+                <CalendarDays size={15} style={{ color: 'var(--color-text-muted)', flexShrink: 0 }} />
+                <select
+                  className="gcal-select"
+                  value={selectedCal}
+                  onChange={(e) => handleCalChange(e.target.value)}
+                  disabled={calSaving}
+                  aria-label="Google Calendar to sync"
+                >
+                  {calendars.length === 0 && <option value="">No calendars found</option>}
+                  {calendars.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.summary}{c.primary ? ' (Primary)' : ''}
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown size={14} style={{ color: 'var(--color-text-faint)', pointerEvents: 'none', marginLeft: -26 }} />
+              </div>
+
+              <div style={{ marginTop: 10, fontSize: 12.5, minHeight: 18 }}>
+                {calSaving && <span style={{ color: 'var(--color-text-muted)' }}>Saving…</span>}
+                {calSaved && !calSaving && (
+                  <span style={{ color: 'var(--color-success)' }}>
+                    <Check size={13} style={{ verticalAlign: -2, marginRight: 4 }} />
+                    Calendar updated — next sync uses this calendar
+                  </span>
+                )}
+                {calError && <span style={{ color: '#ef4444' }}>{calError}</span>}
+              </div>
+            </>
+          )}
+        </div>
+      )}
 
       {/* Connect Dialog */}
       {showDialog && (

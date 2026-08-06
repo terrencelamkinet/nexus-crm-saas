@@ -28,9 +28,10 @@ function eventColor(ev: CalendarEventFormatted): string {
 interface MobileAgendaListProps {
   events: CalendarEventFormatted[];
   date: Date;
+  onEventClick?: (ev: CalendarEventFormatted) => void;
 }
 
-export function MobileAgendaList({ events, date }: MobileAgendaListProps) {
+export function MobileAgendaList({ events, date, onEventClick }: MobileAgendaListProps) {
   const dayEvents = useMemo(
     () => events.filter((ev) => isSameDay(ev.start, date)),
     [events, date],
@@ -56,7 +57,12 @@ export function MobileAgendaList({ events, date }: MobileAgendaListProps) {
           </div>
         ) : (
           dayEvents.map((ev) => (
-            <div key={ev.id} className="ma-card">
+            <div
+              key={ev.id}
+              className={`ma-card${onEventClick ? ' clickable' : ''}`}
+              onClick={onEventClick ? () => onEventClick(ev) : undefined}
+              role={onEventClick ? 'button' : undefined}
+            >
               <div
                 className="ma-dot"
                 style={{ backgroundColor: eventColor(ev) }}
@@ -88,9 +94,10 @@ interface MobileAgendaViewProps {
   events: CalendarEventFormatted[];
   date: Date;
   onDateChange: (d: Date) => void;
+  onEventClick?: (ev: CalendarEventFormatted) => void;
 }
 
-export default function MobileAgendaView({ events, date, onDateChange }: MobileAgendaViewProps) {
+export default function MobileAgendaView({ events, date, onDateChange, onEventClick }: MobileAgendaViewProps) {
   const [selectedDate, setSelectedDate] = useState<Date>(date);
   const stripRef = useRef<HTMLDivElement>(null);
 
@@ -145,7 +152,7 @@ export default function MobileAgendaView({ events, date, onDateChange }: MobileA
           })}
         </div>
       </div>
-      <MobileAgendaList events={events} date={selectedDate} />
+      <MobileAgendaList events={events} date={selectedDate} onEventClick={onEventClick} />
     </div>
   );
 }

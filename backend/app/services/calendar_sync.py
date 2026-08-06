@@ -103,11 +103,18 @@ async def _valid_access_token(integration_row) -> tuple[str, dict]:
     return fresh.get("access_token", ""), cfg
 
 
-async def _google_events(access_token: str) -> list[dict[str, Any]]:
-    """Fetch Google Calendar events in the sync window (paginated)."""
+async def _google_events(access_token: str, calendar_id: str = "primary") -> list[dict[str, Any]]:
+    """Fetch Google Calendar events in the sync window (paginated).
+
+    calendar_id defaults to 'primary'; users can pick another calendar
+    (e.g. a family/holiday calendar) via the Marketplace picker — the
+    choice is stored in the integration config.
+    """
     time_min = (_now() - timedelta(days=SYNC_PAST_DAYS)).isoformat()
     time_max = (_now() + timedelta(days=SYNC_FUTURE_DAYS)).isoformat()
 
+    from urllib.parse import quote
+    cal_path = quote(calendar_id, safe="")
     items: list[dict[str, Any]] = []
     page_token: str | None = None
     async with httpx.AsyncClient(timeout=_HTTP_TIMEOUT) as client:
@@ -122,7 +129,7 @@ async def _google_events(access_token: str) -> list[dict[str, Any]]:
             if page_token:
                 params["pageToken"] = page_token
             r = await client.get(
-                "https://www.googleapis.com/calendar/v3/calendars/primary/events",
+                f"https://www.googleapis.com/calendar/v3/calendars/{cal_path}/events",
                 params=params,
                 headers={"Authorization": f"Bearer {access_token}"},
             )
@@ -392,7 +399,8 @@ async def sync_google_oauth(
     if cfg_update:
         integration_row.config = cfg_update
 
-    events = await _google_events(access_token)
+    calendar_id = (integration_row.config or {}).get("calendar_id") or "primary"
+    events = await _google_events(access_token, calendar_id)
     parsed = [_parse_google_event(ev) for ev in events]
     stats = await _upsert_events(db, tenant_id, user_id, "google_oauth", parsed)
     return stats
