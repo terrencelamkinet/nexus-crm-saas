@@ -346,6 +346,7 @@ export default function ChatboxPanel() {
   const [suggestedPrompts, setSuggestedPrompts] = useState<string[]>(emptyPrompts)
   const [isMobile, setIsMobile] = useState(window.innerWidth < MOBILE_BREAKPOINT)
   const [animPhase, setAnimPhase] = useState<'closed' | 'opening' | 'open' | 'closing'>('closed')
+  const [kbHeight, setKbHeight] = useState(0)
   const [actionPreview, setActionPreview] = useState<{ tool_key: string; params: Record<string, unknown>; action_id?: string } | null>(null)
 
   // ── Slash / mention state ──
@@ -409,6 +410,30 @@ export default function ChatboxPanel() {
       }, 350)
     }
   }, [animPhase])
+
+  // ── Lock body scroll while panel is open (prevents background page scroll) ──
+  useEffect(() => {
+    if (!isOpen) return
+    const prev = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => { document.body.style.overflow = prev }
+  }, [isOpen])
+
+  // ── Mobile: keep composer above the on-screen keyboard ──
+  // visualViewport shrinks when the keyboard opens; dvh alone doesn't track
+  // it reliably, so measure the delta and shrink the panel height accordingly.
+  useEffect(() => {
+    if (!isMobile || !isOpen) return
+    const vv = window.visualViewport
+    if (!vv) return
+    const adjust = () => {
+      const kh = window.innerHeight - vv.height
+      setKbHeight(kh > 80 ? kh : 0) // 80px threshold — ignores URL-bar jitter
+    }
+    vv.addEventListener('resize', adjust)
+    adjust()
+    return () => vv.removeEventListener('resize', adjust)
+  }, [isMobile, isOpen])
 
   // ── Escape to close ──
   useEffect(() => {
@@ -725,7 +750,7 @@ export default function ChatboxPanel() {
         transition: animPhase === 'opening' || animPhase === 'closing'
           ? 'transform 320ms cubic-bezier(0.16, 1, 0.3, 1)'
           : 'none',
-        height: !visible ? 0 : '92dvh',
+        height: !visible ? 0 : `calc(92dvh - ${kbHeight}px)`,
         boxShadow: visible && !isClosing ? '0 -8px 32px rgba(0,0,0,0.2)' : 'none',
       }
     : {
@@ -1031,7 +1056,6 @@ export default function ChatboxPanel() {
           from { opacity: 0; }
           to { opacity: 1; }
         }
-        .send-btn-hitarea { padding: 8px; margin: -8px; }
         .skeleton-line { animation: skeleton-pulse 1.5s ease-in-out infinite; }
         @keyframes skeleton-pulse {
           0%, 100% { opacity: 0.4; }

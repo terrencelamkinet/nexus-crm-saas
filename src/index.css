@@ -2436,7 +2436,7 @@ textarea.input-field{resize:vertical;min-height:60px}
 .cb-mobile-sessions{flex:1;overflow:hidden;position:relative}
 
 /* ── Messages area ── */
-.cb-messages{flex:1;overflow-y:auto;background:var(--color-surface);scroll-behavior:smooth}
+.cb-messages{flex:1;overflow-y:auto;background:var(--color-surface);scroll-behavior:smooth;overscroll-behavior:contain}
 .cb-loading{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;height:100%}
 .cb-skeleton{height:10px;border-radius:4px;background:var(--color-border)}
 .cb-skeleton--wide{width:60%}

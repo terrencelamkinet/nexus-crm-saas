@@ -91,7 +91,7 @@ export default function ChatInput({ input, onInputChange, onSend, onAbort, isStr
         />
 
         {/* Send / Stop button */}
-        <span className="send-btn-hitarea" style={{ display: 'inline-flex', padding: 0, lineHeight: 0 }}>
+        <span className="send-btn-hitarea" style={{ display: 'inline-flex', padding: 8, margin: -8, lineHeight: 0 }}>
           {isStreaming ? (
             <button onClick={onAbort}
               aria-label={t('chat.stop')}
