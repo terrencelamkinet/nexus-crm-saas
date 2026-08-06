@@ -1594,9 +1594,10 @@ async def _build_crm_briefing(ctx, db, lang_pref: str = "zh-HK") -> dict:
     Weather comes from G08's own HKO Open Data source (briefing_sources).
     `lang_pref` controls the ai_tip language (zh-HK → 繁體中文, en → English).
     """
+    # ── Schedule: upcoming events (7 days — covers today + week ahead) ──
     schedule: list[dict[str, Any]] = []
     try:
-        evts = await _get_upcoming_events(ctx, {"days_ahead": 1, "limit": 10}, db)
+        evts = await _get_upcoming_events(ctx, {"days_ahead": 7, "limit": 20}, db)
         if evts:
             schedule = [
                 {
