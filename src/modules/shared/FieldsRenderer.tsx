@@ -4,6 +4,7 @@ import { formatDate, formatRelativeDate, formatAmount } from './field-utils'
 import EntitySearch from './EntitySearch'
 import { isModuleEnabled } from '../enabled-modules'
 import { useTranslation } from 'react-i18next'
+import { localizeFieldLabel } from './labels'
 
 const RELATION_ROUTES: Record<string, string> = {
   contacts: '/contacts',
@@ -107,7 +108,7 @@ export function CellRenderer({ value, field, onNavigate }: { value: any; field: 
 // ═══ DETAIL / FORM FIELD RENDERER ═══
 export function FieldsRenderer({ field, entity, form, onChange, editOpen, onNavigate }: Props) {
   const { t } = useTranslation()
-  const label = <div className="field-label">{field.label}{field.required ? ' *' : ''}</div>
+  const label = <div className="field-label">{localizeFieldLabel(field, t)}{field.required ? ' *' : ''}</div>
   const isReadonly = !editOpen || field.editable === false
     || ['rollup', 'formula', 'created_time', 'last_edited_time', 'created_by', 'last_edited_by', 'unique_id'].includes(field.type)
   const value = form?.[field.key] ?? entity?.[field.key]
@@ -133,7 +134,7 @@ export function FieldsRenderer({ field, entity, form, onChange, editOpen, onNavi
             <option key={o.value} value={o.value}>{o.label}</option>
           ))}
         </select>
-        <label className="floating-label">{field.label}{field.required ? ' *' : ''}</label>
+        <label className="floating-label">{localizeFieldLabel(field, t)}{field.required ? ' *' : ''}</label>
       </div>
     )
   }
@@ -167,8 +168,8 @@ export function FieldsRenderer({ field, entity, form, onChange, editOpen, onNavi
     const dateVal = value ? String(value).slice(0, 10) : ''
     return (
       <div className="floating-field">
-        <input type="date" value={dateVal} onChange={e => onChange?.(field.key, e.target.value)} className="input-field floating-input" placeholder={field.label} />
-        <label className="floating-label">{field.label}</label>
+        <input type="date" value={dateVal} onChange={e => onChange?.(field.key, e.target.value)} className="input-field floating-input" placeholder={localizeFieldLabel(field, t)} />
+        <label className="floating-label">{localizeFieldLabel(field, t)}</label>
       </div>
     )
   }

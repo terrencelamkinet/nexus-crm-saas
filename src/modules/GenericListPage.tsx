@@ -381,7 +381,7 @@ const [filters, setFilters] = useState<Record<string, FilterEntry>>(() => ({ ...
     const changes = Object.fromEntries(
       Object.entries(bulkForm).filter(([, v]) => v !== '' && v !== null && !(Array.isArray(v) && v.length === 0))
     )
-    if (Object.keys(changes).length === 0) { alert('No changes to apply'); return }
+    if (Object.keys(changes).length === 0) { alert(t('common.noChangesToApply')); return }
     setBulkSaving(true)
     try {
       await Promise.all(
@@ -531,7 +531,7 @@ const [filters, setFilters] = useState<Record<string, FilterEntry>>(() => ({ ...
           <button className="btn-secondary glp-icon-btn" title={t('common.export')}>
             <Download className="w-4 h-4" />
           </button>
-          <button className="btn-secondary glp-icon-btn" title="Upload">
+          <button className="btn-secondary glp-icon-btn" title={t('common.upload')}>
             <Upload className="w-4 h-4" />
           </button>
           <button onClick={openCreate} className="btn-primary glp-icon-btn" title={t('pages.' + filterModuleKey + '.new')}>

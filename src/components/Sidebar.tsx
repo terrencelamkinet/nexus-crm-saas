@@ -21,7 +21,7 @@ export default function Sidebar() {
   const workspaceItems = [
     { to: '/dashboard', label: t('nav.dashboard'), icon: LayoutDashboard },
     { to: '/contacts', label: t('nav.contacts'), icon: Users },
-    { to: '/calendar', label: 'Calendar', icon: Calendar },
+    { to: '/calendar', label: t('nav.calendar'), icon: Calendar },
     { to: '/companies', label: t('nav.companies'), icon: Building2 },
     { to: '/projects', label: t('nav.projects'), icon: FolderKanban, module: 'projects' },
     { to: '/deals', label: t('nav.deals'), icon: TrendingUp, module: 'sales' },
@@ -103,7 +103,7 @@ export default function Sidebar() {
         </NavLink>
         <NavLink to="/marketplace" onClick={closeMobileMenu} className={({ isActive }) => `nav-item${isActive ? ' active' : ''}`}>
           <Puzzle />
-          <span>Marketplace</span>
+          <span>{t('nav.marketplace')}</span>
         </NavLink>
         <NavLink to="/settings" onClick={closeMobileMenu} className={({ isActive }) => `nav-item${isActive ? ' active' : ''}`}
           style={{ marginTop: 'var(--space-4)' }}>

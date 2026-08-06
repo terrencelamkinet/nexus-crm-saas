@@ -75,6 +75,7 @@ function assistantMessage(content: string): ChatMessage {
 // ---------------------------------------------------------------------------
 
 export function ChatboxToggleButton({ onClick, open }: { onClick: () => void; open: boolean }) {
+  const { t } = useTranslation();
   const [hovered, setHovered] = useState(false)
   const [pressed, setPressed] = useState(false)
 
@@ -87,7 +88,7 @@ export function ChatboxToggleButton({ onClick, open }: { onClick: () => void; op
       onMouseUp={() => setPressed(false)}
       onTouchStart={() => setPressed(true)}
       onTouchEnd={() => setPressed(false)}
-      aria-label="Toggle AI chat"
+      aria-label={t('common.toggleAiChat')}
       aria-expanded={open}
       className={`fab-btn ${open ? 'fab-btn--open' : ''} cb-fab`}
       id="ai-fab"

@@ -6,6 +6,7 @@ import { apiClient } from '../../lib/api'
 import { FieldsRenderer } from './FieldsRenderer'
 import { buildPayload, formatDate, apiErrorToString } from './field-utils'
 import { statusColors } from '../module-types'
+import { localizeTabLabel, localizeResourceLabel } from './labels'
 import type { ModuleConfig, EntityRecord } from '../module-types'
 import { isModuleEnabled } from '../enabled-modules'
 
@@ -120,7 +121,7 @@ export default function DetailDrawerContent({ config, id, onClose, tabRenderers,
   if (error || !entity) {
     return (
       <div className="drawer-error">
-        <p>{error || t('common.notFound', { label: config.label })}</p>
+        <p>{error || t('common.notFound', { label: localizeResourceLabel(config.name, false, config.label, t) })}</p>
         <button onClick={fetchEntity} className="btn-secondary">{t('common.retry')}</button>
       </div>
     )
@@ -145,7 +146,7 @@ export default function DetailDrawerContent({ config, id, onClose, tabRenderers,
       <nav className="breadcrumb drawer-bc">
         <span className="breadcrumb-link" onClick={() => { onClose(); navigate('/dashboard') }}>{t('common.home')}</span>
         <span className="bc-sep">/</span>
-        <span className="breadcrumb-link" onClick={onClose}>{config.labelPlural}</span>
+        <span className="breadcrumb-link" onClick={onClose}>{localizeResourceLabel(config.name, true, config.labelPlural, t)}</span>
         <span className="bc-sep">/</span>
         <span className="cur">{entityName}</span>
       </nav>
@@ -266,8 +267,8 @@ export default function DetailDrawerContent({ config, id, onClose, tabRenderers,
                   </Suspense>
                 ) : (
                   <div className="panel">
-                    <div className="panel-head"><h3>{tabItem.label}</h3></div>
-                    <div className="empty-state">{t('common.noLabelYet', { label: tabItem.label.toLowerCase() })}</div>
+                    <div className="panel-head"><h3>{localizeTabLabel(tabItem.id, tabItem.label, t)}</h3></div>
+                    <div className="empty-state">{t('common.noLabelYet', { label: localizeTabLabel(tabItem.id, tabItem.label, t).toLowerCase() })}</div>
                   </div>
                 )}
               </div>
@@ -284,7 +285,7 @@ export default function DetailDrawerContent({ config, id, onClose, tabRenderers,
                   className={`drawer-tab ${tab === tabItem.id ? 'active' : ''}`}
                   onClick={() => setTab(tabItem.id)}
                 >
-                  {tabItem.label}
+                  {localizeTabLabel(tabItem.id, tabItem.label, t)}
                 </div>
               ))}
             </div>
@@ -293,7 +294,7 @@ export default function DetailDrawerContent({ config, id, onClose, tabRenderers,
           {/* Details fields */}
           {tab === 'details' && (
             <div className="drawer-section">
-              <div className="drawer-section-title">{config.label} {t('common.information')}</div>
+              <div className="drawer-section-title">{localizeResourceLabel(config.name, false, config.label, t)} {t('common.information')}</div>
               <div className="drawer-fields-grid">
                 {detailFields.map(f => (
                   <FieldsRenderer key={f.key} field={f} entity={entity} form={form}
@@ -365,7 +366,7 @@ function DetailFieldsSection({ detailFields, config, entity, form, handleChange,
   const visible = showAll ? detailFields : detailFields.slice(0, 10)
   return (
     <div className="drawer-section">
-      <div className="drawer-section-title">{config.label} {t('common.information')}</div>
+      <div className="drawer-section-title">{localizeResourceLabel(config.name, false, config.label, t)} {t('common.information')}</div>
       <div className="drawer-fields-grid grid-2col">
         {visible.map(f => (
           <FieldsRenderer key={f.key} field={f} entity={entity} form={form}

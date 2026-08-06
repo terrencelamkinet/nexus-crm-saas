@@ -56,7 +56,7 @@ export default function LoginPage() {
         setTimeout(() => otpRefs.current[0]?.focus(), 100);
       }
     } catch (err: any) {
-      setError(err?.detail || err?.message || 'Login failed');
+      setError(err?.detail || err?.message || t('login.errorLogin'));
     } finally {
       setLoading(false);
     }
@@ -66,11 +66,11 @@ export default function LoginPage() {
     e.preventDefault();
     setError('');
     if (password !== confirmPassword) {
-      setError('Passwords do not match');
+      setError(t('login.errorPasswordMismatch'));
       return;
     }
     if (password.length < 6) {
-      setError('Password must be at least 6 characters');
+      setError(t('login.errorPasswordShort'));
       return;
     }
     setLoading(true);
@@ -79,7 +79,7 @@ export default function LoginPage() {
       storeAuth(res.access_token, email, res.refresh_token);
       navigate('/dashboard', { replace: true });
     } catch (err: any) {
-      setError(err?.detail || err?.message || 'Registration failed');
+      setError(err?.detail || err?.message || t('login.errorRegister'));
     } finally {
       setLoading(false);
     }
@@ -92,9 +92,9 @@ export default function LoginPage() {
     setLoading(true);
     try {
       const res = await forgotPassword(email);
-      setSuccess(res.message || 'Reset link sent! Check your email.');
+      setSuccess(res.message || t('login.resetSent'));
     } catch (err: any) {
-      setError(err?.detail || err?.message || 'Failed to send reset email');
+      setError(err?.detail || err?.message || t('login.errorSendReset'));
     } finally {
       setLoading(false);
     }
@@ -104,27 +104,27 @@ export default function LoginPage() {
     e.preventDefault();
     setError('');
     if (password !== confirmPassword) {
-      setError('Passwords do not match');
+      setError(t('login.errorPasswordMismatch'));
       return;
     }
     if (password.length < 6) {
-      setError('Password must be at least 6 characters');
+      setError(t('login.errorPasswordShort'));
       return;
     }
     if (!resetToken) {
-      setError('Invalid reset token');
+      setError(t('login.errorInvalidToken'));
       return;
     }
     setLoading(true);
     try {
       await resetPassword(resetToken, password);
-      setSuccess('Password reset successfully! Redirecting to login...');
+      setSuccess(t('login.resetSuccess'));
       setTimeout(() => {
         setStep('login');
         setSuccess('');
       }, 2000);
     } catch (err: any) {
-      setError(err?.detail || err?.message || 'Failed to reset password');
+      setError(err?.detail || err?.message || t('login.errorResetFailed'));
     } finally {
       setLoading(false);
     }
@@ -164,7 +164,7 @@ export default function LoginPage() {
       await verifyMfa(otpCode);
       navigate('/dashboard', { replace: true });
     } catch (err: any) {
-      setError(err?.detail || err?.message || 'Verification failed');
+      setError(err?.detail || err?.message || t('login.errorVerify'));
       setOtp(['', '', '', '', '', '']);
       otpRefs.current[0]?.focus();
     } finally {
@@ -175,10 +175,10 @@ export default function LoginPage() {
   const handleResend = async () => {
     try {
       await sendMfaCode();
-      setSuccess('Code resent!');
+      setSuccess(t('login.codeResent'));
       setTimeout(() => setSuccess(''), 3000);
     } catch (err: any) {
-      setError(err?.detail || 'Failed to resend');
+      setError(err?.detail || t('login.errorResend'));
     }
   };
 
@@ -211,31 +211,31 @@ export default function LoginPage() {
               </button>
             </div>
             <div className="hero-copy">
-              <div className="eyebrow">Sales portal access</div>
-              <h1>One clean entry point for your whole workspace.</h1>
-              <p>Designed with a calm, Notion-like layout: low-friction Google sign-in first, local account fallback, and a full recovery loop for signup and forgotten passwords.</p>
+              <div className="eyebrow">{t('login.eyebrow')}</div>
+              <h1>{t('login.heroTitle')}</h1>
+              <p>{t('login.heroSubtitle')}</p>
               <div className="mini-proof" aria-label="benefits">
                 <div className="proof-card">
-                  <div className="n">Google first</div>
-                  <div className="l">Faster sign-in for teams using Google Workspace</div>
+                  <div className="n">{t('login.proofGoogleTitle')}</div>
+                  <div className="l">{t('login.proofGoogleDesc')}</div>
                 </div>
                 <div className="proof-card">
-                  <div className="n">Local account</div>
-                  <div className="l">Email and password flow for direct workspace access</div>
+                  <div className="n">{t('login.proofLocalTitle')}</div>
+                  <div className="l">{t('login.proofLocalDesc')}</div>
                 </div>
                 <div className="proof-card">
-                  <div className="n">Full recovery</div>
-                  <div className="l">Create account, reset password, and return without dead ends</div>
+                  <div className="n">{t('login.proofRecoveryTitle')}</div>
+                  <div className="l">{t('login.proofRecoveryDesc')}</div>
                 </div>
               </div>
             </div>
           </div>
           <div className="brand-bottom">
-            <span>JWT + refresh token ready</span>
+            <span>{t('login.badgeJwt')}</span>
             <span>•</span>
-            <span>Mobile-first auth flow</span>
+            <span>{t('login.badgeMobile')}</span>
             <span>•</span>
-            <span>WCAG-friendly contrast</span>
+            <span>{t('login.badgeWcag')}</span>
           </div>
         </aside>
 
@@ -248,15 +248,15 @@ export default function LoginPage() {
                   {step === 'login' && t('login.title')}
                   {step === 'register' && t('login.createAccount')}
                   {step === 'forgot' && t('login.forgotPassword')}
-                  {step === 'reset' && 'Set new password'}
-                  {step === 'mfa' && 'Check your email'}
+                  {step === 'reset' && t('login.resetTitle')}
+                  {step === 'mfa' && t('login.mfaTitle')}
                 </h2>
                 <p id="pageSubtitle">
-                  {step === 'login' && 'Sign in to continue to your team workspace.'}
-                  {step === 'register' && 'Enter your details to get started.'}
-                  {step === 'forgot' && "Enter your email and we'll send you a reset link."}
-                  {step === 'reset' && 'Choose a new password for your account.'}
-                  {step === 'mfa' && <>We sent a verification code to <strong>{mfaEmail}</strong>.</>}
+                  {step === 'login' && t('login.subtitle')}
+                  {step === 'register' && t('login.registerSubtitle')}
+                  {step === 'forgot' && t('login.forgotSubtitle')}
+                  {step === 'reset' && t('login.resetSubtitle')}
+                  {step === 'mfa' && <>{t('login.mfaSentTo')} <strong>{mfaEmail}</strong>.</>}
                 </p>
               </div>
               <div className="auth-body">
@@ -270,7 +270,7 @@ export default function LoginPage() {
                       <span className="gmark" aria-hidden="true"></span>
                       <span className="btn-label">{t('login.continueGoogle')}</span>
                     </button>
-                    <div className="divider">or continue with email</div>
+                    <div className="divider">{t('login.divider')}</div>
                     <form className="form" onSubmit={handleLogin} noValidate>
                       <div className="field">
                         <label htmlFor="loginEmail">{t('login.emailLabel')}</label>
@@ -309,7 +309,7 @@ export default function LoginPage() {
                       <div className="meta-row">
                         <label className="check">
                           <input type="checkbox" defaultChecked />
-                          <span>Keep me signed in on this device</span>
+                          <span>{t('login.keepSignedIn')}</span>
                         </label>
                       </div>
                       <button className="btn btn-primary" type="submit" disabled={loading}>
@@ -320,7 +320,7 @@ export default function LoginPage() {
                     </form>
                     <div className="switcher">
                       <a href="#register" onClick={e => { e.preventDefault(); goTo('register'); }}>
-                        {t('login.noAccount')} Sign up
+                        {t('login.noAccount')} {t('login.signUp')}
                       </a>
                       <span style={{ margin: '0 8px', color: 'var(--color-text-faint)' }}>·</span>
                       <a href="#forgot" onClick={e => { e.preventDefault(); goTo('forgot'); }}>
@@ -328,7 +328,7 @@ export default function LoginPage() {
                       </a>
                     </div>
                     <div className="panel-note">
-                      Use Google when your workspace email matches your Google account. Use email login when your team manages local credentials.
+                      {t('login.panelNote')}
                     </div>
                   </section>
                 )}
@@ -339,13 +339,13 @@ export default function LoginPage() {
                     <div className={`notice error ${error ? 'show' : ''}`}>{error}</div>
                     <form className="form" onSubmit={handleRegister} noValidate>
                       <div className="field">
-                        <label htmlFor="regName">Full name</label>
+                        <label htmlFor="regName">{t('login.fullName')}</label>
                         <input
                           className="input"
                           id="regName"
                           type="text"
                           autoComplete="name"
-                          placeholder="Your name"
+                          placeholder={t('login.namePlaceholder')}
                           value={displayName}
                           onChange={e => setDisplayName(e.target.value)}
                           autoFocus
@@ -372,20 +372,20 @@ export default function LoginPage() {
                           id="regPassword"
                           type="password"
                           autoComplete="new-password"
-                          placeholder="At least 6 characters"
+                          placeholder={t('login.passwordMin')}
                           value={password}
                           onChange={e => setPassword(e.target.value)}
                           required
                         />
                       </div>
                       <div className="field">
-                        <label htmlFor="regConfirm">Confirm password</label>
+                        <label htmlFor="regConfirm">{t('login.confirmPassword')}</label>
                         <input
                           className="input"
                           id="regConfirm"
                           type="password"
                           autoComplete="new-password"
-                          placeholder="Repeat your password"
+                          placeholder={t('login.repeatPassword')}
                           value={confirmPassword}
                           onChange={e => setConfirmPassword(e.target.value)}
                           required
@@ -393,13 +393,13 @@ export default function LoginPage() {
                       </div>
                       <button className="btn btn-primary" type="submit" disabled={loading}>
                         <span className="btn-label">
-                          {loading ? <><span className="spinner"></span> Creating account...</> : t('login.createAccount')}
+                          {loading ? <><span className="spinner"></span> {t('login.creating')}</> : t('login.createAccount')}
                         </span>
                       </button>
                     </form>
                     <div className="switcher">
                       <a href="#login" onClick={e => { e.preventDefault(); goTo('login'); }}>
-                        Already have an account? Sign in
+                        {t('login.haveAccount')}
                       </a>
                     </div>
                   </section>
@@ -428,13 +428,13 @@ export default function LoginPage() {
                       </div>
                       <button className="btn btn-primary" type="submit" disabled={loading}>
                         <span className="btn-label">
-                          {loading ? <><span className="spinner"></span> Sending...</> : 'Send reset link'}
+                          {loading ? <><span className="spinner"></span> {t('login.sending')}</> : t('login.sendReset')}
                         </span>
                       </button>
                     </form>
                     <div className="switcher">
                       <a href="#login" onClick={e => { e.preventDefault(); goTo('login'); }}>
-                        Back to login
+                        {t('login.backToLogin')}
                       </a>
                     </div>
                   </section>
@@ -447,13 +447,13 @@ export default function LoginPage() {
                     <div className={`notice success ${success ? 'show' : ''}`}>{success}</div>
                     <form className="form" onSubmit={handleResetPassword} noValidate>
                       <div className="field">
-                        <label htmlFor="resetPassword">New password</label>
+                        <label htmlFor="resetPassword">{t('login.newPassword')}</label>
                         <input
                           className="input"
                           id="resetPassword"
                           type="password"
                           autoComplete="new-password"
-                          placeholder="At least 6 characters"
+                          placeholder={t('login.passwordMin')}
                           value={password}
                           onChange={e => setPassword(e.target.value)}
                           required
@@ -461,13 +461,13 @@ export default function LoginPage() {
                         />
                       </div>
                       <div className="field">
-                        <label htmlFor="resetConfirm">Confirm new password</label>
+                        <label htmlFor="resetConfirm">{t('login.confirmNewPassword')}</label>
                         <input
                           className="input"
                           id="resetConfirm"
                           type="password"
                           autoComplete="new-password"
-                          placeholder="Repeat your new password"
+                          placeholder={t('login.repeatNewPassword')}
                           value={confirmPassword}
                           onChange={e => setConfirmPassword(e.target.value)}
                           required
@@ -475,13 +475,13 @@ export default function LoginPage() {
                       </div>
                       <button className="btn btn-primary" type="submit" disabled={loading}>
                         <span className="btn-label">
-                          {loading ? <><span className="spinner"></span> Resetting...</> : 'Reset password'}
+                          {loading ? <><span className="spinner"></span> {t('login.resetting')}</> : t('login.resetPassword')}
                         </span>
                       </button>
                     </form>
                     <div className="switcher">
                       <a href="#login" onClick={e => { e.preventDefault(); goTo('login'); }}>
-                        Back to login
+                        {t('login.backToLogin')}
                       </a>
                     </div>
                   </section>
@@ -499,7 +499,7 @@ export default function LoginPage() {
                     <form id="mfaForm" onSubmit={e => { e.preventDefault(); handleVerifyMfa(); }}>
                       <div className="form">
                         <div className="field">
-                          <label htmlFor="mfaCode">Verification code</label>
+                          <label htmlFor="mfaCode">{t('login.verificationCode')}</label>
                           <div className="input-wrap">
                             <div className="otp-row">
                               {otp.map((digit, i) => (
@@ -519,13 +519,13 @@ export default function LoginPage() {
                               ))}
                             </div>
                           </div>
-                          <span className="error">Enter the 6-digit code from your email.</span>
+                          <span className="error">{t('login.enterCode')}</span>
                         </div>
                         <div className="notice" id="mfaNotice"></div>
                         <div className="field">
                           <label className="check" style={{ fontSize: 'var(--text-sm)' } as React.CSSProperties}>
                             <input type="checkbox" id="trustDevice" />
-                            Trust this device for 30 days — no OTP needed
+                            {t('login.trustDevice30')}
                           </label>
                         </div>
                         <button
@@ -535,7 +535,7 @@ export default function LoginPage() {
                           disabled={loading || otp.join('').length !== 6}
                         >
                           <span className="btn-label">
-                            {loading ? <><span className="spinner"></span> Verifying...</> : t('login.mfaVerify')}
+                            {loading ? <><span className="spinner"></span> {t('login.verifying')}</> : t('login.mfaVerify')}
                           </span>
                         </button>
                         <button
@@ -545,14 +545,14 @@ export default function LoginPage() {
                           onClick={handleResend}
                           disabled={loading}
                         >
-                          <span className="btn-label">Resend code</span>
+                          <span className="btn-label">{t('login.resendCode')}</span>
                         </button>
                         <div className="switcher" style={{ textAlign: 'center', marginTop: '12px' } as React.CSSProperties}>
                           <a
                             href="#login"
                             onClick={e => { e.preventDefault(); setStep('login'); setError(''); setOtp(['', '', '', '', '', '']); }}
                           >
-                            Back to login
+                            {t('login.backToLogin')}
                           </a>
                         </div>
                       </div>
@@ -561,7 +561,7 @@ export default function LoginPage() {
                 )}
 
                 <p className="legal">
-                  By continuing, you acknowledge the workspace security rules and team access model for this CRM portal.
+                  {t('login.legalNote')}
                 </p>
               </div>
             </section>
