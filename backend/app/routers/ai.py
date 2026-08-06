@@ -413,6 +413,19 @@ async def confirm_action(
         raise HTTPException(403, str(e))
 
     result_data = await tool.handler(ctx, action.payload_preview, db, mode="execute")
+    # Guard: handler returned errors (e.g. unresolved/ambiguous target) — do NOT
+    # mark executed.  Re-run in draft mode to get the authoritative preview.
+    if isinstance(result_data, dict) and result_data.get("errors"):
+        action.status = "failed"
+        action.result = result_data
+        await log_audit(ctx, "action_failed", {
+            "action_id": str(action_id),
+            "tool_key": action.tool_key,
+            "errors": result_data.get("errors"),
+        })
+        await db.flush()
+        raise HTTPException(422, {"detail": "Action could not be executed", "errors": result_data.get("errors")})
+
     action.status = "executed"
     action.executed_at = datetime.now(timezone.utc)
     action.result = result_data
@@ -946,6 +959,7 @@ _WRITE_TOOL_GUIDE = """7. 用戶要求建立或更新 CRM 資料時，你可以�
      - create_task_draft: {"title": "...", "description": "...", "due_date": "YYYY-MM-DD", "priority": "low|medium|high|urgent"} (title 必填)
      - create_touchpoint_draft: {"type": "call|email|meeting|note|other", "summary": "...", "company_id": "...", "contact_id": "..."} (type + summary 必填)
      - update_contact_draft: {"contact_id": "...", "name": "...", "email": "...", "phone": "...", "notes": "..."} (contact_id 必填)
+   - contact_id / company_id 必須係資料庫 UUID（唔係姓名）— 先用 search_contacts / search_companies 搵出目標記錄，將結果中嘅 id 放入 params；如果搜尋結果已有 id，直接引用該 id
    - 系統會產生草稿俾用戶確認（Draft → Confirm → Execute），確認後先會真正執行
    - 例如用戶要求建立任務：
      {"tool": "create_task_draft", "params": {"title": "跟進 SYSTEX 報價", "priority": "high"}}
@@ -1021,6 +1035,7 @@ class _StreamToolCallScrubber:
     """
 
     _FENCE_OPEN_RE = re.compile(r"```(?:json)?\s*")
+    _PARTIAL_FENCE_RE = re.compile(r"`{1,3}$")   # fence opener split across chunks
     _PARTIAL_TOOL_RE = re.compile(r'\{\s*"tool')  # complete or partial marker
     _HOLD = 64          # chars held back across chunks to catch split markers
     _MAX_HOLD = 8192    # safety cap — flush raw if nothing resolves
@@ -1072,6 +1087,12 @@ class _StreamToolCallScrubber:
                 out.append(buf[: mf.start()])
                 self._buf = buf[mf.start() :] + self._buf
                 break
+            # 2b. partial fence opener (e.g. "`" / "``" split across chunks)
+            mpf = self._PARTIAL_FENCE_RE.search(buf)
+            if mpf and hold:
+                out.append(buf[: mpf.start()])
+                self._buf = buf[mpf.start() :] + self._buf
+                break
             # 3. complete inline {"tool": ...} JSON (balanced braces)
             m2 = _TOOL_CALL_START_RE.search(buf)
             if m2:
@@ -1093,6 +1114,34 @@ class _StreamToolCallScrubber:
         return "".join(out)
 
 
+async def _apply_rls_context(db: AsyncSession, ctx: Any) -> None:
+    """Re-apply transaction-scoped RLS context (tenant/user/workspace).
+
+    The SSE generator runs lazily *after* the request handler returns, so the
+    set_config calls made by ``get_tenant_session`` are lost once the request
+    transaction commits.  Write-tool queries would otherwise see zero rows.
+    """
+    conn = await db.connection()
+    tid = getattr(ctx, "tenant_id", "") or ""
+    if tid:
+        await conn.execute(
+            text("SELECT set_config('app.tenant_id', :tid, true)"),
+            {"tid": str(tid)},
+        )
+    uid = getattr(ctx, "user_id", "") or ""
+    if uid:
+        await conn.execute(
+            text("SELECT set_config('app.user_id', :uid, true)"),
+            {"uid": str(uid)},
+        )
+    wid = getattr(ctx, "workspace_id", "") or ""
+    if wid:
+        await conn.execute(
+            text("SELECT set_config('app.workspace_id', :wid, true)"),
+            {"wid": str(wid)},
+        )
+
+
 async def _run_embedded_tool_call(
     ctx: Any,
     db: AsyncSession,
@@ -1112,6 +1161,10 @@ async def _run_embedded_tool_call(
     if not tool or tool.type != "write" or tool.handler is None:
         return None
     try:
+        # SSE generator runs AFTER the request transaction ends, so the
+        # transaction-scoped RLS context from get_tenant_session is gone.
+        # Re-apply it so write-tool queries see the tenant's rows.
+        await _apply_rls_context(db, ctx)
         await authorize_tool_call(ctx, tool_key, params, db=db)
     except ScopeViolation as e:
         return {"error": str(e)}

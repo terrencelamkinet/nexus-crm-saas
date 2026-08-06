@@ -676,12 +676,42 @@ async def _update_contact_draft(
             if not contact:
                 errors.append(f"Contact '{contact_id_str}' not found")
         except ValueError:
-            errors.append(f"Invalid contact_id format: {contact_id_str}")
+            # Fallback: AI sometimes passes the contact *name* or *email* instead
+            # of a UUID. Resolve by exact match (tenant-scoped) so the draft
+            # still works.
+            q = contact_id_str.strip().lower()
+            result = await db.execute(
+                select(Contact)
+                .where(
+                    Contact.tenant_id == ctx.tenant_id,
+                    or_(
+                        func.lower(Contact.name) == q,
+                        func.lower(Contact.email) == q,
+                    ),
+                )
+                .limit(2)
+            )
+            matches = result.scalars().all()
+            if len(matches) == 1:
+                contact = matches[0]
+                contact_id_str = str(contact.id)
+            elif len(matches) > 1:
+                errors.append(
+                    f"Ambiguous contact '{contact_id_str}' — multiple matches, use contact_id UUID"
+                )
+            else:
+                errors.append(f"Invalid contact_id format: {contact_id_str}")
 
     changes = {}
-    for field in ("name", "email", "phone", "notes"):
-        if field in params and params[field] is not None:
-            changes[field] = params[field]
+    # When called from the confirm endpoint, `params` IS the stored preview
+    # dict ({"action", "contact_id", "current", "changes", ...}), not the
+    # original AI params.  Reuse the preview's changes in that case.
+    if isinstance(params.get("changes"), dict) and params.get("action") == "update_contact":
+        changes = dict(params["changes"])
+    else:
+        for field in ("name", "email", "phone", "notes"):
+            if field in params and params[field] is not None:
+                changes[field] = params[field]
 
     preview = {
         "action": "update_contact",
