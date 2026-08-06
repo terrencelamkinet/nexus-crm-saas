@@ -73,6 +73,7 @@
   border: 1px solid var(--color-divider);
   background: var(--color-surface);
   overflow: hidden;
+  margin-bottom: 14px;
 }
 
 /* Trigger = card header（透明，hover 藍色 tint） */
@@ -100,10 +101,9 @@
   background: color-mix(in srgb, var(--color-primary) 12%, transparent);
 }
 
-/* Panel card = card body（透明，用 border-top 分隔 header） */
+/* Panel card = card body（透明，同 header 無縫接合） */
 .ab-panel-card {
   border: none;
-  border-top: 1px solid var(--color-divider);
   background: transparent;
   box-shadow: none;
   border-radius: 0 0 var(--radius-lg) var(--radius-lg);
