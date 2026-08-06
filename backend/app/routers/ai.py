@@ -11,6 +11,8 @@ import json
 import asyncio
 from uuid import UUID
 from datetime import datetime, timezone, timedelta
+
+HKT = timezone(timedelta(hours=8))
 from typing import Any, AsyncGenerator
 from fastapi import APIRouter, Depends, HTTPException, Request, Query
 from fastapi.responses import StreamingResponse
@@ -1587,6 +1589,21 @@ async def get_briefing(
         )
 
 
+def _hkt_time_str(start: Any) -> str:
+    """Convert a UTC-aware ISO datetime to HKT wall-clock 'YYYY-MM-DD HH:MM'.
+
+    Naive datetimes are assumed to already be HKT. Mirrors briefing_generator._parse_dt.
+    """
+    if not start:
+        return ""
+    try:
+        dt = datetime.fromisoformat(str(start).replace("Z", "+00:00"))
+        dt = dt.astimezone(HKT) if dt.tzinfo else dt.replace(tzinfo=HKT)
+        return dt.strftime("%Y-%m-%d %H:%M")
+    except Exception:
+        return str(start)[:16].replace("T", " ")
+
+
 async def _build_crm_briefing(ctx, db, lang_pref: str = "zh-HK") -> dict:
     """CRM Core source: schedule + P0/P1 tasks + dashboard stats tip.
 
@@ -1603,11 +1620,7 @@ async def _build_crm_briefing(ctx, db, lang_pref: str = "zh-HK") -> dict:
                 {
                     "id": e.get("id", ""),
                     "title": e.get("title", e.get("summary", "Event")),
-                    "time": (
-                        e.get("start", "")[:16].replace("T", " ")
-                        if e.get("start")
-                        else ""
-                    ),
+                    "time": _hkt_time_str(e.get("start")),
                     "location": e.get("location", ""),
                 }
                 for e in evts

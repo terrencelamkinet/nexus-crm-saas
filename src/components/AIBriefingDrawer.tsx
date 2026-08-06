@@ -594,7 +594,7 @@ export default function AIBriefingDrawer() {
                   {payload.todayEvents.map(ev => (
                     <div key={ev.id} className="ab-event-row">
                       <span className="ab-event-time">
-                        {ev.time.slice(11, 16)}
+                        {ev.time.length >= 16 ? ev.time.slice(11, 16) : ev.time}
                       </span>
                       <span className="ab-event-title">{ev.title}</span>
                       {ev.location && <span className="ab-event-loc">{ev.location}</span>}
@@ -633,7 +633,7 @@ export default function AIBriefingDrawer() {
                         <strong>{c.event_a}</strong> ↔ <strong>{c.event_b}</strong>
                       </span>
                       <span className="ab-conflict-meta">
-                        {c.overlap_start ? t('pages.briefing.conflictOverlap', { time: c.overlap_start.slice(11, 16) }) : ''}
+                        {c.overlap_start ? t('pages.briefing.conflictOverlap', { time: c.overlap_start.length >= 16 ? c.overlap_start.slice(11, 16) : c.overlap_start }) : ''}
                       </span>
                     </div>
                   ))}

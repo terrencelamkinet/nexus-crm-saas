@@ -24,6 +24,16 @@ from app.models.crm import Company, Project, Touchpoint
 from app.models.crm_module_b import Deal, Quote
 
 _UTC = timezone.utc
+HKT = timezone(timedelta(hours=8))
+
+
+def _hkt_iso(dt: Any) -> str:
+    """Serialize a datetime as HKT wall-clock ISO ('YYYY-MM-DDTHH:MM:SS')."""
+    if dt.tzinfo:
+        dt = dt.astimezone(HKT)
+    else:
+        dt = dt.replace(tzinfo=HKT)
+    return dt.isoformat()
 
 
 async def project_status(ctx: AISessionContext, db: AsyncSession) -> list[dict[str, Any]]:
@@ -447,8 +457,8 @@ async def calendar_conflicts(ctx: AISessionContext, db: AsyncSession) -> list[di
             conflicts.append({
                 "event_a": a.title,
                 "event_b": b.title,
-                "overlap_start": b.start.isoformat(),
-                "event_a_end": a_end.isoformat(),
+                "overlap_start": _hkt_iso(b.start),
+                "event_a_end": _hkt_iso(a_end),
             })
     return conflicts
 

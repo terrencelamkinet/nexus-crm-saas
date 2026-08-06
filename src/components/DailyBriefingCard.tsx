@@ -89,6 +89,10 @@ const formatLastUpdated = (date: Date): string => {
   return `${diffHrs}h ago`;
 };
 
+/** Extract HH:MM from 'YYYY-MM-DD HH:MM' (API, HKT) or passthrough bare 'HH:MM' (mock). */
+const fmtEventTime = (time: string): string =>
+  time.length >= 16 ? time.slice(11, 16) : time;
+
 // ── Skeleton ──
 function BriefingSkeleton() {
   return (
@@ -290,7 +294,7 @@ export default function DailyBriefingCard({ className = '', style }: Props) {
               {data!.schedule.slice(0, 3).map(ev => (
                 <div key={ev.id} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12.5 }}>
                   <span style={{ fontWeight: 600, color: 'var(--color-text-muted)', whiteSpace: 'nowrap', minWidth: 40 }}>
-                    {ev.time}
+                    {fmtEventTime(ev.time)}
                   </span>
                   <span style={{ color: 'var(--color-text)', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     {ev.title}
