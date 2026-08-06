@@ -2618,9 +2618,15 @@ async def list_all_calendar_events(
     db: AsyncSession = Depends(get_tenant_session),
 ):
     tenant_id = _get_tenant_id(request)
+    user_id = getattr(request.state, "user_id", None)
     base = (
         select(ProjectCalendarEvent)
-        .where(ProjectCalendarEvent.tenant_id == tenant_id)
+        .where(
+            ProjectCalendarEvent.tenant_id == tenant_id,
+            # per-user calendar isolation: own events + shared (no-owner) ones
+            (ProjectCalendarEvent.owner_user_id == user_id)
+            | (ProjectCalendarEvent.owner_user_id.is_(None)),
+        )
         .order_by(ProjectCalendarEvent.start.desc())
         .offset(offset)
         .limit(limit)

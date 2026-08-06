@@ -540,7 +540,7 @@ class ProjectCalendarEventUpdate(BaseModel):
 class ProjectCalendarEventResponse(BaseModel):
     id: UUID
     tenant_id: UUID
-    project_id: UUID
+    project_id: Optional[UUID] = None
     title: str
     description: Optional[str] = None
     event_type: Optional[str] = None
@@ -549,6 +549,9 @@ class ProjectCalendarEventResponse(BaseModel):
     is_all_day: Optional[bool] = False
     color: Optional[str] = None
     location: Optional[str] = None
+    owner_user_id: Optional[UUID] = None
+    source: Optional[str] = None
+    external_event_id: Optional[str] = None
     created_at: datetime
     updated_at: datetime
 

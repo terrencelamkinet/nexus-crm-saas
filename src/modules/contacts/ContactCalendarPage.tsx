@@ -61,6 +61,29 @@ export default function ContactCalendarPage() {
       })
     } catch { /* silent */ }
 
+    try {
+      // Fetch synced calendar events (Google OAuth / ICS + manual project events)
+      const calResp = await apiClient.get<{ items?: any[] }>('/api/v1/crm/calendar-events?limit=200')
+      const calEvents = Array.isArray(calResp) ? calResp : (calResp?.items || [])
+      calEvents.forEach((e: any) => {
+        all.push({
+          id: `cal-${e.id}`,
+          project_id: e.project_id || e.id,
+          title: e.title,
+          description: e.description || null,
+          event_type: e.event_type || 'meeting',
+          start: e.start ? e.start.slice(0, 10) : new Date().toISOString().slice(0, 10),
+          end: e.end ? e.end.slice(0, 10) : e.start ? e.start.slice(0, 10) : new Date().toISOString().slice(0, 10),
+          is_all_day: !!e.is_all_day,
+          color: e.color || (e.source === 'google_oauth' ? '#4285F4' : e.source === 'ics' ? '#34A853' : '#00693E'),
+          location: e.location || null,
+          project_name: e.source === 'google_oauth' ? 'Google Calendar'
+            : e.source === 'ics' ? 'ICS Calendar'
+            : e.project_name || 'Calendar',
+        })
+      })
+    } catch { /* silent */ }
+
     setEvents(all)
     setLoading(false)
   }, [])
