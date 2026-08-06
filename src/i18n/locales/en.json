@@ -465,7 +465,10 @@
     "modalLogActivity": "Log Activity",
     "modalAddTouchpoint": "Add Touchpoint",
     "modalAddNote": "Add Note",
-    "modalLinkProject": "Link Project"
+    "modalLinkProject": "Link Project",
+    "editingModeActive": "Edit mode is active",
+    "information": "Information",
+    "openFull": "Open Full"
   },
   "contacts": {
     "title": "Contacts",
@@ -557,7 +560,8 @@
     "status": "Status",
     "empty": "No tasks yet",
     "myTasks": "My Tasks",
-    "allTasks": "All Tasks"
+    "allTasks": "All Tasks",
+    "taskTitle": "Task Title"
   },
   "notifications": {
     "title": "Notifications",
@@ -822,7 +826,8 @@
         "noteTitlePlaceholder": "Note title",
         "noteContentPlaceholder": "Write your notes here...",
         "activityDescriptionPlaceholder": "Brief description..."
-      }
+      },
+      "size": "Company Size"
     },
     "deals": {
       "title": "Deals",
