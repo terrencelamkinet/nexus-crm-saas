@@ -469,6 +469,23 @@ async def get_llm_usage(
         )
     ).all()
 
+    by_module = (
+        await db.execute(
+            text(
+                """
+                SELECT module, count(*) AS calls,
+                       COALESCE(sum(input_tokens), 0) AS input,
+                       COALESCE(sum(output_tokens), 0) AS output,
+                       COALESCE(sum(cost_estimate), 0) AS cost
+                FROM nexus_ai.ai_usage_events
+                WHERE user_id = :uid AND created_at >= :since
+                GROUP BY module ORDER BY calls DESC
+                """
+            ),
+            {"uid": user_id, "since": since},
+        )
+    ).all()
+
     return {
         "days": days,
         "total_calls": total.calls or 0,
@@ -477,6 +494,7 @@ async def get_llm_usage(
         "cost_estimate": float(total.cost_estimate or 0),
         "errors": total.errors or 0,
         "by_model": [{"model": r.model, "calls": r.calls, "input_tokens": r.input, "output_tokens": r.output} for r in by_model],
+        "by_module": [{"module": r.module, "calls": r.calls, "input_tokens": r.input, "output_tokens": r.output, "cost_estimate": float(r.cost or 0)} for r in by_module],
     }
 
 

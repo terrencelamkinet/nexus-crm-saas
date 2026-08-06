@@ -77,6 +77,7 @@ DEFAULT_SEARCH_CONFIG = SearchConfig()
 async def embed_query(
     query: str,
     model: str = DEFAULT_EMBEDDING_MODEL,
+    usage_out: list | None = None,
 ) -> list[float]:
     """Generate embedding vector for a text query.
 
@@ -85,6 +86,9 @@ async def embed_query(
     2. OpenAI (text-embedding-3-small, if OPENAI_API_KEY set)
     3. Gemini (text-embedding-004, if GEMINI_API_KEY set)
     4. Deterministic hash fallback (always works)
+
+    ``usage_out`` (optional list) receives the UsageReport of the LLM call
+    that succeeded — the caller records it centrally (core rule G08).
     """
     # 1. Local embedder — always available, no API key needed
     try:
@@ -99,8 +103,10 @@ async def embed_query(
     try:
         adapter = get_provider("openai")
         try:
-            vectors, _report = await adapter.embed([query], model=model)
+            vectors, report = await adapter.embed([query], model=model)
             if vectors and vectors[0] and any(v != 0.0 for v in vectors[0]):
+                if usage_out is not None:
+                    usage_out.append(report)
                 return vectors[0]
         except Exception:
             pass
@@ -113,8 +119,10 @@ async def embed_query(
     try:
         adapter = get_provider("gemini")
         try:
-            vectors, _report = await adapter.embed([query], model="text-embedding-004")
+            vectors, report = await adapter.embed([query], model="text-embedding-004")
             if vectors and vectors[0] and any(v != 0.0 for v in vectors[0]):
+                if usage_out is not None:
+                    usage_out.append(report)
                 return vectors[0]
         except Exception:
             pass
@@ -211,13 +219,15 @@ async def retrieve_context(
     top_k: int = DEFAULT_TOP_K,
     min_score: float = 0.35,
     source_module: str | None = None,
+    user_id: UUID | None = None,
 ) -> str:
     """High-level: embed query → search → return formatted text for LLM context.
 
     Returns a markdown-formatted string of top chunks, or an empty string
     if nothing relevant was found.
     """
-    query_vector = await embed_query(query)
+    usage_out: list = []
+    query_vector = await embed_query(query, usage_out=usage_out)
     hits = await vector_search(
         db,
         query_vector=query_vector,
@@ -227,6 +237,26 @@ async def retrieve_context(
         min_score=min_score,
         source_module=source_module,
     )
+
+    # ── Record usage event (rag_search module) — central token collection ──
+    if usage_out and user_id is not None:
+        try:
+            from app.models.ai.usage import UsageEvent
+            report = usage_out[0]
+            db.add(UsageEvent(
+                session_id=None,
+                user_id=user_id,
+                tenant_id=tenant_id,
+                provider=report.provider or "openai",
+                model=report.model or DEFAULT_EMBEDDING_MODEL,
+                input_tokens=report.input_tokens,
+                output_tokens=report.output_tokens,
+                cost_estimate=float(report.cost_usd) if report.cost_usd else None,
+                result_status="success",
+                module="rag_search",
+            ))
+        except Exception:
+            pass  # usage recording is best-effort
 
     if not hits:
         return ""

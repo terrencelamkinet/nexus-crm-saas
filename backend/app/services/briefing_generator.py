@@ -268,7 +268,7 @@ async def generate_briefing(
     from app.routers.ai import _default_adapter
     adapter = _default_adapter()
     try:
-        content, _usage = await adapter.chat(
+        content, usage = await adapter.chat(
             messages=_build_prompt(slot, settings or SecretarySettings(user_id=user_id, tenant_id=tenant_id), data),
             model=DEFAULT_MODEL,
             temperature=0.7,
@@ -276,6 +276,24 @@ async def generate_briefing(
         )
     finally:
         await adapter.close()
+
+    # ── Record usage event (briefing module) — central token collection ──
+    try:
+        from app.models.ai.usage import UsageEvent
+        db.add(UsageEvent(
+            session_id=None,  # briefing has no chat session
+            user_id=user_id,
+            tenant_id=tenant_id,
+            provider=usage.provider or "deepseek",
+            model=usage.model or DEFAULT_MODEL,
+            input_tokens=usage.input_tokens,
+            output_tokens=usage.output_tokens,
+            cost_estimate=float(usage.cost_usd) if usage.cost_usd else None,
+            result_status="success",
+            module="briefing",
+        ))
+    except Exception:
+        pass  # usage recording is best-effort
 
     content = (content or "").strip()
     if not content:

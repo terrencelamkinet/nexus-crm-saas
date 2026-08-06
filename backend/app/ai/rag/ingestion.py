@@ -23,7 +23,7 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass
 from typing import Any, Optional, cast
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from sqlalchemy import select, delete
 from sqlalchemy.exc import SQLAlchemyError
@@ -162,16 +162,36 @@ class IngestionPipeline:
                 # --- generate embeddings in batches -----------------------
                 all_vectors: list[list[float] | None] = [None] * len(chunks_text)
                 provider = get_provider("openai")
+                usage_reports: list = []  # core rule G08: central token collection
 
                 try:
                     for batch_start in range(0, len(chunks_text), self.cfg.batch_size):
                         batch_end = min(batch_start + self.cfg.batch_size, len(chunks_text))
                         batch_texts = chunks_text[batch_start:batch_end]
 
-                        vectors = await self._embed_batch(provider, batch_texts)
+                        vectors = await self._embed_batch(provider, batch_texts, usage_reports)
                         all_vectors[batch_start:batch_end] = vectors
                 finally:
                     await provider.close()
+
+                # ── Record usage events (rag_ingestion module) ───────────
+                for report in usage_reports:
+                    try:
+                        from app.models.ai.usage import UsageEvent
+                        session.add(UsageEvent(
+                            session_id=None,
+                            user_id=uuid4(),  # system-level ingestion
+                            tenant_id=tenant_id,
+                            provider=report.provider or "openai",
+                            model=report.model or self.cfg.embedding_model,
+                            input_tokens=report.input_tokens,
+                            output_tokens=report.output_tokens,
+                            cost_estimate=float(report.cost_usd) if report.cost_usd else None,
+                            result_status="success",
+                            module="rag_ingestion",
+                        ))
+                    except Exception:
+                        pass  # usage recording is best-effort
 
                 # --- delete stale chunks -----------------------------------
                 await session.execute(
@@ -269,13 +289,20 @@ class IngestionPipeline:
         self,
         provider: Any,  # ProviderAdapter
         texts: list[str],
+        usage_out: list | None = None,
     ) -> list[list[float]]:
-        """Generate embeddings for a batch of texts via the provider."""
+        """Generate embeddings for a batch of texts via the provider.
+
+        ``usage_out`` (optional list) collects the UsageReport of each LLM
+        embed call — recorded centrally by the caller (core rule G08).
+        """
         try:
-            vectors, _report = await provider.embed(
+            vectors, report = await provider.embed(
                 texts,
                 model=self.cfg.embedding_model,
             )
+            if usage_out is not None:
+                usage_out.append(report)
             return vectors
         except Exception:
             logger.exception(

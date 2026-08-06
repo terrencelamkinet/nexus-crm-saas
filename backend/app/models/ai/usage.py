@@ -35,4 +35,5 @@ class UsageEvent(Base):
     latency_ms: Mapped[int] = mapped_column(Integer, nullable=True)
     cost_estimate: Mapped[float] = mapped_column(Float, nullable=True)
     result_status: Mapped[str] = mapped_column(String(50), default="success")
+    module: Mapped[str] = mapped_column(String(50), default="chat", nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)

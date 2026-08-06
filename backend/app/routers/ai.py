@@ -613,6 +613,7 @@ async def _search_crm_context(
             workspace_id=ctx.workspace_id,
             top_k=8,
             min_score=0.35,
+            user_id=ctx.user_id,
         )
         if rag_text:
             context["rag_vectors"] = rag_text
@@ -661,7 +662,7 @@ async def _extract_memory_from_chat(
     try:
         adapter = _default_adapter()
         try:
-            text, _ = await adapter.chat(
+            text, usage = await adapter.chat(
                 messages=[
                     {"role": "system", "content": _MEMORY_EXTRACT_SYSTEM},
                     {"role": "user", "content": f"User: {user_message}\nAI: {ai_response}"},
@@ -672,6 +673,12 @@ async def _extract_memory_from_chat(
             )
         finally:
             await adapter.close()
+
+        # ── Record usage event (memory_extract module) ────────────────
+        try:
+            await _record_usage_event(db, ctx, UUID(str(session.id)), usage, module="memory_extract")
+        except Exception:
+            pass  # usage recording is best-effort
 
         # Parse JSON response
         text = text.strip()
@@ -756,8 +763,14 @@ async def _record_usage_event(
     session_id: UUID,
     report: UsageReport,
     result_status: str = "success",
+    module: str = "chat",
 ) -> None:
-    """Write a UsageEvent row after each LLM call."""
+    """Write a UsageEvent row after each LLM call.
+
+    Core rule (G08): EVERY LLM call site MUST record a UsageEvent with its
+    module name — central token/cost collection lives in nexus_ai.usage_events
+    (module column added by migrations/007_usage_module.sql).
+    """
     ev = UsageEvent(
         session_id=session_id,
         user_id=ctx.user_id,
@@ -768,6 +781,7 @@ async def _record_usage_event(
         output_tokens=report.output_tokens,
         cost_estimate=float(report.cost_usd) if report.cost_usd else None,
         result_status=result_status,
+        module=module,
     )
     db.add(ev)
 
@@ -1077,7 +1091,7 @@ async def chat_completion(
 
         # ── Record usage event ─────────────────────────────────────────
         try:
-            await _record_usage_event(db, ctx, UUID(str(sess.id)), usage)
+            await _record_usage_event(db, ctx, UUID(str(sess.id)), usage, module="chat")
         except Exception:
             pass  # usage recording is best-effort
 
@@ -1328,7 +1342,7 @@ async def chat_stream_completion(
                 # ── Record usage event ─────────────────────────────────
                 if final_report:
                     try:
-                        await _record_usage_event(db, ctx, UUID(str(sess.id)), final_report)
+                        await _record_usage_event(db, ctx, UUID(str(sess.id)), final_report, module="chat_stream")
                     except Exception:
                         pass
 

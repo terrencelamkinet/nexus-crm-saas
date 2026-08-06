@@ -118,6 +118,7 @@ async def rag_context(
         top_k=body.top_k,
         min_score=body.min_score,
         source_module=body.source_module,
+        user_id=ctx.user_id,
     )
 
     return {"context": context_str}
