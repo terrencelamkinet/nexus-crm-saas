@@ -25,7 +25,12 @@ from typing import Any, AsyncIterator, Optional
 
 @dataclass(frozen=True)
 class UsageReport:
-    """Token and cost breakdown for a single LLM call."""
+    """Token and cost breakdown for a single LLM call.
+
+    ``cost_usd`` is ALWAYS in USD — every provider cost card is priced per
+    1K tokens in USD (see compute_cost / provider _COST_CARDS). Tracked
+    explicitly via UsageEvent.currency = 'USD' in nexus_ai.usage_events.
+    """
 
     input_tokens: int = 0
     output_tokens: int = 0

@@ -254,6 +254,7 @@ async def retrieve_context(
                 cost_estimate=float(report.cost_usd) if report.cost_usd else None,
                 result_status="success",
                 module="rag_search",
+                currency="USD",
             ))
         except Exception:
             pass  # usage recording is best-effort

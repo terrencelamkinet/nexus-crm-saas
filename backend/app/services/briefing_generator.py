@@ -291,6 +291,7 @@ async def generate_briefing(
             cost_estimate=float(usage.cost_usd) if usage.cost_usd else None,
             result_status="success",
             module="briefing",
+            currency="USD",
         ))
     except Exception:
         pass  # usage recording is best-effort

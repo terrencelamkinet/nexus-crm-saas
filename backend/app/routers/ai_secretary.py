@@ -488,6 +488,7 @@ async def get_llm_usage(
 
     return {
         "days": days,
+        "currency": "USD",  # all provider cost cards are priced in USD
         "total_calls": total.calls or 0,
         "input_tokens": total.input_tokens or 0,
         "output_tokens": total.output_tokens or 0,

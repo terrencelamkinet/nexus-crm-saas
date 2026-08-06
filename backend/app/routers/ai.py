@@ -782,6 +782,7 @@ async def _record_usage_event(
         cost_estimate=float(report.cost_usd) if report.cost_usd else None,
         result_status=result_status,
         module=module,
+        currency="USD",  # all provider cost cards are USD
     )
     db.add(ev)
 
