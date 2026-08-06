@@ -411,13 +411,15 @@ export default function ChatboxPanel() {
     }
   }, [animPhase])
 
-  // ── Lock body scroll while panel is open (prevents background page scroll) ──
+  // ── Mobile: lock body scroll while panel is open ──
+  // (prevents the background page scrolling when the keyboard opens;
+  //  desktop keeps the dashboard scrollable behind the 400px overlay)
   useEffect(() => {
-    if (!isOpen) return
+    if (!isMobile || !isOpen) return
     const prev = document.body.style.overflow
     document.body.style.overflow = 'hidden'
     return () => { document.body.style.overflow = prev }
-  }, [isOpen])
+  }, [isMobile, isOpen])
 
   // ── Mobile: keep composer above the on-screen keyboard ──
   // visualViewport shrinks when the keyboard opens; dvh alone doesn't track
