@@ -104,3 +104,86 @@ h1, h2, h3,
 [data-theme="dark"] {
   --color-surface-offset: color-mix(in srgb, var(--color-surface-offset) 97%, var(--color-primary) 3%);
 }
+
+/* ── Login 頁獨立色系 — 原本喺 index.css 寫死 teal (#0e6b70)，換做藍色 ── */
+.login-page {
+  --color-primary: #146EF5;
+  --color-primary-hover: #0E5FD8;
+  --color-primary-active: #0A4FC0;
+  --color-primary-highlight: #E1EBFC;
+  --color-blue: #146EF5;
+  --color-blue-highlight: #DFE9FB;
+  --color-bg: #F6F8FB;
+  --color-surface: #FBFCFE;
+  --color-surface-2: #FFFFFF;
+  --color-surface-offset: #F1F4F9;
+  --color-surface-offset-2: #E9EDF4;
+  --color-divider: #DEE4EC;
+  --color-border: #D2DAE4;
+  --color-text: #1A1D24;
+  --color-text-muted: #5D6675;
+  --color-text-faint: #98A1B0;
+  --color-text-inverse: #FBFCFE;
+  --color-error: #C23B4A;
+  --color-error-highlight: #F6DCDF;
+  --color-success: #387A3A;
+  --color-success-highlight: #DCEBDC;
+}
+
+[data-theme="dark"] .login-page {
+  --color-primary: #4E93FF;
+  --color-primary-hover: #6FA7FF;
+  --color-primary-active: #8FBBFF;
+  --color-primary-highlight: #1C3A66;
+  --color-blue: #4E93FF;
+  --color-bg: #14171D;
+  --color-surface: #1A1E26;
+  --color-surface-2: #20252F;
+  --color-surface-offset: #20252F;
+  --color-surface-offset-2: #282E3A;
+  --color-divider: #2A313D;
+  --color-border: #39414F;
+  --color-text: #E8ECF4;
+  --color-text-muted: #9AA3B2;
+  --color-text-faint: #5E6778;
+  --color-text-inverse: #14171D;
+}
+
+/* ── Dashboard (dash01-shell) 獨立色系 — 原本寫死 teal (#01696f)，換做藍色 ── */
+.dash01-shell {
+  --color-primary: #146EF5;
+  --color-primary-hover: #0E5FD8;
+  --color-primary-active: #0A4FC0;
+  --color-primary-highlight: #E1EBFC;
+  --color-blue: #146EF5;
+  --color-bg: #F6F8FB;
+  --color-surface: #FBFCFE;
+  --color-surface-2: #FFFFFF;
+  --color-surface-offset: #F1F4F9;
+  --color-surface-offset-2: #E9EDF4;
+  --color-divider: #DEE4EC;
+  --color-border: #D2DAE4;
+  --color-text: #1A1D24;
+  --color-text-muted: #5D6675;
+  --color-text-faint: #98A1B0;
+  --color-text-inverse: #FBFCFE;
+}
+
+[data-theme="dark"] .dash01-shell {
+  --color-primary: #4E93FF;
+  --color-primary-hover: #6FA7FF;
+  --color-primary-active: #8FBBFF;
+  --color-primary-highlight: #1C3A66;
+  --color-blue: #4E93FF;
+  --color-bg: #14171D;
+  --color-surface: #1A1E26;
+  --color-surface-2: #20252F;
+  --color-surface-offset: #20252F;
+  --color-surface-offset-2: #282E3A;
+  --color-divider: #2A313D;
+  --color-border: #39414F;
+  --color-text: #E8ECF4;
+  --color-text-muted: #9AA3B2;
+  --color-text-faint: #5E6778;
+  --color-text-inverse: #14171D;
+}
