@@ -105,6 +105,12 @@ const fmtMoney = (n: number | null): string => {
   return `$${n.toLocaleString('en-US')}`
 }
 
+/** HKT (UTC+8) now — 所有 greeting / 日期判斷必須用呢個,唔可以用 browser 本地時間 */
+export function hktNow(): Date {
+  // Asia/Hong_Kong 無 DST,直接 +8h 再讀 UTC 欄位就係 HKT 牆鐘時間
+  return new Date(Date.now() + 8 * 3600 * 1000)
+}
+
 /** Pick the active greeting slot for `now` (HKT) from backend slots. */
 function currentGreetingSlot(slots: { key: string; emoji: string; start: string }[] | undefined) {
   const list = (slots && slots.length ? slots : [
@@ -117,8 +123,8 @@ function currentGreetingSlot(slots: { key: string; emoji: string; start: string 
     const [h, m] = hhmm.split(':').map(Number)
     return h * 60 + m
   }
-  const now = new Date()
-  const mins = now.getHours() * 60 + now.getMinutes()
+  const now = hktNow()
+  const mins = now.getUTCHours() * 60 + now.getUTCMinutes()
   const sorted = [...list].sort((a, b) => toM(a.start) - toM(b.start))
   let current = sorted[sorted.length - 1]
   for (const s of sorted) {

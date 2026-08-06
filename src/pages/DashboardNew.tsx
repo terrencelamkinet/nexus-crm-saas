@@ -11,7 +11,7 @@ import {
   Activity, DollarSign, Layout, Calendar,
 } from 'lucide-react'
 import SlideDrawer from '../components/SlideDrawer'
-import AIBriefingDrawer from '../components/AIBriefingDrawer'
+import AIBriefingDrawer, { hktNow } from '../components/AIBriefingDrawer'
 import WidgetAskAI from '../components/WidgetAskAI'
 
 interface Task { id: string; title: string; priority: string; status: string; due_date: string | null; area?: string; custom_fields?: Record<string, any> }
@@ -47,11 +47,22 @@ const demoTPs: Touchpoint[] = [
 ]
 
 const todayStr = (lang: string) => {
-  const d = new Date()
+  // HKT 牆鐘時間 — Intl timeZone 自動轉換,唔好手動 +8 (會雙重 offset)
+  const opts: Intl.DateTimeFormatOptions = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', timeZone: 'Asia/Hong_Kong' }
   if (lang === 'en') {
-    return d.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })
+    return new Date().toLocaleDateString('en-US', opts)
   }
-  return d.toLocaleDateString('zh-TW', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' })
+  return new Date().toLocaleDateString('zh-TW', opts)
+}
+
+/** HKT-based greeting key — 唔可以硬編碼 morning,要按 HKT 牆鐘時間 */
+const hktGreetingKey = (): 'morning' | 'afternoon' | 'evening' | 'lateNight' => {
+  const now = hktNow()
+  const mins = now.getUTCHours() * 60 + now.getUTCMinutes()
+  if (mins >= 18 * 60) return 'evening'
+  if (mins >= 12 * 60) return 'afternoon'
+  if (mins >= 7 * 60) return 'morning'
+  return 'lateNight'
 }
 
 const stages: Record<string, { label: string; color: string }> = {
@@ -534,7 +545,7 @@ export default function DashboardNew() {
         if (a.includes('learning') || a.includes('study') || a.includes('📚')) return <span style={{marginRight:4}}>📚</span>
         return null
       }
-      const isOverdue = (t: Task) => t.due_date && new Date(t.due_date) < new Date() && t.status !== 'done'
+      const isOverdue = (t: Task) => t.due_date && new Date(t.due_date) < hktNow() && t.status !== 'done'
       return (
         tasks.length === 0
           ? <div style={{padding:'16px 0',fontSize:12,color:'var(--color-text-faint)'}}>{t('pages.tasks.empty')}</div>
@@ -587,13 +598,13 @@ export default function DashboardNew() {
       <div className="kpi-delta" style={{color:'var(--color-success)'}}>↑ {deals.filter(d=>d.stage_id==='closed_won').length} {t('status.won')}</div></>
     ),
     aiinsight: () => {
-      const overdueCount = tasks.filter(t => t.due_date && new Date(t.due_date) < new Date() && t.status !== 'done').length
+      const overdueCount = tasks.filter(t => t.due_date && new Date(t.due_date) < hktNow() && t.status !== 'done').length
       const p0Count = tasks.filter(t => t.priority === 'P0').length
       const todayDue = tasks.filter(t => {
         if (!t.due_date) return false
         const d = new Date(t.due_date)
-        const today = new Date()
-        return d.getDate() === today.getDate() && d.getMonth() === today.getMonth() && d.getFullYear() === today.getFullYear()
+        const today = hktNow()
+        return d.getUTCDate() === today.getUTCDate() && d.getUTCMonth() === today.getUTCMonth() && d.getUTCFullYear() === today.getUTCFullYear()
       }).length
       return (
         <div style={{fontSize:13,lineHeight:1.5,color:'var(--color-text-muted)'}}>
@@ -1006,7 +1017,7 @@ export default function DashboardNew() {
       {/* Toolbar — dashboard-specific controls */}
       <div className="dash-toolbar" style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:18,flexWrap:'wrap',gap:10}}>
         <div>
-          <h1 className="greeting-title">{t('greeting.morning', { name: user?.displayName || user?.email?.split('@')[0] || '' })}</h1>
+          <h1 className="greeting-title">{t(`greeting.${hktGreetingKey()}`, { name: user?.displayName || user?.email?.split('@')[0] || '' })}</h1>
           <p style={{fontSize:13,color:'var(--color-text-muted)',marginTop:2}}>{todayStr(i18n.language)}</p>
         </div>
         <div style={{display:'flex',alignItems:'center',gap:8}}>
