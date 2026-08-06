@@ -65,6 +65,23 @@ const hktGreetingKey = (): 'morning' | 'afternoon' | 'evening' | 'lateNight' => 
   return 'lateNight'
 }
 
+/** Format ISO timestamp as HKT date (timezone-independent of browser). */
+const fmtHKTDate = (iso: string, lang: string): string => {
+  const locale = lang === 'en' ? 'en-US' : 'zh-TW'
+  return new Intl.DateTimeFormat(locale, {
+    year: 'numeric', month: 'long', day: 'numeric', timeZone: 'Asia/Hong_Kong',
+  }).format(new Date(iso))
+}
+
+/** Format ISO timestamp as HKT date + time (timezone-independent of browser). */
+const fmtHKTDateTime = (iso: string, lang: string): string => {
+  const locale = lang === 'en' ? 'en-US' : 'zh-TW'
+  return new Intl.DateTimeFormat(locale, {
+    year: 'numeric', month: 'long', day: 'numeric',
+    hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'Asia/Hong_Kong',
+  }).format(new Date(iso))
+}
+
 const stages: Record<string, { label: string; color: string }> = {
   qualification: { label: 'Qualification', color: 'var(--color-blue)' },
   proposal: { label: 'Proposal', color: 'var(--color-warning)' },
@@ -416,7 +433,7 @@ export default function DashboardNew() {
       <div style={{fontSize:16,fontWeight:700,marginBottom:12}}>{task.title}</div>
       <div className="stage-row"><span style={{fontWeight:600}}>{t('tasks.priority')}</span><span className={`badge ${task.priority==='P0'?'warn':task.priority==='P1'?'':'ok'}`}>{task.priority||'—'}</span></div>
       <div className="stage-row"><span style={{fontWeight:600}}>{t('tasks.status')}</span><span>{task.status||'—'}</span></div>
-      <div className="stage-row"><span style={{fontWeight:600}}>{t('tasks.dueDate')}</span><span>{task.due_date ? new Date(task.due_date).toLocaleDateString() : '—'}</span></div>
+      <div className="stage-row"><span style={{fontWeight:600}}>{t('tasks.dueDate')}</span><span>{task.due_date ? fmtHKTDate(task.due_date, i18n.language) : '—'}</span></div>
       {task.area && <div className="stage-row"><span style={{fontWeight:600}}>Area</span><span>{task.area}</span></div>}
     </div>
   )
@@ -445,7 +462,7 @@ export default function DashboardNew() {
       <div className="stage-row"><span style={{fontWeight:600}}>{t('contacts.name')}</span><span>{tp.contact?.name||'—'}</span></div>
       <div className="stage-row"><span style={{fontWeight:600}}>{t('contacts.company')}</span><span>{tp.company?.name||'—'}</span></div>
       <div className="stage-row"><span style={{fontWeight:600}}>{t('touchpoint.notes')}</span><span>{tp.description||'—'}</span></div>
-      <div className="stage-row"><span style={{fontWeight:600}}>{t('touchpoint.type')}</span><span>{new Date(tp.created_at).toLocaleString()}</span></div>
+      <div className="stage-row"><span style={{fontWeight:600}}>{t('touchpoint.type')}</span><span>{fmtHKTDateTime(tp.created_at, i18n.language)}</span></div>
     </div>
   )
 
@@ -635,7 +652,7 @@ export default function DashboardNew() {
                     <td style={{padding:'8px 4px'}}><span className="badge" style={{background:'color-mix(in oklch,var(--color-primary)14%,var(--color-surface))',color:'var(--color-primary)'}}>{tp.type}</span></td>
                     <td style={{padding:'8px 4px',fontWeight:500}}>{tp.title}</td>
                     <td style={{padding:'8px 4px',color:'var(--color-text-muted)'}}>{tp.company?.name||'—'}</td>
-                    <td style={{padding:'8px 4px',textAlign:'right',color:'var(--color-text-faint)'}}>{new Date(tp.created_at).toLocaleDateString()}</td>
+                    <td style={{padding:'8px 4px',textAlign:'right',color:'var(--color-text-faint)'}}>{fmtHKTDate(tp.created_at, i18n.language)}</td>
                   </tr>
                 ))}
               </tbody>

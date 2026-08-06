@@ -193,13 +193,23 @@ export function useSecretarySettings() {
 }
 
 // ── Pure helpers (used by briefing gating) ──
+/** HKT wall-clock minutes-of-day — timezone-independent of the browser. */
+function hktMinutesOfDay(now: Date): number {
+  const parts = new Intl.DateTimeFormat('en-GB', {
+    hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'Asia/Hong_Kong',
+  }).formatToParts(now)
+  const h = Number(parts.find(p => p.type === 'hour')?.value || '0')
+  const m = Number(parts.find(p => p.type === 'minute')?.value || '0')
+  return h * 60 + m
+}
+
 /** True when `now` falls inside [start, end). Handles overnight windows. */
 export function isInWorkingHours(now: Date, s: SecretarySettings): boolean {
   const toM = (hhmm: string) => {
     const [h, m] = hhmm.split(':').map(Number);
     return h * 60 + m;
   };
-  const mins = now.getHours() * 60 + now.getMinutes();
+  const mins = hktMinutesOfDay(now);
   const st = toM(s.work_start);
   const en = toM(s.work_end);
   if (st === en) return false;
@@ -208,6 +218,8 @@ export function isInWorkingHours(now: Date, s: SecretarySettings): boolean {
 
 /** True when `now` (HKT) is inside the configured working days. */
 export function isWorkingDay(now: Date, s: SecretarySettings): boolean {
-  const days = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
-  return s.workdays.includes(days[now.getDay()]);
+  const dow = new Intl.DateTimeFormat('en-US', {
+    weekday: 'short', timeZone: 'Asia/Hong_Kong',
+  }).format(now).toLowerCase();
+  return s.workdays.includes(dow.slice(0, 3));
 }

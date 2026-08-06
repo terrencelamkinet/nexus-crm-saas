@@ -96,7 +96,10 @@ const isOverdue = (due: string | null): boolean => {
 const isToday = (time: string): boolean => {
   if (!time) return false
   const t = time.slice(0, 10)
-  const today = new Date().toISOString().slice(0, 10)
+  // HKT 牆鐘日期 (en-CA → YYYY-MM-DD) — 唔可以用 toISOString() (嗰個係 UTC)
+  const today = new Intl.DateTimeFormat('en-CA', {
+    year: 'numeric', month: '2-digit', day: '2-digit', timeZone: 'Asia/Hong_Kong',
+  }).format(new Date())
   return t === today
 }
 
@@ -153,7 +156,7 @@ export default function AIBriefingDrawer() {
     return () => clearInterval(timer)
   }, [settings.greeting_slots])
 
-  const inWorkingHours = isInWorkingHours(new Date(), settings)
+  const inWorkingHours = isInWorkingHours(hktNow(), settings)
   const [expanded, setExpanded] = useState(false)
   const [payload, setPayload] = useState<BriefingPayload | null>(null)
   const [loading, setLoading] = useState(false)
