@@ -1115,7 +1115,7 @@ export default function ContactDetailPage() {
             <div className="modal-foot">
               <button onClick={() => setProjectOpen(false)} className="btn-secondary">{t('common.cancel')}</button>
               <button onClick={async () => {
-                if (!selectedProjectId) { alert('Please select a project'); return; }
+                if (!selectedProjectId) { alert(t('pages.contacts.detail.selectProjectFirst')); return; }
                 setProjectSaving(true);
                 try {
                   await apiClient.post(`/api/v1/crm/contacts/${id}/projects`, { project_id: selectedProjectId });
@@ -1137,6 +1137,7 @@ export default function ContactDetailPage() {
 
 /* ── Contact Tasks Tab ── */
 function ContactTasksTab({ contactId, onViewAll }: { contactId: string; onViewAll: () => void }) {
+  const { t } = useTranslation();
   const [tasks, setTasks] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -1148,13 +1149,13 @@ function ContactTasksTab({ contactId, onViewAll }: { contactId: string; onViewAl
   return (
     <div className="panel">
       <div className="panel-head">
-        <h3>Tasks ({tasks.length})</h3>
-        <button className="btn-ghost" onClick={onViewAll}>View All →</button>
+        <h3>{t('pages.contacts.detail.tabs.tasks')} ({tasks.length})</h3>
+        <button className="btn-ghost" onClick={onViewAll}>{t('common.viewAll')} →</button>
       </div>
       {loading ? (
-        <div className="p-16" style={{fontSize:12,color:'var(--color-text-faint)'}}>Loading...</div>
+        <div className="p-16" style={{fontSize:12,color:'var(--color-text-faint)'}}>{t('common.loading')}</div>
       ) : tasks.length === 0 ? (
-        <div className="empty-state">No tasks yet</div>
+        <div className="empty-state">{t('pages.contacts.detail.noTasks')}</div>
       ) : (
         <div className="flex-col">
           {tasks.map((t: any) => (

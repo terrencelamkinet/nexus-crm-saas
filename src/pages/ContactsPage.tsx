@@ -99,62 +99,63 @@ const CheckboxGroup = ({ label, options, selected, onChange }: {
 );
 
 function ContactFormFields({ form, setForm, inputCls }: FormFieldsProps) {
+  const { t } = useTranslation();
   return (
     <div className="grid-2col">
       {/* Name, Chinese Name */}
       <div className="form-field">
-        <label className="field-label">Name *</label>
+        <label className="field-label">{t('common.nameRequired')}</label>
         <input type="text" value={form.name}
           onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
-          className={inputCls} placeholder="Contact name" />
+          className={inputCls} placeholder={t('common.placeholderContactName')} />
       </div>
       <div className="form-field">
-        <label className="field-label">Chinese Name</label>
+        <label className="field-label">{t('common.chineseName')}</label>
         <input type="text" value={form.chinese_name}
           onChange={e => setForm(f => ({ ...f, chinese_name: e.target.value }))}
-          className={inputCls} placeholder="Chinese name" />
+          className={inputCls} placeholder={t('common.placeholderChineseName')} />
       </div>
 
       {/* Nick Name, Job Title */}
       <div className="form-field">
-        <label className="field-label">Nick Name</label>
+        <label className="field-label">{t('common.nickName')}</label>
         <input type="text" value={form.nick_name}
           onChange={e => setForm(f => ({ ...f, nick_name: e.target.value }))}
-          className={inputCls} placeholder="Nick name" />
+          className={inputCls} placeholder={t('common.placeholderNickName')} />
       </div>
       <div className="form-field">
-        <label className="field-label">Job Title</label>
+        <label className="field-label">{t('common.jobTitle')}</label>
         <input type="text" value={form.job_title}
           onChange={e => setForm(f => ({ ...f, job_title: e.target.value }))}
-          className={inputCls} placeholder="Job title" />
+          className={inputCls} placeholder={t('common.placeholderJobTitle')} />
       </div>
 
       {/* Department, Contact Type */}
       <div className="form-field">
-        <label className="field-label">Department</label>
+        <label className="field-label">{t('common.department')}</label>
         <input type="text" value={form.department}
           onChange={e => setForm(f => ({ ...f, department: e.target.value }))}
-          className={inputCls} placeholder="Department" />
+          className={inputCls} placeholder={t('common.placeholderDepartment')} />
       </div>
       <div className="form-field">
-        <label className="field-label">Contact Type</label>
+        <label className="field-label">{t('common.contactType')}</label>
         <select value={form.contact_type}
           onChange={e => setForm(f => ({ ...f, contact_type: e.target.value }))}
           className={inputCls}>
-          <option value="">— Select —</option>
-          <option value="Distributor">Distributor</option>
-          <option value="Vendor">Vendor</option>
-          <option value="Client">Client</option>
+          <option value="">— {t('common.select')} —</option>
+          <option value="Distributor">{t('common.distributor')}</option>
+          <option value="Vendor">{t('common.vendor')}</option>
+          <option value="Client">{t('common.client')}</option>
         </select>
       </div>
 
       {/* Grade, Tags */}
       <div className="form-field">
-        <label className="field-label">Grade</label>
+        <label className="field-label">{t('common.grade')}</label>
         <select value={form.grade}
           onChange={e => setForm(f => ({ ...f, grade: e.target.value }))}
           className={inputCls}>
-          <option value="">— Select —</option>
+          <option value="">— {t('common.select')} —</option>
           <option value="1">1</option>
           <option value="2">2</option>
           <option value="3">3</option>
@@ -162,50 +163,50 @@ function ContactFormFields({ form, setForm, inputCls }: FormFieldsProps) {
         </select>
       </div>
       <div className="form-field">
-        <CheckboxGroup label="Tag" options={['Sales','Client','Technical','Head','Internal Sales']}
+        <CheckboxGroup label={t('common.tag')} options={['Sales','Client','Technical','Head','Internal Sales']}
           selected={form.tags} onChange={v => setForm(f => ({ ...f, tags: v }))} />
       </div>
 
       {/* No. (full width) */}
       <div className="form-field gcol-1-1">
-        <CheckboxGroup label="No." options={['1','2','3','4','5','6','7','8']}
+        <CheckboxGroup label={t('common.number')} options={['1','2','3','4','5','6','7','8']}
           selected={form.numbers} onChange={v => setForm(f => ({ ...f, numbers: v }))} />
       </div>
 
       {/* Email, Phone */}
       <div className="form-field">
-        <label className="field-label">Email</label>
+        <label className="field-label">{t('common.email')}</label>
         <input type="email" value={form.email}
           onChange={e => setForm(f => ({ ...f, email: e.target.value }))}
-          className={inputCls} placeholder="email@example.com" />
+          className={inputCls} placeholder={t('common.placeholderEmail')} />
       </div>
       <div className="form-field">
-        <label className="field-label">Phone</label>
+        <label className="field-label">{t('common.phone')}</label>
         <input type="text" value={form.phone}
           onChange={e => setForm(f => ({ ...f, phone: e.target.value }))}
-          className={inputCls} placeholder="+852 9123 4567" />
+          className={inputCls} placeholder={t('common.placeholderPhone')} />
       </div>
 
       {/* Office Phone, LinkedIn URL */}
       <div className="form-field">
-        <label className="field-label">Office Phone</label>
+        <label className="field-label">{t('common.office')}</label>
         <input type="text" value={form.office_phone}
           onChange={e => setForm(f => ({ ...f, office_phone: e.target.value }))}
-          className={inputCls} placeholder="Office phone" />
+          className={inputCls} placeholder={t('common.placeholderOffice')} />
       </div>
       <div className="form-field">
-        <label className="field-label">LinkedIn URL</label>
+        <label className="field-label">{t('common.linkedin')}</label>
         <input type="text" value={form.linkedin_url}
           onChange={e => setForm(f => ({ ...f, linkedin_url: e.target.value }))}
-          className={inputCls} placeholder="https://linkedin.com/in/..." />
+          className={inputCls} placeholder={t('common.placeholderLinkedin')} />
       </div>
 
       {/* Address, Company */}
       <div className="form-field">
-        <label className="field-label">Address</label>
+        <label className="field-label">{t('common.address')}</label>
         <input type="text" value={form.address}
           onChange={e => setForm(f => ({ ...f, address: e.target.value }))}
-          className={inputCls} placeholder="Address" />
+          className={inputCls} placeholder={t('common.placeholderAddress')} />
       </div>
       {/* Company search */}
       <div className="form-field">
@@ -213,19 +214,19 @@ function ContactFormFields({ form, setForm, inputCls }: FormFieldsProps) {
           searchUrl="/api/v1/crm/companies"
           value={form.company_id}
           onChange={(id) => setForm(f => ({ ...f, company_id: id }))}
-          placeholder="Search companies..."
-          label="Company"
-          createLabel="Company"
+          placeholder={t('common.placeholderSearchCompanies')}
+          label={t('common.company')}
+          createLabel={t('common.company')}
           createTitleField="name"
         />
       </div>
 
       {/* Notes (full width) */}
       <div className="form-field gcol-1-1">
-        <label className="field-label">Notes</label>
+        <label className="field-label">{t('common.notes')}</label>
         <textarea value={form.notes}
           onChange={e => setForm(f => ({ ...f, notes: e.target.value }))}
-          className={inputCls} placeholder="Notes..." rows={3} />
+          className={inputCls} placeholder={t('common.placeholderNotes')} rows={3} />
       </div>
     </div>
   );
@@ -265,6 +266,17 @@ export default function ContactsPage() {
 
   const col = useColumnConfig();
   const visibleCols = col.getVisible();
+  // Map column keys to i18n labels
+  const colLabel = (key: string): string => {
+    const map: Record<string, string> = {
+      name: t('pages.contacts.name'),
+      company: t('pages.contacts.company'),
+      email: t('pages.contacts.email'),
+      status: t('pages.contacts.status'),
+      last_touch: t('pages.contacts.lastTouch'),
+    };
+    return map[key] || key;
+  };
   // Map column keys to render functions
   const colRender: Record<string, (c: Contact) => React.ReactNode> = {
     name: c => (
@@ -451,7 +463,7 @@ export default function ContactsPage() {
                       onDragOver={e => col.onDragOver(e, v.key)}
                       onDragEnd={col.onDragEnd}
                       className="col-draggable">
-                      <span className="col-label">{v.label}</span>
+                      <span className="col-label">{colLabel(v.key)}</span>
                       <span className="col-resize-handle" onMouseDown={e => col.onResizeStart(e, v.key)} />
                     </th>
                   ))}
@@ -586,7 +598,7 @@ export default function ContactsPage() {
           {visibleCols.map((v, i) => (
             <div key={v.key} className="col-settings-row">
               <GripVertical className="w-4 h-4 col-grip" />
-              <span className="col-settings-label">{v.label}</span>
+              <span className="col-settings-label">{colLabel(v.key)}</span>
               <div className="col-settings-arrows">
                 <button className="col-arrow" disabled={i === 0}
                   onClick={() => col.moveMobile(i, -1)}>↑</button>
