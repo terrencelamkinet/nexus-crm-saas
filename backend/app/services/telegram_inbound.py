@@ -345,6 +345,121 @@ async def _handle_photo(mapping: TelegramBotMapping, token: str, photo_sizes: li
     )
 
 
+async def _resolve_workspace_id(db, tenant_id) -> str:
+    """First workspace for the tenant (same fallback as im_push)."""
+    try:
+        row = await db.execute(
+            sa_text(
+                "SELECT id FROM nexus_auth.workspaces WHERE tenant_id = :tid ORDER BY created_at ASC LIMIT 1"
+            ),
+            {"tid": tenant_id},
+        )
+        val = row.scalar_one_or_none()
+        if val:
+            return str(val)
+    except Exception:
+        pass
+    return ""
+
+
+async def _transcribe_voice(path: str) -> str:
+    """STT via SiliconFlow (OpenAI-compatible /v1/audio/transcriptions, SenseVoiceSmall).
+
+    Returns transcript text, or "" on any failure (never raises).
+    """
+    key = os.environ.get("SILICONFLOW_API_KEY", "")
+    if not key:
+        return ""
+    try:
+        url = "https://api.siliconflow.cn/v1/audio/transcriptions"
+        with open(path, "rb") as f:
+            data = f.read()
+        # multipart form: file + model + language
+        boundary = f"----hermes{os.urandom(8).hex()}"
+        parts = []
+        parts.append(f"--{boundary}\r\nContent-Disposition: form-data; name=\"model\"\r\n\r\nFunAudioLLM/SenseVoiceSmall\r\n".encode())
+        parts.append(f"--{boundary}\r\nContent-Disposition: form-data; name=\"language\"\r\n\r\nauto\r\n".encode())
+        parts.append(f"--{boundary}\r\nContent-Disposition: form-data; name=\"file\"; filename=\"voice.ogg\"\r\nContent-Type: audio/ogg\r\n\r\n".encode() + data + b"\r\n")
+        parts.append(f"--{boundary}--\r\n".encode())
+        body = b"".join(parts)
+        async with httpx.AsyncClient(timeout=60) as client:
+            resp = await client.post(
+                url,
+                headers={"Authorization": f"Bearer {key}", "Content-Type": f"multipart/form-data; boundary={boundary}"},
+                content=body,
+            )
+        if resp.status_code != 200:
+            logging.getLogger("telegram_inbound").warning(
+                "STT failed: %s %s", resp.status_code, resp.text[:200]
+            )
+            return ""
+        return (resp.json().get("text") or "").strip()
+    except Exception as e:  # noqa: BLE001
+        logging.getLogger("telegram_inbound").warning("STT error: %s", e)
+        return ""
+
+
+async def _handle_voice(mapping: TelegramBotMapping, token: str, voice: dict, chat_id: str) -> str | None:
+    """Voice note → STT → create a Touchpoint (type=note) — Phase D 語音記事.
+
+    Returns a confirmation reply for Telegram, or None on failure.
+    """
+    file_id = (voice or {}).get("file_id")
+    if not file_id:
+        return None
+    data = await telegram_service.download_file(token, file_id)
+    if not data:
+        return "😕 語音下載失敗，請再試一次。"
+    tmp_path = ""
+    try:
+        with tempfile.NamedTemporaryFile(suffix=".ogg", delete=False) as f:
+            f.write(data)
+            tmp_path = f.name
+        text = await _transcribe_voice(tmp_path)
+    finally:
+        if tmp_path:
+            try:
+                os.unlink(tmp_path)
+            except Exception:
+                pass
+    if not text:
+        return "😕 無法識別語音內容，請用文字輸入或再試。"
+    if len(text) > 500:
+        text = text[:500]
+
+    # ── Persist as Touchpoint (note) ──
+    from app.models.crm import Touchpoint
+
+    try:
+        async with async_session() as db:
+            # RLS GUCs (same as tenant session)
+            conn = await db.connection()
+            await conn.execute(sa_text("SELECT set_config('app.tenant_id', :tid, true)"), {"tid": str(mapping.tenant_id)})
+            await conn.execute(sa_text("SELECT set_config('app.user_id', :uid, true)"), {"uid": str(mapping.user_id)})
+            wid = await _resolve_workspace_id(db, mapping.tenant_id)
+            tp = Touchpoint(
+                tenant_id=mapping.tenant_id,
+                workspace_id=uuid.UUID(wid) if wid else uuid.UUID(int=0),
+                title=text[:80],
+                type="note",
+                description=text,
+                date=datetime.now(timezone.utc),
+                channel_type="other",
+                extracted_from="manual",
+                created_by=mapping.user_id,
+            )
+            db.add(tp)
+            await db.commit()
+    except Exception as e:  # noqa: BLE001
+        logging.getLogger("telegram_inbound").warning("touchpoint create failed: %s", e)
+        return "😕 記錄失敗，請稍後再試。"
+
+    return (
+        f"🎙 已留底：\n\n{text}\n\n"
+        f"📝 如需編輯或補充，可喺 CRM 互動紀錄搵返呢條 note。"
+    )
+
+
 async def _handle_namecard_confirm(mapping: TelegramBotMapping, text: str) -> str | None:
     """User replied '係/是/好/yes' after a namecard photo → run upload pipeline."""
     low = text.strip().lower()
@@ -455,6 +570,14 @@ async def process_update(mapping: TelegramBotMapping, update: dict) -> None:
     # Namecard photo flow
     if not text and msg.get("photo"):
         reply = await _handle_photo(mapping, token, msg["photo"])
+        if reply:
+            await telegram_service.send_message(token, chat_id, reply)
+        return
+
+    # Voice note → STT → create Touchpoint (Phase D 語音記事)
+    if not text and (msg.get("voice") or msg.get("audio")):
+        voice = msg.get("voice") or msg.get("audio")
+        reply = await _handle_voice(mapping, token, voice, chat_id)
         if reply:
             await telegram_service.send_message(token, chat_id, reply)
         return

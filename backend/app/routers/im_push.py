@@ -9,6 +9,7 @@ Message format follows AI_Personal_CRM_TriDaily_Strategy.md §2.2 — highly
 scannable, emoji hierarchy, deep link on every action point.
 """
 import os
+import re
 import uuid
 from datetime import datetime, timezone, timedelta
 from typing import Any
@@ -21,7 +22,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.db import get_tenant_session
 from app.config import settings
 from app.ai.session.context import AISessionContext
-from app.ai.tool_registry import _get_upcoming_events, _list_tasks
+from app.ai.tool_registry import _get_upcoming_events, _list_tasks, _list_touchpoints
 from app.models.im_push import IMDeliveryPref, PushLog, DEFAULT_SLOTS
 from app.models.whatsapp import WhatsAppMapping
 from app.models.telegram_bot import TelegramBotMapping
@@ -164,11 +165,29 @@ def _compose_morning(events: list[dict], tasks: list[dict], now: datetime) -> st
     return "\n".join(lines)
 
 
-def _compose_noon(events: list[dict], tasks: list[dict], now: datetime) -> str:
-    """Noon slot — afternoon focus: remaining events + today's pending deadlines."""
+def _compose_noon(
+    soon_events: list[dict],
+    events: list[dict],
+    tasks: list[dict],
+    quick_wins: list[dict],
+    now: datetime,
+) -> str:
+    """Noon slot — 1h-soon alert + afternoon focus + quick-win cleanup (Phase D)."""
     lines: list[str] = ["🤖 [AI 助理] 午間 Briefing", ""]
 
-    # Remaining events this afternoon
+    # ⏰ 1-hour-soon meeting alert — 突發預警, 置頂
+    if soon_events:
+        lines.append("⏰ 1 小時內會議：")
+        for e in soon_events[:3]:
+            start = _parse_dt(e.get("start"))
+            t = start.strftime("%H:%M") if start else "--:--"
+            title = e.get("title") or e.get("summary") or "Event"
+            loc = f" ({e.get('location')})" if e.get("location") else ""
+            lines.append(f"• {t} - {title}{loc}")
+            lines.append(f"📎 準備卡：{_deep_link('m', str(e.get('id')))}")
+        lines.append("")
+
+    # Remaining events this afternoon (excluding soon ones)
     if events:
         lines.append("🌤 下午行程：")
         for e in events[:4]:
@@ -186,8 +205,17 @@ def _compose_noon(events: list[dict], tasks: list[dict], now: datetime) -> str:
             lines.append(f"{i}. {t.get('title', '')}")
             lines.append(f"👉 完成或推遲：{_deep_link('t', str(t.get('id')))}")
         lines.append("")
-    elif events:
-        lines.append("✅ 今日無到期死線，專注下午行程！")
+
+    # Quick-wins — 微型任務清理 (Phase D)
+    if quick_wins:
+        lines.append("⚡ 微型任務 Quick Wins：")
+        for i, t in enumerate(quick_wins[:5], 1):
+            lines.append(f"{i}. {t.get('title', '')}")
+            lines.append(f"👉 快速處理：{_deep_link('t', str(t.get('id')))}")
+        lines.append("")
+
+    if not (soon_events or events or tasks or quick_wins):
+        lines.append("✅ 下午無會議、無到期死線，專心處理手上工作！")
 
     lines.append(f"🌐 完整簡報：{_deep_link('dashboard')}")
     return "\n".join(lines)
@@ -197,16 +225,33 @@ def _compose_evening(
     now: datetime,
     done_count: int,
     remaining: list[dict],
+    today_events: list[dict],
+    gap_events: list[dict],
+    rollover_count: int,
     tomorrow_events: list[dict],
     tomorrow_tasks: list[dict],
 ) -> str:
-    """Evening slot — wrap-up review + tomorrow preview."""
+    """Evening slot — wrap-up review + gap alert + auto-rollover + tomorrow preview (Phase D)."""
     lines: list[str] = ["🤖 [AI 助理] 傍晚 Briefing", ""]
 
     if done_count:
         lines.append(f"🎉 今日完成 {done_count} 項任務！")
     else:
         lines.append("📝 今日未標記任何完成任務。")
+
+    if rollover_count:
+        lines.append(f"🔄 {rollover_count} 項到期任務已自動過渡至明日。")
+
+    if gap_events:
+        lines.append("")
+        lines.append("⚠️ 開咗會未留紀錄：")
+        for e in gap_events[:4]:
+            start = _parse_dt(e.get("start"))
+            t = start.strftime("%H:%M") if start else "--:--"
+            title = e.get("title") or e.get("summary") or "Event"
+            lines.append(f"• {t} {title}")
+            lines.append(f"🎙 語音留底：{_deep_link('note', str(e.get('id')))}")
+        lines.append("")
 
     if remaining:
         lines.append("")
@@ -478,8 +523,8 @@ async def run_briefing(
                 events, tasks = await _compose_morning_data(ctx, db, now)
                 msg = _compose_morning(events, tasks, now)
             elif slot == "noon":
-                events, tasks = await _compose_noon_data(ctx, db, now)
-                msg = _compose_noon(events, tasks, now)
+                data = await _compose_noon_data(ctx, db, now)
+                msg = _compose_noon(**data, now=now)
             elif slot == "evening":
                 data = await _compose_evening_data(ctx, db, now)
                 msg = _compose_evening(now, **data)
@@ -490,6 +535,18 @@ async def run_briefing(
 
             result = await whatsapp_service.send_text(mapping.wa_id, msg)
             ok = isinstance(result, dict) and result.get("messages")
+            # Phase D — 24h-window expired (Meta error 131047 re-engagement) → template fallback
+            if not ok and settings.whatsapp_template_name:
+                err_text = str(result)
+                if "131047" in err_text or "re-engagement" in err_text.lower():
+                    tpl = await whatsapp_service.send_template(
+                        str(mapping.wa_id),
+                        settings.whatsapp_template_name,
+                        params=[msg[:500]],
+                    )
+                    ok = isinstance(tpl, dict) and tpl.get("messages")
+                    if ok:
+                        result = tpl
             db.add(PushLog(tenant_id=pref.tenant_id, user_id=pref.user_id, channel="whatsapp", slot=slot, status="sent" if ok else "failed", error="" if ok else str(result)[:300]))
             if ok:
                 stats["sent"] += 1
@@ -563,6 +620,11 @@ async def run_briefing(
         ).scalar_one_or_none()
         token = decrypt_secret(cred.access_token) if cred and cred.access_token else ""
         if not token:
+            # Cron endpoint has no JWT → RLS GUCs unset → credential query returns
+            # 0 rows even though the row exists. Fall back to mapping.bot_token
+            # (same pattern as telegram_inbound._get_bot_token).
+            token = str(tg.bot_token or "")
+        if not token or token == "None":
             db.add(PushLog(tenant_id=pref.tenant_id, user_id=pref.user_id, channel="telegram", slot=slot, status="skipped", reason="no_token"))
             stats["skipped"] += 1
             continue
@@ -578,8 +640,8 @@ async def run_briefing(
                 events, tasks = await _compose_morning_data(ctx, db, now)
                 msg = _compose_morning(events, tasks, now)
             elif slot == "noon":
-                events, tasks = await _compose_noon_data(ctx, db, now)
-                msg = _compose_noon(events, tasks, now)
+                data = await _compose_noon_data(ctx, db, now)
+                msg = _compose_noon(**data, now=now)
             else:
                 data = await _compose_evening_data(ctx, db, now)
                 msg = _compose_evening(now, **data)
@@ -644,42 +706,98 @@ async def _compose_morning_data(ctx: AISessionContext, db: AsyncSession, now: da
     return events, tasks
 
 
-async def _compose_noon_data(ctx: AISessionContext, db: AsyncSession, now: datetime) -> tuple[list[dict], list[dict]]:
-    """Noon slot data — remaining events today (start >= now) + pending tasks due today."""
+async def _compose_noon_data(ctx: AISessionContext, db: AsyncSession, now: datetime) -> dict:
+    """Noon slot data — 1h-soon meetings + remaining events, due-today tasks, quick-wins.
+
+    Phase D (2026-08-06): split events into soon (start within 60min — 突發預警)
+    vs. rest-of-day; tasks into due-today (deadlines) vs. quick-wins (low priority
+    or no due date — 微型任務清理).
+    """
+    soon_events: list[dict] = []
     events: list[dict] = []
     try:
         evts = await _get_upcoming_events(ctx, {"days_ahead": 1, "limit": 20}, db)
         today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
         tomorrow = today_start + timedelta(days=1)
+        soon_cutoff = now + timedelta(minutes=60)
         for e in evts:
             start = _parse_dt(e.get("start"))
             if start and today_start <= start < tomorrow and start >= now:
-                events.append(e)
+                (soon_events if start <= soon_cutoff else events).append(e)
+        soon_events.sort(key=lambda e: _parse_dt(e.get("start")) or now)
         events.sort(key=lambda e: _parse_dt(e.get("start")) or now)
     except Exception:
         pass
 
     tasks: list[dict] = []
+    quick_wins: list[dict] = []
     try:
-        rows = await _list_tasks(ctx, {"status": "pending", "limit": 50}, db)
+        rows = await _list_tasks(ctx, {"status": "pending", "limit": 100}, db)
         today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
         tomorrow = today_start + timedelta(days=1)
         for t in rows:
             due = _parse_dt(t.get("due_date"))
             if due and today_start <= due < tomorrow:
                 tasks.append(t)
+            elif not due or str(t.get("priority", "")).lower() in ("low", "lowest"):
+                # quick-win: 冇死線 或 low priority — 細任務
+                quick_wins.append(t)
         tasks.sort(key=lambda t: _parse_dt(t.get("due_date")) or now)
+        quick_wins.sort(key=lambda t: t.get("title", ""))
     except Exception:
         pass
 
-    return events, tasks
+    return {
+        "soon_events": soon_events,
+        "events": events,
+        "tasks": tasks,
+        "quick_wins": quick_wins,
+    }
+
+
+async def _rollover_due_today(ctx: AISessionContext, db: AsyncSession, now: datetime) -> int:
+    """Phase D — push today's unfinished due-today tasks to tomorrow (自動過渡).
+
+    Only touches tasks whose due_date == today (HKT). Overdue stays put —
+    the user must consciously deal with those. Returns how many rolled over.
+    """
+    from sqlalchemy import update as sa_update
+    from app.models.crm import Task as TaskModel
+
+    today_date = now.date()
+    tomorrow_date = today_date + timedelta(days=1)
+    try:
+        rows = await _list_tasks(ctx, {"status": "pending", "limit": 200}, db)
+        ids = []
+        for t in rows:
+            due = _parse_dt(t.get("due_date"))
+            if due and due.date() == today_date:
+                ids.append(t["id"])
+        if not ids:
+            return 0
+        await db.execute(
+            sa_update(TaskModel)
+            .where(TaskModel.id.in_(ids), TaskModel.tenant_id == ctx.tenant_id)
+            .values(due_date=tomorrow_date)
+        )
+        return len(ids)
+    except Exception:
+        return 0
 
 
 async def _compose_evening_data(ctx: AISessionContext, db: AsyncSession, now: datetime) -> dict:
-    """Evening slot data — completed count, remaining overdue/tomorrow, tomorrow preview."""
+    """Evening slot data — completed count, remaining overdue/tomorrow, tomorrow preview.
+
+    Phase D (2026-08-06): + gap detection — today's meetings with no matching
+    touchpoint logged → 開咗會冇留底 提醒. Match = same-day touchpoint whose title
+    shares any token (≥3 chars) with the event title.
+    """
     today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
     tomorrow_start = today_start + timedelta(days=1)
     day_after = tomorrow_start + timedelta(days=1)
+
+    # Phase D — 今日到期未完成 → 自動過渡明日
+    rollover_count = await _rollover_due_today(ctx, db, now)
 
     done_count = 0
     remaining: list[dict] = []
@@ -704,20 +822,52 @@ async def _compose_evening_data(ctx: AISessionContext, db: AsyncSession, now: da
     except Exception:
         pass
 
+    today_events: list[dict] = []
     tomorrow_events: list[dict] = []
     try:
         evts = await _get_upcoming_events(ctx, {"days_ahead": 2, "limit": 30}, db)
         for e in evts:
             start = _parse_dt(e.get("start"))
-            if start and tomorrow_start <= start < day_after:
+            if start and today_start <= start < tomorrow_start:
+                today_events.append(e)
+            elif start and tomorrow_start <= start < day_after:
                 tomorrow_events.append(e)
+        today_events.sort(key=lambda e: _parse_dt(e.get("start")) or now)
         tomorrow_events.sort(key=lambda e: _parse_dt(e.get("start")) or now)
+    except Exception:
+        pass
+
+    # ── Gap detection: today's meetings vs. logged touchpoints ──
+    gap_events: list[dict] = []
+    try:
+        tps = await _list_touchpoints(ctx, {"limit": 200}, db)
+        today_tp_titles = []
+        for tp in tps:
+            tp_date = _parse_dt(tp.get("date"))
+            if tp_date and today_start <= tp_date < tomorrow_start:
+                today_tp_titles.append((tp.get("title") or "").lower())
+        for e in today_events:
+            title = (e.get("title") or e.get("summary") or "").strip()
+            if not title:
+                continue
+            tokens = [tok for tok in re.split(r"[\s\-,:：/]+", title.lower()) if len(tok) >= 3]
+            if not tokens:
+                continue
+            # matched if ANY token appears in a same-day touchpoint title
+            matched = any(
+                tok in tp_title for tp_title in today_tp_titles for tok in tokens
+            )
+            if not matched:
+                gap_events.append(e)
     except Exception:
         pass
 
     return {
         "done_count": done_count,
         "remaining": remaining,
+        "today_events": today_events,
+        "gap_events": gap_events,
+        "rollover_count": rollover_count,
         "tomorrow_events": tomorrow_events,
         "tomorrow_tasks": tomorrow_tasks,
     }

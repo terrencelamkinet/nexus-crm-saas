@@ -47,6 +47,7 @@ class Settings(BaseSettings):
     tg_webhook_secret: str = ""       # NEXUS_TG_WEBHOOK_SECRET — validates X-Telegram-Bot-Api-Secret-Token
     tg_use_webhook: bool = False      # NEXUS_TG_USE_WEBHOOK — true = webhook mode (poller disabled)
     whatsapp_app_secret: str = ""
+    whatsapp_template_name: str = ""  # NEXUS_WHATSAPP_TEMPLATE_NAME — approved Meta template for 24h-window fallback
 
     # Integration / OAuth
     api_base_url: str = "http://localhost:8001"

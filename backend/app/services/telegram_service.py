@@ -25,6 +25,28 @@ async def get_me(token: str) -> dict:
     return {"ok": True, "bot": {"username": bot.get("username"), "id": bot.get("id")}}
 
 
+async def download_file(token: str, file_id: str, ext: str = "ogg") -> bytes | None:
+    """Download a Telegram file by file_id (voice/audio/photo...). Returns bytes or None."""
+    try:
+        async with httpx.AsyncClient(timeout=15) as client:
+            info = (
+                await client.post(
+                    f"https://api.telegram.org/bot{token}/getFile",
+                    json={"file_id": file_id},
+                )
+            ).json()
+        file_path = (info.get("result") or {}).get("file_path")
+        if not file_path:
+            return None
+        async with httpx.AsyncClient(timeout=30) as client:
+            resp = await client.get(f"https://api.telegram.org/file/bot{token}/{file_path}")
+        if resp.status_code != 200:
+            return None
+        return resp.content
+    except Exception:
+        return None
+
+
 async def send_message(token: str, chat_id: str, text: str) -> dict:
     """Send a text message to a chat. Returns Telegram API response JSON."""
     url = BOT_API.format(token=token, method="sendMessage")
