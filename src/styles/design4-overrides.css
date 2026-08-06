@@ -1,0 +1,49 @@
+/* ═══════════════════════════════════════════════════════════
+   DESIGN4 OVERRIDES — 色彩 / 字體主體
+   ─────────────────────────────────────────────────────────
+   Design 4 換裝層：字體切換 Space Grotesk / Inter + 基調微調。
+   透過 CSS Cascade 覆寫 index.css / dashboard.css / todo.css 嘅 token。
+
+   載入順序（main.tsx）：
+     index.css → dashboard.css → todo.css
+     → design4-overrides.css（本檔）→ design4-v2-patch.css
+   ═══════════════════════════════════════════════════════════ */
+
+/* ── 字體主體 ──
+   Space Grotesk = display（標題/數字），Inter = body（內文）。
+   Segoe UI Variable 由 design4-v2-patch.css 加入（Windows fallback）。 */
+:root,
+[data-theme="light"] {
+  --font-display: 'Space Grotesk', 'General Sans', 'Inter', sans-serif;
+  --font-body: 'Inter', 'General Sans', sans-serif;
+}
+
+[data-theme="dark"] {
+  --font-display: 'Space Grotesk', 'General Sans', 'Inter', sans-serif;
+  --font-body: 'Inter', 'General Sans', sans-serif;
+}
+
+/* ── 字體渲染微調（macOS 上尤其重要） ── */
+body {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+/* ── Display 字體用於數字/標題時嘅字距 ── */
+h1, h2, h3,
+.kpi-val, .stat-value, .month-date, .nav-section-label {
+  letter-spacing: -0.01em;
+}
+
+/* ── 基調微調：分隔線略淡，表面層次更分明 ── */
+:root,
+[data-theme="light"] {
+  --color-divider: color-mix(in srgb, var(--color-divider) 88%, transparent);
+  --color-surface-offset: color-mix(in srgb, var(--color-surface-offset) 96%, var(--color-primary) 2%);
+}
+
+[data-theme="dark"] {
+  --color-divider: color-mix(in srgb, var(--color-divider) 92%, transparent);
+  --color-surface-offset: color-mix(in srgb, var(--color-surface-offset) 97%, var(--color-primary) 3%);
+}
