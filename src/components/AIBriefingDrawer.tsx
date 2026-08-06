@@ -390,7 +390,7 @@ export default function AIBriefingDrawer() {
 
   // ── Render trigger widget ──
   return (
-    <>
+    <div className={`ai-brief-card ai-card${loading ? ' is-thinking' : ''}`}>
       {/* Trigger widget — compact, non-intrusive */}
       <div
         onClick={toggleExpand}
@@ -444,7 +444,7 @@ export default function AIBriefingDrawer() {
           <div
             aria-hidden={!expanded}
             {...(!expanded ? { inert: true } : {})}
-            className={`ab-panel-card ai-card${loading ? ' is-thinking' : ''}`}
+            className="ab-panel-card"
             style={{
             animation: expanded ? 'ai-fadein 0.3s ease' : 'none',
           }}>
@@ -835,7 +835,7 @@ export default function AIBriefingDrawer() {
           border: 5px solid transparent; border-top-color: #1e1b2e;
         }
       `}</style>
-    </>
+    </div>
   )
 }
 

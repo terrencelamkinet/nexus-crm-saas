@@ -63,6 +63,11 @@
   position: relative;
 }
 
+/* AI Briefing 一體光圈 — wrapper 跟 trigger/panel 嘅圓角形狀 */
+.ai-brief-card {
+  border-radius: var(--radius-lg);
+}
+
 .chat-panel::before,
 .cb-panel::before,
 .cb-panel--desktop::before,
