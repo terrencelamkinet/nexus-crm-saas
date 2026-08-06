@@ -104,7 +104,8 @@
 .cb-panel.is-thinking,
 .chat-panel.is-thinking,
 .ai-brief-card.is-thinking,
-.ab-panel.is-thinking {
+.ab-panel.is-thinking,
+.ai-card.is-thinking {
   animation: ai-think-pulse 1.6s ease-in-out infinite;
 }
 

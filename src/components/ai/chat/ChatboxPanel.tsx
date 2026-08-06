@@ -133,7 +133,7 @@ function UserMessageBubble({ msg, prevMsg }: { msg: ChatMessage; prevMsg?: ChatM
   )
 }
 
-function AiMessageBubble({ msg, prevMsg, hovered, onHover, onCopy, onRetry, onFeedback, feedback }: {
+function AiMessageBubble({ msg, prevMsg, hovered, onHover, onCopy, onRetry, onFeedback, feedback, isStreaming }: {
   msg: ChatMessage
   prevMsg?: ChatMessage
   hovered: boolean
@@ -142,6 +142,7 @@ function AiMessageBubble({ msg, prevMsg, hovered, onHover, onCopy, onRetry, onFe
   onRetry: () => void
   onFeedback: (rating: 'up' | 'down') => void
   feedback?: 'up' | 'down'
+  isStreaming?: boolean
 }) {
   const prevSameRole = prevMsg && prevMsg.role === 'assistant' && (msg.timestamp - prevMsg.timestamp) < 180000
 
@@ -158,7 +159,7 @@ function AiMessageBubble({ msg, prevMsg, hovered, onHover, onCopy, onRetry, onFe
             <Sparkles size={13} />
           </div>
         )}
-        <div className="cb-msg-ai-body">
+        <div className={`cb-msg-ai-body ai-card${isStreaming ? ' is-thinking' : ''}`}>
           {/* Timestamp */}
           {!prevSameRole && (
             <div className="cb-msg-ai-meta">
@@ -880,6 +881,7 @@ export default function ChatboxPanel() {
                           onRetry={() => { const mIdx = messages.findIndex(m => m.id === msg.id); retryMessage(mIdx) }}
                           onFeedback={(rating) => sendFeedback(msg.id, rating)}
                           feedback={feedbackMap[msg.id]}
+                          isStreaming={isStreaming && idx === messages.length - 1}
                         />
                       )}
                     </div>

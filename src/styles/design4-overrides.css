@@ -1,23 +1,82 @@
 /* ═══════════════════════════════════════════════════════════
-   DESIGN4 OVERRIDES — 色彩 / 字體主體
+   DESIGN4 OVERRIDES — 色彩 / 字體主體（附件 A 最終版）
    ─────────────────────────────────────────────────────────
-   Design 4 換裝層：字體切換 Space Grotesk / Inter + 基調微調。
+   Design 4 換裝層：藍色主色系 + 字體 Space Grotesk / Inter。
    透過 CSS Cascade 覆寫 index.css / dashboard.css / todo.css 嘅 token。
+
+   主色驗收標準：
+     Light  #146EF5   Dark  #4E93FF
+   （全站唔應該再出現 teal 綠色 #0f6f6f 系）
 
    載入順序（main.tsx）：
      index.css → dashboard.css → todo.css
      → design4-overrides.css（本檔）→ design4-v2-patch.css
    ═══════════════════════════════════════════════════════════ */
 
-/* ── 字體主體 ──
-   Space Grotesk = display（標題/數字），Inter = body（內文）。
-   Segoe UI Variable 由 design4-v2-patch.css 加入（Windows fallback）。 */
+/* ── 藍色主色系 — Light ── */
 :root,
 [data-theme="light"] {
-  --font-display: 'Space Grotesk', 'General Sans', 'Inter', sans-serif;
-  --font-body: 'Inter', 'General Sans', sans-serif;
+  --color-primary: #146EF5;
+  --color-primary-hover: #0E5FD8;
+  --color-primary-active: #0A4FC0;
+  --color-primary-highlight: #E1EBFC;
+
+  --color-blue: #146EF5;
+  --color-blue-highlight: #DFE9FB;
+
+  /* 冷藍灰表面（取代原本暖灰） */
+  --color-bg: #F6F8FB;
+  --color-surface-offset: #F1F4F9;
+  --color-surface-offset-2: #E9EDF4;
+  --color-surface-dynamic: #DFE4ED;
+  --color-divider: #DEE4EC;
+  --color-border: #D2DAE4;
+
+  --color-text: #1A1D24;
+  --color-text-muted: #5D6675;
+  --color-text-faint: #98A1B0;
+
+  /* 陰影轉冷調 */
+  --shadow-sm: 0 1px 2px oklch(0.3 0.03 250/.06);
+  --shadow-md: 0 6px 20px oklch(0.3 0.03 250/.10);
+  --shadow-lg: 0 20px 48px oklch(0.3 0.03 250/.16);
 }
 
+/* ── 藍色主色系 — Dark ── */
+[data-theme="dark"] {
+  --color-primary: #4E93FF;
+  --color-primary-hover: #6FA7FF;
+  --color-primary-active: #8FBBFF;
+  --color-primary-highlight: #1C3A66;
+
+  --color-blue: #4E93FF;
+  --color-blue-highlight: #1E3A5E;
+
+  /* 冷藍黑表面 */
+  --color-bg: #14171D;
+  --color-surface: #1A1E26;
+  --color-surface-2: #20252F;
+  --color-surface-offset: #20252F;
+  --color-surface-offset-2: #282E3A;
+  --color-surface-dynamic: #2E3542;
+  --color-divider: #2A313D;
+  --color-border: #39414F;
+
+  --color-text: #E8ECF4;
+  --color-text-muted: #9AA3B2;
+  --color-text-faint: #5E6778;
+  --color-text-inverse: #14171D;
+
+  --shadow-sm: 0 1px 2px rgba(0,0,0,.32);
+  --shadow-md: 0 10px 30px rgba(0,0,0,.40);
+  --shadow-lg: 0 24px 60px rgba(0,0,0,.55);
+}
+
+/* ── 字體主體 ──
+   Space Grotesk = display，Inter = body。
+   Segoe UI Variable 由 design4-v2-patch.css 加入（Windows fallback）。 */
+:root,
+[data-theme="light"],
 [data-theme="dark"] {
   --font-display: 'Space Grotesk', 'General Sans', 'Inter', sans-serif;
   --font-body: 'Inter', 'General Sans', sans-serif;
@@ -36,14 +95,12 @@ h1, h2, h3,
   letter-spacing: -0.01em;
 }
 
-/* ── 基調微調：分隔線略淡，表面層次更分明 ── */
+/* ── 表面層次微調：offset 帶 2% 主色調 ── */
 :root,
 [data-theme="light"] {
-  --color-divider: color-mix(in srgb, var(--color-divider) 88%, transparent);
   --color-surface-offset: color-mix(in srgb, var(--color-surface-offset) 96%, var(--color-primary) 2%);
 }
 
 [data-theme="dark"] {
-  --color-divider: color-mix(in srgb, var(--color-divider) 92%, transparent);
   --color-surface-offset: color-mix(in srgb, var(--color-surface-offset) 97%, var(--color-primary) 3%);
 }
