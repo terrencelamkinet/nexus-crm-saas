@@ -1,0 +1,240 @@
+"""
+Briefing Scheduler — per-user greeting-slot driven daily summary push.
+
+Design (mirrors GG notification pattern: scheduler polls DATA, not hardcoded
+times):
+  - Source of truth: ai_secretary_settings.greeting_slots (per-user start
+    times set in the AI app UI — every user can differ, e.g. 05:00 vs 07:00).
+  - A single cron runs this every 15 minutes. For each user+slot that is
+    DUE now (start time reached, within a 3h window), it generates the
+    briefing and pushes via Telegram (fallback WhatsApp).
+  - Dedup: push_log row for (user, channel, slot, date) with status='sent'
+    → skip. GG uses a state file; G08 uses its own push_log table.
+
+Fully independent of the GG-Fighter stack — own DB, own Telegram creds.
+
+CLI: python -m app.services.briefing_scheduler
+"""
+from __future__ import annotations
+
+import asyncio
+import sys
+from datetime import datetime, timezone, timedelta
+from pathlib import Path
+
+from sqlalchemy import select, text
+
+# Allow running as script from backend/ dir
+BACKEND = Path(__file__).resolve().parents[1]
+if str(BACKEND) not in sys.path:
+    sys.path.insert(0, str(BACKEND))
+
+from app.db import async_session  # noqa: E402
+from app.models.ai.secretary_settings import SecretarySettings, ChannelCredential  # noqa: E402
+from app.models.telegram_bot import TelegramBotMapping  # noqa: E402
+from app.models.im_push import PushLog  # noqa: E402
+from app.services.secret_crypto import decrypt_secret  # noqa: E402
+from app.services import telegram_service, whatsapp_service  # noqa: E402
+from app.models.whatsapp import WhatsAppMapping  # noqa: E402
+from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker  # noqa: E402
+from app.config import settings  # noqa: E402
+
+HKT = timezone(timedelta(hours=8))
+DUE_WINDOW_MIN = 180  # push if now within 3h after slot start (cron tolerance)
+
+# Scheduler runs with a BYPASSRLS role so it can see ALL users' settings
+# (RLS would otherwise hide every row — the app GUCs are unset here).
+_sched_engine = create_async_engine(
+    settings.briefing_database_url or settings.database_url,
+    connect_args={"prepared_statement_cache_size": 0},
+    pool_pre_ping=True,
+    pool_size=2,
+    max_overflow=5,
+)
+_sched_session = async_sessionmaker(_sched_engine, expire_on_commit=False)
+
+# greeting_slots key → briefing slot key + compose intent
+SLOT_MAP = {
+    "morning": "morning",
+    "afternoon": "noon",
+    "evening": "evening",
+    "lateNight": "night",
+}
+
+
+def _now_hkt() -> datetime:
+    return datetime.now(HKT)
+
+
+def _minutes(dt: datetime) -> int:
+    return dt.hour * 60 + dt.minute
+
+
+def _is_due(now: datetime, start_hhmm: str) -> bool:
+    """True if slot start time has been reached within the due window."""
+    try:
+        h, m = (int(x) for x in start_hhmm.split(":"))
+    except (ValueError, AttributeError):
+        return False
+    start_min = h * 60 + m
+    now_min = _minutes(now)
+    diff = (now_min - start_min) % (24 * 60)
+    # Due when now >= start and within window; handles lateNight crossing
+    # midnight (start 23:00, now 00:30 → diff 90 → due).
+    return 0 <= diff < DUE_WINDOW_MIN
+
+
+async def _already_sent(db, user_id, channel: str, slot: str, now: datetime) -> bool:
+    day_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    row = (
+        await db.execute(
+            select(PushLog.id).where(
+                PushLog.user_id == user_id,
+                PushLog.channel == channel,
+                PushLog.slot == slot,
+                PushLog.status == "sent",
+                PushLog.sent_at >= day_start,
+            ).limit(1)
+        )
+    ).scalar_one_or_none()
+    return row is not None
+
+
+async def _push_telegram(db, user, slot: str, content: str) -> str:
+    """Push via bound Telegram bot. Returns 'sent'|'skipped'|'failed'."""
+    tg = (
+        await db.execute(
+            select(TelegramBotMapping).where(
+                TelegramBotMapping.tenant_id == user.tenant_id,
+                TelegramBotMapping.user_id == user.user_id,
+                TelegramBotMapping.status == "active",
+            )
+        )
+    ).scalar_one_or_none()
+    if not tg:
+        return "skipped"
+    cred = (
+        await db.execute(
+            select(ChannelCredential).where(
+                ChannelCredential.tenant_id == user.tenant_id,
+                ChannelCredential.user_id == user.user_id,
+                ChannelCredential.channel == "telegram",
+            )
+        )
+    ).scalar_one_or_none()
+    token = decrypt_secret(cred.access_token) if cred and cred.access_token else ""
+    if not token:
+        # Fallback: legacy plaintext token on the mapping row (credential
+        # store may have never been populated for this bot).
+        token = str(tg.bot_token or "")
+        if token == "None":
+            token = ""
+    if not token:
+        return "skipped"
+    try:
+        result = await telegram_service.send_message(token, str(tg.chat_id), content)
+        ok = isinstance(result, dict) and result.get("ok")
+        return "sent" if ok else "failed"
+    except Exception:
+        return "failed"
+
+
+async def _push_whatsapp(db, user, slot: str, content: str) -> str:
+    """Fallback channel — only if no active Telegram mapping."""
+    mapping = (
+        await db.execute(
+            select(WhatsAppMapping).where(
+                WhatsAppMapping.tenant_id == user.tenant_id,
+                WhatsAppMapping.user_id == user.user_id,
+                WhatsAppMapping.status == "active",
+            )
+        )
+    ).scalar_one_or_none()
+    if not mapping:
+        return "skipped"
+    try:
+        result = await whatsapp_service.send_text(mapping.wa_id, content)
+        ok = isinstance(result, dict) and result.get("messages")
+        return "sent" if ok else "failed"
+    except Exception:
+        return "failed"
+
+
+async def _generate_content(db, user, slot_key: str) -> str:
+    """Compose briefing content via the existing generator."""
+    from app.services.briefing_generator import generate_briefing
+
+    # generate_briefing(db, tenant_id, user_id, slot) — slot is morning/noon/evening/night
+    result = await generate_briefing(db, user.tenant_id, user.user_id, SLOT_MAP.get(slot_key, "morning"))
+    content = result.get("content", "") if isinstance(result, dict) else ""
+    return content
+
+
+async def run_scheduler(dry_run: bool = False) -> dict:
+    now = _now_hkt()
+    stats = {"scanned": 0, "due": 0, "sent": 0, "skipped": 0, "failed": 0, "details": []}
+    async with _sched_session() as db:
+        # RLS: supervisor-style scan needs to bypass per-user GUCs — use a
+        # direct SQL read of all settings rows.
+        rows = (
+            await db.execute(
+                text(
+                    "SELECT user_id, tenant_id, greeting_slots FROM nexus_ai.ai_secretary_settings"
+                )
+            )
+        ).fetchall()
+        stats["scanned"] = len(rows)
+
+        for r in rows:
+            user_id, tenant_id = r[0], r[1]
+            slots = r[2] or []
+            # Lightweight user shim for push helpers
+            user = type("U", (), {"user_id": user_id, "tenant_id": tenant_id})()
+            for slot_cfg in slots:
+                key = (slot_cfg or {}).get("key")
+                start = (slot_cfg or {}).get("start")
+                if not key or not start:
+                    continue
+                if not _is_due(now, start):
+                    continue
+                stats["due"] += 1
+                # Dedup per channel — check telegram first (primary)
+                if await _already_sent(db, user_id, "telegram", key, now):
+                    stats["skipped"] += 1
+                    stats["details"].append(f"{str(user_id)[:8]} {key}: already sent")
+                    continue
+                if dry_run:
+                    stats["details"].append(f"{str(user_id)[:8]} {key}@{start}: DUE (dry)")
+                    continue
+                content = await _generate_content(db, user, key)
+                if not content:
+                    stats["skipped"] += 1
+                    stats["details"].append(f"{str(user_id)[:8]} {key}: empty content")
+                    continue
+                status = await _push_telegram(db, user, key, content)
+                if status == "skipped":
+                    status = await _push_whatsapp(db, user, key, content)
+                db.add(PushLog(
+                    tenant_id=tenant_id, user_id=user_id,
+                    channel="telegram" if status != "skipped" else "whatsapp",
+                    slot=key, status=status,
+                    error="" if status == "sent" else (status if status == "failed" else "no_channel"),
+                ))
+                stats[status] += 1
+                stats["details"].append(f"{str(user_id)[:8]} {key}@{start}: {status}")
+        await db.commit()
+    return stats
+
+
+def main() -> None:
+    dry = "--dry-run" in sys.argv
+    stats = asyncio.run(run_scheduler(dry_run=dry))
+    print(f"briefing_scheduler {'(DRY)' if dry else ''}: {stats['due']} due, "
+          f"{stats['sent']} sent, {stats['skipped']} skipped, {stats['failed']} failed "
+          f"({stats['scanned']} users scanned)")
+    for d in stats["details"]:
+        print(" ", d)
+
+
+if __name__ == "__main__":
+    main()

@@ -66,26 +66,19 @@ TELEGRAM_BASE_PROMPT = (
     "- 使用用戶熟悉的業務術語，避免過度技術化解釋\n"
     "- 提供建議時附上依據（例如根據哪些數據或紀錄）\n"
     "- 不確定的資訊不要臆測，寧可請用戶確認或提供更多背景\n"
-    "語言設定：\n"
-    "- 用戶以中文提問：以繁體中文（正體中文）正式書面語回覆\n"
-    "- 用戶以英文提問：以專業商業英文（Professional Business English）回覆\n"
-    "- 避免中英混雜：中文回覆不夾雜英文口語，英文回覆不夾雜中文\n"
-    "- 專有名詞（CRM、Deal、Quote、Touchpoint 等）可保留英文原文\n"
-    "限制：\n"
-    "- 不可代替用戶做出重大商業決策，只能提供參考意見\n"
-    "- 不可洩露其他用戶或客戶的機密資料\n"
-    "- 若用戶要求超出 CRM 範疇的協助，禮貌說明並建議合適管道\n"
     "---\n"
     "Telegram reply rules:\n"
     "1. Be professional and structured. Use sections with emoji headers when showing CRM data:\n"
     "   📇 Contact / 🏢 Company / 📋 Tasks / 📅 Touchpoints / 🚀 Projects / 💼 Deals\n"
     "2. When asked about a person, include their related records too (company, tasks, touchpoints, projects) if present.\n"
-    "3. Format: NO markdown symbols at all — no **, no *, no backticks. Use emoji headers and plain text only. Max 12 lines.\n"
+    "3. Format: NO markdown symbols at all — no **, no *, no backticks. Use emoji headers and plain text only. Max 15 lines.\n"
     "4. For lists of CRM records use bullet list, one record per line, dash prefix:\n"
     "   - Name — detail\n"
     "5. Missing fields: say 未記錄 once, briefly — don't repeat it for every field.\n"
     "6. If you mention any CRM data (contacts/companies/deals), append this link at the end:\n"
     "   https://nexus-crm.kinet-poc.com\n"
+    "7. Grouping: separate different topics with a blank line between groups. Each group starts with its emoji header. Never mix topics in one paragraph.\n"
+    "8. First reply sets the language for the whole conversation — stick to it, never switch mid-reply.\n"
 )
 
 
@@ -112,10 +105,10 @@ def _build_system_prompt(settings_row: SecretarySettings | None) -> str:
     lang = settings_row.lang_pref or "zh-HK"
 
     lang_rule = {
-        "zh-HK": "語言：以廣東話/繁體中文回覆（口語自然，唔好用書面語硬繃繃）。",
-        "zh-TW": "語言：以繁體中文（正體中文）正式書面語回覆。",
+        "zh-HK": "語言：以繁體中文正式書面語為主，可夾雜小量廣東話口語語氣詞（例如「嘅」「咗」「喇」「唔使」），保持自然流暢，唔好全段口語化。專有名詞（CRM、Deal、Quote、Touchpoint 等）保留英文原文。首次回覆即鎖定語言，全程唔好轉台。",
+        "zh-TW": "語言：以繁體中文（正體中文）正式書面語回覆，唔好夾雜廣東話口語。",
         "en": "語言：以 Professional Business English 回覆，禁止口語縮寫及港式英文。",
-    }.get(lang, "語言：以繁體中文正式書面語回覆。")
+    }.get(lang, "語言：以繁體中文正式書面語為主，可夾雜小量廣東話口語語氣詞，保持自然流暢。")
 
     tone_rule = {
         "professional": "語氣：專業、簡潔、正式。",

@@ -20,6 +20,9 @@ class Settings(BaseSettings):
     # components that need the dedicated nexus_app role (e.g. migrations).
     app_database_url: str = "postgresql+asyncpg://nexus_app:NexusApp2026Secure!@127.0.0.1:6432/nexus_crm"
 
+    # Briefing scheduler — BYPASSRLS role so it can scan ALL users' settings.
+    briefing_database_url: str = ""  # NEXUS_BRIEFING_DATABASE_URL
+
     # Redis (for OTP cache)
     redis_url: str = "redis://127.0.0.1:6379/0"
 

@@ -303,7 +303,7 @@ async def generate_briefing(
     im = await _im_push_if_enabled(db, tenant_id, user_id, slot, content)
     await db.commit()
 
-    return {"user_id": str(user_id), "slot": slot, "status": "published", "im": im, "content_len": len(content)}
+    return {"user_id": str(user_id), "slot": slot, "status": "published", "im": im, "content": content, "content_len": len(content)}
 
 
 async def run_for_all_users(db: AsyncSession, slot: str) -> dict[str, Any]:
