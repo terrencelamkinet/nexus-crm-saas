@@ -275,7 +275,7 @@ export default function DashboardNew() {
   const [order, setOrder] = useState<WidgetKey[]>([...defaultOrder])
   const orderLoaded = useRef(false)
   const saveTimer = useRef<ReturnType<typeof setTimeout>>(undefined as any)
-  // ── Compact detection — KPI stat cards become full-width 1×1 squares.
+  // ── Compact detection — KPI stat cards become 2-per-row squares.
   // Triggered on any non-desktop surface: ≤1024px viewports OR touch devices
   // (phones/tablets in desktop-mode webviews can report >1024px).
   const COMPACT_MQ = '(max-width: 1024px), (pointer: coarse)'
@@ -283,6 +283,17 @@ export default function DashboardNew() {
   useEffect(() => {
     const mq = window.matchMedia(COMPACT_MQ)
     const h = (e: MediaQueryListEvent) => setIsCompact(e.matches)
+    mq.addEventListener('change', h)
+    return () => mq.removeEventListener('change', h)
+  }, [])
+  // Phone detection — ≤640px single-column grid. KPI cards must NOT keep the
+  // 1:1 inline aspect on phones (CSS `aspect-ratio: auto` loses to inline
+  // styles), otherwise they render as huge full-width squares.
+  const PHONE_MQ = '(max-width: 640px)'
+  const [isPhone, setIsPhone] = useState(() => window.matchMedia(PHONE_MQ).matches)
+  useEffect(() => {
+    const mq = window.matchMedia(PHONE_MQ)
+    const h = (e: MediaQueryListEvent) => setIsPhone(e.matches)
     mq.addEventListener('change', h)
     return () => mq.removeEventListener('change', h)
   }, [])
@@ -1034,19 +1045,26 @@ export default function DashboardNew() {
         <AIBriefingDrawer />
       </div>
 
-      {/* WIDGET GRID — CSS grid, 12-column, span classes */}
-      <div ref={gridRef} style={{display:'grid',gridTemplateColumns:'repeat(12,1fr)',gap:16,alignItems:'start'}}>
+      {/* WIDGET GRID — CSS grid, 12-column, span classes.
+          className="grid" is REQUIRED: dashboard.css + design4-v2-patch.css
+          mobile media queries target `.dash01-shell .grid` — without it,
+          KPI `span 1 !important` collapses cards to 1/12 width on mobile. */}
+      <div ref={gridRef} className="grid" style={{display:'grid',gap:16,alignItems:'start'}}>
         {order.map((k) => {
           const def = allWidgets[k]
           if (!def) return null
           const IconComp = widgetIcon(k)
           // KPI stat cards: 2-per-row squares in compact mode (half-width span 6
           // + 1:1 aspect). Desktop keeps the same 2-per-row layout.
+          // Phones (≤640px): single-column grid — drop the inline 1:1 aspect so
+          // the CSS `aspect-ratio: auto` wins and cards render full-width, not
+          // giant squares.
           const isKpi = k.startsWith('kpi_')
           const effSpan = isKpi && isCompact ? 6 : def.span
+          const kpiSquare = isKpi && isCompact && !isPhone
           return (
             <div key={k} className={`widget${editing && dragKey.current === k ? ' dragging' : ''}`}
-              style={{gridColumn:`span ${effSpan}`,aspectRatio: isKpi && isCompact ? '1 / 1' : undefined,background:'var(--color-surface-2)',border: editing ? '2px dashed var(--color-primary)' : '1px solid var(--color-border)',borderRadius:'var(--radius-lg)',padding:16,display:'flex',flexDirection:'column',position:'relative',minHeight:isKpi && isCompact ? 0 : 160,transition:'grid-column .12s ease, height .12s ease',cursor: editing ? 'grab' : undefined}}
+              style={{gridColumn:`span ${effSpan}`,aspectRatio: kpiSquare ? '1 / 1' : undefined,background:'var(--color-surface-2)',border: editing ? '2px dashed var(--color-primary)' : '1px solid var(--color-border)',borderRadius:'var(--radius-lg)',padding:16,display:'flex',flexDirection:'column',position:'relative',minHeight:isKpi && isCompact ? 0 : 160,transition:'grid-column .12s ease, height .12s ease',cursor: editing ? 'grab' : undefined}}
               data-key={k}
               draggable={editing}
               onDragStart={() => handleDragStart(k)}
