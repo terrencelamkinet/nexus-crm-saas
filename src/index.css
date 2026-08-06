@@ -2625,3 +2625,21 @@ textarea.input-field{resize:vertical;min-height:60px}
 @media(max-width:768px){
   .gcal-select{font-size:16px}
 }
+
+/* Google Calendar multi-select picker — v2.6.1 */
+.gcal-picker-header{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px;max-width:420px}
+.gcal-count{font-size:12.5px;font-weight:600;color:var(--color-text-muted)}
+.gcal-toggle-all{min-height:30px;padding:0 12px;border-radius:var(--radius-md);background:var(--color-surface-offset);color:var(--color-primary);font-size:12px;font-weight:600;cursor:pointer;transition:background var(--transition-interactive)}
+.gcal-toggle-all:hover:not(:disabled){background:var(--color-surface-offset-2)}
+.gcal-toggle-all:disabled{opacity:.55;cursor:not-allowed}
+.gcal-list{display:flex;flex-direction:column;gap:6px;max-width:420px}
+.gcal-item{display:flex;align-items:center;gap:10px;padding:9px 12px;border:1px solid var(--color-divider);border-radius:var(--radius-md);background:var(--color-surface);cursor:pointer;transition:border-color var(--transition-interactive),background var(--transition-interactive)}
+.gcal-item:hover{border-color:var(--color-border)}
+.gcal-item.checked{border-color:color-mix(in oklch,var(--color-primary) 45%,transparent);background:var(--color-primary-highlight)}
+.gcal-checkbox{width:16px;height:16px;accent-color:var(--color-primary);flex-shrink:0;cursor:pointer}
+.gcal-item-name{font-size:13px;font-weight:500;color:var(--color-text);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.gcal-item-badge{flex-shrink:0;font-size:10px;font-weight:700;letter-spacing:.03em;text-transform:uppercase;color:var(--color-primary);background:color-mix(in oklch,var(--color-primary) 12%,transparent);padding:2px 8px;border-radius:999px}
+@media(max-width:768px){
+  .gcal-list{max-width:100%}
+  .gcal-picker-header{max-width:100%}
+}

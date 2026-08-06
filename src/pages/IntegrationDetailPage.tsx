@@ -1,12 +1,13 @@
 import { useParams, Link } from 'react-router-dom';
 import { useEffect, useState, useCallback } from 'react';
-import { Check, AlertCircle, RefreshCw, CalendarDays, ChevronDown } from 'lucide-react';
+import { Check, AlertCircle, RefreshCw } from 'lucide-react';
 import { integrations } from '../data/integrations';
 import {
   fetchIntegrations,
   disconnectIntegration,
   fetchGoogleCalendars,
   saveGoogleCalendarSetting,
+  syncIntegrationNow,
 } from '../lib/integration-api';
 import type { IntegrationRecord, GoogleCalendarInfo } from '../lib/integration-api';
 import ConnectDialog from '../components/ConnectDialog';
@@ -19,9 +20,9 @@ export default function IntegrationDetailPage() {
   const [loading, setLoading] = useState(true);
   const [showDialog, setShowDialog] = useState(false);
 
-  // Google Calendar picker state
+  // Google Calendar picker state (multi-select)
   const [calendars, setCalendars] = useState<GoogleCalendarInfo[]>([]);
-  const [selectedCal, setSelectedCal] = useState<string>('');
+  const [selectedCalIds, setSelectedCalIds] = useState<string[]>([]);
   const [calLoading, setCalLoading] = useState(false);
   const [calSaving, setCalSaving] = useState(false);
   const [calSaved, setCalSaved] = useState(false);
@@ -42,7 +43,9 @@ export default function IntegrationDetailPage() {
 
   useEffect(() => { loadConnection(); }, [loadConnection]);
 
-  // Load the user's Google calendars once connected
+  // Load the user's Google calendars once connected (keyed on connection id,
+  // NOT the whole connection object — saving a selection updates config and
+  // must not re-trigger this effect, otherwise the picker flashes to loading).
   useEffect(() => {
     if (!isGoogleCal || !connection) return;
     let cancelled = false;
@@ -53,13 +56,19 @@ export default function IntegrationDetailPage() {
         const list = await fetchGoogleCalendars();
         if (cancelled) return;
         setCalendars(list);
-        const current = (connection.config?.calendar_id as string) || '';
-        if (current && list.some(c => c.id === current)) {
-          setSelectedCal(current);
-        } else {
-          const primary = list.find(c => c.primary);
-          setSelectedCal(current || primary?.id || (list[0]?.id ?? ''));
+        const cfg = (connection.config || {}) as Record<string, unknown>;
+        // New format: calendar_ids list → legacy calendar_id string → default primary only
+        let current: string[] = [];
+        if (Array.isArray(cfg.calendar_ids) && (cfg.calendar_ids as string[]).length > 0) {
+          current = (cfg.calendar_ids as string[]).filter((c) => list.some((x) => x.id === c));
+        } else if (typeof cfg.calendar_id === 'string' && cfg.calendar_id) {
+          current = list.some((c) => c.id === cfg.calendar_id) ? [cfg.calendar_id as string] : [];
         }
+        if (current.length === 0) {
+          const primary = list.find((c) => c.primary);
+          current = primary ? [primary.id] : (list[0] ? [list[0].id] : []);
+        }
+        setSelectedCalIds(current);
       } catch (e: any) {
         if (!cancelled) setCalError(e?.message || 'Failed to load calendars');
       } finally {
@@ -67,24 +76,45 @@ export default function IntegrationDetailPage() {
       }
     })();
     return () => { cancelled = true; };
-  }, [isGoogleCal, connection]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isGoogleCal, connection?.id]);
 
-  const handleCalChange = async (calId: string) => {
-    setSelectedCal(calId);
+  const saveCalSelection = async (ids: string[]) => {
     setCalSaving(true);
     setCalSaved(false);
     setCalError(null);
-    const cal = calendars.find(c => c.id === calId);
+    const names: Record<string, string> = {};
+    for (const c of calendars) names[c.id] = c.summary;
     try {
-      await saveGoogleCalendarSetting(calId, cal?.summary || '');
+      await saveGoogleCalendarSetting(ids, names);
+      // Trigger an immediate sync so the /calendar page reflects the new
+      // selection right away (no waiting for the 15-min interval).
+      if (connection?.id) {
+        try { await syncIntegrationNow(connection.id); } catch { /* sync errors surface on next interval */ }
+      }
       setCalSaved(true);
-      // update local connection state so the picker stays in sync
-      setConnection((prev) => prev ? { ...prev, config: { ...prev.config, calendar_id: calId, calendar_name: cal?.summary || '' } } : prev);
+      setConnection((prev) => prev ? { ...prev, config: { ...prev.config, calendar_ids: ids, calendar_names: names } } : prev);
     } catch (e: any) {
       setCalError(e?.message || 'Failed to save selection');
     } finally {
       setCalSaving(false);
     }
+  };
+
+  const handleToggleCal = (calId: string) => {
+    const next = selectedCalIds.includes(calId)
+      ? selectedCalIds.filter((c) => c !== calId)
+      : [...selectedCalIds, calId];
+    setSelectedCalIds(next);
+    saveCalSelection(next);
+  };
+
+  const handleToggleAll = () => {
+    const next = selectedCalIds.length === calendars.length
+      ? []
+      : calendars.map((c) => c.id);
+    setSelectedCalIds(next);
+    saveCalSelection(next);
   };
 
   // Listen for OAuth popup completion
@@ -240,12 +270,12 @@ export default function IntegrationDetailPage() {
         )}
       </div>
 
-      {/* Google Calendar picker — choose which calendar to sync */}
+      {/* Google Calendar picker — choose which calendars to sync (multi-select) */}
       {isGoogleCal && isConnected && (
         <div className="mkt-detail-section">
-          <h2>Sync calendar</h2>
+          <h2>Sync calendars</h2>
           <p style={{ fontSize: 13, color: 'var(--color-text-muted)', margin: '4px 0 14px' }}>
-            Choose which Google Calendar to mirror into NEXUS CRM. Events sync within 15 minutes of a change.
+            Pick which Google Calendars to mirror into NEXUS CRM. Default: primary only. Events sync within 15 minutes of a change.
           </p>
 
           {calLoading ? (
@@ -255,23 +285,39 @@ export default function IntegrationDetailPage() {
             </div>
           ) : (
             <>
-              <div className="gcal-picker">
-                <CalendarDays size={15} style={{ color: 'var(--color-text-muted)', flexShrink: 0 }} />
-                <select
-                  className="gcal-select"
-                  value={selectedCal}
-                  onChange={(e) => handleCalChange(e.target.value)}
+              <div className="gcal-picker-header">
+                <span className="gcal-count">
+                  {selectedCalIds.length} of {calendars.length} selected
+                </span>
+                <button
+                  className="gcal-toggle-all"
+                  onClick={handleToggleAll}
                   disabled={calSaving}
-                  aria-label="Google Calendar to sync"
                 >
-                  {calendars.length === 0 && <option value="">No calendars found</option>}
-                  {calendars.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.summary}{c.primary ? ' (Primary)' : ''}
-                    </option>
-                  ))}
-                </select>
-                <ChevronDown size={14} style={{ color: 'var(--color-text-faint)', pointerEvents: 'none', marginLeft: -26 }} />
+                  {selectedCalIds.length === calendars.length ? 'Clear all' : 'Select all'}
+                </button>
+              </div>
+
+              <div className="gcal-list">
+                {calendars.length === 0 && (
+                  <div style={{ fontSize: 13, color: 'var(--color-text-faint)' }}>No calendars found</div>
+                )}
+                {calendars.map((c) => {
+                  const checked = selectedCalIds.includes(c.id);
+                  return (
+                    <label key={c.id} className={`gcal-item${checked ? ' checked' : ''}`}>
+                      <input
+                        type="checkbox"
+                        className="gcal-checkbox"
+                        checked={checked}
+                        disabled={calSaving}
+                        onChange={() => handleToggleCal(c.id)}
+                      />
+                      <span className="gcal-item-name">{c.summary}</span>
+                      {c.primary && <span className="gcal-item-badge">Primary</span>}
+                    </label>
+                  );
+                })}
               </div>
 
               <div style={{ marginTop: 10, fontSize: 12.5, minHeight: 18 }}>
@@ -279,7 +325,7 @@ export default function IntegrationDetailPage() {
                 {calSaved && !calSaving && (
                   <span style={{ color: 'var(--color-success)' }}>
                     <Check size={13} style={{ verticalAlign: -2, marginRight: 4 }} />
-                    Calendar updated — next sync uses this calendar
+                    Calendars updated & synced — check the Calendar page
                   </span>
                 )}
                 {calError && <span style={{ color: '#ef4444' }}>{calError}</span>}

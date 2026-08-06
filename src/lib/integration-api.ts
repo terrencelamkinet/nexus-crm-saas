@@ -65,9 +65,14 @@ export async function fetchGoogleCalendars(): Promise<GoogleCalendarInfo[]> {
   return apiClient.get('/api/v1/integrations/google-calendar/calendars');
 }
 
-export async function saveGoogleCalendarSetting(calendarId: string, calendarName: string): Promise<IntegrationRecord> {
+export async function saveGoogleCalendarSetting(calendarIds: string[], calendarNames: Record<string, string>): Promise<IntegrationRecord> {
   return apiClient.put('/api/v1/integrations/google-calendar/settings', {
-    calendar_id: calendarId,
-    calendar_name: calendarName,
+    calendar_ids: calendarIds,
+    calendar_names: calendarNames,
   });
+}
+
+/** Force an immediate calendar sync (bypasses the 15-min interval). */
+export async function syncIntegrationNow(integrationId: string): Promise<{ status: string; stats: Record<string, number> }> {
+  return apiClient.post(`/api/v1/integrations/${integrationId}/sync`);
 }

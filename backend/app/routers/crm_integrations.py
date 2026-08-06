@@ -700,8 +700,8 @@ async def list_google_calendars(
 
 
 class GoogleCalendarSettingsBody(BaseModel):
-    calendar_id: str
-    calendar_name: str = ""
+    calendar_ids: list[str]
+    calendar_names: dict[str, str] = {}
 
 
 @router.put("/integrations/google-calendar/settings", response_model=IntegrationResponse)
@@ -710,10 +710,11 @@ async def update_google_calendar_settings(
     body: GoogleCalendarSettingsBody,
     db: AsyncSession = Depends(get_tenant_session),
 ):
-    """Pick which Google calendar to mirror into CRM.
+    """Pick which Google calendars to mirror into CRM (multi-select).
 
-    Merges calendar_id/calendar_name into the existing config —
-    never touches access_token/refresh_token.
+    Merges calendar_ids (+ names map) into the existing config —
+    never touches access_token/refresh_token. Default (no selection
+    ever made) = primary calendar only.
     """
     tenant_id = _tid(request)
     user_id = _uid(request)
@@ -723,8 +724,9 @@ async def update_google_calendar_settings(
         raise HTTPException(404, "Google Calendar not connected")
 
     cfg = dict(row.config or {})
-    cfg["calendar_id"] = body.calendar_id
-    cfg["calendar_name"] = body.calendar_name
+    cfg["calendar_ids"] = [str(i) for i in body.calendar_ids]
+    cfg["calendar_names"] = {str(k): str(v) for k, v in body.calendar_names.items()}
+    cfg.pop("calendar_id", None)  # legacy single-select key — superseded
     row.config = cfg
     row.updated_at = datetime.now(timezone.utc)
     await db.flush()

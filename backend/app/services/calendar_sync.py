@@ -148,8 +148,13 @@ async def _google_events(access_token: str, calendar_id: str = "primary") -> lis
     return items
 
 
-def _parse_google_event(ev: dict[str, Any]) -> dict[str, Any]:
-    """Map a Google Calendar event dict → CRM ProjectCalendarEvent fields."""
+def _parse_google_event(ev: dict[str, Any], calendar_id: str = "primary") -> dict[str, Any]:
+    """Map a Google Calendar event dict → CRM ProjectCalendarEvent fields.
+
+    external_event_id is prefixed with the calendar id — Google event IDs
+    are only unique within their own calendar, so mirroring multiple
+    calendars must not let two calendars overwrite each other's events.
+    """
     start = ev.get("start", {})
     end = ev.get("end", {})
     # all-day events use date (YYYY-MM-DD) instead of dateTime
@@ -180,7 +185,7 @@ def _parse_google_event(ev: dict[str, Any]) -> dict[str, Any]:
         "is_all_day": is_all_day,
         "location": ev.get("location"),
         "color": "#4285F4",  # Google blue
-        "external_event_id": ev.get("id", ""),
+        "external_event_id": f"{calendar_id}:{ev.get('id', '')}",
         "external_updated": updated_dt,
     }
 
@@ -387,6 +392,22 @@ async def _upsert_events(
     return stats
 
 
+def _configured_calendar_ids(config: dict | None) -> list[str]:
+    """Resolve which Google calendars to mirror from the integration config.
+
+    New format: calendar_ids = [list]. Legacy: calendar_id = single string.
+    Default: ["primary"] — only the user's primary calendar.
+    """
+    cfg = config or {}
+    ids = cfg.get("calendar_ids")
+    if isinstance(ids, list) and ids:
+        return [str(i) for i in ids]
+    legacy = cfg.get("calendar_id")
+    if legacy:
+        return [str(legacy)]
+    return ["primary"]
+
+
 async def sync_google_oauth(
     db: AsyncSession,
     integration_row,
@@ -399,9 +420,15 @@ async def sync_google_oauth(
     if cfg_update:
         integration_row.config = cfg_update
 
-    calendar_id = (integration_row.config or {}).get("calendar_id") or "primary"
-    events = await _google_events(access_token, calendar_id)
-    parsed = [_parse_google_event(ev) for ev in events]
+    calendar_ids = _configured_calendar_ids(integration_row.config)
+    parsed: list[dict[str, Any]] = []
+    for cal_id in calendar_ids:
+        try:
+            events = await _google_events(access_token, cal_id)
+        except PermissionError:
+            continue  # one calendar may be denied (e.g. shared calendar revoked) — skip it
+        parsed.extend(_parse_google_event(ev, cal_id) for ev in events)
+
     stats = await _upsert_events(db, tenant_id, user_id, "google_oauth", parsed)
     return stats
 
