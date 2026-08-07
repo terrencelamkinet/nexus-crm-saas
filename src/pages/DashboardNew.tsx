@@ -1248,8 +1248,12 @@ export default function DashboardNew() {
                         widgetEl.style.aspectRatio = `${curWLv} / ${curHLv}`
                       }
                       // height snaps to nearest level — aspect ratio (w/h) keeps
-                      // (n,n) square at ANY viewport width
-                      const rawH = widgetEl.offsetHeight + dy
+                      // (n,n) square at ANY viewport width.
+                      // Base on the LEVEL's px (160/200/…), NOT rendered height —
+                      // aspect-ratio height can be huge, which made any small dy
+                      // jump straight to level 7.
+                      const baseH = HEIGHT_BY_LEVEL[curHLv]
+                      const rawH = baseH + dy
                       const newHLv = levelOf(rawH, HEIGHT_BY_LEVEL)
                       if (newHLv !== curHLv) {
                         curHLv = newHLv

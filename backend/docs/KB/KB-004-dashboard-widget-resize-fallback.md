@@ -204,6 +204,23 @@ settings: { widgetOrder: order, widgetLevels: levelPairs }
 
 實測:(4,4) → aspect "4 / 4",631×631,ratio 1.000 ✅;(3,7) → 469×1095,ratio 0.428 = 3/7 ✅;reload 後 (4,4) 留住 ✅
 
+**10. 後續 fix — height drag 基準錯:「一拉就 (2,7)」（v4.10）**
+
+用戶反映:想拉去 (2,2),一拉就變 (2,7)。成因:height drag 用 `widgetEl.offsetHeight + dy` 做基準,但 aspect-ratio 下實際渲染高度可能遠超檔位範圍(如 (1,1) 喺闊 grid 實際 600px+)→ 任何少少 dy 都 snap 去最近檔位 = level 7。
+
+```tsx
+// 錯:用實際渲染高度(可能 600px+ → 永遠 snap 去 7)
+const rawH = widgetEl.offsetHeight + dy
+
+// 啱:用「當前檔位嘅基準 px」(160/200/…) + dy — drag 距離正常化
+const baseH = HEIGHT_BY_LEVEL[curHLv]
+const rawH = baseH + dy
+```
+
+效果:drag 40px 跳一級(160→200→240…),由 (1,1) 拉去 (2,2) 只需水平拉闊 + 40px 垂直,唔會再亂跳。
+
+實測:default widget(span 6,h level 1)水平收窄去 span 4 + dy 40 → tip "(2,2)",aspect "2 / 2",308×308 ratio 1.000 ✅;reload 後留住 ✅
+
 ---
 
 ## 6. 成功 log (Success Log) — 修復後
