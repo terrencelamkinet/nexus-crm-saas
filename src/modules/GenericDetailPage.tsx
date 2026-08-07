@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, Suspense } from 'react'
 import { useParams, useNavigate, useLocation, Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { ArrowLeft, Phone, Mail, Building2, Edit3, Trash2, User, Clock } from 'lucide-react'
+import { ArrowLeft, Phone, Mail, Building2, Edit3, Trash2, User, Clock, MessageCircle } from 'lucide-react'
 import { apiClient } from '../lib/api'
 import { FieldsRenderer } from './shared/FieldsRenderer'
 import { buildPayload, formatDate, apiErrorToString } from './shared/field-utils'
@@ -152,6 +152,25 @@ export default function GenericDetailPage({ config, tabRenderers, extraData, act
     : config.fields
   ).filter(f => !f.dependsOnModule || isModuleEnabled(f.dependsOnModule))
 
+  // Grouped field renderer (NovaCRM-style architecture: labelled sections, 2-col grid each)
+  const renderDetailFields = () => {
+    const renderOne = (f: typeof detailFields[number]) => (
+      <FieldsRenderer key={f.key} field={f} entity={entity} form={form}
+        onChange={handleChange} editOpen={editOpen} relationData={{ companies: extraData?.companies }} />
+    )
+    if (!config.fieldGroups) return detailFields.map(renderOne)
+    return config.fieldGroups.map(g => {
+      const gFields = detailFields.filter(f => g.fields.includes(f.key))
+      if (!gFields.length) return null
+      return (
+        <div className="field-group" key={g.id}>
+          <div className="field-group-title">{t(`common.fieldGroup.${g.id}`, { defaultValue: g.label })}</div>
+          <div className="detail-form-grid">{gFields.map(renderOne)}</div>
+        </div>
+      )
+    })
+  }
+
   return (
     <div className="contact-detail-page">
       <nav className="breadcrumb">
@@ -209,34 +228,93 @@ export default function GenericDetailPage({ config, tabRenderers, extraData, act
         {!config.hideProfileCard && <div className="profile-card">
           <div className="profile-avatar">{initials}</div>
           <h3>{entityName}</h3>
-          <div className="role">{entity['company']?.name || entity['job_title'] || '—'}</div>
+          <div className="role">{[entity['job_title'], entity['company']?.name].filter(Boolean).join(' · ') || '—'}</div>
 
+          {config.profileInfoList ? (
+            <>
+              {/* Quick actions: call / email / WhatsApp */}
+              <div className="quick-actions">
+                {entity['phone'] && (
+                  <a href={`tel:${String(entity['phone']).replace(/[^\d+]/g, '')}`} className="btn-secondary">
+                    <Phone className="w-3.5 h-3.5" /> {t('common.call')}
+                  </a>
+                )}
+                {entity['email'] && (
+                  <a href={`mailto:${entity['email']}`} className="btn-secondary">
+                    <Mail className="w-3.5 h-3.5" /> {t('common.email')}
+                  </a>
+                )}
+                {entity['phone'] && (
+                  <a href={`https://wa.me/${String(entity['phone']).replace(/[^\d]/g, '')}`} target="_blank" rel="noopener noreferrer" className="btn-secondary">
+                    <MessageCircle className="w-3.5 h-3.5" /> {t('common.message')}
+                  </a>
+                )}
+              </div>
+
+              {/* Label:value info list */}
+              <div className="info-list">
+                {entity['phone'] && (
+                  <div className="info-row">
+                    <span className="info-label">{t('common.phone')}</span>
+                    <span className="info-value">{entity['phone']}</span>
+                  </div>
+                )}
+                {entity['email'] && (
+                  <div className="info-row">
+                    <span className="info-label">{t('common.email')}</span>
+                    <span className="info-value">{entity['email']}</span>
+                  </div>
+                )}
+                {entity['company'] && (
+                  <div className="info-row">
+                    <span className="info-label">{t('common.company')}</span>
+                    <span className="info-value">{(entity['company'] as any).name}</span>
+                  </div>
+                )}
+                <div className="info-row">
+                  <span className="info-label">{t('common.owner')}</span>
+                  <span className="info-value">{entity['contact_type'] || t('common.unassigned')}</span>
+                </div>
+                <div className="info-row">
+                  <span className="info-label">{t('common.lastTouch')}</span>
+                  <span className="info-value">{lastTouchDate}</span>
+                </div>
+                {entity['address'] && (
+                  <div className="info-row">
+                    <span className="info-label">{t('common.address')}</span>
+                    <span className="info-value">{entity['address']}</span>
+                  </div>
+                )}
+              </div>
+            </>
+          ) : (
             <div className="tal">
-            {entity['email'] && (
+              {entity['email'] && (
+                <div className="profile-field">
+                  <Mail className="w-3.5 h-3.5" />
+                  <span>{entity['email']}</span>
+                </div>
+              )}
+              {entity['phone'] && (
+                <div className="profile-field">
+                  <Phone className="w-3.5 h-3.5" />
+                  <span>{entity['phone']}</span>
+                </div>
+              )}
               <div className="profile-field">
-                <Mail className="w-3.5 h-3.5" />
-                <span>{entity['email']}</span>
+                <User className="w-3.5 h-3.5" /> {t('common.ownerLabel', { name: entity['contact_type'] || t('common.unassigned') })}
               </div>
-            )}
-            {entity['phone'] && (
               <div className="profile-field">
-                <Phone className="w-3.5 h-3.5" />
-                <span>{entity['phone']}</span>
+                <Clock className="w-3.5 h-3.5" /> {t('common.lastTouch', { date: lastTouchDate })}
               </div>
-            )}
-            <div className="profile-field">
-              <User className="w-3.5 h-3.5" /> {t('common.ownerLabel', { name: entity['contact_type'] || t('common.unassigned') })}
+              {entity['company'] && (
+                <div className="profile-field">
+                  <Building2 className="w-3.5 h-3.5" />
+                  <span>{(entity['company'] as any).name}</span>
+                </div>
+              )}
             </div>
-            <div className="profile-field">
-              <Clock className="w-3.5 h-3.5" /> {t('common.lastTouch', { date: lastTouchDate })}
-            </div>
-            {entity['company'] && (
-              <div className="profile-field">
-                <Building2 className="w-3.5 h-3.5" />
-                <span>{(entity['company'] as any).name}</span>
-              </div>
-            )}
-          </div>
+          )}
 
           <div className="tag-row">
             <span className={`select-tag ${statusColors[entity['status']] || 'tag-default'}`}>{entity['status'] || t('status.active')}</span>
@@ -257,12 +335,7 @@ export default function GenericDetailPage({ config, tabRenderers, extraData, act
                   return (
                     <div className="panel" key="details">
                       <div className="panel-head"><h3>{t('common.infoSection', { label: localizeResourceLabel(config.name, false, config.label, t) })}</h3></div>
-                      <div className="detail-form-grid p-16">
-                        {detailFields.map(f => (
-                          <FieldsRenderer key={f.key} field={f} entity={entity} form={form}
-                            onChange={handleChange} editOpen={editOpen} relationData={{ companies: extraData?.companies }} />
-                        ))}
-                      </div>
+                      <div className="p-16">{renderDetailFields()}</div>
                     </div>
                   )
                 }
@@ -299,12 +372,7 @@ export default function GenericDetailPage({ config, tabRenderers, extraData, act
                   <div className="panel-head">
                     <h3>{t('common.infoSection', { label: localizeResourceLabel(config.name, false, config.label, t) })}</h3>
                   </div>
-                  <div className="detail-form-grid p-16">
-                    {detailFields.map(f => (
-                      <FieldsRenderer key={f.key} field={f} entity={entity} form={form}
-                        onChange={handleChange} editOpen={editOpen} relationData={{ companies: extraData?.companies }} />
-                    ))}
-                  </div>
+                  <div className="p-16">{renderDetailFields()}</div>
                 </div>
               )}
 
@@ -341,12 +409,7 @@ export default function GenericDetailPage({ config, tabRenderers, extraData, act
                   onViewAll={() => setShowFullTab('details')}>
                   <div className="panel">
                     <div className="panel-head"><h3>{t('common.infoSection', { label: localizeResourceLabel(config.name, false, config.label, t) })}</h3></div>
-                    <div className="detail-form-grid p-16">
-                      {detailFields.map(f => (
-                        <FieldsRenderer key={f.key} field={f} entity={entity} form={form}
-                          onChange={handleChange} editOpen={editOpen} relationData={{ companies: extraData?.companies }} />
-                      ))}
-                    </div>
+                    <div className="p-16">{renderDetailFields()}</div>
                   </div>
                 </MobileSection>
               )

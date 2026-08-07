@@ -597,7 +597,15 @@
     "source": "來源",
     "conditionalColor": "條件顏色",
     "copyLink": "複製連結",
-    "bulkNote": "更新 <strong>{{count}}</strong> {{label}}。只顯示有 <strong>批量編輯</strong> 權限嘅欄位。留空 = 唔改。"
+    "bulkNote": "更新 <strong>{{count}}</strong> {{label}}。只顯示有 <strong>批量編輯</strong> 權限嘅欄位。留空 = 唔改。",
+    "call": "致電",
+    "message": "訊息",
+    "fieldGroup": {
+      "profile": "基本資料",
+      "contact": "聯絡方式",
+      "classify": "分類",
+      "other": "其他"
+    }
   },
   "contacts": {
     "title": "聯絡人",

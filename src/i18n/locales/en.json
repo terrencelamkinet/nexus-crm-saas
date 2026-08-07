@@ -597,7 +597,15 @@
     "source": "Source",
     "conditionalColor": "Conditional color",
     "copyLink": "Copy link to view",
-    "bulkNote": "Updating <strong>{{count}}</strong> {{label}}. Only fields with <strong>bulk editable</strong> permission are shown. Empty fields = unchanged."
+    "bulkNote": "Updating <strong>{{count}}</strong> {{label}}. Only fields with <strong>bulk editable</strong> permission are shown. Empty fields = unchanged.",
+    "call": "Call",
+    "message": "Message",
+    "fieldGroup": {
+      "profile": "Basic Info",
+      "contact": "Contact Info",
+      "classify": "Category",
+      "other": "Other"
+    }
   },
   "contacts": {
     "title": "Contacts",

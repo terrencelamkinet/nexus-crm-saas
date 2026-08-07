@@ -20,6 +20,7 @@ export default function ContactDetailPage() {
   // Patch Deals tab condition with sales module state
   const patchedConfig: ResourceConfig = {
     ...contactConfig,
+    profileInfoList: true,
     detailTabs: (contactConfig.detailTabs || []).map(t => {
       if (t.id === 'deals') {
         return { ...t, condition: () => salesOn }

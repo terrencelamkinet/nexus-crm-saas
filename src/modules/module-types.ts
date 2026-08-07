@@ -93,6 +93,12 @@ export interface TabConfig {
   condition?: (entity: any) => boolean
 }
 
+export interface FieldGroup {
+  id: string
+  label: string
+  fields: string[]
+}
+
 export interface ResourceConfig {
   name: string
   label: string
@@ -111,6 +117,8 @@ export interface ResourceConfig {
   detailTabs?: TabConfig[]
   savedViews?: SavedView[]
   hideProfileCard?: boolean   // hide left sidebar preview card on detail page
+  profileInfoList?: boolean   // profile card: label:value info list + quick actions (NovaCRM-style architecture)
+  fieldGroups?: FieldGroup[]  // group detail fields into labelled sections
 }
 
 export type ModuleConfig = ResourceConfig

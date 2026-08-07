@@ -63,6 +63,14 @@ const contactConfig: ResourceConfig = {
     { id: 'notes',       label: 'Notes' },
     { id: 'projects',    label: 'Projects' },
   ],
+
+  // NovaCRM-style architecture: group detail fields into labelled sections (G08 design tokens)
+  fieldGroups: [
+    { id: 'profile',  label: 'Basic Info',   fields: ['name', 'chinese_name', 'nick_name', 'job_title', 'department', 'company'] },
+    { id: 'contact',  label: 'Contact Info', fields: ['email', 'phone', 'office_phone', 'linkedin_url', 'address', 'numbers'] },
+    { id: 'classify', label: 'Category',     fields: ['contact_type', 'grade', 'tags'] },
+    { id: 'other',    label: 'Other',        fields: ['notes', 'namecard_path', 'created_at'] },
+  ],
 }
 
 export default contactConfig
