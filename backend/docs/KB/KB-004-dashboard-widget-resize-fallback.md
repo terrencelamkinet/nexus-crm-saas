@@ -154,6 +154,31 @@ for (const s of HEIGHT_STEPS) {
 
 實測:200px drag +90px → rawH 290 → snap 320 ✅;reload 後 height 320px 留住 ✅
 
+**8. 後續 fix — 統一 1–7 檔位系統 + (w,h) badge（v4.8）**
+
+用戶要求:兩軸都用指定 size,display 用 (1,1)、(1,2) 格式,width/height 1:1 對稱。
+
+```tsx
+// 統一 7 檔:width 檔 → span;height 檔 → px（同 scale,1:1 對稱）
+const SPAN_BY_LEVEL   = { 1: 2, 2: 3, 3: 4, 4: 6, 5: 8, 6: 10, 7: 12 }
+const HEIGHT_BY_LEVEL = { 1: 160, 2: 200, 3: 240, 4: 280, 5: 320, 6: 400, 7: 480 }
+// snapToLevel(val, map): raw value → 最近檔位嘅實際值
+// levelOf(val, map):    實際值 → 檔位號碼（badge 用）
+
+// onMove:兩軸都 snap 去檔位
+const snappedSpan = snapToLevel(rawSpan, SPAN_BY_LEVEL)   // 只會停喺 2/3/4/6/8/10/12
+const snappedH    = snapToLevel(rawH, HEIGHT_BY_LEVEL)     // 只會停喺 160/200/240/280/320/400/480
+// badge:
+tip.textContent = `(${levelOf(currentSpan, SPAN_BY_LEVEL)},${levelOf(finalH, HEIGHT_BY_LEVEL)})`
+```
+
+設計要點:
+- **DB 照舊存 span/px**（widgetSpans/widgetHeights）— 向後兼容,已有數據唔使 migration
+- 檔位系統純 UI 層:badge 顯示 (w,h) 檔位,drag snap 去檔位對應值
+- 舊數據(如 span 8 = level 5)自動 map 返檔位
+
+實測:drag +200/+60 → span 10 (=level 6) + 400px (=level 6),badge 顯示 "(6,6)" ✅;reload 後 span 10 + 400px 留住 ✅
+
 ---
 
 ## 6. 成功 log (Success Log) — 修復後

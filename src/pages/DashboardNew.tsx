@@ -94,8 +94,27 @@ const stageKeys = ['qualification', 'proposal', 'negotiation', 'closed_won']
 // ── ALL 37 design01 WIDGETS + 10 legacy widgets ──
 type WidgetKey = string
 interface WidgetDef { label: string; span: number }
-// Resize height snaps to these fixed steps (mirrors width snapping to integer spans)
-const HEIGHT_STEPS = [160, 240, 320, 400, 480]
+// ── Unified size levels 1–7 for both axes — badge shows "(w,h)" e.g. (1,1) (1,2) ──
+// Width level → grid column span; Height level → px. Same 1–7 scale on both axes.
+const SPAN_BY_LEVEL: Record<number, number> = { 1: 2, 2: 3, 3: 4, 4: 6, 5: 8, 6: 10, 7: 12 }
+const HEIGHT_BY_LEVEL: Record<number, number> = { 1: 160, 2: 200, 3: 240, 4: 280, 5: 320, 6: 400, 7: 480 }
+const SIZE_LEVELS = [1, 2, 3, 4, 5, 6, 7]
+// snap a raw value to the nearest level's value in the given map
+const snapToLevel = (val: number, map: Record<number, number>): number => {
+  let best = SIZE_LEVELS[0]
+  for (const lv of SIZE_LEVELS) {
+    if (Math.abs(val - map[lv]) < Math.abs(val - map[best])) best = lv
+  }
+  return map[best]
+}
+// reverse: which level is a stored value closest to (for the (w,h) badge)
+const levelOf = (val: number, map: Record<number, number>): number => {
+  let best = SIZE_LEVELS[0]
+  for (const lv of SIZE_LEVELS) {
+    if (Math.abs(val - map[lv]) < Math.abs(val - map[best])) best = lv
+  }
+  return best
+}
 const allWidgets: Record<string, WidgetDef> = {
   // Legacy (real data) widgets — keep for backward compat
   kpi_contacts: { label: 'Contacts', span: 6 },
@@ -1189,29 +1208,28 @@ export default function DashboardNew() {
                     const colW = (gridRect.width - (11 * gapVal)) / 12
                     let currentSpan = startSpan
                     let finalH = startH
-                    // Drag tooltip showing snapped height
+                    // Drag tooltip showing snapped size as (width level, height level)
                     const tip = document.createElement('div')
                     tip.style.cssText = 'position:absolute;bottom:28px;right:0;font-size:11px;font-weight:600;color:var(--color-primary);background:var(--color-surface-2);border:1px solid var(--color-border);padding:2px 8px;border-radius:6px;pointer-events:none;z-index:6'
-                    tip.textContent = `${startH}px`
+                    tip.textContent = `(${levelOf(startSpan, SPAN_BY_LEVEL)},${levelOf(startH, HEIGHT_BY_LEVEL)})`
                     gripEl.appendChild(tip)
                     const onMove = (ev: MouseEvent) => {
                       const dx = ev.clientX - startX, dy = ev.clientY - startY
-                      const newSpan = Math.max(1, Math.min(12, Math.round(startSpan + dx / (colW + gapVal))))
-                      if (newSpan !== currentSpan) {
-                        currentSpan = newSpan
+                      // width snaps to nearest size level (指定 size 1–7)
+                      const rawSpan = startSpan + dx / (colW + gapVal)
+                      const snappedSpan = snapToLevel(rawSpan, SPAN_BY_LEVEL)
+                      if (snappedSpan !== currentSpan) {
+                        currentSpan = snappedSpan
                         widgetEl.style.gridColumn = `span ${currentSpan}`
                       }
-                      // Height snaps to nearest fixed step (指定 size)
+                      // height snaps to nearest size level (指定 size 1–7)
                       const rawH = startH + dy
-                      let snappedH = HEIGHT_STEPS[0]
-                      for (const s of HEIGHT_STEPS) {
-                        if (Math.abs(rawH - s) < Math.abs(rawH - snappedH)) snappedH = s
-                      }
+                      const snappedH = snapToLevel(rawH, HEIGHT_BY_LEVEL)
                       if (snappedH !== finalH) {
                         finalH = snappedH
                         widgetEl.style.height = `${snappedH}px`
-                        tip.textContent = `${snappedH}px`
                       }
+                      tip.textContent = `(${levelOf(currentSpan, SPAN_BY_LEVEL)},${levelOf(finalH, HEIGHT_BY_LEVEL)})`
                     }
                     const onUp = () => {
                       document.removeEventListener('mousemove', onMove)
