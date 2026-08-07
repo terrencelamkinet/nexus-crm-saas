@@ -2101,6 +2101,7 @@ textarea.input-field{resize:vertical;min-height:60px}
 
 /* Icon-only square header action button (export / upload / create) */
 .glp-icon-btn{width:36px;height:36px;padding:0;justify-content:center;flex-shrink:0}
+.glp-icon-btn svg{flex-shrink:0}
 
 /* Sort panel */
 .glp-sort-body{display:flex;flex-direction:column;gap:8px}
