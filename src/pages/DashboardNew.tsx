@@ -303,6 +303,10 @@ export default function DashboardNew() {
   const [order, setOrder] = useState<WidgetKey[]>([...defaultOrder])
   const orderLoaded = useRef(false)
   const saveTimer = useRef<ReturnType<typeof setTimeout>>(undefined as any)
+  // When order is set from a server load (not a user action), skip the save
+  // effect — otherwise every page load re-PUTs the order, and a stale GET can
+  // silently revert the user's just-saved layout.
+  const skipSaveRef = useRef(false)
   // ── Compact detection — KPI stat cards become 2-per-row squares.
   // Triggered on any non-desktop surface: ≤1024px viewports OR touch devices
   // (phones/tablets in desktop-mode webviews can report >1024px).
@@ -400,6 +404,7 @@ export default function DashboardNew() {
         // dashboard widget order
         const dash = (list || []).find((m: any) => m.module_key === 'dashboard')
         if (dash?.settings?.widgetOrder?.length) {
+          skipSaveRef.current = true
           setOrder(dash.settings.widgetOrder)
         }
       } catch { /* use defaults */ }
@@ -411,9 +416,11 @@ export default function DashboardNew() {
     return () => window.removeEventListener('modules-changed', handler)
   }, [])
 
-  // Debounced save when order changes
+  // Debounced save when order changes (user actions only — server-loaded
+  // order sets skipSaveRef so it never triggers a write-back)
   useEffect(() => {
     if (!orderLoaded.current) return
+    if (skipSaveRef.current) { skipSaveRef.current = false; return }
     clearTimeout(saveTimer.current)
     saveTimer.current = setTimeout(async () => {
       try {
@@ -423,7 +430,7 @@ export default function DashboardNew() {
           settings: { widgetOrder: order },
         })
       } catch { /* silent */ }
-    }, 1500)
+    }, 600)
     return () => clearTimeout(saveTimer.current)
   }, [order])
 
