@@ -2414,7 +2414,7 @@ textarea.input-field{resize:vertical;min-height:60px}
 .cb-empty-prompt:hover{background:var(--color-surface-offset)}
 
 /* ── Panel shell ── */
-.cb-panel{position:fixed;z-index:50;display:flex;flex-direction:column;background:var(--color-surface)}
+.cb-panel{position:fixed;z-index:50;display:flex;flex-direction:column;background:var(--color-surface);overflow:hidden}
 .cb-panel--mobile{inset:0;top:8vh;top:8dvh;height:92vh;height:92dvh;border-radius:var(--radius-xl) var(--radius-xl) 0 0}
 .cb-panel--desktop{width:400px;max-width:calc(100vw - 48px);border-radius:var(--radius-xl);overflow:hidden;transform-origin:bottom right}
 .cb-backdrop{position:fixed;inset:0;z-index:49;background:var(--color-overlay,rgba(0,0,0,.4));animation:cb-fadeIn 200ms ease-out both}

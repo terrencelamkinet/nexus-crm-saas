@@ -754,6 +754,10 @@ export default function ChatboxPanel() {
           : 'none',
         height: !visible ? 0 : `calc(92dvh - ${kbHeight}px)`,
         boxShadow: visible && !isClosing ? '0 -8px 32px rgba(0,0,0,0.2)' : 'none',
+        // Closed (height 0) must also be invisible — otherwise the fixed
+        // panel (inset:0; top:8dvh) leaks its header above the fold even
+        // when collapsed, because overflow is visible and no opacity applied.
+        visibility: visible ? 'visible' : 'hidden',
       }
     : {
         height: visible ? '70dvh' : 0,
