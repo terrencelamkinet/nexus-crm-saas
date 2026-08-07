@@ -23,6 +23,8 @@
 | Bot 收唔到/唔回覆訊息,零 error | dedup watermark 污染 / test ping | [KB-001](./KB-001-telegram-inbound-silent-drop.md) |
 | Journal 顯示 `SELECT → ROLLBACK` 冇下文 | dedup early-return (watermark 高過 update_id) | [KB-001](./KB-001-telegram-inbound-silent-drop.md) |
 | AI 有回覆但用戶收唔到 | sendMessage timeout 無 retry | [KB-001](./KB-001-telegram-inbound-silent-drop.md) §5 |
+| AI chat send 鍵跌落輸入框下面 | `.send-btn-hitarea` padding/margin 衝突 | [KB-002](./KB-002-ai-chat-panel-send-key-scroll.md) |
+| 打字時背景 page scroll / panel 開住照 scroll | ChatboxPanel 冇 body scroll lock | [KB-002](./KB-002-ai-chat-panel-send-key-scroll.md) |
 
 ---
 
@@ -31,6 +33,7 @@
 | ID | 日期 | 標題 | Severity | 系統 |
 |----|------|------|----------|------|
 | [KB-001](./KB-001-telegram-inbound-silent-drop.md) | 2026-08-06 | Telegram inbound 靜默丟失訊息 (watermark 污染) | 🔴 Critical | backend |
+| [KB-002](./KB-002-ai-chat-panel-send-key-scroll.md) | 2026-08-07 | AI chat panel: send 鍵走位 + 打字時背景 scroll | 🟠 High | frontend |
 
 ---
 
