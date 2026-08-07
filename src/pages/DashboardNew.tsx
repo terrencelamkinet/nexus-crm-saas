@@ -301,6 +301,10 @@ export default function DashboardNew() {
   const gridRef = useRef<HTMLDivElement>(null)
   // Widget order — persists via API (cross-browser)
   const [order, setOrder] = useState<WidgetKey[]>([...defaultOrder])
+  // Per-widget resize overrides (user-resized only — key → span / height px).
+  // Loaded from server settings; resize-grip commits into these on mouseup.
+  const [spans, setSpans] = useState<Record<string, number>>({})
+  const [heights, setHeights] = useState<Record<string, number>>({})
   const orderLoaded = useRef(false)
   const saveTimer = useRef<ReturnType<typeof setTimeout>>(undefined as any)
   // When order is set from a server load (not a user action), skip the save
@@ -401,11 +405,14 @@ export default function DashboardNew() {
         const map: Record<string, boolean> = {}
         ;(list || []).forEach((m: any) => { map[m.module_key] = m.enabled })
         setModules(map)
-        // dashboard widget order
+        // dashboard widget order + resize overrides
         const dash = (list || []).find((m: any) => m.module_key === 'dashboard')
-        if (dash?.settings?.widgetOrder?.length) {
+        if (dash?.settings) {
+          // server-loaded state must never trigger a write-back
           skipSaveRef.current = true
-          setOrder(dash.settings.widgetOrder)
+          if (dash.settings.widgetOrder?.length) setOrder(dash.settings.widgetOrder)
+          if (dash.settings.widgetSpans) setSpans(dash.settings.widgetSpans)
+          if (dash.settings.widgetHeights) setHeights(dash.settings.widgetHeights)
         }
       } catch { /* use defaults */ }
       orderLoaded.current = true
@@ -416,8 +423,8 @@ export default function DashboardNew() {
     return () => window.removeEventListener('modules-changed', handler)
   }, [])
 
-  // Debounced save when order changes (user actions only — server-loaded
-  // order sets skipSaveRef so it never triggers a write-back)
+  // Debounced save when order / spans / heights change (user actions only —
+  // server-loaded state sets skipSaveRef so it never triggers a write-back)
   useEffect(() => {
     if (!orderLoaded.current) return
     if (skipSaveRef.current) { skipSaveRef.current = false; return }
@@ -427,12 +434,12 @@ export default function DashboardNew() {
         await apiClient.put('/api/v1/crm/module-settings/dashboard', {
           module_key: 'dashboard',
           enabled: true,
-          settings: { widgetOrder: order },
+          settings: { widgetOrder: order, widgetSpans: spans, widgetHeights: heights },
         })
       } catch { /* silent */ }
     }, 600)
     return () => clearTimeout(saveTimer.current)
-  }, [order])
+  }, [order, spans, heights])
 
   // ── Build Detail Functions ──
   const buildTaskDetail = (task: Task) => (
@@ -1108,11 +1115,11 @@ export default function DashboardNew() {
           // the CSS `aspect-ratio: auto` wins and cards render full-width, not
           // giant squares.
           const isKpi = k.startsWith('kpi_')
-          const effSpan = isKpi && isCompact ? 6 : def.span
+          const effSpan = spans[k] ?? (isKpi && isCompact ? 6 : def.span)
           const kpiSquare = isKpi && isCompact && !isPhone
           return (
             <div key={k} className={`widget${editing && dragKey.current === k ? ' dragging' : ''}`}
-              style={{gridColumn:`span ${effSpan}`,aspectRatio: kpiSquare ? '1 / 1' : undefined,background:'var(--color-surface-2)',border: editing ? '2px dashed var(--color-primary)' : '1px solid var(--color-border)',borderRadius:'var(--radius-lg)',padding:16,display:'flex',flexDirection:'column',position:'relative',minHeight:isKpi && isCompact ? 0 : 160,transition:'grid-column .12s ease, height .12s ease',cursor: editing ? 'grab' : undefined}}
+              style={{gridColumn:`span ${effSpan}`,height: heights[k] ?? undefined,aspectRatio: kpiSquare ? '1 / 1' : undefined,background:'var(--color-surface-2)',border: editing ? '2px dashed var(--color-primary)' : '1px solid var(--color-border)',borderRadius:'var(--radius-lg)',padding:16,display:'flex',flexDirection:'column',position:'relative',minHeight:isKpi && isCompact ? 0 : 160,transition:'grid-column .12s ease, height .12s ease',cursor: editing ? 'grab' : undefined}}
               data-key={k}
               draggable={editing}
               onDragStart={() => handleDragStart(k)}
@@ -1173,6 +1180,7 @@ export default function DashboardNew() {
                     const gapVal = 16
                     const colW = (gridRect.width - (11 * gapVal)) / 12
                     let currentSpan = startSpan
+                    let finalH = startH
                     const onMove = (ev: MouseEvent) => {
                       const dx = ev.clientX - startX, dy = ev.clientY - startY
                       const newSpan = Math.max(1, Math.min(12, Math.round(startSpan + dx / (colW + gapVal))))
@@ -1181,11 +1189,15 @@ export default function DashboardNew() {
                         widgetEl.style.gridColumn = `span ${currentSpan}`
                       }
                       const newH = Math.max(120, startH + dy)
+                      finalH = newH
                       widgetEl.style.height = `${newH}px`
                     }
                     const onUp = () => {
                       document.removeEventListener('mousemove', onMove)
                       document.removeEventListener('mouseup', onUp)
+                      // Commit resize into state so it persists (save effect writes it)
+                      setSpans(prev => ({ ...prev, [k]: currentSpan }))
+                      setHeights(prev => ({ ...prev, [k]: finalH }))
                     }
                     document.addEventListener('mousemove', onMove)
                     document.addEventListener('mouseup', onUp)
