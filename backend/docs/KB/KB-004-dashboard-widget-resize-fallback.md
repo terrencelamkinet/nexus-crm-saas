@@ -179,6 +179,31 @@ tip.textContent = `(${levelOf(currentSpan, SPAN_BY_LEVEL)},${levelOf(finalH, HEI
 
 實測:drag +200/+60 → span 10 (=level 6) + 400px (=level 6),badge 顯示 "(6,6)" ✅;reload 後 span 10 + 400px 留住 ✅
 
+**9. 後續 fix — (n,n) 真正正方:aspect-ratio 系統（v4.9）**
+
+用戶反映:(n,n) 唔係正方（「長左」）。根因:width 係 responsive grid span,height 係 fixed px — 任何固定 mapping 都冇可能令 (n,n) 喺唔同 viewport 都正方。
+
+**正解:height 改用 CSS aspect-ratio（width/height 檔位比）,height 由 width 自動計:**
+
+```tsx
+// state:spans/heights(px) → wLevels/hLevels(1–7)
+const [wLevels, setWLevels] = useState<Record<string, number>>({})
+const [hLevels, setHLevels] = useState<Record<string, number>>({})
+
+// render:aspect-ratio = w/h — (n,n) = "4 / 4" = 一定正方,任何 viewport
+const effSpan = wLv ? SPAN_BY_LEVEL[wLv] : (isKpi && isCompact ? 6 : def.span)
+const aspect = (wLv && hLv) ? `${wLv} / ${hLv}` : (kpiSquare ? '1 / 1' : undefined)
+style={{ gridColumn: `span ${effSpan}`, aspectRatio: aspect, ... }}
+
+// DB:widgetLevels = { key: [wLevel, hLevel] }
+settings: { widgetOrder: order, widgetLevels: levelPairs }
+// legacy migration:舊 widgetSpans/widgetHeights → levelOf() 自動轉換
+```
+
+效果:(n,n) 任何 screen 寬度都係正方形（CSS 保證）;(1,2) = 直長方形 1:2;(2,1) = 橫長方形 2:1。
+
+實測:(4,4) → aspect "4 / 4",631×631,ratio 1.000 ✅;(3,7) → 469×1095,ratio 0.428 = 3/7 ✅;reload 後 (4,4) 留住 ✅
+
 ---
 
 ## 6. 成功 log (Success Log) — 修復後

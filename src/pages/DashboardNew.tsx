@@ -96,7 +96,9 @@ type WidgetKey = string
 interface WidgetDef { label: string; span: number }
 // ── Unified size levels 1–7 for both axes — badge shows "(w,h)" e.g. (1,1) (1,2) ──
 // Width level → grid column span; Height level → px. Same 1–7 scale on both axes.
-const SPAN_BY_LEVEL: Record<number, number> = { 1: 2, 2: 3, 3: 4, 4: 6, 5: 8, 6: 10, 7: 12 }
+// Width spans bumped up (2026-08-07): (n,n) was taller than wide — low levels
+// now render closer to square on typical dashboard widths.
+const SPAN_BY_LEVEL: Record<number, number> = { 1: 3, 2: 4, 3: 6, 4: 8, 5: 10, 6: 12, 7: 12 }
 const HEIGHT_BY_LEVEL: Record<number, number> = { 1: 160, 2: 200, 3: 240, 4: 280, 5: 320, 6: 400, 7: 480 }
 const SIZE_LEVELS = [1, 2, 3, 4, 5, 6, 7]
 // snap a raw value to the nearest level's value in the given map
@@ -322,10 +324,11 @@ export default function DashboardNew() {
   const gridRef = useRef<HTMLDivElement>(null)
   // Widget order — persists via API (cross-browser)
   const [order, setOrder] = useState<WidgetKey[]>([...defaultOrder])
-  // Per-widget resize overrides (user-resized only — key → span / height px).
-  // Loaded from server settings; resize-grip commits into these on mouseup.
-  const [spans, setSpans] = useState<Record<string, number>>({})
-  const [heights, setHeights] = useState<Record<string, number>>({})
+  // Per-widget size levels 1–7 (user-resized only). Width level → span,
+  // height level → aspect ratio (w/h), so (n,n) is ALWAYS square at any
+  // viewport width — height derives from width, not fixed px.
+  const [wLevels, setWLevels] = useState<Record<string, number>>({})
+  const [hLevels, setHLevels] = useState<Record<string, number>>({})
   // Grid stays hidden until server layout (order/spans/heights) is loaded —
   // avoids flash of default-size widgets before user's saved sizes arrive.
   const [layoutReady, setLayoutReady] = useState(false)
@@ -429,14 +432,27 @@ export default function DashboardNew() {
         const map: Record<string, boolean> = {}
         ;(list || []).forEach((m: any) => { map[m.module_key] = m.enabled })
         setModules(map)
-        // dashboard widget order + resize overrides
+        // dashboard widget order + resize levels (w,h) with legacy span/px migration
         const dash = (list || []).find((m: any) => m.module_key === 'dashboard')
         if (dash?.settings) {
           // server-loaded state must never trigger a write-back
           skipSaveRef.current = true
           if (dash.settings.widgetOrder?.length) setOrder(dash.settings.widgetOrder)
-          if (dash.settings.widgetSpans) setSpans(dash.settings.widgetSpans)
-          if (dash.settings.widgetHeights) setHeights(dash.settings.widgetHeights)
+          const wl: Record<string, number> = {}
+          const hl: Record<string, number> = {}
+          const lv = dash.settings.widgetLevels
+          if (lv) {
+            Object.entries(lv).forEach(([k, v]) => {
+              if (Array.isArray(v) && v.length >= 2) { wl[k] = v[0]; hl[k] = v[1] }
+            })
+          }
+          // legacy v4.5–v4.8: widgetSpans/widgetHeights (px) → nearest level
+          const lw = dash.settings.widgetSpans
+          const lh = dash.settings.widgetHeights
+          if (lw) Object.entries(lw).forEach(([k, span]) => { if (!(k in wl)) wl[k] = levelOf(span as number, SPAN_BY_LEVEL) })
+          if (lh) Object.entries(lh).forEach(([k, px]) => { if (!(k in hl)) hl[k] = levelOf(px as number, HEIGHT_BY_LEVEL) })
+          if (Object.keys(wl).length) setWLevels(wl)
+          if (Object.keys(hl).length) setHLevels(hl)
         }
       } catch { /* use defaults */ }
       orderLoaded.current = true
@@ -448,7 +464,7 @@ export default function DashboardNew() {
     return () => window.removeEventListener('modules-changed', handler)
   }, [])
 
-  // Debounced save when order / spans / heights change (user actions only —
+  // Debounced save when order / levels change (user actions only —
   // server-loaded state sets skipSaveRef so it never triggers a write-back)
   useEffect(() => {
     if (!orderLoaded.current) return
@@ -456,15 +472,18 @@ export default function DashboardNew() {
     clearTimeout(saveTimer.current)
     saveTimer.current = setTimeout(async () => {
       try {
+        // persist as widgetLevels: { key: [wLevel, hLevel] }
+        const levelPairs: Record<string, [number, number]> = {}
+        Object.keys(wLevels).forEach(k => { levelPairs[k] = [wLevels[k], hLevels[k] ?? 1] })
         await apiClient.put('/api/v1/crm/module-settings/dashboard', {
           module_key: 'dashboard',
           enabled: true,
-          settings: { widgetOrder: order, widgetSpans: spans, widgetHeights: heights },
+          settings: { widgetOrder: order, widgetLevels: levelPairs },
         })
       } catch { /* silent */ }
     }, 600)
     return () => clearTimeout(saveTimer.current)
-  }, [order, spans, heights])
+  }, [order, wLevels, hLevels])
 
   // ── Build Detail Functions ──
   const buildTaskDetail = (task: Task) => (
@@ -1141,11 +1160,15 @@ export default function DashboardNew() {
           // the CSS `aspect-ratio: auto` wins and cards render full-width, not
           // giant squares.
           const isKpi = k.startsWith('kpi_')
-          const effSpan = spans[k] ?? (isKpi && isCompact ? 6 : def.span)
-          const kpiSquare = isKpi && isCompact && !isPhone
+          const wLv = wLevels[k]
+          const hLv = hLevels[k]
+          // user-resized: span from width level; height from aspect ratio w/h (n,n) = square
+          const effSpan = wLv ? SPAN_BY_LEVEL[wLv] : (isKpi && isCompact ? 6 : def.span)
+          const kpiSquare = isKpi && isCompact && !isPhone && !wLv
+          const aspect = (wLv && hLv) ? `${wLv} / ${hLv}` : (kpiSquare ? '1 / 1' : undefined)
           return (
             <div key={k} className={`widget${editing && dragKey.current === k ? ' dragging' : ''}`}
-              style={{gridColumn:`span ${effSpan}`,height: heights[k] ?? undefined,aspectRatio: kpiSquare ? '1 / 1' : undefined,background:'var(--color-surface-2)',border: editing ? '2px dashed var(--color-primary)' : '1px solid var(--color-border)',borderRadius:'var(--radius-lg)',padding:16,display:'flex',flexDirection:'column',position:'relative',minHeight:isKpi && isCompact ? 0 : 160,transition:'grid-column .12s ease, height .12s ease',cursor: editing ? 'grab' : undefined}}
+              style={{gridColumn:`span ${effSpan}`,aspectRatio: aspect,background:'var(--color-surface-2)',border: editing ? '2px dashed var(--color-primary)' : '1px solid var(--color-border)',borderRadius:'var(--radius-lg)',padding:16,display:'flex',flexDirection:'column',position:'relative',minHeight:isKpi && isCompact ? 0 : 160,transition:'grid-column .12s ease, aspect-ratio .12s ease',cursor: editing ? 'grab' : undefined}}
               data-key={k}
               draggable={editing}
               onDragStart={() => handleDragStart(k)}
@@ -1201,43 +1224,46 @@ export default function DashboardNew() {
                     const gripEl = e.currentTarget as HTMLElement
                     const widgetEl = gripEl.closest('[data-key]') as HTMLElement
                     if (!grid || !widgetEl) return
-                    const startSpan = parseInt(widgetEl.style.gridColumn.match(/span (\d+)/)?.[1] || String(def.span))
-                    const startH = widgetEl.offsetHeight
+                    const startSpanNum = parseInt(widgetEl.style.gridColumn.match(/span (\d+)/)?.[1] || String(def.span))
                     const gridRect = grid.getBoundingClientRect()
                     const gapVal = 16
                     const colW = (gridRect.width - (11 * gapVal)) / 12
-                    let currentSpan = startSpan
-                    let finalH = startH
-                    // Drag tooltip showing snapped size as (width level, height level)
+                    // current size levels (resized value, or map default → level)
+                    let curWLv = wLevels[k] ?? levelOf(startSpanNum, SPAN_BY_LEVEL)
+                    let curHLv = hLevels[k] ?? 1
+                    // Drag tooltip showing (width level, height level)
                     const tip = document.createElement('div')
                     tip.style.cssText = 'position:absolute;bottom:28px;right:0;font-size:11px;font-weight:600;color:var(--color-primary);background:var(--color-surface-2);border:1px solid var(--color-border);padding:2px 8px;border-radius:6px;pointer-events:none;z-index:6'
-                    tip.textContent = `(${levelOf(startSpan, SPAN_BY_LEVEL)},${levelOf(startH, HEIGHT_BY_LEVEL)})`
+                    tip.textContent = `(${curWLv},${curHLv})`
                     gripEl.appendChild(tip)
                     const onMove = (ev: MouseEvent) => {
                       const dx = ev.clientX - startX, dy = ev.clientY - startY
                       // width snaps to nearest size level (指定 size 1–7)
-                      const rawSpan = startSpan + dx / (colW + gapVal)
+                      const rawSpan = startSpanNum + dx / (colW + gapVal)
                       const snappedSpan = snapToLevel(rawSpan, SPAN_BY_LEVEL)
-                      if (snappedSpan !== currentSpan) {
-                        currentSpan = snappedSpan
-                        widgetEl.style.gridColumn = `span ${currentSpan}`
+                      const newWLv = levelOf(snappedSpan, SPAN_BY_LEVEL)
+                      if (newWLv !== curWLv) {
+                        curWLv = newWLv
+                        widgetEl.style.gridColumn = `span ${snappedSpan}`
+                        widgetEl.style.aspectRatio = `${curWLv} / ${curHLv}`
                       }
-                      // height snaps to nearest size level (指定 size 1–7)
-                      const rawH = startH + dy
-                      const snappedH = snapToLevel(rawH, HEIGHT_BY_LEVEL)
-                      if (snappedH !== finalH) {
-                        finalH = snappedH
-                        widgetEl.style.height = `${snappedH}px`
+                      // height snaps to nearest level — aspect ratio (w/h) keeps
+                      // (n,n) square at ANY viewport width
+                      const rawH = widgetEl.offsetHeight + dy
+                      const newHLv = levelOf(rawH, HEIGHT_BY_LEVEL)
+                      if (newHLv !== curHLv) {
+                        curHLv = newHLv
+                        widgetEl.style.aspectRatio = `${curWLv} / ${curHLv}`
                       }
-                      tip.textContent = `(${levelOf(currentSpan, SPAN_BY_LEVEL)},${levelOf(finalH, HEIGHT_BY_LEVEL)})`
+                      tip.textContent = `(${curWLv},${curHLv})`
                     }
                     const onUp = () => {
                       document.removeEventListener('mousemove', onMove)
                       document.removeEventListener('mouseup', onUp)
                       tip.remove()
-                      // Commit resize into state so it persists (save effect writes it)
-                      setSpans(prev => ({ ...prev, [k]: currentSpan }))
-                      setHeights(prev => ({ ...prev, [k]: finalH }))
+                      // Commit levels into state so it persists (save effect writes it)
+                      setWLevels(prev => ({ ...prev, [k]: curWLv }))
+                      setHLevels(prev => ({ ...prev, [k]: curHLv }))
                     }
                     document.addEventListener('mousemove', onMove)
                     document.addEventListener('mouseup', onUp)
