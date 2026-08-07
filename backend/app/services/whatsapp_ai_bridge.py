@@ -98,6 +98,96 @@ def _make_internal_token(user_id: uuid.UUID, tenant_id: uuid.UUID) -> str:
     return jwt.encode(payload, _load_private_key(), algorithm=settings.jwt_algorithm)
 
 
+# ── Pending write-action confirm flow (IM-in confirm) ───────────────────────
+# When the AI returns an embedded write-tool action (Draft → Confirm → Execute),
+# we surface the preview here in WhatsApp and let the user confirm/reject in-band.
+# The confirm/reject endpoints live under /api/v1/ai (same internal token works).
+
+_CONFIRM_WORDS = re.compile(r"^(確認|確定|執行|好|好的|ok|yes|y|sure|同意|approved?|accept\b)[!。. ]*$", re.IGNORECASE)
+_CANCEL_WORDS = re.compile(r"^(取消|拒絕|唔要|不要|唔好|no|n|cancel|reject|decline|stop|abort)[!。. ]*$", re.IGNORECASE)
+
+_ACTION_LABELS = {
+    "create_task": "新增任務",
+    "create_touchpoint": "新增 Touchpoint",
+    "update_contact": "更新聯絡人",
+    "update_company": "更新公司",
+    "update_project": "更新項目",
+    "update_task": "更新任務",
+    "update_namecard": "更新名片",
+}
+
+
+def _format_action_preview(action: dict[str, Any]) -> str:
+    """Render an /chat action envelope into a human-readable WhatsApp preview."""
+    preview = action.get("preview") or {}
+    if isinstance(preview, dict) and preview.get("errors"):
+        return f"⚠️ 無法草擬變更：{'; '.join(str(e) for e in preview['errors'])}"
+    tool_key = action.get("tool_key") or ""
+    label = _ACTION_LABELS.get(preview.get("action") or "", tool_key)
+    lines = [f"✍️ AI 建議{label}（尚待確認）："]
+    if isinstance(preview, dict):
+        for field, value in preview.items():
+            if field in ("action", "validated", "errors", "id", "created_at"):
+                continue
+            if value is None or value == "" or value == [] or value == {}:
+                continue
+            lines.append(f"• {field}: {value}")
+    lines.append("")
+    lines.append("回覆「確認」執行，或「取消」拒絕。")
+    return "\n".join(lines)
+
+
+async def _handle_pending_action_reply(
+    mapping: Any, text: str, token: str
+) -> str | None:
+    """If the user's reply is a confirm/cancel word and a pending action exists,
+    call the confirm/reject endpoint. Returns the reply text, or None if the
+    message is not an action-confirm reply.
+    """
+    action_id = (mapping.config or {}).get("pending_action_id")
+    if not action_id:
+        return None
+    if _CONFIRM_WORDS.match(text.strip()):
+        async with httpx.AsyncClient(timeout=30) as client:
+            resp = await client.post(
+                AI_INTERNAL_URL + f"/actions/{action_id}/confirm",
+                json={},
+                headers={"Authorization": f"Bearer {token}"},
+            )
+        if resp.status_code != 200:
+            detail = resp.json().get("detail") if resp.content else "Unknown error"
+            return f"⚠️ 執行失敗：{detail}"
+        # Clear the pending action
+        async with async_session() as db:
+            m = (await db.execute(
+                select(WhatsAppMapping).where(WhatsAppMapping.id == mapping.id)
+            )).scalar_one_or_none()
+            if m:
+                mc = dict(cast(dict[str, Any], m.config or {}))
+                mc.pop("pending_action_id", None)
+                m.config = mc
+                await db.commit()
+        return "✅ 已完成並寫入 CRM。"
+    if _CANCEL_WORDS.match(text.strip()):
+        async with httpx.AsyncClient(timeout=30) as client:
+            resp = await client.post(
+                AI_INTERNAL_URL + f"/actions/{action_id}/reject",
+                json={},
+                headers={"Authorization": f"Bearer {token}"},
+            )
+        async with async_session() as db:
+            m = (await db.execute(
+                select(WhatsAppMapping).where(WhatsAppMapping.id == mapping.id)
+            )).scalar_one_or_none()
+            if m:
+                mc = dict(cast(dict[str, Any], m.config or {}))
+                mc.pop("pending_action_id", None)
+                m.config = mc
+                await db.commit()
+        return "已取消，不會寫入 CRM。"
+    return None
+
+
 async def _try_send_contact_card(
     wa_id: str,
     text: str,
@@ -224,8 +314,14 @@ async def handle_whatsapp_message(wa_id: str, text: str) -> str | None:
     if card_reply is not None:
         return card_reply
 
-    # 2b. Call internal AI chat endpoint
+    # 2a-i. Pending write-action confirm? If the user replies 確認/取消 while
+    # a draft action awaits confirmation, execute it in-band (Draft→Confirm→Execute).
     token = _make_internal_token(mapping.user_id, mapping.tenant_id)
+    action_reply = await _handle_pending_action_reply(mapping, text, token)
+    if action_reply is not None:
+        return action_reply
+
+    # 2b. Call internal AI chat endpoint
     # Hidden instructions go in a REAL system message — the AI router now
     # merges client system messages into the system prompt, so the user
     # never sees the rules and the CRM search only sees the actual question.
@@ -288,6 +384,27 @@ async def handle_whatsapp_message(wa_id: str, text: str) -> str | None:
                 m_cfg["ai_session_id"] = new_session_id
                 m_cfg["ai_session_date"] = today_hkt
                 m.config = m_cfg
+                await db.commit()
+
+    # 2b-iii. Embedded write-action (Draft → Confirm → Execute): surface the
+    # preview in-band and remember the pending action_id so the user's next
+    # 確認/取消 reply executes or rejects it. Stored on the mapping config
+    # (always persisted, even if no new session id was returned).
+    action = data.get("action")
+    if action and action.get("action_id"):
+        action_id = str(action["action_id"])
+        preview_text = _format_action_preview(action)
+        # Ensure the preview is visible even if the AI already mentioned it.
+        if preview_text not in reply:
+            reply = f"{reply}\n\n{preview_text}"
+        async with async_session() as db:
+            m = (await db.execute(
+                select(WhatsAppMapping).where(WhatsAppMapping.id == mapping.id)
+            )).scalar_one_or_none()
+            if m:
+                mc: dict[str, Any] = dict(cast(dict[str, Any], m.config or {}))
+                mc["pending_action_id"] = action_id
+                m.config = mc
                 await db.commit()
 
     # 2c. If CRM data was shown, guarantee the app link is present
