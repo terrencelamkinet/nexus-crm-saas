@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { CalendarDays } from 'lucide-react';
-import { formatDateKey, DAY_NAMES } from './calendar-utils';
+import { formatDateKey, DAY_NAMES, isSameDay } from './calendar-utils';
 import type { CalendarEventFormatted } from './types';
 import { TYPE_COLORS } from './types';
 
@@ -131,10 +131,11 @@ export default function GanttView({ events, onEventClick }: GanttViewProps) {
             <div className="gantt-day-headers" style={{ minWidth: totalWidth }}>
               {dayHeaders.map((d) => {
                 const isWeekend = d.getDay() === 0 || d.getDay() === 6;
+                const isToday = isSameDay(d, new Date());
                 return (
                   <div
                     key={formatDateKey(d)}
-                    className={`gantt-day-cell${isWeekend ? ' weekend' : ''}`}
+                    className={`gantt-day-cell${isWeekend ? ' weekend' : ''}${isToday ? ' today' : ''}`}
                     style={{ width: DAY_WIDTH }}
                   >
                     <div className="dw">{DAY_NAMES[d.getDay()].charAt(0)}</div>
@@ -167,6 +168,19 @@ export default function GanttView({ events, onEventClick }: GanttViewProps) {
                       style={{ width: DAY_WIDTH }}
                     />
                   ))}
+
+                  {/* Real-time "now" vertical line on today's column */}
+                  {(() => {
+                    const todayIdx = dayHeaders.findIndex((d) => isSameDay(d, new Date()));
+                    if (todayIdx === -1) return null;
+                    return (
+                      <div
+                        className="gantt-today-line"
+                        style={{ left: todayIdx * DAY_WIDTH + DAY_WIDTH / 2 }}
+                        title="Now"
+                      />
+                    );
+                  })()}
 
                   {/* Project bar — from min start to max end */}
                   <div

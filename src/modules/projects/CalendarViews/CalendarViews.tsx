@@ -77,6 +77,9 @@ export default function CalendarViews({ events, loading, onRefresh }: CalendarVi
   const [viewMenuOpen, setViewMenuOpen] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState<CalendarEventFormatted | null>(null);
   const [morePopup, setMorePopup] = useState<{ events: CalendarEventFormatted[]; date: Date } | null>(null);
+  // Bumped on "Today"/"Now" so time-based views (day/week) re-scroll to the
+  // real-time "now" line even when the date is already today. Real-time focus.
+  const [focusSignal, setFocusSignal] = useState<number>(0);
   const viewMenuRef = useRef<HTMLDivElement>(null);
 
   // Close view menu on outside click
@@ -100,7 +103,11 @@ export default function CalendarViews({ events, loading, onRefresh }: CalendarVi
   const handleDateChange = useCallback((d: Date) => setDate(d), []);
   const handlePrev = useCallback(() => setDate((prev) => navigateDate(prev, viewType, -1)), [viewType]);
   const handleNext = useCallback(() => setDate((prev) => navigateDate(prev, viewType, 1)), [viewType]);
-  const handleToday = useCallback(() => setDate(new Date()), []);
+  const handleToday = useCallback(() => {
+    setDate(new Date());
+    // Real-time focus: re-scroll day/week to the current-time line.
+    setFocusSignal((n) => n + 1);
+  }, []);
   const handleViewChange = useCallback((newView: CalendarViewType) => {
     setViewType(newView);
     setViewMenuOpen(false);
@@ -129,8 +136,8 @@ export default function CalendarViews({ events, loading, onRefresh }: CalendarVi
           </div>
         );
         return <MonthView events={events} date={date} onDateChange={handleDateChange} onEventClick={handleEventClick} onMoreClick={handleMoreClick} />;
-      case 'week': return <WeekView events={events} date={date} onDateChange={handleDateChange} viewType={viewType} onViewChange={handleViewChange} showWeekends={showWeekends} onEventClick={handleEventClick} />;
-      case 'day': return <DayView events={events} date={date} onDateChange={handleDateChange} onEventClick={handleEventClick} />;
+      case 'week': return <WeekView events={events} date={date} onDateChange={handleDateChange} viewType={viewType} onViewChange={handleViewChange} showWeekends={showWeekends} onEventClick={handleEventClick} focusSignal={focusSignal} />;
+      case 'day': return <DayView events={events} date={date} onDateChange={handleDateChange} onEventClick={handleEventClick} focusSignal={focusSignal} />;
       case 'deadline': return <DeadlineView events={events} date={date} onDateChange={handleDateChange} onEventClick={handleEventClick} />;
       case 'gantt': return <GanttView events={events} date={date} onDateChange={handleDateChange} onEventClick={handleEventClick} />;
       default:

@@ -13,6 +13,8 @@ interface DayViewProps {
   date: Date;
   onDateChange: (d: Date) => void;
   onEventClick?: (ev: CalendarEventFormatted) => void;
+  /** Optional counter — when it changes, re-scroll to the current-time line (real-time focus). */
+  focusSignal?: number;
 }
 
 const HOUR_HEIGHT = 74; // px per hour row — matches design03
@@ -60,25 +62,28 @@ function getEventStatus(ev: CalendarEventFormatted): string {
   return t || 'Event';
 }
 
-export default function DayView({ events, date, onDateChange, onEventClick }: DayViewProps) {
+export default function DayView({ events, date, onDateChange, onEventClick, focusSignal }: DayViewProps) {
   const [now, setNow] = useState<Date>(new Date());
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const hourSlots = useMemo(() => getHourSlots(), []);
   const todayRef = useMemo(() => new Date(), []);
 
-  // Update current time every minute
-  useEffect(() => {
-    const id = setInterval(() => setNow(new Date()), 60_000);
-    return () => clearInterval(id);
-  }, []);
-
-  // Scroll to current hour on mount
-  useEffect(() => {
+  // Scroll to the current time line on mount and whenever "Today/Now" is pressed.
+  const scrollToNow = useCallback(() => {
     if (scrollRef.current) {
       const currentHour = new Date().getHours();
       scrollRef.current.scrollTop = Math.max(0, currentHour * HOUR_HEIGHT - 120);
     }
+  }, []);
+
+  useEffect(() => { scrollToNow(); }, [scrollToNow]);
+  useEffect(() => { if (focusSignal) scrollToNow(); }, [focusSignal, scrollToNow]);
+
+  // Update current time every minute
+  useEffect(() => {
+    const id = setInterval(() => setNow(new Date()), 60_000);
+    return () => clearInterval(id);
   }, []);
 
   const handlePrev = useCallback(() => {

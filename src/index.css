@@ -1245,12 +1245,16 @@ textarea.input-field{resize:vertical;min-height:60px}
 .gantt-day-headers{display:flex}
 .gantt-day-cell{flex-shrink:0;text-align:center;border-right:1px solid var(--color-divider);padding:6px 0;border-bottom:1px solid var(--color-divider);width:32px}
 .gantt-day-cell.weekend{background:var(--color-bg)}
+.gantt-day-cell.today{background:color-mix(in oklch, var(--color-notification) 12%, transparent)}
+.gantt-day-cell.today .dw,.gantt-day-cell.today .dd{color:var(--color-notification)}
 .gantt-day-cell .dw{font-size:8px;font-weight:600;color:var(--color-text-faint);text-transform:uppercase;line-height:1.1}
 .gantt-day-cell .dd{font-size:9px;font-weight:600;color:var(--color-text-muted);line-height:1.2;margin-top:1px}
 .gantt-row{display:flex;border-bottom:1px solid var(--color-divider);transition:background var(--transition-interactive)}
 .gantt-row:hover{background:color-mix(in oklch, var(--color-primary) 3%, transparent)}
 .gantt-row-label{flex-shrink:0;width:160px;border-right:1px solid var(--color-divider);padding:10px 14px;display:flex;align-items:center;font-size:12px;font-weight:500;color:var(--color-text)}
 .gantt-timeline{position:relative;display:flex;height:48px;flex:1}
+.gantt-timeline .gantt-today-line{position:absolute;top:0;bottom:0;width:0;z-index:5;border-left:1.5px solid var(--color-notification)}
+.gantt-timeline .gantt-today-line::before{content:'';position:absolute;top:0;left:-3px;width:6px;height:6px;border-radius:50%;background:var(--color-notification)}
 .gantt-grid-line{flex-shrink:0;border-right:1px solid var(--color-divider);width:32px}
 .gantt-project-bar{position:absolute;top:50%;transform:translateY(-50%);border-radius:var(--radius-sm);height:18px;z-index:10;cursor:pointer;transition:opacity var(--transition-interactive);background:color-mix(in oklch, var(--color-primary) 15%, transparent)}
 .gantt-project-bar:hover{opacity:.8}

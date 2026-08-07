@@ -18,6 +18,8 @@ interface WeekViewProps {
   onViewChange?: (v: CalendarViewType) => void;
   showWeekends?: boolean;
   onEventClick?: (ev: CalendarEventFormatted) => void;
+  /** Optional counter — when it changes, re-scroll to the current-time line (real-time focus). */
+  focusSignal?: number;
 }
 
 const HOUR_HEIGHT = 74;
@@ -69,7 +71,7 @@ function getEventStatus(ev: CalendarEventFormatted): string {
 const SHORT_DAY_NAMES = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
 const FULL_DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
-export default function WeekView({ events, date, onDateChange, viewType, onViewChange, showWeekends, onEventClick }: WeekViewProps) {
+export default function WeekView({ events, date, onDateChange, viewType, onViewChange, showWeekends, onEventClick, focusSignal }: WeekViewProps) {
   const [now, setNow] = useState<Date>(new Date());
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -79,18 +81,21 @@ export default function WeekView({ events, date, onDateChange, viewType, onViewC
   const gridCols = `52px repeat(${numDays},1fr)`;
   const hourSlots = useMemo(() => getHourSlots(), []);
 
-  // Update current time every minute
-  useEffect(() => {
-    const id = setInterval(() => setNow(new Date()), 60_000);
-    return () => clearInterval(id);
-  }, []);
-
-  // Scroll to current hour on mount
-  useEffect(() => {
+  // Scroll to the current time line on mount and whenever "Today/Now" is pressed.
+  const scrollToNow = useCallback(() => {
     if (scrollRef.current) {
       const currentHour = new Date().getHours();
       scrollRef.current.scrollTop = Math.max(0, currentHour * HOUR_HEIGHT - 160);
     }
+  }, []);
+
+  useEffect(() => { scrollToNow(); }, [scrollToNow]);
+  useEffect(() => { if (focusSignal) scrollToNow(); }, [focusSignal, scrollToNow]);
+
+  // Update current time every minute
+  useEffect(() => {
+    const id = setInterval(() => setNow(new Date()), 60_000);
+    return () => clearInterval(id);
   }, []);
 
   const handlePrev = useCallback(() => {
