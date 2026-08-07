@@ -381,7 +381,7 @@ table{border-collapse:collapse;width:100%}
 .bulk-bar .btn-notification{height:30px;font-size:12px;padding:0 12px}
 
 /* ── Checkbox in table rows ── */
-.row-checkbox{width:16px;height:16px;accent-color:var(--color-primary);cursor:pointer}
+.row-checkbox{width:16px;height:16px;accent-color:var(--color-primary);cursor:pointer;display:inline-block;vertical-align:middle}
 .th-checkbox{width:32px;text-align:center}
 .th-complete{width:36px;min-width:36px;text-align:center}
 .td-complete{width:36px;min-width:36px;text-align:center;padding:0!important;vertical-align:middle}
