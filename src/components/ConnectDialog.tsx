@@ -22,7 +22,7 @@ export default function ConnectDialog({ integration, onClose, onConnected }: Pro
   const [waPending, setWaPending] = useState(false);
   const [icsMode, setIcsMode] = useState(false);  // google-calendar: ICS URL fallback
   const isWhatsApp = integration.id === 'whatsapp';
-  const supportsIcs = integration.id === 'google-calendar';
+  const supportsIcs = integration.id === 'google-calendar' || integration.id === 'outlook-calendar';
 
   // Generate a fake webhook URL for webhook-based integrations
   const webhookUrl = `${window.location.origin}/api/v1/webhooks/${integration.id}/${Date.now().toString(36)}`;

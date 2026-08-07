@@ -269,7 +269,7 @@ async def sync_integration_now(
     row = (await db.execute(q)).scalar_one_or_none()
     if not row:
         raise HTTPException(404, "Integration not found")
-    if row.provider not in ("google_calendar", "ics", "ical"):
+    if row.provider not in ("google_calendar", "outlook_calendar", "ics", "ical"):
         raise HTTPException(400, "provider does not support calendar sync")
 
     try:

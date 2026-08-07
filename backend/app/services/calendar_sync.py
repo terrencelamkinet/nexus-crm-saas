@@ -191,6 +191,107 @@ def _parse_google_event(ev: dict[str, Any], calendar_id: str = "primary") -> dic
 
 
 # ─────────────────────────────────────────────────────────────────────
+# Outlook / Microsoft 365 calendar sync (platform-owned OAuth)
+# ─────────────────────────────────────────────────────────────────────
+
+
+async def _outlook_events(
+    access_token: str, calendar_id: str = "calendar"
+) -> list[dict[str, Any]]:
+    """Fetch Outlook / Microsoft 365 calendar events via Microsoft Graph (paginated).
+
+    calendar_id defaults to the user's primary "calendar" (/me/calendar); a
+    specific calendar GUID can be stored in the integration config for later
+    calendar picker support (mirrors the Google calendar picker).
+    """
+    time_min = (_now() - timedelta(days=SYNC_PAST_DAYS)).isoformat()
+    time_max = (_now() + timedelta(days=SYNC_FUTURE_DAYS)).isoformat()
+
+    from urllib.parse import quote
+    cal_path = quote(calendar_id, safe="")
+    items: list[dict[str, Any]] = []
+    url: str | None = f"https://graph.microsoft.com/v1.0/me/calendars/{cal_path}/events"
+    async with httpx.AsyncClient(timeout=_HTTP_TIMEOUT) as client:
+        while url:
+            params = {
+                "$filter": (
+                    f"start/dateTime ge '{time_min}' and start/dateTime lt '{time_max}'"
+                ),
+                "$top": 500,
+                "$orderby": "start/dateTime",
+                "$select": (
+                    "id,iCalUId,subject,bodyPreview,start,end,"
+                    "location,isAllDay,lastModifiedDateTime"
+                ),
+            }
+            r = await client.get(
+                url, params=params, headers={"Authorization": f"Bearer {access_token}"}
+            )
+            if r.status_code == 401:
+                raise PermissionError("outlook token rejected")
+            if r.status_code == 403:
+                raise PermissionError("outlook api access denied")
+            r.raise_for_status()
+            data = r.json()
+            items.extend(data.get("value", []))
+            url = data.get("@odata.nextLink")
+            if len(items) > 2000:
+                break  # safety cap
+    return items
+
+
+def _parse_outlook_event(ev: dict[str, Any], calendar_id: str = "calendar") -> dict[str, Any]:
+    """Map a Microsoft Graph event dict → CRM ProjectCalendarEvent fields.
+
+    external_event_id is prefixed with the calendar id — Graph event IDs are
+    only unique within their own calendar, so mirroring multiple calendars
+    must not let two calendars overwrite each other's events (same rule as
+    Google). Graph's iCalUId is used as the stable external id where present.
+    """
+    start = ev.get("start", {}) or {}
+    end = ev.get("end", {}) or {}
+
+    def _iso(dt_str: str | None):
+        """Parse a Microsoft Graph datetime (RFC3339 "2026-08-07T20:00:00Z" or
+        all-day date "2026-08-07") to a tz-aware datetime."""
+        if not dt_str:
+            return None
+        s = dt_str.strip()
+        if len(s) == 10 and s[4] == "-":  # pure date (all-day)
+            return datetime.fromisoformat(s).replace(tzinfo=_UTC)
+        try:
+            return datetime.fromisoformat(s.replace("Z", "+00:00"))
+        except ValueError:
+            return None
+
+    # all-day events carry only a date ("YYYY-MM-DD"), not a dateTime
+    is_all_day = bool(ev.get("isAllDay"))
+    if is_all_day or (start.get("date") and not start.get("dateTime")):
+        start_dt = _iso(start.get("date")) or _now()
+        end_dt = _iso(end.get("date")) or start_dt
+        is_all_day = True
+    else:
+        start_dt = _iso(start.get("dateTime")) or _now()
+        end_dt = _iso(end.get("dateTime")) or start_dt
+
+    updated_dt = _iso(ev.get("lastModifiedDateTime")) if ev.get("lastModifiedDateTime") else None
+
+    external_id = ev.get("iCalUId") or ev.get("id") or ""
+    return {
+        "title": ev.get("subject") or "(untitled)",
+        "description": ev.get("bodyPreview"),
+        "event_type": "meeting",
+        "start": start_dt,
+        "end": end_dt,
+        "is_all_day": is_all_day,
+        "location": (ev.get("location") or {}).get("displayName"),
+        "color": "#0078D4",  # Outlook blue
+        "external_event_id": f"{calendar_id}:{external_id}",
+        "external_updated": updated_dt,
+    }
+
+
+# ─────────────────────────────────────────────────────────────────────
 # ICS sync (URL subscription — no OAuth required)
 # ─────────────────────────────────────────────────────────────────────
 
@@ -433,6 +534,31 @@ async def sync_google_oauth(
     return stats
 
 
+async def sync_outlook_oauth(
+    db: AsyncSession,
+    integration_row,
+) -> dict[str, Any]:
+    """Sync one outlook_calendar OAuth integration. Returns stats dict."""
+    tenant_id = integration_row.tenant_id
+    user_id = integration_row.user_id
+
+    access_token, cfg_update = await _valid_access_token(integration_row)
+    if cfg_update:
+        integration_row.config = cfg_update
+
+    calendar_ids = _configured_calendar_ids(integration_row.config) or ["calendar"]
+    parsed: list[dict[str, Any]] = []
+    for cal_id in calendar_ids:
+        try:
+            events = await _outlook_events(access_token, cal_id)
+        except PermissionError:
+            continue  # one calendar may be denied (e.g. shared calendar revoked) — skip it
+        parsed.extend(_parse_outlook_event(ev, cal_id) for ev in events)
+
+    stats = await _upsert_events(db, tenant_id, user_id, "outlook_oauth", parsed)
+    return stats
+
+
 async def sync_ics(
     db: AsyncSession,
     integration_row,
@@ -465,6 +591,8 @@ async def sync_integration(
     """Dispatch by provider/config — OAuth vs ICS."""
     if integration_row.provider == "google_calendar" and integration_row.config.get("access_token"):
         return await sync_google_oauth(db, integration_row)
+    if integration_row.provider == "outlook_calendar" and integration_row.config.get("access_token"):
+        return await sync_outlook_oauth(db, integration_row)
     if integration_row.provider in ("google_calendar", "ics", "ical"):
         return await sync_ics(db, integration_row)
     raise RuntimeError(f"unsupported calendar provider: {integration_row.provider}")
@@ -489,7 +617,7 @@ async def sync_user_calendars(
                 Integration.tenant_id == tenant_id,
                 Integration.user_id == user_id,
                 Integration.status == "active",
-                Integration.provider.in_(["google_calendar", "ics", "ical"]),
+                Integration.provider.in_(["google_calendar", "outlook_calendar", "ics", "ical"]),
             )
         )
     ).scalars().all()
@@ -521,7 +649,7 @@ async def sync_all_due(db: AsyncSession) -> dict[str, Any]:
         await db.execute(
             select(Integration).where(
                 Integration.status == "active",
-                Integration.provider.in_(["google_calendar", "ics", "ical"]),
+                Integration.provider.in_(["google_calendar", "outlook_calendar", "ics", "ical"]),
             )
         )
     ).scalars().all()
