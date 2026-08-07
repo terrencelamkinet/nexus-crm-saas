@@ -133,6 +133,27 @@ setLayoutReady(true)   // 同 setOrder/setSpans/setHeights 同一 tick batch
 
 效果:grid 首次 render 已經係正確 size（settings 已 load）,完全冇 default→custom 嘅 flash。代價:grid 延遲 ~1 個 GET round-trip 先出現（toolbar 照常即刻顯示）。
 
+**7. 後續 fix — height 指定 size snap（v4.7）**
+
+用戶要求:height 都要好似 width 咁有「指定 size」,唔係自由像素。加入 `HEIGHT_STEPS` snap 系統:
+
+```tsx
+// 檔位:160 / 240 / 320 / 400 / 480 px（mirror width 嘅整數 span snap）
+const HEIGHT_STEPS = [160, 240, 320, 400, 480]
+
+// onMove 內:height snap 去最近 step
+const rawH = startH + dy
+let snappedH = HEIGHT_STEPS[0]
+for (const s of HEIGHT_STEPS) {
+  if (Math.abs(rawH - s) < Math.abs(rawH - snappedH)) snappedH = s
+}
+// drag 期間 grip 上方顯示 size badge（如 "320px"）,mouseup 移除
+```
+
+效果:垂直 drag 會喺固定檔位之間跳（160→240→320→400→480）,drag 期間有 badge 顯示當前 size。保存/還原鏈路同 width 一樣（widgetHeights）。
+
+實測:200px drag +90px → rawH 290 → snap 320 ✅;reload 後 height 320px 留住 ✅
+
 ---
 
 ## 6. 成功 log (Success Log) — 修復後

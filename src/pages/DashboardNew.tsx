@@ -94,6 +94,8 @@ const stageKeys = ['qualification', 'proposal', 'negotiation', 'closed_won']
 // ── ALL 37 design01 WIDGETS + 10 legacy widgets ──
 type WidgetKey = string
 interface WidgetDef { label: string; span: number }
+// Resize height snaps to these fixed steps (mirrors width snapping to integer spans)
+const HEIGHT_STEPS = [160, 240, 320, 400, 480]
 const allWidgets: Record<string, WidgetDef> = {
   // Legacy (real data) widgets — keep for backward compat
   kpi_contacts: { label: 'Contacts', span: 6 },
@@ -1177,7 +1179,8 @@ export default function DashboardNew() {
                     e.preventDefault(); e.stopPropagation()
                     const startX = e.clientX, startY = e.clientY
                     const grid = gridRef.current
-                    const widgetEl = (e.currentTarget as HTMLElement).closest('[data-key]') as HTMLElement
+                    const gripEl = e.currentTarget as HTMLElement
+                    const widgetEl = gripEl.closest('[data-key]') as HTMLElement
                     if (!grid || !widgetEl) return
                     const startSpan = parseInt(widgetEl.style.gridColumn.match(/span (\d+)/)?.[1] || String(def.span))
                     const startH = widgetEl.offsetHeight
@@ -1186,6 +1189,11 @@ export default function DashboardNew() {
                     const colW = (gridRect.width - (11 * gapVal)) / 12
                     let currentSpan = startSpan
                     let finalH = startH
+                    // Drag tooltip showing snapped height
+                    const tip = document.createElement('div')
+                    tip.style.cssText = 'position:absolute;bottom:28px;right:0;font-size:11px;font-weight:600;color:var(--color-primary);background:var(--color-surface-2);border:1px solid var(--color-border);padding:2px 8px;border-radius:6px;pointer-events:none;z-index:6'
+                    tip.textContent = `${startH}px`
+                    gripEl.appendChild(tip)
                     const onMove = (ev: MouseEvent) => {
                       const dx = ev.clientX - startX, dy = ev.clientY - startY
                       const newSpan = Math.max(1, Math.min(12, Math.round(startSpan + dx / (colW + gapVal))))
@@ -1193,13 +1201,22 @@ export default function DashboardNew() {
                         currentSpan = newSpan
                         widgetEl.style.gridColumn = `span ${currentSpan}`
                       }
-                      const newH = Math.max(120, startH + dy)
-                      finalH = newH
-                      widgetEl.style.height = `${newH}px`
+                      // Height snaps to nearest fixed step (指定 size)
+                      const rawH = startH + dy
+                      let snappedH = HEIGHT_STEPS[0]
+                      for (const s of HEIGHT_STEPS) {
+                        if (Math.abs(rawH - s) < Math.abs(rawH - snappedH)) snappedH = s
+                      }
+                      if (snappedH !== finalH) {
+                        finalH = snappedH
+                        widgetEl.style.height = `${snappedH}px`
+                        tip.textContent = `${snappedH}px`
+                      }
                     }
                     const onUp = () => {
                       document.removeEventListener('mousemove', onMove)
                       document.removeEventListener('mouseup', onUp)
+                      tip.remove()
                       // Commit resize into state so it persists (save effect writes it)
                       setSpans(prev => ({ ...prev, [k]: currentSpan }))
                       setHeights(prev => ({ ...prev, [k]: finalH }))
