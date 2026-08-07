@@ -22,6 +22,7 @@ class Settings(BaseSettings):
 
     # Briefing scheduler — BYPASSRLS role so it can scan ALL users' settings.
     briefing_database_url: str = ""  # NEXUS_BRIEFING_DATABASE_URL
+    briefing_scheduler_enabled: bool = True  # NEXUS_BRIEFING_SCHEDULER_ENABLED (default ON — Daily Briefing live)
 
     # Redis (for OTP cache)
     redis_url: str = "redis://127.0.0.1:6379/0"

@@ -14,6 +14,7 @@ dist-ssr
 *.local
 
 # Python
+.venv/
 venv/
 __pycache__/
 *.pyc
@@ -45,3 +46,4 @@ backend/.env
 # App-level encryption key (NEXUS_SECRET_KEY in .env)
 backend/app/keys/secret.key
 backend/app/oauth_clients.json
+.pytest_cache/

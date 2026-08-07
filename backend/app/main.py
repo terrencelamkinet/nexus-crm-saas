@@ -79,6 +79,48 @@ async def lifespan(app: FastAPI):
         queue_stop = asyncio.Event()
         queue_task = asyncio.create_task(webhook_queue_consumer(queue_stop))
 
+    # Daily Briefing scheduler — every 15 min, single worker (file lock so the
+    # N gunicorn workers don't all run it). Honors IMDeliveryPref channel gate
+    # + weekend_mute + quiet_hours; per-user greeting_slots decide timing.
+    if not settings.briefing_scheduler_enabled:
+        briefing_task = None
+    else:
+        _sched_lock = "/tmp/nexus_crm_briefing.lock"
+        brief_owner = False
+        try:
+            fd = os.open(_sched_lock, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+            os.close(fd)
+            brief_owner = True
+        except FileExistsError:
+            brief_owner = False
+
+        briefing_stop = asyncio.Event()
+
+        async def _briefing_loop():
+            from app.services.briefing_scheduler import run_scheduler
+            import logging as _blog
+            while not briefing_stop.is_set():
+                try:
+                    stats = await run_scheduler()
+                    _blog.getLogger("briefing_scheduler").info(
+                        "run: %s due, %s sent, %s skipped, %s failed (%s scanned)",
+                        stats.get("due"), stats.get("sent"), stats.get("skipped"),
+                        stats.get("failed"), stats.get("scanned"),
+                    )
+                except Exception as e:  # noqa: BLE001 — must never crash the app
+                    _blog.getLogger("briefing_scheduler").exception(
+                        "run_scheduler crashed: %s", e
+                    )
+                try:
+                    await asyncio.wait_for(briefing_stop.wait(), timeout=15 * 60)
+                except asyncio.TimeoutError:
+                    continue
+
+        if brief_owner:
+            briefing_task = asyncio.create_task(_briefing_loop())
+        else:
+            briefing_task = None
+
     yield
     if not settings.tg_use_webhook:
         poller_stop.set()
@@ -91,6 +133,16 @@ async def lifespan(app: FastAPI):
         try:
             await asyncio.wait_for(queue_task, timeout=5)
         except Exception:
+            pass
+    if briefing_task:
+        try:
+            briefing_stop.set()
+            await asyncio.wait_for(briefing_task, timeout=5)
+        except Exception:
+            pass
+        try:
+            os.remove(_sched_lock)
+        except OSError:
             pass
     await engine.dispose()
 

@@ -32,7 +32,7 @@ if str(BACKEND) not in sys.path:
 from app.db import async_session  # noqa: E402
 from app.models.ai.secretary_settings import SecretarySettings, ChannelCredential  # noqa: E402
 from app.models.telegram_bot import TelegramBotMapping  # noqa: E402
-from app.models.im_push import PushLog  # noqa: E402
+from app.models.im_push import PushLog, IMDeliveryPref  # noqa: E402
 from app.services.secret_crypto import decrypt_secret  # noqa: E402
 from app.services import telegram_service, whatsapp_service  # noqa: E402
 from app.models.whatsapp import WhatsAppMapping  # noqa: E402
@@ -100,8 +100,64 @@ async def _already_sent(db, user_id, channel: str, slot: str, now: datetime) -> 
     return row is not None
 
 
+def _hkt_weekend(now: datetime) -> bool:
+    """True if `now` (HKT) falls on Sat/Sun."""
+    return now.weekday() >= 5
+
+
+def _in_quiet_hours(now: datetime, quiet_hours) -> bool:
+    """True if `now` is inside the configured quiet hours window (handles overnight)."""
+    try:
+        start_s = (quiet_hours or {}).get("start", "22:00")
+        end_s = (quiet_hours or {}).get("end", "08:00")
+        start = datetime.strptime(start_s, "%H:%M").time()
+        end = datetime.strptime(end_s, "%H:%M").time()
+        t = now.time()
+        return (start <= t <= end) if start <= end else (t >= start or t <= end)
+    except (ValueError, AttributeError):
+        return False
+
+
+async def _channel_gate(db, user, channel: str, slot: str) -> str:
+    """Return '' (allow) or a skip reason string when IMDeliveryPref blocks push.
+
+    Honors user prefs: enabled / slots[slot] / weekend_mute / quiet_hours.  Missing
+    pref row = Default ON (frictionless onboarding per IMDeliveryPref default
+    enabled=True) unless a row explicitly disables the channel.
+    """
+    now = _now_hkt()
+    try:
+        pref = (
+            await db.execute(
+                select(IMDeliveryPref).where(
+                    IMDeliveryPref.tenant_id == user.tenant_id,
+                    IMDeliveryPref.user_id == user.user_id,
+                    IMDeliveryPref.channel == channel,
+                )
+            )
+        ).scalar_one_or_none()
+    except Exception:
+        return ""
+    if pref is not None:
+        if not pref.enabled:
+            return "disabled"
+        slots = pref.slots or {}
+        if slots and not slots.get(slot):
+            return "slot_off"
+        if pref.weekend_mute and _hkt_weekend(now):
+            return "weekend_mute"
+        if _in_quiet_hours(now, pref.quiet_hours):
+            return "quiet_hours"
+    return ""
+
+
 async def _push_telegram(db, user, slot: str, content: str) -> str:
     """Push via bound Telegram bot. Returns 'sent'|'skipped'|'failed'."""
+    reason = await _channel_gate(db, user, "telegram", slot)
+    if reason:
+        db.add(PushLog(tenant_id=user.tenant_id, user_id=user.user_id, channel="telegram",
+                       slot=slot, status="skipped", reason=reason))
+        return "skipped"
     tg = (
         await db.execute(
             select(TelegramBotMapping).where(
@@ -141,6 +197,11 @@ async def _push_telegram(db, user, slot: str, content: str) -> str:
 
 async def _push_whatsapp(db, user, slot: str, content: str) -> str:
     """Fallback channel — only if no active Telegram mapping."""
+    reason = await _channel_gate(db, user, "whatsapp", slot)
+    if reason:
+        db.add(PushLog(tenant_id=user.tenant_id, user_id=user.user_id, channel="whatsapp",
+                       slot=slot, status="skipped", reason=reason))
+        return "skipped"
     mapping = (
         await db.execute(
             select(WhatsAppMapping).where(
