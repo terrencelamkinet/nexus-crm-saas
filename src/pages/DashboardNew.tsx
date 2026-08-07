@@ -179,9 +179,18 @@ const allWidgets: Record<string, WidgetDef> = {
   ask_ai: { label: 'Ask AI', span: 4 },
 }
 
+// Widgets hidden from the dashboard (2026-08-07): all deal-related widgets are
+// hidden per product direction — module-additive: defs/bodies stay in code for
+// backward compat, but they are excluded from the grid render, the picker, and
+// the default layout. To re-enable later, remove the key from this set.
+const HIDDEN_WIDGETS: ReadonlySet<WidgetKey> = new Set([
+  'kpi_deals', 'pipeline', 'dealvalue',
+  'd1', 'd2', 'd3', 'd4', 'd5',
+])
+
 const defaultOrder: WidgetKey[] = [
-  'kpi_contacts', 'kpi_companies', 'kpi_deals', 'kpi_tasks',
-  'd2', 't1', 'ask_ai', 'c2', 'co3', 's1', 'te2', 'cal1', 'activity_feed',
+  'kpi_contacts', 'kpi_companies', 'kpi_tasks',
+  't1', 'ask_ai', 'c2', 'co3', 's1', 'te2', 'cal1', 'activity_feed',
 ]
 
 interface ModuleWidget { key: string; name: string; desc: string }
@@ -438,7 +447,11 @@ export default function DashboardNew() {
         if (dash?.settings) {
           // server-loaded state must never trigger a write-back
           skipSaveRef.current = true
-          if (dash.settings.widgetOrder?.length) setOrder(dash.settings.widgetOrder)
+          if (dash.settings.widgetOrder?.length) {
+            // Strip hidden (deal) widgets from the persisted order once, so the
+            // next save writes back a clean order without hidden keys.
+            setOrder(dash.settings.widgetOrder.filter((k: string) => !HIDDEN_WIDGETS.has(k)))
+          }
           const wl: Record<string, number> = {}
           const hl: Record<string, number> = {}
           const lv = dash.settings.widgetLevels
@@ -749,7 +762,6 @@ export default function DashboardNew() {
           <p>• {stats.tasks} {t('tasks.title').toLowerCase()} {t('status.pending')}</p>
           <p>• {overdueCount} {t('dashboard.widgets.overdue')}, {p0Count} P0 {t('priority.urgent')}</p>
           <p>• {todayDue} {t('tasks.title').toLowerCase()} {t('tasks.dueDate')}</p>
-          <p>• {t('dashboard.widgets.pipeline')} velocity: {deals.length>0?Math.round(deals.filter(d=>d.stage_id==='closed_won').length/Math.max(1,deals.length)*100):0}%</p>
         </div>
       )
     },
@@ -781,16 +793,21 @@ export default function DashboardNew() {
       </div>
     ),
     // ── Contacts (demo data) ──
-    c1: () => (
-      <div style={{display:'flex',flexDirection:'column',gap:12}}>
-        <div className="kpi-row">
-          <span className="kpi-val" style={{color:'var(--color-blue)'}}>12</span>
-          <span className="kpi-delta up" style={{marginLeft:8}}>↑ 23% vs 上週</span>
+    c1: () => {
+      const total = contacts.length || stats.contacts
+      const newCount = Math.min(12, Math.max(0, total))
+      const barPct = total > 0 ? Math.min(100, Math.round((newCount / Math.max(12, total)) * 100)) : 0
+      return (
+        <div style={{display:'flex',flexDirection:'column',gap:12}}>
+          <div className="kpi-row">
+            <span className="kpi-val" style={{color:'var(--color-blue)'}}>{total}</span>
+            <span className="kpi-delta up" style={{marginLeft:8}}>{t('contacts.title')}</span>
+          </div>
+          <div className="list-row"><span className="name">{t('contacts.title')}</span></div>
+          <div className="bar-track" style={{marginTop:4}}><div className="bar-fill" style={{width:`${barPct}%`,background:'var(--color-blue)'}} /></div>
         </div>
-        <div className="list-row"><span className="name">{t('contacts.title')}</span></div>
-        <div className="bar-track" style={{marginTop:4}}><div className="bar-fill" style={{width:'65%',background:'var(--color-blue)'}} /></div>
-      </div>
-    ),
+      )
+    },
     c2: () => (
       <><div className="list-row"><CheckSquare size={14} style={{color:'var(--color-warning)',flexShrink:0}} /><span className="name">旭輝空運 — 跟進續約</span><span className="badge warn">{t('priority.urgent')}</span></div>
       <div className="list-row"><CheckSquare size={14} style={{color:'var(--color-text-muted)',flexShrink:0}} /><span className="name">深圳華良物流 — 報價回覆</span></div>
@@ -802,19 +819,32 @@ export default function DashboardNew() {
         <div className="stage-row"><div className="stage-label"><span>{t('dashboard.widgets.completionRate')}</span><span>22%</span></div><div className="bar-track"><div className="bar-fill" style={{width:'22%',background:'var(--color-warning)'}} /></div></div>
       </div>
     ),
-    c4: () => (
-      <><div className="list-row"><span className="name">10:30 Deal Review — 林海珊</span><span className="meta">30分前</span></div>
-      <div className="list-row"><span className="name">旭輝空運續約會議</span><span className="meta">2小時前</span></div>
-      <div className="list-row"><span className="name">物流報價審核</span><span className="meta">昨日</span></div></>
-    ),
-    c5: () => (
-      <div style={{display:'flex',flexDirection:'column',gap:10}}>
-        <div className="stage-row"><div className="stage-label"><span>展會</span><span>42%</span></div><div className="bar-track"><div className="bar-fill" style={{width:'42%',background:'var(--color-blue)'}} /></div></div>
-        <div className="stage-row"><div className="stage-label"><span>網絡搜尋</span><span>28%</span></div><div className="bar-track"><div className="bar-fill" style={{width:'28%',background:'var(--color-purple)'}} /></div></div>
-        <div className="stage-row"><div className="stage-label"><span>轉介紹</span><span>18%</span></div><div className="bar-track"><div className="bar-fill" style={{width:'18%',background:'var(--color-success)'}} /></div></div>
-        <div className="stage-row"><div className="stage-label"><span>社交媒體</span><span>12%</span></div><div className="bar-track"><div className="bar-fill" style={{width:'12%',background:'var(--color-warning)'}} /></div></div>
-      </div>
-    ),
+    c4: () => {
+      const recent = touchpoints.slice(0, 3)
+      return recent.length === 0
+        ? <div style={{padding:'16px 0',fontSize:12,color:'var(--color-text-faint)'}}>{t('common.noResults')}</div>
+        : <>{recent.map(tp => (
+            <div key={tp.id} className="list-row"><span className="name">{tp.title}</span><span className="meta">{tp.company?.name || tp.type}</span></div>
+          ))}</>
+    },
+    c5: () => {
+      // Source distribution — derived from real contact/company data (top industries)
+      const g = (k?: string) => k || '其他'
+      const dist = new Map<string, number>()
+      contacts.forEach(c => { const key = g(c.company?.name); dist.set(key, (dist.get(key) || 0) + 1) })
+      const top = Array.from(dist.entries()).sort((a, b) => b[1] - a[1]).slice(0, 4)
+      const total = contacts.length || 1
+      if (top.length === 0) {
+        return <div style={{padding:'16px 0',fontSize:12,color:'var(--color-text-faint)'}}>{t('contacts.empty')}</div>
+      }
+      return (
+        <div style={{display:'flex',flexDirection:'column',gap:10}}>
+          {top.map(([k, n], i) => (
+            <div key={k} className="stage-row"><div className="stage-label"><span>{k}</span><span>{n}</span></div><div className="bar-track"><div className="bar-fill" style={{width:`${Math.round((n / total) * 100)}%`,background: i === 0 ? 'var(--color-blue)' : i === 1 ? 'var(--color-purple)' : 'var(--color-success)'}} /></div></div>
+          ))}
+        </div>
+      )
+    },
     // ── Companies (demo data) ──
     co1: () => (
       <div style={{display:'flex',alignItems:'flex-start',justifyContent:'center',flexDirection:'column',gap:6,height:'100%',paddingLeft:8}}>
@@ -822,32 +852,51 @@ export default function DashboardNew() {
         <span style={{fontSize:12,color:'var(--color-text-muted)',fontWeight:500}}>{t('dashboard.widgets.totalCustomers')}</span>
       </div>
     ),
-    co2: () => (
-      <div style={{display:'flex',flexDirection:'column',gap:10}}>
-        <div className="stage-row"><div className="stage-label"><span>A級</span><span>12</span></div><div className="bar-track"><div className="bar-fill" style={{width:'25%',background:'var(--color-success)'}} /></div></div>
-        <div className="stage-row"><div className="stage-label"><span>B級</span><span>22</span></div><div className="bar-track"><div className="bar-fill" style={{width:'46%',background:'var(--color-blue)'}} /></div></div>
-        <div className="stage-row"><div className="stage-label"><span>C級</span><span>14</span></div><div className="bar-track"><div className="bar-fill" style={{width:'29%',background:'var(--color-text-faint)'}} /></div></div>
-      </div>
-    ),
-    co3: () => (
-      <><div className="list-row"><span className="name">旭輝空運有限公司</span><span className="badge warn">7日後</span></div>
-      <div className="list-row"><span className="name">深圳華良物流集團</span><span className="badge info">21日後</span></div>
-      <div className="list-row"><span className="name">深圳一站物流</span><span className="badge info">28日後</span></div></>
-    ),
+    co2: () => {
+      const g = (k?: string) => k || '未分類'
+      const dist = new Map<string, number>()
+      companyList.forEach(c => { const key = g(c.category || c.industry); dist.set(key, (dist.get(key) || 0) + 1) })
+      const top = Array.from(dist.entries()).sort((a, b) => b[1] - a[1]).slice(0, 3)
+      const total = companyList.length || 1
+      return top.length === 0
+        ? <div style={{padding:'16px 0',fontSize:12,color:'var(--color-text-faint)'}}>{t('companies.empty')}</div>
+        : (<div style={{display:'flex',flexDirection:'column',gap:10}}>
+            {top.map(([k, n]) => (
+              <div key={k} className="stage-row"><div className="stage-label"><span>{k}</span><span>{n}</span></div><div className="bar-track"><div className="bar-fill" style={{width:`${Math.round((n / total) * 100)}%`,background:'var(--color-blue)'}} /></div></div>
+            ))}
+          </div>)
+    },
+    co3: () => {
+      const items = companyList.slice(0, 3)
+      return items.length === 0
+        ? <div style={{padding:'16px 0',fontSize:12,color:'var(--color-text-faint)'}}>{t('companies.empty')}</div>
+        : <>{items.map(c => (
+            <div key={c.id} className="list-row"><span className="name">{c.name}</span><span className="badge info">{c.industry || c.category || '—'}</span></div>
+          ))}</>
+    },
     co4: () => (
       <><div className="list-row"><span className="name">旭輝空運</span><span className="meta">92分</span></div>
       <div className="list-row"><span className="name">深圳華良物流</span><span className="meta">85分</span></div>
       <div className="list-row"><span className="name">深圳絆強物流</span><span className="meta">76分</span></div>
       <div className="list-row"><span className="name">深圳弘安國際</span><span className="meta">63分</span></div></>
     ),
-    co5: () => (
-      <div style={{display:'flex',flexDirection:'column',gap:10}}>
-        <div className="stage-row"><div className="stage-label"><span>空運物流</span><span>38%</span></div><div className="bar-track"><div className="bar-fill" style={{width:'38%',background:'var(--color-purple)'}} /></div></div>
-        <div className="stage-row"><div className="stage-label"><span>海運</span><span>27%</span></div><div className="bar-track"><div className="bar-fill" style={{width:'27%',background:'var(--color-blue)'}} /></div></div>
-        <div className="stage-row"><div className="stage-label"><span>陸運</span><span>20%</span></div><div className="bar-track"><div className="bar-fill" style={{width:'20%',background:'var(--color-success)'}} /></div></div>
-        <div className="stage-row"><div className="stage-label"><span>倉儲</span><span>15%</span></div><div className="bar-track"><div className="bar-fill" style={{width:'15%',background:'var(--color-warning)'}} /></div></div>
-      </div>
-    ),
+    co5: () => {
+      const g = (k?: string) => k || '未分類'
+      const dist = new Map<string, number>()
+      companyList.forEach(c => { const key = g(c.industry || c.category); dist.set(key, (dist.get(key) || 0) + 1) })
+      const top = Array.from(dist.entries()).sort((a, b) => b[1] - a[1]).slice(0, 4)
+      const total = companyList.length || 1
+      if (top.length === 0) {
+        return <div style={{padding:'16px 0',fontSize:12,color:'var(--color-text-faint)'}}>{t('companies.empty')}</div>
+      }
+      return (
+        <div style={{display:'flex',flexDirection:'column',gap:10}}>
+          {top.map(([k, n], i) => (
+            <div key={k} className="stage-row"><div className="stage-label"><span>{k}</span><span>{n}</span></div><div className="bar-track"><div className="bar-fill" style={{width:`${Math.round((n / total) * 100)}%`,background: i === 0 ? 'var(--color-purple)' : i === 1 ? 'var(--color-blue)' : 'var(--color-success)'}} /></div></div>
+          ))}
+        </div>
+      )
+    },
     // ── Deals (demo data) ──
     d1: () => (
       <div style={{display:'flex',alignItems:'flex-start',justifyContent:'center',flexDirection:'column',gap:6,height:'100%',paddingLeft:8}}>
@@ -908,11 +957,14 @@ export default function DashboardNew() {
         <span style={{fontSize:12,color:'var(--color-text-muted)',fontWeight:500}}>{t('dashboard.widgets.inProgress')}</span>
       </div>
     ),
-    p2: () => (
-      <><div className="list-row"><span className="name">CRM 2.0 — UI Redesign</span><span className="badge warn">3天後</span></div>
-      <div className="list-row"><span className="name">物流整合模組</span><span className="badge info">7天後</span></div>
-      <div className="list-row"><span className="name">數據分析平台</span><span className="badge info">14天後</span></div></>
-    ),
+    p2: () => {
+      const items = (projects || []).slice(0, 3)
+      return items.length === 0
+        ? <div style={{padding:'16px 0',fontSize:12,color:'var(--color-text-faint)'}}>{t('project.empty')}</div>
+        : <>{items.map(p => (
+            <div key={p.id} className="list-row" style={{cursor:'pointer'}} onClick={() => navigate(`/projects/${p.id}`)}><span className="name">{p.name || p.title}</span><span className="badge info">{p.status || '—'}</span></div>
+          ))}</>
+    },
     p3: () => {
       const statusColor = (s: string) => {
         if (s === 'done' || s === 'completed') return 'var(--color-success)'
@@ -939,14 +991,22 @@ export default function DashboardNew() {
             </div>
           ))}</div>
     },
-    p4: () => (
-      <div style={{display:'flex',flexDirection:'column',gap:10}}>
-        <div className="list-row"><span className="name">林海珊</span><span className="meta">3{t('project.title').toLowerCase()}</span></div>
-        <div className="list-row"><span className="name">陳偉明</span><span className="meta">2{t('project.title').toLowerCase()}</span></div>
-        <div className="list-row"><span className="name">張志強</span><span className="meta">2{t('project.title').toLowerCase()}</span></div>
-        <div className="list-row"><span className="name">李美玲</span><span className="meta">1{t('project.title').toLowerCase()}</span></div>
-      </div>
-    ),
+    p4: () => {
+      const items = (projects || []).slice(0, 4)
+      if (items.length === 0) {
+        return <div style={{padding:'16px 0',fontSize:12,color:'var(--color-text-faint)'}}>{t('project.empty')}</div>
+      }
+      return (
+        <div style={{display:'flex',flexDirection:'column',gap:10}}>
+          {items.map((p: any) => (
+            <div key={p.id} className="list-row" style={{cursor:'pointer'}} onClick={() => navigate(`/projects/${p.id}`)}>
+              <span className="name">{p.name || p.title}</span>
+              <span className="meta">{p.status || '—'}</span>
+            </div>
+          ))}
+        </div>
+      )
+    },
     // ── Tasks (demo data) ──
     t1: () => {
       const todayTasks = tasks.filter(t => {
@@ -1006,13 +1066,18 @@ export default function DashboardNew() {
             </div>
           ))}</>
     },
-    t4: () => (
-      <div style={{display:'flex',flexDirection:'column',gap:10,alignItems:'center',justifyContent:'center',height:'100%'}}>
-        <span className="kpi-val" style={{color:'var(--color-success)'}}>78%</span>
-        <div className="bar-track" style={{width:'100%'}}><div className="bar-fill" style={{width:'78%',background:'var(--color-success)'}} /></div>
-        <span style={{fontSize:12,color:'var(--color-text-muted)'}}>{t('dashboard.widgets.monthlyTarget')} 90% · 落後 12%</span>
-      </div>
-    ),
+    t4: () => {
+      const total = tasks.length
+      const done = tasks.filter(t => t.status === 'done' || t.status === 'completed').length
+      const rate = total > 0 ? Math.round((done / total) * 100) : 0
+      return (
+        <div style={{display:'flex',flexDirection:'column',gap:10,alignItems:'center',justifyContent:'center',height:'100%'}}>
+          <span className="kpi-val" style={{color:'var(--color-success)'}}>{rate}%</span>
+          <div className="bar-track" style={{width:'100%'}}><div className="bar-fill" style={{width:`${rate}%`,background:'var(--color-success)'}} /></div>
+          <span style={{fontSize:12,color:'var(--color-text-muted)'}}>{done}/{total} {t('tasks.title').toLowerCase()} {t('status.completed')}</span>
+        </div>
+      )
+    },
     // ── Calendar (demo data) ──
     cal1: () => (
       <><div className="list-row"><Calendar size={14} style={{color:'var(--color-text-muted)',flexShrink:0}} /><span className="name">10:30 Deal Review</span><span className="meta">30分</span></div>
@@ -1200,6 +1265,7 @@ export default function DashboardNew() {
       {layoutReady && (
       <div ref={gridRef} className="grid" style={{display:'grid',gap:16,alignItems:'start'}}>
         {order.map((k) => {
+          if (HIDDEN_WIDGETS.has(k)) return null
           const def = allWidgets[k]
           if (!def) return null
           const IconComp = widgetIcon(k)
@@ -1257,7 +1323,7 @@ export default function DashboardNew() {
                   <div style={{padding:'16px 0',fontSize:12,color:'var(--color-text-faint)'}}>{t('common.noData')}</div>
                 )}
               </div>
-              {(k === 'c1' || k === 'co3' || k === 'd3' || k === 't2' || k === 's2' || k === 'te1') && aiOn && (
+              {(k === 'c1' || k === 'co3' || k === 't2' || k === 's2' || k === 'te1') && aiOn && (
                 <button className="ai-tag" style={{display:'inline-flex',alignItems:'center',gap:5,padding:'5px 10px',borderRadius:'999px',background:'var(--color-purple-highlight)',color:'var(--color-purple)',fontSize:11.5,fontWeight:700,marginTop:8,border:'none',cursor:'pointer'}}
                   onClick={() => window.dispatchEvent(new CustomEvent('toggle-ai-chat'))}>
                   <Sparkles size={12} />AI advise
@@ -1367,10 +1433,14 @@ export default function DashboardNew() {
               ? mod.widgets.filter(w => w.name.includes(widgetSearch.toLowerCase()) || w.desc.includes(widgetSearch.toLowerCase()))
               : mod.widgets
             if (widgetSearch && visible.length === 0) return null
+            // Skip groups that have no visible (non-hidden) widgets left
+            const addable = visible.filter(w => !order.includes(w.key) && !HIDDEN_WIDGETS.has(w.key))
+            const added = visible.filter(w => order.includes(w.key) && !HIDDEN_WIDGETS.has(w.key))
+            if (addable.length === 0 && added.length === 0) return null
             return (
               <div key={mod.id} className="module-group">
                 <div className="module-group-head"><span>{t('nav.' + mod.id)}</span></div>
-                {visible.filter(w => !order.includes(w.key)).map(w => {
+                {addable.map(w => {
                   const IconComp = widgetIcon(w.key)
                   return (
                     <div key={w.key} className="widget-option" onClick={() => {
@@ -1383,9 +1453,9 @@ export default function DashboardNew() {
                     </div>
                   )
                 })}
-                {visible.filter(w => order.includes(w.key)).length > 0 && (
+                {added.length > 0 && (
                   <div style={{padding:'4px 8px',fontSize:11.5,color:'var(--color-text-faint)'}}>
-                    {visible.filter(w => order.includes(w.key)).map(w => widgetLabelKey[w.key] ? t(widgetLabelKey[w.key]) : w.name).join('、')} — {t('common.done')}
+                    {added.map(w => widgetLabelKey[w.key] ? t(widgetLabelKey[w.key]) : w.name).join('、')} — {t('common.done')}
                   </div>
                 )}
               </div>
