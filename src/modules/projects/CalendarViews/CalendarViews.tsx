@@ -5,7 +5,6 @@ import {
   ChevronDown,
   LayoutGrid,
   Presentation,
-  GitBranch,
   Calendar,
   List,
   RefreshCw,
@@ -18,7 +17,6 @@ import MonthView from './MonthView';
 import WeekView from './WeekView';
 import DayView from './DayView';
 import DeadlineView from './DeadlineView';
-import GanttView from './GanttView';
 import MobileAgendaView, { MobileAgendaList } from './MobileAgendaView';
 import EventReviewModal from './EventReviewModal';
 import { useEscapeKey } from '../../../lib/useEscapeKey';
@@ -46,7 +44,6 @@ const VIEW_TABS: { key: CalendarViewType; label: string; Icon: React.FC<{ classN
   { key: 'week', label: 'Week', Icon: Presentation },
   { key: 'day', label: 'Day', Icon: Calendar },
   { key: 'deadline', label: 'Deadline', Icon: List },
-  { key: 'gantt', label: 'Gantt', Icon: GitBranch },
 ];
 
 const SHOW_WEEKENDS_KEY = 'nexus_crm_show_weekends';
@@ -56,7 +53,7 @@ function navigateDate(date: Date, viewType: CalendarViewType, direction: -1 | 1)
   switch (viewType) {
     case 'month': next.setMonth(date.getMonth() + direction); break;
     case 'week': next.setDate(date.getDate() + direction * 7); break;
-    case 'day': case 'deadline': case 'gantt':
+    case 'day': case 'deadline':
     default: next.setDate(date.getDate() + direction); break;
   }
   return next;
@@ -139,7 +136,6 @@ export default function CalendarViews({ events, loading, onRefresh }: CalendarVi
       case 'week': return <WeekView events={events} date={date} onDateChange={handleDateChange} viewType={viewType} onViewChange={handleViewChange} showWeekends={showWeekends} onEventClick={handleEventClick} focusSignal={focusSignal} />;
       case 'day': return <DayView events={events} date={date} onDateChange={handleDateChange} onEventClick={handleEventClick} focusSignal={focusSignal} />;
       case 'deadline': return <DeadlineView events={events} date={date} onDateChange={handleDateChange} onEventClick={handleEventClick} />;
-      case 'gantt': return <GanttView events={events} date={date} onDateChange={handleDateChange} onEventClick={handleEventClick} />;
       default:
         if (isMobile) return <MobileAgendaView events={events} date={date} onDateChange={handleDateChange} onEventClick={handleEventClick} />;
         return <MonthView events={events} date={date} onDateChange={handleDateChange} onEventClick={handleEventClick} onMoreClick={handleMoreClick} />;

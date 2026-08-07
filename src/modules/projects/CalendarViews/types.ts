@@ -1,6 +1,6 @@
 /** CalendarViews — shared types for the custom calendar system */
 
-export type CalendarViewType = 'month' | 'week' | 'day' | 'deadline' | 'gantt';
+export type CalendarViewType = 'month' | 'week' | 'day' | 'deadline';
 
 export interface CalendarEvent {
   id: string;
