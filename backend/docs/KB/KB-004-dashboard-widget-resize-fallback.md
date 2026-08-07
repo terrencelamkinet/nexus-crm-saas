@@ -111,6 +111,28 @@ const onUp = () => {
 - Backend `settings` 係 freeform JSON → 唔使改 backend
 - 同一 tick 內 setOrder+setSpans+setHeights → React batch → save effect 跑一次 → skipSaveRef consume 一次 → 唔會誤 write-back
 
+**6. 後續 fix — reload 第一下 flash default size（v4.6）**
+
+用戶反映:reload 後第一下見到 default size,再跳去設定 size。原因:mount 時 `spans={}` 先 render 一次,GET 返到先 setSpans。
+
+```tsx
+// layoutReady gate — grid 喺 server layout load 完先 render
+const [layoutReady, setLayoutReady] = useState(false)
+
+// loadAll 完成（成功/失敗都 set）:
+orderLoaded.current = true
+setLayoutReady(true)   // 同 setOrder/setSpans/setHeights 同一 tick batch
+
+// render: grid 包 gate
+{layoutReady && (
+  <div ref={gridRef} className="grid" ...>
+    ...
+  </div>
+)}
+```
+
+效果:grid 首次 render 已經係正確 size（settings 已 load）,完全冇 default→custom 嘅 flash。代價:grid 延遲 ~1 個 GET round-trip 先出現（toolbar 照常即刻顯示）。
+
 ---
 
 ## 6. 成功 log (Success Log) — 修復後

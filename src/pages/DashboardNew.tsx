@@ -305,6 +305,9 @@ export default function DashboardNew() {
   // Loaded from server settings; resize-grip commits into these on mouseup.
   const [spans, setSpans] = useState<Record<string, number>>({})
   const [heights, setHeights] = useState<Record<string, number>>({})
+  // Grid stays hidden until server layout (order/spans/heights) is loaded —
+  // avoids flash of default-size widgets before user's saved sizes arrive.
+  const [layoutReady, setLayoutReady] = useState(false)
   const orderLoaded = useRef(false)
   const saveTimer = useRef<ReturnType<typeof setTimeout>>(undefined as any)
   // When order is set from a server load (not a user action), skip the save
@@ -416,6 +419,7 @@ export default function DashboardNew() {
         }
       } catch { /* use defaults */ }
       orderLoaded.current = true
+      setLayoutReady(true)
     }
     loadAll()
     const handler = () => loadAll()
@@ -1104,6 +1108,7 @@ export default function DashboardNew() {
           className="grid" is REQUIRED: dashboard.css + design4-v2-patch.css
           mobile media queries target `.dash01-shell .grid` — without it,
           KPI `span 1 !important` collapses cards to 1/12 width on mobile. */}
+      {layoutReady && (
       <div ref={gridRef} className="grid" style={{display:'grid',gap:16,alignItems:'start'}}>
         {order.map((k) => {
           const def = allWidgets[k]
@@ -1218,6 +1223,7 @@ export default function DashboardNew() {
           </div>
         )}
       </div>
+      )}
 
       {aiOn && (
         <div className="ai-tag" onClick={() => window.dispatchEvent(new CustomEvent('toggle-ai-chat'))} style={{display:'inline-flex',alignItems:'center',gap:5,padding:'5px 10px',borderRadius:'999px',background:'var(--color-purple-highlight)',color:'var(--color-purple)',fontSize:11.5,fontWeight:700,marginTop:10,border:'none',cursor:'pointer'}}>
