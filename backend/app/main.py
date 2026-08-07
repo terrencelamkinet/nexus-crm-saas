@@ -84,6 +84,9 @@ async def lifespan(app: FastAPI):
     # + weekend_mute + quiet_hours; per-user greeting_slots decide timing.
     if not settings.briefing_scheduler_enabled:
         briefing_task = None
+        brief_owner = False
+        briefing_stop = None
+        _sched_lock = None
     else:
         _sched_lock = "/tmp/nexus_crm_briefing.lock"
         brief_owner = False
@@ -122,6 +125,19 @@ async def lifespan(app: FastAPI):
             briefing_task = None
 
     yield
+    # Cleanup: stop briefing loop + release scheduler lock (stale lock would
+    # permanently disable the loop on next restart — O_EXCL would fail forever)
+    if brief_owner and briefing_stop is not None and briefing_task is not None:
+        briefing_stop.set()
+        try:
+            await asyncio.wait_for(briefing_task, timeout=5)
+        except Exception:
+            pass
+        if _sched_lock:
+            try:
+                os.remove(_sched_lock)
+            except FileNotFoundError:
+                pass
     if not settings.tg_use_webhook:
         poller_stop.set()
         try:
