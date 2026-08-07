@@ -9,6 +9,7 @@ import {
   CheckSquare, Truck, UsersRound,
   Plus, Sparkles, X,
   Activity, DollarSign, Layout, Calendar,
+  Phone, Mail, MessageCircle, ExternalLink,
 } from 'lucide-react'
 import SlideDrawer from '../components/SlideDrawer'
 import AIBriefingDrawer, { hktNow } from '../components/AIBriefingDrawer'
@@ -507,10 +508,58 @@ export default function DashboardNew() {
   const buildContactDetail = (contact: Contact) => (
     <div style={{padding:4,fontSize:13.5,lineHeight:1.6}}>
       <div style={{fontSize:16,fontWeight:700,marginBottom:12}}>{contact.name}</div>
-      <div className="stage-row"><span style={{fontWeight:600}}>{t('contacts.email')}</span><span>{contact.email||'—'}</span></div>
-      <div className="stage-row"><span style={{fontWeight:600}}>{t('contacts.phone')}</span><span>{contact.phone||'—'}</span></div>
-      <div className="stage-row"><span style={{fontWeight:600}}>{t('contacts.jobTitle')}</span><span>{contact.position||'—'}</span></div>
-      {contact.company?.name && <div className="stage-row"><span style={{fontWeight:600}}>{t('contacts.company')}</span><span>{contact.company.name}</span></div>}
+
+      {/* Quick actions: call / email / WhatsApp (NovaCRM-style architecture) */}
+      <div className="quick-actions">
+        {contact.phone && (
+          <a href={`tel:${String(contact.phone).replace(/[^\d+]/g, '')}`} className="btn-secondary">
+            <Phone className="w-3.5 h-3.5" /> {t('common.call')}
+          </a>
+        )}
+        {contact.email && (
+          <a href={`mailto:${contact.email}`} className="btn-secondary">
+            <Mail className="w-3.5 h-3.5" /> {t('common.email')}
+          </a>
+        )}
+        {contact.phone && (
+          <a href={`https://wa.me/${String(contact.phone).replace(/[^\d]/g, '')}`} target="_blank" rel="noopener noreferrer" className="btn-secondary">
+            <MessageCircle className="w-3.5 h-3.5" /> {t('common.message')}
+          </a>
+        )}
+      </div>
+
+      {/* Label:value info list */}
+      <div className="info-list">
+        {contact.email && (
+          <div className="info-row">
+            <span className="info-label">{t('common.email')}</span>
+            <span className="info-value">{contact.email}</span>
+          </div>
+        )}
+        {contact.phone && (
+          <div className="info-row">
+            <span className="info-label">{t('common.phone')}</span>
+            <span className="info-value">{contact.phone}</span>
+          </div>
+        )}
+        {contact.position && (
+          <div className="info-row">
+            <span className="info-label">{t('contacts.jobTitle')}</span>
+            <span className="info-value">{contact.position}</span>
+          </div>
+        )}
+        {contact.company?.name && (
+          <div className="info-row">
+            <span className="info-label">{t('common.company')}</span>
+            <span className="info-value">{contact.company.name}</span>
+          </div>
+        )}
+      </div>
+
+      {/* Full profile link */}
+      <button className="btn-secondary" style={{marginTop:8}} onClick={() => { setDetailDrawer(false); navigate(`/contacts/${contact.id}`) }}>
+        <ExternalLink className="w-3.5 h-3.5" /> {t('common.viewFullProfile')}
+      </button>
     </div>
   )
   const buildTouchpointDetail = (tp: Touchpoint) => (

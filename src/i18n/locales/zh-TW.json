@@ -605,7 +605,8 @@
       "contact": "聯絡方式",
       "classify": "分類",
       "other": "其他"
-    }
+    },
+    "viewFullProfile": "查看完整檔案"
   },
   "contacts": {
     "title": "聯絡人",

@@ -605,7 +605,8 @@
       "contact": "Contact Info",
       "classify": "Category",
       "other": "Other"
-    }
+    },
+    "viewFullProfile": "View Full Profile"
   },
   "contacts": {
     "title": "Contacts",
