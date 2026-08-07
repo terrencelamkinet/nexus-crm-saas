@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
-import { Users, CreditCard, Puzzle, Monitor, ChevronRight, Calendar } from 'lucide-react'
+import { Users, CreditCard, Puzzle, Monitor, ChevronRight } from 'lucide-react'
 import { apiClient } from '../lib/api'
 import LanguageSwitcher from '../i18n/LanguageSwitcher';
 
@@ -9,7 +9,6 @@ const tabs = [
   { id: 'profile', label: 'Profile', icon: Users },
   { id: 'team', label: 'Team', icon: Users },
   { id: 'modules', label: 'Modules', icon: Puzzle },
-  { id: 'integrations', label: 'Integrations', icon: Puzzle },
   { id: 'billing', label: 'Billing', icon: CreditCard },
   { id: 'preferences', label: 'Preferences', icon: Monitor },
 ]
@@ -22,13 +21,6 @@ export default function SettingsPage() {
   const [loading, setLoading] = useState(true)
   const [draft, setDraft] = useState<Record<string, boolean>>({})
   const [saveState, setSaveState] = useState<'idle' | 'saving' | 'done'>('idle')
-
-  // Integration state
-  const [integrations] = useState<Record<string, boolean>>({
-    google: false,
-    outlook: false,
-    caldav: false,
-  })
 
   const moduleDefs = [
     { key: 'projects', label: 'Projects', icon: '📊', desc: 'Project-based tracking, budgets, milestones. Links to contacts and companies.' },
@@ -187,47 +179,6 @@ export default function SettingsPage() {
                   {saveState === 'saving' && <span className="btn-spinner" />}
                   {saveState === 'done' && <span className="btn-check">✓</span>}
                 </button>
-              </div>
-            </div>
-          )}
-
-          {active === 'integrations' && (
-            <div className="integ-page">
-              <div>
-                <h2>Integrations</h2>
-                <p className="stg-subtitle">Connect your external services</p>
-              </div>
-
-              <div className="integ-section">
-                <h3><Calendar className="w-4 h-4" style={{ display: 'inline', marginRight: 6, verticalAlign: -2 }} /> Calendar</h3>
-                <div className="integ-grid">
-                  {[
-                    { id: 'google', name: 'Google Calendar', desc: 'Sync events, meetings, and reminders with Google Calendar', icon: 'G', color: '#2870b8' },
-                    { id: 'outlook', name: 'Microsoft Outlook', desc: 'Sync events and meetings with Microsoft 365 / Outlook Calendar', icon: 'O', color: '#2870b8' },
-                    { id: 'caldav', name: 'CalDAV / iCal', desc: 'Connect any CalDAV-compatible calendar (Apple, Nextcloud, etc.)', icon: 'C', color: '#387a3a' },
-                  ].map(p => (
-                    <div key={p.id} className="integ-card">
-                      <div className="integ-icon" style={{ background: p.color }}>{p.icon}</div>
-                      <div className="integ-info">
-                        <h4>{p.name}</h4>
-                        <p>{p.desc}</p>
-                      </div>
-                      <div className="integ-status">
-                        <span className={`integ-badge ${integrations[p.id] ? 'connected' : 'disconnected'}`}>
-                          {integrations[p.id] ? 'Connected' : 'Not connected'}
-                        </span>
-                        <button className={p.id === 'caldav' ? 'btn-secondary' : 'btn-primary'}>
-                          {p.id === 'caldav' ? 'Configure' : 'Connect'}
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <div className="integ-section">
-                <h3>More coming soon</h3>
-                <p style={{ fontSize: 13, color: 'var(--color-text-muted)' }}>Additional integrations are in development. Stay tuned!</p>
               </div>
             </div>
           )}

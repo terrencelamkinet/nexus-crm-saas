@@ -2003,21 +2003,6 @@ textarea.input-field{resize:vertical;min-height:60px}
   .month-dots{display:flex;flex-wrap:wrap;gap:3px;margin-top:2px;padding:0 2px}
 }
 
-/* Integration Settings */
-.integ-page{display:flex;flex-direction:column;gap:32px}
-.integ-section h3{font-size:18px;font-weight:600;color:var(--color-text);margin-bottom:16px;font-family:var(--font-display)}
-.integ-grid{display:flex;flex-direction:column;gap:12px}
-.integ-card{display:flex;align-items:center;gap:16px;padding:20px;background:var(--color-surface);border:1px solid var(--color-divider);border-radius:var(--radius-lg);transition:box-shadow .15s}
-.integ-card:hover{box-shadow:0 2px 8px rgba(0,0,0,.06)}
-.integ-icon{width:44px;height:44px;border-radius:var(--radius-lg);display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:700;color:#fff;flex-shrink:0}
-.integ-info{flex:1;min-width:0}
-.integ-info h4{font-size:16px;font-weight:600;color:var(--color-text);margin-bottom:2px}
-.integ-info p{font-size:13px;color:var(--color-text-muted);line-height:1.4}
-.integ-status{display:flex;align-items:center;gap:12px}
-.integ-badge{font-size:11px;font-weight:600;padding:3px 10px;border-radius:var(--radius-full);text-transform:capitalize}
-.integ-badge.connected{background:color-mix(in oklch, #22c55e 12%, transparent);color:#22c55e}
-.integ-badge.disconnected{background:var(--color-surface-offset);color:var(--color-text-faint)}
-
 /* Marketplace */
 .mkt-page{display:flex;flex-direction:column;gap:24px;padding-bottom:40px}
 .mkt-search-wrap{position:sticky;top:0;z-index:10;background:var(--color-bg);padding:12px 0;border-bottom:1px solid var(--color-divider);margin-bottom:4px}
