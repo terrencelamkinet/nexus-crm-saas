@@ -398,14 +398,16 @@
   /* 非 KPI widgets 維持全寬（單欄效果） */
   .dash01-shell .widget:not([data-key^="kpi_"]) { grid-column: 1 / -1 !important; }
   .dash01-shell .add-widget-tile { grid-column: 1 / -1 !important; }
-  /* KPI cards — 公司總數(Companies) & 待辦任務(Tasks) 並排大格 (span 3) */
+  /* KPI cards — 公司總數(Companies) & 待辦任務(Tasks) 並排大格 (span 3)，排第一行 (order 1) */
   .dash01-shell .widget[data-key="kpi_companies"],
   .dash01-shell .widget[data-key="kpi_tasks"] {
+    order: 1;
     grid-column: span 3 !important;
     aspect-ratio: auto;
   }
-  /* 累計客戶(Contacts) 最小一格 (span 2)；其餘 KPI (deals) 同細格 */
+  /* 累計客戶(Contacts) 最小一格 (span 2)，排最後 (order 3)；其餘 KPI (deals) 同細格 */
   .dash01-shell .widget[data-key^="kpi_"]:not([data-key="kpi_companies"]):not([data-key="kpi_tasks"]) {
+    order: 3;
     grid-column: span 2 !important;
     aspect-ratio: auto;
   }
