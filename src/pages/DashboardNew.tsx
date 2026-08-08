@@ -1274,11 +1274,15 @@ export default function DashboardNew() {
           // Phones (≤640px): single-column grid — drop the inline 1:1 aspect so
           // the CSS `aspect-ratio: auto` wins and cards render full-width, not
           // giant squares.
+          // KPI stat cards — mobile/compact: Contacts(累計客戶) & Companies(公司總數)
+          // side-by-side half-width (span 6); other KPIs (deals/tasks) shrink to span 3.
+          // User-resized (wLv) still wins via SPAN_BY_LEVEL.
           const isKpi = k.startsWith('kpi_')
           const wLv = wLevels[k]
           const hLv = hLevels[k]
+          const compactKpiSpan = (k === 'kpi_contacts' || k === 'kpi_companies') ? 6 : 3
           // user-resized: span from width level; height from aspect ratio w/h (n,n) = square
-          const effSpan = wLv ? SPAN_BY_LEVEL[wLv] : (isKpi && isCompact ? 6 : def.span)
+          const effSpan = wLv ? SPAN_BY_LEVEL[wLv] : (isKpi && isCompact ? compactKpiSpan : def.span)
           const kpiSquare = isKpi && isCompact && !isPhone && !wLv
           const aspect = (wLv && hLv) ? `${wLv} / ${hLv}` : (kpiSquare ? '1 / 1' : undefined)
           return (
