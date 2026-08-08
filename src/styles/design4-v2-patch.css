@@ -394,9 +394,19 @@
 }
 
 @media (max-width: 640px) {
-  .dash01-shell .grid { grid-template-columns: 1fr; }
-  .dash01-shell .widget[data-key^="kpi_"] {
-    grid-column: span 1 !important;
+  .dash01-shell .grid { grid-template-columns: repeat(6, 1fr); gap: 12px; }
+  /* 非 KPI widgets 維持全寬（單欄效果） */
+  .dash01-shell .widget:not([data-key^="kpi_"]) { grid-column: 1 / -1 !important; }
+  .dash01-shell .add-widget-tile { grid-column: 1 / -1 !important; }
+  /* KPI cards — 累計客戶(Contacts) & 公司總數(Companies) 並排一行 (span 3 = 半寬) */
+  .dash01-shell .widget[data-key="kpi_contacts"],
+  .dash01-shell .widget[data-key="kpi_companies"] {
+    grid-column: span 3 !important;
+    aspect-ratio: auto;
+  }
+  /* 其他 KPI (deals/tasks) 縮細 — 3 個一行（span 2） */
+  .dash01-shell .widget[data-key^="kpi_"]:not([data-key="kpi_contacts"]):not([data-key="kpi_companies"]) {
+    grid-column: span 2 !important;
     aspect-ratio: auto;
   }
 }
