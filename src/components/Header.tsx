@@ -1,6 +1,6 @@
 import { Bell, ChevronDown, LogOut, Search, Moon, Sun, Users, Building2, TrendingUp, CheckSquare, FolderKanban, Activity, FileText, X } from 'lucide-react';
 import { useAuth } from '../lib/AuthContext';
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { apiClient } from '../lib/api';
 import { useTranslation } from 'react-i18next';
@@ -41,24 +41,43 @@ export default function Header() {
   const [topOpen, setTopOpen] = useState(false);
   const topSearchRef = useRef<HTMLDivElement>(null);
   const topInputRef = useRef<HTMLInputElement>(null);
+  const topTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const topReqRef = useRef(0);
 
-  // Debounced global search — same 200ms + /api/v1/crm/search pattern as MobileSearchSheet
+  // Immediate search — Enter / search button / debounce all funnel here.
+  // Race-guarded: stale responses (older request id) are dropped.
+  const runTopSearch = useCallback(async () => {
+    const id = ++topReqRef.current;
+    const q = topQuery.trim();
+    if (!q) { setTopResults([]); setTopLoading(false); setTopOpen(false); return; }
+    setTopLoading(true);
+    try {
+      const data = await apiClient.get<{ results: TopBarSearchResult[] }>(
+        `/api/v1/crm/search?q=${encodeURIComponent(q)}&limit=10`
+      );
+      if (id === topReqRef.current) { setTopResults(data?.results || []); setTopOpen(true); }
+    } catch {
+      if (id === topReqRef.current) setTopResults([]);
+    } finally {
+      if (id === topReqRef.current) setTopLoading(false);
+    }
+  }, [topQuery]);
+
+  // Trigger the search now — cancels any pending debounce first
+  const runTopSearchNow = () => {
+    if (topTimerRef.current) { clearTimeout(topTimerRef.current); topTimerRef.current = undefined; }
+    void runTopSearch();
+  };
+
+  // Blur search — live debounced search as you type (200ms, same as MobileSearchSheet)
   useEffect(() => {
     const q = topQuery.trim();
-    if (!q) { setTopResults([]); setTopLoading(false); return; }
+    if (!q) { setTopResults([]); setTopLoading(false); setTopOpen(false); return; }
     setTopLoading(true);
-    const timer = setTimeout(async () => {
-      try {
-        const data = await apiClient.get<{ results: TopBarSearchResult[] }>(
-          `/api/v1/crm/search?q=${encodeURIComponent(q)}&limit=10`
-        );
-        setTopResults(data?.results || []);
-        setTopOpen(true);
-      } catch { setTopResults([]); }
-      setTopLoading(false);
-    }, 200);
-    return () => clearTimeout(timer);
-  }, [topQuery]);
+    if (topTimerRef.current) clearTimeout(topTimerRef.current);
+    topTimerRef.current = setTimeout(() => { void runTopSearch(); }, 200);
+    return () => { if (topTimerRef.current) clearTimeout(topTimerRef.current); };
+  }, [topQuery, runTopSearch]);
 
   // Close dropdown on outside click
   useEffect(() => {
@@ -199,7 +218,7 @@ export default function Header() {
           onChange={(e) => setTopQuery(e.target.value)}
           onFocus={() => { if (topQuery.trim()) setTopOpen(true); }}
           onKeyDown={(e) => {
-            if (e.key === 'Enter' && topResults.length > 0) topSearchGo(topResults[0].url);
+            if (e.key === 'Enter') { e.preventDefault(); runTopSearchNow(); }
             if (e.key === 'Escape') setTopOpen(false);
           }}
           placeholder={t('header.searchPlaceholder')}
@@ -209,6 +228,9 @@ export default function Header() {
             <X size={14} />
           </button>
         )}
+        <button className="topbar-search-btn" onClick={runTopSearchNow} aria-label={t('common.search')} title={t('common.search')}>
+          <Search size={15} />
+        </button>
         {topOpen && topQuery.trim() && (
           <div className="topbar-search-dropdown">
             {topLoading && topResults.length === 0 && (
