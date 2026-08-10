@@ -53,6 +53,10 @@ interface NexusDetailPageV2Props {
   tabs: DetailTab[]
   onEdit?: () => void
   onAskAI?: () => void
+  editMode?: boolean
+  editSaving?: boolean
+  onSaveEdit?: () => void
+  onCancelEdit?: () => void
   breadcrumbLabel: string
   breadcrumbHref: string
 }
@@ -60,6 +64,7 @@ interface NexusDetailPageV2Props {
 export function NexusDetailPageV2({
   entity, avatarLabel, subline, highlights, aiInsight, aiInsightLoading,
   onRefreshInsight, sidebarSections, relatedCards, tabs, onEdit, onAskAI,
+  editMode, editSaving, onSaveEdit, onCancelEdit,
   breadcrumbLabel, breadcrumbHref,
 }: NexusDetailPageV2Props) {
   const { t } = useTranslation()
@@ -94,15 +99,32 @@ export function NexusDetailPageV2({
             </div>
           </div>
           <div className="nx-detail-actions">
-            {onEdit && (
-              <button className="nx-btn nx-btn-secondary" onClick={onEdit}>
-                <Pencil size={13} /> {t('common.edit')}
-              </button>
-            )}
-            {onAskAI && (
-              <button className="nx-btn nx-btn-ai" onClick={onAskAI}>
-                <Sparkles size={13} /> {t('common.askAI', { defaultValue: 'Ask AI' })}
-              </button>
+            {editMode ? (
+              <>
+                {onCancelEdit && (
+                  <button className="nx-btn nx-btn-secondary" onClick={onCancelEdit} disabled={editSaving}>
+                    {t('common.cancel')}
+                  </button>
+                )}
+                {onSaveEdit && (
+                  <button className="nx-btn nx-btn-primary" onClick={onSaveEdit} disabled={editSaving}>
+                    {editSaving ? t('common.saving') : t('common.save')}
+                  </button>
+                )}
+              </>
+            ) : (
+              <>
+                {onEdit && (
+                  <button className="nx-btn nx-btn-secondary" onClick={onEdit}>
+                    <Pencil size={13} /> {t('common.edit')}
+                  </button>
+                )}
+                {onAskAI && (
+                  <button className="nx-btn nx-btn-ai" onClick={onAskAI}>
+                    <Sparkles size={13} /> {t('common.askAI', { defaultValue: 'Ask AI' })}
+                  </button>
+                )}
+              </>
             )}
           </div>
         </div>
@@ -124,7 +146,7 @@ export function NexusDetailPageV2({
       </div>
 
       {/* ═══ AI Insight Card ═══ */}
-      {(aiInsight || aiInsightLoading) && (
+      {(aiInsightLoading || (aiInsight && (aiInsight.summary || aiInsight.tags?.length > 0))) && (
         <div className="nx-ai-insight-card">
           <div className="nx-ai-insight-head">
             <div className="nx-ai-insight-icon"><Sparkles size={14} /></div>

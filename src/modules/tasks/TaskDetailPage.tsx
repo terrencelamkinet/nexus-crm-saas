@@ -4,6 +4,9 @@ import { useTranslation } from 'react-i18next'
 import { NexusDetailPageV2, useAIInsight, type DetailTab, type HighlightWidget } from '../shared/NexusDetailPageV2'
 import taskConfig from './config'
 import { useEntity } from '../hooks/useEntity'
+import { FieldsRenderer } from '../shared/FieldsRenderer'
+import { buildPayload, apiErrorToString } from '../shared/field-utils'
+import { isModuleEnabled } from '../enabled-modules'
 import { apiClient } from '../../lib/api'
 
 function tomorrowISO(): string {
@@ -33,6 +36,9 @@ export default function TaskDetailPage() {
   const [companies, setCompanies] = useState<{ id: string; name: string }[]>([])
   const [busy, setBusy] = useState<'done' | 'snooze' | null>(null)
   const [flash, setFlash] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null)
+  const [editOpen, setEditOpen] = useState(false)
+  const [form, setForm] = useState<Record<string, any>>({})
+  const [saving, setSaving] = useState(false)
 
   useEffect(() => {
     Promise.all([
@@ -40,6 +46,19 @@ export default function TaskDetailPage() {
       apiClient.get<{ items: { id: string; name: string }[] }>('/api/v1/crm/companies?page_size=100').then(r => setCompanies(r.items || [])).catch(() => {}),
     ])
   }, [])
+
+  // Edit state — initialised once entity is loaded
+  useEffect(() => {
+    if (entity) {
+      const f: Record<string, any> = {}
+      for (const field of taskConfig.fields) {
+        let val = (entity as any)[field.key]
+        if (field.type === 'multi_select' && typeof val === 'string') val = val ? [val] : []
+        f[field.key] = val ?? (field.type === 'multi_select' ? [] : field.type === 'checkbox' ? false : '')
+      }
+      setForm(f)
+    }
+  }, [entity])
 
   const act = async (kind: 'done' | 'snooze') => {
     if (!id) return
@@ -56,6 +75,39 @@ export default function TaskDetailPage() {
       setBusy(null)
     }
   }
+
+  const openEdit = () => setEditOpen(true)
+
+  const cancelEdit = () => {
+    if (entity) {
+      const f: Record<string, any> = {}
+      for (const field of taskConfig.fields) {
+        let val = (entity as any)[field.key]
+        if (field.type === 'multi_select' && typeof val === 'string') val = val ? [val] : []
+        f[field.key] = val ?? (field.type === 'multi_select' ? [] : field.type === 'checkbox' ? false : '')
+      }
+      setForm(f)
+    }
+    setEditOpen(false)
+  }
+
+  const handleChange = (key: string, value: any) => setForm(f => ({ ...f, [key]: value }))
+
+  const handleSave = async () => {
+    if (!entity) return
+    setSaving(true)
+    try {
+      await apiClient.patch(`/api/v1/crm/tasks/${entity.id}`, buildPayload(form, taskConfig.fields))
+      setEditOpen(false)
+      refresh()
+    } catch (e: any) { alert(apiErrorToString(e)) }
+    finally { setSaving(false) }
+  }
+
+  const detailFields = (taskConfig.detailTabs?.find(tb => tb.id === 'details')?.fields
+    ? taskConfig.fields.filter(f => taskConfig.detailTabs!.find(tb => tb.id === 'details')!.fields!.includes(f.key))
+    : taskConfig.fields
+  ).filter(f => !f.dependsOnModule || isModuleEnabled(f.dependsOnModule))
 
   // Hooks 已經全部喺 early return 之前 — safe
   if (loading || !entity) {
@@ -113,6 +165,11 @@ export default function TaskDetailPage() {
         onRefreshInsight={refreshInsight}
         breadcrumbLabel={t('pages.tasks.title', { defaultValue: 'Tasks' })}
         breadcrumbHref="/tasks"
+        onEdit={openEdit}
+        editMode={editOpen}
+        editSaving={saving}
+        onSaveEdit={handleSave}
+        onCancelEdit={cancelEdit}
         onAskAI={() => window.dispatchEvent(new CustomEvent('nexus:open-ai-panel', { detail: { context: entity } }))}
         sidebarSections={[
           {
@@ -135,6 +192,18 @@ export default function TaskDetailPage() {
         ]}
         tabs={tabs}
       />
+      {editOpen && (
+        <div className="nx-inline-edit-panel">
+          <div className="nx-inline-edit-title">{t('common.editing', { defaultValue: '編輯' })}</div>
+          <div className="nx-inline-edit-grid">
+            {detailFields.map(f => (
+              <FieldsRenderer key={f.key} field={f} entity={entity} form={form}
+                onChange={handleChange} editOpen={true}
+                relationData={{ contacts, companies }} />
+            ))}
+          </div>
+        </div>
+      )}
     </>
   )
 }

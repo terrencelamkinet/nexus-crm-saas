@@ -1,14 +1,14 @@
-import { useState, useEffect, Suspense } from 'react'
+import { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Phone, Mail, Building2, User, Clock, Edit3, Trash2, ExternalLink } from 'lucide-react'
+import { User, ExternalLink, Trash2, Pencil } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { apiClient } from '../../lib/api'
 import { FieldsRenderer } from './FieldsRenderer'
-import { buildPayload, formatDate, apiErrorToString } from './field-utils'
+import { buildPayload, apiErrorToString } from './field-utils'
 import { statusColors } from '../module-types'
-import { localizeTabLabel, localizeResourceLabel } from './labels'
+import { localizeResourceLabel } from './labels'
+import { useAIInsight, type HighlightWidget } from './NexusDetailPageV2'
 import type { ModuleConfig, EntityRecord } from '../module-types'
-import { isModuleEnabled } from '../enabled-modules'
 
 interface Props {
   config: ModuleConfig
@@ -22,25 +22,31 @@ interface Props {
   extraData?: Record<string, any>
 }
 
-export default function DetailDrawerContent({ config, id, onClose, tabRenderers, extraData }: Props) {
+function formatDateSafe(d?: string): string {
+  if (!d) return '—'
+  const dt = new Date(d)
+  if (isNaN(dt.getTime())) return '—'
+  return dt.toLocaleDateString()
+}
+
+/** Map module name → entity-insight type (whitelist matches config.name) */
+function insightType(config: ModuleConfig): string {
+  return config.name || 'company'
+}
+
+export default function DetailDrawerContent({ config, id, onClose, extraData }: Props) {
   const navigate = useNavigate()
   const { t } = useTranslation()
   const [entity, setEntity] = useState<EntityRecord | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [tab, setTab] = useState<string>('details')
   const [editOpen, setEditOpen] = useState(false)
   const [form, setForm] = useState<Record<string, any>>({})
   const [saving, setSaving] = useState(false)
   const [deleteModalOpen, setDeleteModalOpen] = useState(false)
   const [deleteLoading, setDeleteLoading] = useState(false)
-  const [isMobile, setIsMobile] = useState(window.innerWidth < 768)
 
-  useEffect(() => {
-    const onResize = () => setIsMobile(window.innerWidth < 768)
-    window.addEventListener('resize', onResize)
-    return () => window.removeEventListener('resize', onResize)
-  }, [])
+  const { insight, loading: insightLoading, refresh: refreshInsight } = useAIInsight(insightType(config), id)
 
   const fetchEntity = async () => {
     setLoading(true)
@@ -51,9 +57,7 @@ export default function DetailDrawerContent({ config, id, onClose, tabRenderers,
       const f: Record<string, any> = {}
       for (const field of config.fields) {
         let val = (eRes as any)[field.key]
-        if (field.type === 'multi_select' && typeof val === 'string') {
-          val = val ? [val] : []
-        }
+        if (field.type === 'multi_select' && typeof val === 'string') val = val ? [val] : []
         f[field.key] = val ?? (field.type === 'multi_select' ? [] : field.type === 'checkbox' ? false : '')
       }
       setForm(f)
@@ -64,20 +68,29 @@ export default function DetailDrawerContent({ config, id, onClose, tabRenderers,
     }
   }
 
+  // Initialise edit form when entity loads (or re-fetch after save)
+  useEffect(() => {
+    if (entity) {
+      const f: Record<string, any> = {}
+      for (const field of config.fields) {
+        let val = (entity as any)[field.key]
+        if (field.type === 'multi_select' && typeof val === 'string') val = val ? [val] : []
+        f[field.key] = val ?? (field.type === 'multi_select' ? [] : field.type === 'checkbox' ? false : '')
+      }
+      setForm(f)
+    }
+  }, [entity, config])
+
   useEffect(() => { fetchEntity() }, [config.apiPath, id])
 
   const handleChange = (key: string, value: any) => setForm(f => ({ ...f, [key]: value }))
-
-  const openEdit = () => setEditOpen(true)
 
   const cancelEdit = () => {
     if (entity) {
       const f: Record<string, any> = {}
       for (const field of config.fields) {
-        let val = entity[field.key]
-        if (field.type === 'multi_select' && typeof val === 'string') {
-          val = val ? [val] : []
-        }
+        let val = (entity as any)[field.key]
+        if (field.type === 'multi_select' && typeof val === 'string') val = val ? [val] : []
         f[field.key] = val ?? (field.type === 'multi_select' ? [] : field.type === 'checkbox' ? false : '')
       }
       setForm(f)
@@ -92,11 +105,11 @@ export default function DetailDrawerContent({ config, id, onClose, tabRenderers,
       await apiClient.patch(`${config.apiPath}/${entity.id}`, buildPayload(form, config.fields))
       setEditOpen(false)
       fetchEntity()
+      refreshInsight()
     } catch (e: any) { alert(apiErrorToString(e)) }
     finally { setSaving(false) }
   }
 
-  const handleDeleteClick = () => setDeleteModalOpen(true)
   const handleDeleteConfirm = async () => {
     if (!entity) return
     setDeleteLoading(true)
@@ -113,7 +126,6 @@ export default function DetailDrawerContent({ config, id, onClose, tabRenderers,
         <div className="drawer-skeleton h-24" />
         <div className="drawer-skeleton" />
         <div className="drawer-skeleton" />
-        <div className="drawer-skeleton" />
       </div>
     )
   }
@@ -127,207 +139,255 @@ export default function DetailDrawerContent({ config, id, onClose, tabRenderers,
     )
   }
 
-  const initials = (entity['name'] || '').split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2)
-  const lastTouchDate = entity['updated_at'] ? formatDate(entity['updated_at']) : entity['created_at'] ? formatDate(entity['created_at']) : '—'
   const nameField = config.fields.find(f => f.type === 'title')?.key || config.titleField || 'name'
   const entityName = String(entity[nameField] || entity.id || '')
+  const avatarLabel = String(entityName || '?').slice(0, 2).toUpperCase()
 
-  const detailsTabDef = config.detailTabs?.find(t => t.id === 'details')
-  const detailFields = (detailsTabDef?.fields
-    ? config.fields.filter(f => detailsTabDef.fields!.includes(f.key))
-    : config.fields
-  ).filter(f => !f.dependsOnModule || isModuleEnabled(f.dependsOnModule))
+  // Subline per module
+  const sublineParts: string[] = (() => {
+    const e: any = entity
+    if (config.name === 'company') return [e.industry, e.category, e.city || e.address].filter(Boolean)
+    if (config.name === 'contact') return [e.job_title, e.department, e.company?.name || ''].filter(Boolean)
+    if (config.name === 'project') return [e.status, e.priority, e.company?.name || ''].filter(Boolean)
+    if (config.name === 'task') return [e.priority, e.status, e.company_id ? String(e.company_id) : ''].filter(Boolean)
+    if (config.name === 'touchpoint') return [e.type, formatDateSafe(e.date)].filter(Boolean)
+    return []
+  })() as string[]
 
-  const visibleTabs = config.detailTabs?.filter(t => t.id !== 'details' && (!t.condition || t.condition(entity))) || []
+  // Highlights (3-4 KPIs per module, '—' fallback)
+  const highlights: HighlightWidget[] = (() => {
+    const e: any = entity
+    if (config.name === 'company') return [
+      { label: t('common.openDeals', { defaultValue: 'Open Deals' }), value: e.open_deals_count ?? '—', trend: 'neutral' },
+      { label: t('common.contacts', { defaultValue: 'Contacts' }), value: e.contacts_count ?? '—', trend: 'neutral' },
+      { label: t('fields.status', { defaultValue: 'Status' }), value: e.status || '—', trend: 'neutral' },
+    ]
+    if (config.name === 'contact') return [
+      { label: t('common.openTasks', { defaultValue: 'Open Tasks' }), value: e.open_tasks_count ?? '—', trend: 'neutral' },
+      { label: t('common.touchpoints', { defaultValue: 'Touchpoints' }), value: e.touchpoints_count ?? '—', trend: 'neutral' },
+      { label: t('fields.status', { defaultValue: 'Status' }), value: e.status || '—', trend: 'neutral' },
+    ]
+    if (config.name === 'project') return [
+      { label: t('fields.status', { defaultValue: 'Status' }), value: e.status || '—', trend: 'neutral' },
+      { label: t('fields.priority', { defaultValue: 'Priority' }), value: e.priority || '—', trend: 'neutral' },
+      { label: t('fields.deadline', { defaultValue: 'Deadline' }), value: formatDateSafe(e.deadline), trend: 'neutral' },
+    ]
+    if (config.name === 'task') return [
+      { label: t('fields.priority', { defaultValue: 'Priority' }), value: e.priority || '—', trend: 'neutral' },
+      { label: t('fields.status', { defaultValue: 'Status' }), value: e.status || '—', trend: 'neutral' },
+      { label: t('fields.dueDate', { defaultValue: 'Due Date' }), value: formatDateSafe(e.due_date), trend: 'neutral' },
+    ]
+    if (config.name === 'touchpoint') return [
+      { label: t('fields.type', { defaultValue: 'Type' }), value: e.type || '—', trend: 'neutral' },
+      { label: t('fields.date', { defaultValue: 'Date' }), value: formatDateSafe(e.date), trend: 'neutral' },
+      { label: t('fields.duration', { defaultValue: 'Duration' }), value: e.duration_minutes != null ? `${e.duration_minutes}m` : '—', trend: 'neutral' },
+    ]
+    return []
+  })()
+
+  // General Info + Ownership sidebar sections per module
+  const generalInfo = (() => {
+    const e: any = entity
+    if (config.name === 'company') return [
+      [t('fields.industry', { defaultValue: 'Industry' }), e.industry || '—'],
+      [t('fields.category', { defaultValue: 'Category' }), e.category || '—'],
+      [t('fields.ceo', { defaultValue: 'CEO' }), e.ceo_name || '—'],
+      [t('fields.website', { defaultValue: 'Website' }), e.website || '—'],
+      [t('fields.phone', { defaultValue: 'Phone' }), e.phone || '—'],
+      [t('fields.address', { defaultValue: 'Address' }), e.address || '—'],
+      [t('fields.status', { defaultValue: 'Status' }), e.status || '—'],
+    ]
+    if (config.name === 'contact') return [
+      [t('fields.jobTitle', { defaultValue: 'Title' }), e.job_title || '—'],
+      [t('fields.department', { defaultValue: 'Department' }), e.department || '—'],
+      [t('fields.email', { defaultValue: 'Email' }), e.email || '—'],
+      [t('fields.phone', { defaultValue: 'Phone' }), e.phone || '—'],
+      [t('fields.company', { defaultValue: 'Company' }), e.company?.name || '—'],
+      [t('fields.contactType', { defaultValue: 'Contact Type' }), e.contact_type || '—'],
+    ]
+    if (config.name === 'project') return [
+      [t('fields.status', { defaultValue: 'Status' }), e.status || '—'],
+      [t('fields.priority', { defaultValue: 'Priority' }), e.priority || '—'],
+      [t('fields.startDate', { defaultValue: 'Start Date' }), formatDateSafe(e.start_date)],
+      [t('fields.deadline', { defaultValue: 'Deadline' }), formatDateSafe(e.deadline)],
+      [t('fields.budget', { defaultValue: 'Budget' }), e.budget_amount != null ? String(e.budget_amount) : '—'],
+      [t('fields.company', { defaultValue: 'Company' }), e.company?.name || '—'],
+      [t('fields.description', { defaultValue: 'Description' }), e.description || '—'],
+    ]
+    if (config.name === 'task') return [
+      [t('fields.priority', { defaultValue: 'Priority' }), e.priority || '—'],
+      [t('fields.status', { defaultValue: 'Status' }), e.status || '—'],
+      [t('fields.dueDate', { defaultValue: 'Due Date' }), formatDateSafe(e.due_date)],
+      [t('fields.description', { defaultValue: 'Description' }), e.description || '—'],
+    ]
+    if (config.name === 'touchpoint') return [
+      [t('fields.type', { defaultValue: 'Type' }), e.type || '—'],
+      [t('fields.date', { defaultValue: 'Date' }), formatDateSafe(e.date)],
+      [t('fields.duration', { defaultValue: 'Duration' }), e.duration_minutes != null ? `${e.duration_minutes}m` : '—'],
+      [t('fields.location', { defaultValue: 'Location' }), e.location || '—'],
+      [t('fields.description', { defaultValue: 'Description' }), e.description || '—'],
+    ]
+    return [] as [string, string][]
+  })()
+
+  const ownership = (() => {
+    const e: any = entity
+    const rows: [string, string][] = []
+    if (config.name === 'company') rows.push([t('fields.owner', { defaultValue: 'Owner' }), e.owner_name || String(e.owner_id || '') || '—'])
+    if (config.name === 'task') rows.push([t('fields.contact', { defaultValue: 'Contact' }), e.contact_id ? String(e.contact_id) : '—'])
+    rows.push([t('fields.created', { defaultValue: 'Created' }), formatDateSafe(e.created_at)])
+    rows.push([t('fields.updated', { defaultValue: 'Updated' }), formatDateSafe(e.updated_at)])
+    return rows
+  })()
+
+  const statusTagClass = statusColors[(entity as any).status] || 'tag-default'
+  const relatedCompanyId = (entity as any).company?.id as string | undefined
+  const relatedCompanyName = (entity as any).company?.name as string | undefined
 
   return (
-    <div className="drawer-detail">
-      {/* Breadcrumb */}
-      <nav className="breadcrumb drawer-bc">
-        <span className="breadcrumb-link" onClick={() => { onClose(); navigate('/dashboard') }}>{t('common.home')}</span>
-        <span className="bc-sep">/</span>
-        <span className="breadcrumb-link" onClick={onClose}>{localizeResourceLabel(config.name, true, config.labelPlural, t)}</span>
-        <span className="bc-sep">/</span>
-        <span className="cur">{entityName}</span>
-      </nav>
-
-      {/* Profile card */}
-      <div className="drawer-profile">
-        <div className="drawer-profile-avatar">{initials}</div>
-        <div className="drawer-profile-info">
+    <div className="drawer-detail nx-drawer-v2">
+      {/* ═══ V2 Header ═══ */}
+      <div className="nx-drawer-head">
+        <div className="nx-detail-avatar nx-drawer-avatar">{avatarLabel}</div>
+        <div className="nx-drawer-titleblock">
           <h4>{entityName}</h4>
-          <span className="drawer-profile-role">{entity['company']?.name || entity['job_title'] || '—'}</span>
+          {sublineParts.length > 0 && (
+            <div className="nx-detail-subline">
+              {sublineParts.slice(0, 3).map((s, i) => (
+                <span key={i}>{i > 0 && <span style={{ marginRight: 6 }}>·</span>}{s}</span>
+              ))}
+            </div>
+          )}
+          <div className="nx-drawer-status">
+            <span className={`select-tag ${statusTagClass}`}>{(entity as any).status || t('common.active')}</span>
+          </div>
         </div>
       </div>
 
-      {/* Quick info */}
-      <div className="drawer-quick-info">
-        {entity['email'] && (
-          <div className="drawer-info-row">
-            <Mail className="icon-14" />
-            <span>{entity['email']}</span>
-          </div>
-        )}
-        {entity['phone'] && (
-          <div className="drawer-info-row">
-            <Phone className="icon-14" />
-            <span>{entity['phone']}</span>
-          </div>
-        )}
-        {entity['company'] && (
-          <div className="drawer-info-row" style={{ cursor: 'pointer' }}
-            onClick={() => {
-              const companyId = (entity['company'] as any).id
-              if (companyId) navigate(`/companies/${companyId}`)
-            }}>
-            <Building2 className="icon-14" />
-            <span className="badge badge-p3" style={{ color: 'var(--color-primary)' }}>{(entity['company'] as any).name || (entity['company'] as any).id || ''}</span>
-          </div>
-        )}
-        <div className="drawer-info-row">
-          <User className="icon-14" />
-          <span>{t('common.owner')}: {entity['contact_type'] || t('common.unassigned')}</span>
-        </div>
-        <div className="drawer-info-row">
-          <Clock className="icon-14" />
-          <span>{t('common.lastTouch')}: {lastTouchDate}</span>
-        </div>
-      </div>
-
-      {/* Tags */}
-      <div className="drawer-tags">
-        <span className={`select-tag ${statusColors[entity['status']] || 'tag-default'}`}>
-          {entity['status'] || t('common.active')}
-        </span>
-        {Array.isArray(entity['tags']) && entity['tags'].map((t: string) => (
-          <span key={t} className="tag">{t}</span>
-        ))}
-      </div>
-
-      {/* Edit banner */}
-      {editOpen && (
-        <div className="edit-banner">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="14" height="14">
-            <path d="M12 20h9M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4L16.5 3.5z" />
-          </svg>
-          {t('common.editingModeActive')}
-        </div>
-      )}
-
-      {/* Actions */}
-      <div className="drawer-actions">
+      {/* ═══ Actions ═══ */}
+      <div className="nx-drawer-actions">
         {editOpen ? (
           <>
-            <button onClick={cancelEdit} disabled={saving} className="btn-ghost btn-sm">{t('common.cancel')}</button>
-            <button onClick={handleSave} disabled={saving} className="btn-primary btn-sm">
+            <button onClick={cancelEdit} disabled={saving} className="nx-btn nx-btn-secondary btn-sm">{t('common.cancel')}</button>
+            <button onClick={handleSave} disabled={saving} className="nx-btn nx-btn-primary btn-sm">
               {saving ? t('common.saving') : t('common.save')}
             </button>
           </>
         ) : (
           <>
-            <button onClick={handleDeleteClick} className="btn-danger btn-sm">
-              <Trash2 className="icon-14" /> {t('common.delete')}
+            <button onClick={() => setDeleteModalOpen(true)} className="nx-btn nx-btn-secondary btn-sm">
+              <Trash2 size={13} /> {t('common.delete')}
             </button>
             <button onClick={() => {
               const route = config.routePrefix || config.labelPlural.toLowerCase()
               onClose()
               navigate(`/${route}/${entity.id}`)
-            }} className="btn-primary btn-sm">
-              <ExternalLink className="icon-14" /> {t('common.openFull')}
+            }} className="nx-btn nx-btn-secondary btn-sm">
+              <ExternalLink size={13} /> {t('common.openFull')}
             </button>
-            <button onClick={openEdit} className="btn-primary btn-sm">
-              <Edit3 className="icon-14" /> {t('common.edit')}
+            <button onClick={() => setEditOpen(true)} className="nx-btn nx-btn-primary btn-sm">
+              <Pencil size={13} /> {t('common.edit')}
             </button>
           </>
         )}
       </div>
 
-      {/* Mobile: all sections stacked */}
-      {isMobile ? (
-        <>
-          {/* Details fields — grid, top 10 with show more */}
-          <DetailFieldsSection
-            detailFields={detailFields}
-            config={config}
-            entity={entity}
-            form={form}
-            handleChange={handleChange}
-            editOpen={editOpen}
-            extraData={extraData}
-          />
-
-          {/* All tabs as stacked sections */}
-          {visibleTabs.map(tabItem => {
-            const CustomRenderer = tabItem.render || tabRenderers?.[tabItem.id]
-            return (
-              <div className="drawer-section" key={tabItem.id}>
-                {CustomRenderer ? (
-                  <Suspense fallback={<div className="empty-state">{t('common.loadingLabel', { label: tabItem.label.toLowerCase() })}</div>}>
-                    <CustomRenderer entity={entity} moduleConfig={config} refresh={fetchEntity} />
-                  </Suspense>
-                ) : (
-                  <div className="panel">
-                    <div className="panel-head"><h3>{localizeTabLabel(tabItem.id, tabItem.label, t)}</h3></div>
-                    <div className="empty-state">{t('common.noLabelYet', { label: localizeTabLabel(tabItem.id, tabItem.label, t).toLowerCase() })}</div>
-                  </div>
-                )}
-              </div>
-            )
-          })}
-        </>
-      ) : (
-        <>
-          {/* Desktop: tab bar */}
-          {visibleTabs.length > 0 && (
-            <div className="drawer-tab-bar">
-              {visibleTabs.map(tabItem => (
-                <div key={tabItem.id}
-                  className={`drawer-tab ${tab === tabItem.id ? 'active' : ''}`}
-                  onClick={() => setTab(tabItem.id)}
-                >
-                  {localizeTabLabel(tabItem.id, tabItem.label, t)}
-                </div>
-              ))}
+      {/* ═══ Highlights row ═══ */}
+      {highlights.length > 0 && (
+        <div className="nx-highlight-row nx-drawer-highlights">
+          {highlights.map((h, i) => (
+            <div className="nx-highlight-widget" key={i}>
+              <div className="nx-highlight-label">{h.label}</div>
+              <div className="nx-highlight-value">{h.value}</div>
             </div>
-          )}
-
-          {/* Details fields */}
-          {tab === 'details' && (
-            <div className="drawer-section">
-              <div className="drawer-section-title">{localizeResourceLabel(config.name, false, config.label, t)} {t('common.information')}</div>
-              <div className="drawer-fields-grid">
-                {detailFields.map(f => (
-                  <FieldsRenderer key={f.key} field={f} entity={entity} form={form}
-                    onChange={handleChange} editOpen={editOpen}
-                    relationData={{ companies: extraData?.companies }}
-                    onNavigate={(url) => navigate(url)}
-                  />
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Tab content */}
-          {visibleTabs.map(tabItem => {
-            if (tab !== tabItem.id) return null
-            const CustomRenderer = tabItem.render || tabRenderers?.[tabItem.id]
-            if (CustomRenderer) {
-              return (
-                <Suspense key={tabItem.id}
-                  fallback={<div className="drawer-section"><div className="empty-state">{t('common.loadingLabel', { label: tabItem.label.toLowerCase() })}</div></div>}
-                >
-                  <CustomRenderer entity={entity} moduleConfig={config} refresh={fetchEntity} />
-                </Suspense>
-              )
-            }
-            return (
-              <div className="drawer-section" key={tabItem.id}>
-                <div className="empty-state">{t('common.noLabelYet', { label: tabItem.label.toLowerCase() })}</div>
-              </div>
-            )
-          })}
-        </>
+          ))}
+        </div>
       )}
+
+      {/* ═══ AI insight card (empty → not render — Bug #1) ═══ */}
+      {(insightLoading || (insight && (insight.summary || insight.tags?.length > 0))) && (
+        <div className="nx-ai-insight-card nx-drawer-ai">
+          <div className="nx-ai-insight-head">
+            <div className="nx-ai-insight-icon">✦</div>
+            <div className="nx-ai-insight-title">{t('common.aiSummary', { defaultValue: 'AI 摘要' })}</div>
+            {!insightLoading && (
+              <div className="nx-ai-insight-refresh" onClick={refreshInsight}>↻</div>
+            )}
+          </div>
+          {insightLoading ? (
+            <div className="nx-ai-thinking">
+              <span className="nx-ai-dot" /><span className="nx-ai-dot" /><span className="nx-ai-dot" />
+            </div>
+          ) : (
+            <>
+              <div className="nx-ai-insight-body">{insight!.summary}</div>
+              {insight!.tags.length > 0 && (
+                <div className="nx-ai-insight-tags">
+                  {insight!.tags.map((tg, i) => (
+                    <span className={`nx-ai-tag ${tg.kind}`} key={i}>{tg.label}</span>
+                  ))}
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      )}
+
+      {/* ═══ Inline edit form ═══ */}
+      {editOpen && (
+        <div className="nx-inline-edit-panel nx-drawer-edit">
+          <div className="nx-inline-edit-title">{t('common.editing', { defaultValue: '編輯' })}</div>
+          <div className="nx-inline-edit-grid">
+            {config.fields.filter(fld => fld.editable !== false && !['created_time', 'last_edited_time', 'created_by', 'last_edited_by'].includes(fld.type)).map(f => (
+              <FieldsRenderer key={f.key} field={f} entity={entity} form={form}
+                onChange={handleChange} editOpen={true}
+                relationData={{ companies: extraData?.companies }} />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ═══ Sidebar-style field groups ═══ */}
+      <div className="nx-drawer-sections">
+        {generalInfo.length > 0 && (
+          <div className="nx-sidebar-section">
+            <div className="nx-sidebar-section-head">{t('common.generalInfo', { defaultValue: 'General Info' })}</div>
+            {generalInfo.map(([label, value], i) => (
+              <div className="nx-sidebar-field" key={i}>
+                <span className="nx-sidebar-field-label">{label}</span>
+                <span className="nx-sidebar-field-value">{value}</span>
+              </div>
+            ))}
+          </div>
+        )}
+        {ownership.length > 0 && (
+          <div className="nx-sidebar-section">
+            <div className="nx-sidebar-section-head">{t('common.ownership', { defaultValue: 'Ownership' })}</div>
+            {ownership.map(([label, value], i) => (
+              <div className="nx-sidebar-field" key={i}>
+                <span className="nx-sidebar-field-label">{label}</span>
+                <span className="nx-sidebar-field-value">{value}</span>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Related company navigation (preserve onNavigate behaviour) */}
+        {relatedCompanyId && (
+          <div className="nx-sidebar-section">
+            <div className="nx-sidebar-section-head">{t('common.related', { defaultValue: 'Related' })}</div>
+            <div
+              className="nx-drawer-related"
+              onClick={() => {
+                if (relatedCompanyId) { onClose(); navigate(`/companies/${relatedCompanyId}`) }
+              }}
+            >
+              <User size={13} />
+              <span>{relatedCompanyName || String(relatedCompanyId)}</span>
+            </div>
+          </div>
+        )}
+      </div>
 
       {/* Delete modal */}
       {deleteModalOpen && (
@@ -345,41 +405,6 @@ export default function DetailDrawerContent({ config, id, onClose, tabRenderers,
             </div>
           </div>
         </div>
-      )}
-    </div>
-  )
-}
-
-/* ── Mobile detail fields: grid, top 10 with show more ── */
-function DetailFieldsSection({ detailFields, config, entity, form, handleChange, editOpen, extraData, onNavigate }: {
-  detailFields: any[]
-  config: any
-  entity: any
-  form: any
-  handleChange: (k: string, v: any) => void
-  editOpen: boolean
-  extraData?: any
-  onNavigate?: (url: string) => void
-}) {
-  const [showAll, setShowAll] = useState(false)
-  const { t } = useTranslation()
-  const visible = showAll ? detailFields : detailFields.slice(0, 10)
-  return (
-    <div className="drawer-section">
-      <div className="drawer-section-title">{localizeResourceLabel(config.name, false, config.label, t)} {t('common.information')}</div>
-      <div className="drawer-fields-grid grid-2col">
-        {visible.map(f => (
-          <FieldsRenderer key={f.key} field={f} entity={entity} form={form}
-            onChange={handleChange} editOpen={editOpen}
-            relationData={{ companies: extraData?.companies }}
-            onNavigate={onNavigate}
-          />
-        ))}
-      </div>
-      {detailFields.length > 10 && (
-        <button className="btn-ghost drawer-more-btn" onClick={() => setShowAll(!showAll)}>
-          {showAll ? t('common.showLess') : t('common.showAllFields', { count: detailFields.length })}
-        </button>
       )}
     </div>
   )

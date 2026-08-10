@@ -1,13 +1,17 @@
 import { useState, useEffect } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { NexusDetailPageV2, useAIInsight, type DetailTab, type HighlightWidget } from '../shared/NexusDetailPageV2'
 import companyConfig from './config'
 import {
   ContactsTab, DealsTab, ProjectsTab, ProductsTab,
-  PartnersTab, TouchpointsTab, NotesTab, TimelineTab, TasksTab,
+  PartnersTab, TouchpointsTab, NotesTab, TasksTab,
 } from './CompanyDetailTabs'
 import { useEntity } from '../hooks/useEntity'
+import { V2ActivityTimeline } from '../shared/V2ActivityTimeline'
+import { FieldsRenderer } from '../shared/FieldsRenderer'
+import { buildPayload, apiErrorToString } from '../shared/field-utils'
+import { isModuleEnabled } from '../enabled-modules'
 import { apiClient } from '../../lib/api'
 
 function formatDate(d?: string): string {
@@ -19,13 +23,15 @@ function formatDate(d?: string): string {
 
 export default function CompaniesDetailPage() {
   const { id } = useParams<{ id: string }>()
-  const navigate = useNavigate()
   const { t } = useTranslation()
   const { entity, loading, refresh } = useEntity('company', id!)
   const { insight, loading: insightLoading, refresh: refreshInsight } = useAIInsight('company', id!)
 
   // Order of hooks is fixed — all useEntity/useState hooks before early return
   const [taskCount, setTaskCount] = useState<number | null>(null)
+  const [editOpen, setEditOpen] = useState(false)
+  const [form, setForm] = useState<Record<string, any>>({})
+  const [saving, setSaving] = useState(false)
 
   useEffect(() => {
     if (!id) return
@@ -36,8 +42,49 @@ export default function CompaniesDetailPage() {
     return () => { alive = false }
   }, [id])
 
+  // Edit state — initialised once entity is loaded
+  useEffect(() => {
+    if (entity) {
+      const f: Record<string, any> = {}
+      for (const field of companyConfig.fields) {
+        let val = (entity as any)[field.key]
+        if (field.type === 'multi_select' && typeof val === 'string') val = val ? [val] : []
+        f[field.key] = val ?? (field.type === 'multi_select' ? [] : field.type === 'checkbox' ? false : '')
+      }
+      setForm(f)
+    }
+  }, [entity])
+
   if (loading || !entity) {
     return <div className="nx-loading-shell">{t('common.loading', { defaultValue: 'Loading…' })}</div>
+  }
+
+  const openEdit = () => setEditOpen(true)
+
+  const cancelEdit = () => {
+    if (entity) {
+      const f: Record<string, any> = {}
+      for (const field of companyConfig.fields) {
+        let val = (entity as any)[field.key]
+        if (field.type === 'multi_select' && typeof val === 'string') val = val ? [val] : []
+        f[field.key] = val ?? (field.type === 'multi_select' ? [] : field.type === 'checkbox' ? false : '')
+      }
+      setForm(f)
+    }
+    setEditOpen(false)
+  }
+
+  const handleChange = (key: string, value: any) => setForm(f => ({ ...f, [key]: value }))
+
+  const handleSave = async () => {
+    if (!entity) return
+    setSaving(true)
+    try {
+      await apiClient.patch(`/api/v1/crm/companies/${entity.id}`, buildPayload(form, companyConfig.fields))
+      setEditOpen(false)
+      refresh()
+    } catch (e: any) { alert(apiErrorToString(e)) }
+    finally { setSaving(false) }
   }
 
   const subline = [entity.industry, entity.category, entity.city || entity.address].filter(Boolean) as string[]
@@ -49,9 +96,14 @@ export default function CompaniesDetailPage() {
     { label: t('common.healthScore', { defaultValue: 'Health Score' }), value: entity.health_score ?? '—', trend: 'neutral' },
   ]
 
+  const detailFields = (companyConfig.detailTabs?.find(tb => tb.id === 'details')?.fields
+    ? companyConfig.fields.filter(f => companyConfig.detailTabs!.find(tb => tb.id === 'details')!.fields!.includes(f.key))
+    : companyConfig.fields
+  ).filter(f => !f.dependsOnModule || isModuleEnabled(f.dependsOnModule))
+
   const tabs: DetailTab[] = [
-    { key: 'overview', label: t('common.overview', { defaultValue: 'Overview' }), render: () => <TimelineTab entity={entity} moduleConfig={companyConfig} refresh={refresh} /> },
-    { key: 'timeline', label: t('common.timeline', { defaultValue: 'Timeline' }), render: () => <TimelineTab entity={entity} moduleConfig={companyConfig} refresh={refresh} /> },
+    { key: 'overview', label: t('common.overview', { defaultValue: 'Overview' }), render: () => <V2ActivityTimeline entityId={id!} filterType="company" /> },
+    { key: 'timeline', label: t('common.timeline', { defaultValue: 'Timeline' }), render: () => <V2ActivityTimeline entityId={id!} filterType="company" /> },
     { key: 'contacts', label: t('common.contacts', { defaultValue: 'Contacts' }), render: () => <ContactsTab entity={entity} moduleConfig={companyConfig} refresh={refresh} /> },
     { key: 'deals', label: t('common.deals', { defaultValue: 'Deals' }), render: () => <DealsTab entity={entity} moduleConfig={companyConfig} refresh={refresh} /> },
     { key: 'projects', label: t('common.projects', { defaultValue: 'Projects' }), render: () => <ProjectsTab entity={entity} moduleConfig={companyConfig} refresh={refresh} /> },
@@ -63,42 +115,59 @@ export default function CompaniesDetailPage() {
   ]
 
   return (
-    <NexusDetailPageV2
-      entity={entity}
-      moduleConfig={companyConfig}
-      avatarLabel={String(entity.name || '?').slice(0, 2).toUpperCase()}
-      subline={subline.slice(0, 3)}
-      highlights={highlights}
-      aiInsight={insight ?? undefined}
-      aiInsightLoading={insightLoading}
-      onRefreshInsight={refreshInsight}
-      breadcrumbLabel={t('pages.companies.title', { defaultValue: 'Companies' })}
-      breadcrumbHref="/companies"
-      onEdit={() => navigate(`/companies/${id}/edit`)}
-      onAskAI={() => window.dispatchEvent(new CustomEvent('nexus:open-ai-panel', { detail: { context: entity } }))}
-      sidebarSections={[
-        {
-          title: t('common.generalInfo', { defaultValue: 'General Info' }),
-          fields: [
-            { label: t('fields.industry', { defaultValue: 'Industry' }), value: entity.industry || '—' },
-            { label: t('fields.category', { defaultValue: 'Category' }), value: entity.category || '—' },
-            { label: t('fields.ceo', { defaultValue: 'CEO' }), value: entity.ceo_name || '—' },
-            { label: t('fields.website', { defaultValue: 'Website' }), value: entity.website || '—', aiEnriched: !!entity.website_ai_filled },
-            { label: t('fields.phone', { defaultValue: 'Phone' }), value: entity.phone || '—' },
-            { label: t('fields.address', { defaultValue: 'Address' }), value: entity.address || '—' },
-            { label: t('fields.domain', { defaultValue: 'Domain' }), value: entity.domain || '—' },
-          ],
-        },
-        {
-          title: t('common.ownership', { defaultValue: 'Ownership' }),
-          fields: [
-            { label: t('fields.owner', { defaultValue: 'Owner' }), value: entity.owner_name || String(entity.owner_id || '') || '—' },
-            { label: t('fields.created', { defaultValue: 'Created' }), value: formatDate(entity.created_at) },
-            { label: t('fields.status', { defaultValue: 'Status' }), value: entity.status || '—' },
-          ],
-        },
-      ]}
-      tabs={tabs}
-    />
+    <>
+      <NexusDetailPageV2
+        entity={entity}
+        moduleConfig={companyConfig}
+        avatarLabel={String(entity.name || '?').slice(0, 2).toUpperCase()}
+        subline={subline.slice(0, 3)}
+        highlights={highlights}
+        aiInsight={insight ?? undefined}
+        aiInsightLoading={insightLoading}
+        onRefreshInsight={refreshInsight}
+        breadcrumbLabel={t('pages.companies.title', { defaultValue: 'Companies' })}
+        breadcrumbHref="/companies"
+        onEdit={openEdit}
+        editMode={editOpen}
+        editSaving={saving}
+        onSaveEdit={handleSave}
+        onCancelEdit={cancelEdit}
+        onAskAI={() => window.dispatchEvent(new CustomEvent('nexus:open-ai-panel', { detail: { context: entity } }))}
+        sidebarSections={[
+          {
+            title: t('common.generalInfo', { defaultValue: 'General Info' }),
+            fields: [
+              { label: t('fields.industry', { defaultValue: 'Industry' }), value: entity.industry || '—' },
+              { label: t('fields.category', { defaultValue: 'Category' }), value: entity.category || '—' },
+              { label: t('fields.ceo', { defaultValue: 'CEO' }), value: entity.ceo_name || '—' },
+              { label: t('fields.website', { defaultValue: 'Website' }), value: entity.website || '—', aiEnriched: !!entity.website_ai_filled },
+              { label: t('fields.phone', { defaultValue: 'Phone' }), value: entity.phone || '—' },
+              { label: t('fields.address', { defaultValue: 'Address' }), value: entity.address || '—' },
+              { label: t('fields.domain', { defaultValue: 'Domain' }), value: entity.domain || '—' },
+            ],
+          },
+          {
+            title: t('common.ownership', { defaultValue: 'Ownership' }),
+            fields: [
+              { label: t('fields.owner', { defaultValue: 'Owner' }), value: entity.owner_name || String(entity.owner_id || '') || '—' },
+              { label: t('fields.created', { defaultValue: 'Created' }), value: formatDate(entity.created_at) },
+              { label: t('fields.status', { defaultValue: 'Status' }), value: entity.status || '—' },
+            ],
+          },
+        ]}
+        tabs={tabs}
+      />
+      {editOpen && (
+        <div className="nx-inline-edit-panel">
+          <div className="nx-inline-edit-title">{t('common.editing', { defaultValue: '編輯' })}</div>
+          <div className="nx-inline-edit-grid">
+            {detailFields.map(f => (
+              <FieldsRenderer key={f.key} field={f} entity={entity} form={form}
+                onChange={handleChange} editOpen={true} />
+            ))}
+          </div>
+        </div>
+      )}
+    </>
   )
 }

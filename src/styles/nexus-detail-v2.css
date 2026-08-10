@@ -167,3 +167,60 @@
 }
 .nx-btn-ai:hover { filter: brightness(1.08); }
 .nx-btn-ai:active { transform: scale(0.97); }
+
+/* ═══ Inline edit panel (Bug #3 — V2 pages edit mode) ═══ */
+.nx-inline-edit-panel {
+  margin: var(--space-4) auto;
+  max-width: 1200px;
+  padding: var(--space-5);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+}
+.nx-inline-edit-title {
+  font-size: 13px; font-weight: 600; color: var(--color-text-secondary);
+  margin-bottom: var(--space-4); letter-spacing: .02em;
+}
+.nx-inline-edit-grid {
+  display: grid; grid-template-columns: 1fr; gap: var(--space-4);
+}
+@media (min-width: 768px) {
+  .nx-inline-edit-grid { grid-template-columns: 1fr 1fr; }
+}
+
+/* ═══ Preview drawer V2 (DetailDrawerContent) — concise subset ═══ */
+.nx-drawer-v2 { padding: 0; }
+.nx-drawer-head {
+  display: flex; align-items: flex-start; gap: var(--space-3);
+  padding: var(--space-1) 0 var(--space-3);
+}
+.nx-drawer-avatar { flex-shrink: 0; }
+.nx-drawer-titleblock { min-width: 0; }
+.nx-drawer-titleblock h4 {
+  margin: 0; font-size: 16px; font-weight: 700; color: var(--color-text-primary);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.nx-drawer-status { margin-top: var(--space-2); }
+.nx-drawer-actions {
+  display: flex; gap: var(--space-2); flex-wrap: wrap; margin-bottom: var(--space-4);
+}
+.nx-drawer-actions .nx-btn { height: 34px; padding: 0 12px; font-size: 12px; }
+.nx-drawer-highlights { margin-bottom: var(--space-3); }
+.nx-drawer-ai { margin-bottom: var(--space-4); }
+.nx-drawer-edit { margin-bottom: var(--space-4); }
+.nx-drawer-sections { margin-top: var(--space-2); }
+.nx-drawer-related {
+  display: flex; align-items: center; gap: var(--space-2);
+  padding: var(--space-2) 0; font-size: 13px; color: var(--color-primary);
+  cursor: pointer;
+}
+.nx-drawer-related:hover { text-decoration: underline; }
+@media (max-width: 767px) {
+  .nx-drawer-actions .nx-btn { height: 40px; font-size: 14px; }
+}
+
+/* ═══ Loading shell for V2 detail pages ═══ */
+.nx-loading-shell {
+  display: flex; align-items: center; justify-content: center;
+  min-height: 240px; color: var(--color-text-secondary); font-size: 13px;
+}

@@ -1,8 +1,13 @@
-import { useParams, useNavigate } from 'react-router-dom'
+import { useState, useEffect } from 'react'
+import { useParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { NexusDetailPageV2, useAIInsight, type DetailTab, type HighlightWidget } from '../shared/NexusDetailPageV2'
 import projectConfig from './config'
 import { useEntity } from '../hooks/useEntity'
+import { FieldsRenderer } from '../shared/FieldsRenderer'
+import { buildPayload, apiErrorToString } from '../shared/field-utils'
+import { isModuleEnabled } from '../enabled-modules'
+import { apiClient } from '../../lib/api'
 
 function formatDate(d?: string): string {
   if (!d) return '—'
@@ -13,14 +18,63 @@ function formatDate(d?: string): string {
 
 export default function ProjectsDetailPage() {
   const { id } = useParams<{ id: string }>()
-  const navigate = useNavigate()
   const { t } = useTranslation()
   const { entity, loading, refresh } = useEntity('project', id!)
   const { insight, loading: insightLoading, refresh: refreshInsight } = useAIInsight('project', id!)
 
+  const [editOpen, setEditOpen] = useState(false)
+  const [form, setForm] = useState<Record<string, any>>({})
+  const [saving, setSaving] = useState(false)
+
+  // Edit state — initialised once entity is loaded
+  useEffect(() => {
+    if (entity) {
+      const f: Record<string, any> = {}
+      for (const field of projectConfig.fields) {
+        let val = (entity as any)[field.key]
+        if (field.type === 'multi_select' && typeof val === 'string') val = val ? [val] : []
+        f[field.key] = val ?? (field.type === 'multi_select' ? [] : field.type === 'checkbox' ? false : '')
+      }
+      setForm(f)
+    }
+  }, [entity])
+
   if (loading || !entity) {
     return <div className="nx-loading-shell">{t('common.loading', { defaultValue: 'Loading…' })}</div>
   }
+
+  const openEdit = () => setEditOpen(true)
+
+  const cancelEdit = () => {
+    if (entity) {
+      const f: Record<string, any> = {}
+      for (const field of projectConfig.fields) {
+        let val = (entity as any)[field.key]
+        if (field.type === 'multi_select' && typeof val === 'string') val = val ? [val] : []
+        f[field.key] = val ?? (field.type === 'multi_select' ? [] : field.type === 'checkbox' ? false : '')
+      }
+      setForm(f)
+    }
+    setEditOpen(false)
+  }
+
+  const handleChange = (key: string, value: any) => setForm(f => ({ ...f, [key]: value }))
+
+  const handleSave = async () => {
+    if (!entity) return
+    setSaving(true)
+    try {
+      await apiClient.patch(`/api/v1/crm/projects/${entity.id}`, buildPayload(form, projectConfig.fields))
+      setEditOpen(false)
+      refresh()
+    } catch (e: any) { alert(apiErrorToString(e)) }
+    finally { setSaving(false) }
+  }
+
+  const detailFields = (projectConfig.detailTabs?.find(tb => tb.id === 'details')?.fields
+    ? projectConfig.fields.filter(f => projectConfig.detailTabs!.find(tb => tb.id === 'details')!.fields!.includes(f.key))
+    : projectConfig.fields
+  ).filter(f => !f.dependsOnModule || isModuleEnabled(f.dependsOnModule))
 
   const overdue = entity.deadline ? (new Date(entity.deadline) < new Date() && entity.status !== 'completed') : false
   const subline = [
@@ -50,41 +104,58 @@ export default function ProjectsDetailPage() {
     }))
 
   return (
-    <NexusDetailPageV2
-      entity={entity}
-      moduleConfig={projectConfig}
-      avatarLabel={String(entity.name || '?').slice(0, 2).toUpperCase()}
-      subline={subline.slice(0, 3)}
-      highlights={highlights}
-      aiInsight={insight ?? undefined}
-      aiInsightLoading={insightLoading}
-      onRefreshInsight={refreshInsight}
-      breadcrumbLabel={t('pages.projects.title', { defaultValue: 'Projects' })}
-      breadcrumbHref="/projects"
-      onEdit={() => navigate(`/projects/${id}/edit`)}
-      onAskAI={() => window.dispatchEvent(new CustomEvent('nexus:open-ai-panel', { detail: { context: entity } }))}
-      sidebarSections={[
-        {
-          title: t('common.generalInfo', { defaultValue: 'General Info' }),
-          fields: [
-            { label: t('fields.status', { defaultValue: 'Status' }), value: entity.status || '—' },
-            { label: t('fields.priority', { defaultValue: 'Priority' }), value: entity.priority || '—' },
-            { label: t('fields.startDate', { defaultValue: 'Start Date' }), value: formatDate(entity.start_date) },
-            { label: t('fields.deadline', { defaultValue: 'Deadline' }), value: formatDate(entity.deadline) },
-            { label: t('fields.budget', { defaultValue: 'Budget' }), value: entity.budget_amount != null ? String(entity.budget_amount) : '—' },
-            { label: t('fields.company', { defaultValue: 'Company' }), value: (entity.company as any)?.name || '—' },
-            { label: t('fields.description', { defaultValue: 'Description' }), value: entity.description || '—' },
-          ],
-        },
-        {
-          title: t('common.ownership', { defaultValue: 'Ownership' }),
-          fields: [
-            { label: t('fields.salesOwner', { defaultValue: 'Sales Owner' }), value: String(entity.sales_owner_id || '') || '—' },
-            { label: t('fields.created', { defaultValue: 'Created' }), value: formatDate(entity.created_at) },
-          ],
-        },
-      ]}
-      tabs={tabs}
-    />
+    <>
+      <NexusDetailPageV2
+        entity={entity}
+        moduleConfig={projectConfig}
+        avatarLabel={String(entity.name || '?').slice(0, 2).toUpperCase()}
+        subline={subline.slice(0, 3)}
+        highlights={highlights}
+        aiInsight={insight ?? undefined}
+        aiInsightLoading={insightLoading}
+        onRefreshInsight={refreshInsight}
+        breadcrumbLabel={t('pages.projects.title', { defaultValue: 'Projects' })}
+        breadcrumbHref="/projects"
+        onEdit={openEdit}
+        editMode={editOpen}
+        editSaving={saving}
+        onSaveEdit={handleSave}
+        onCancelEdit={cancelEdit}
+        onAskAI={() => window.dispatchEvent(new CustomEvent('nexus:open-ai-panel', { detail: { context: entity } }))}
+        sidebarSections={[
+          {
+            title: t('common.generalInfo', { defaultValue: 'General Info' }),
+            fields: [
+              { label: t('fields.status', { defaultValue: 'Status' }), value: entity.status || '—' },
+              { label: t('fields.priority', { defaultValue: 'Priority' }), value: entity.priority || '—' },
+              { label: t('fields.startDate', { defaultValue: 'Start Date' }), value: formatDate(entity.start_date) },
+              { label: t('fields.deadline', { defaultValue: 'Deadline' }), value: formatDate(entity.deadline) },
+              { label: t('fields.budget', { defaultValue: 'Budget' }), value: entity.budget_amount != null ? String(entity.budget_amount) : '—' },
+              { label: t('fields.company', { defaultValue: 'Company' }), value: (entity.company as any)?.name || '—' },
+              { label: t('fields.description', { defaultValue: 'Description' }), value: entity.description || '—' },
+            ],
+          },
+          {
+            title: t('common.ownership', { defaultValue: 'Ownership' }),
+            fields: [
+              { label: t('fields.salesOwner', { defaultValue: 'Sales Owner' }), value: String(entity.sales_owner_id || '') || '—' },
+              { label: t('fields.created', { defaultValue: 'Created' }), value: formatDate(entity.created_at) },
+            ],
+          },
+        ]}
+        tabs={tabs}
+      />
+      {editOpen && (
+        <div className="nx-inline-edit-panel">
+          <div className="nx-inline-edit-title">{t('common.editing', { defaultValue: '編輯' })}</div>
+          <div className="nx-inline-edit-grid">
+            {detailFields.map(f => (
+              <FieldsRenderer key={f.key} field={f} entity={entity} form={form}
+                onChange={handleChange} editOpen={true} />
+            ))}
+          </div>
+        </div>
+      )}
+    </>
   )
 }

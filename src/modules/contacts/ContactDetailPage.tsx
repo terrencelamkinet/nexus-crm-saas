@@ -1,10 +1,14 @@
 import { useState, useEffect } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { NexusDetailPageV2, useAIInsight, type DetailTab, type HighlightWidget } from '../shared/NexusDetailPageV2'
 import contactConfig from './config'
-import { TimelineTab, DealsTab, TouchpointsTab, NotesTab, ProjectsTab, TasksTab } from './ContactDetailTabs'
+import { DealsTab, TouchpointsTab, NotesTab, ProjectsTab, TasksTab } from './ContactDetailTabs'
 import { useEntity } from '../hooks/useEntity'
+import { V2ActivityTimeline } from '../shared/V2ActivityTimeline'
+import { FieldsRenderer } from '../shared/FieldsRenderer'
+import { buildPayload, apiErrorToString } from '../shared/field-utils'
+import { isModuleEnabled } from '../enabled-modules'
 import { apiClient } from '../../lib/api'
 import { useModuleSettings } from '../../lib/useModules'
 
@@ -17,7 +21,6 @@ function formatDate(d?: string): string {
 
 export default function ContactDetailPage() {
   const { id } = useParams<{ id: string }>()
-  const navigate = useNavigate()
   const { t } = useTranslation()
   const modules = useModuleSettings()
   const salesOn = modules['sales'] !== false
@@ -27,6 +30,9 @@ export default function ContactDetailPage() {
 
   // 保留原有 companies fetch（用喺 relation fields / related cards）
   const [companies, setCompanies] = useState<{ id: string; name: string }[]>([])
+  const [editOpen, setEditOpen] = useState(false)
+  const [form, setForm] = useState<Record<string, any>>({})
+  const [saving, setSaving] = useState(false)
 
   useEffect(() => {
     apiClient.get<{ items: { id: string; name: string }[] }>('/api/v1/crm/companies?page_size=100')
@@ -34,9 +40,55 @@ export default function ContactDetailPage() {
       .catch(() => {})
   }, [])
 
+  // Edit state — initialised once entity is loaded
+  useEffect(() => {
+    if (entity) {
+      const f: Record<string, any> = {}
+      for (const field of contactConfig.fields) {
+        let val = (entity as any)[field.key]
+        if (field.type === 'multi_select' && typeof val === 'string') val = val ? [val] : []
+        f[field.key] = val ?? (field.type === 'multi_select' ? [] : field.type === 'checkbox' ? false : '')
+      }
+      setForm(f)
+    }
+  }, [entity])
+
   if (loading || !entity) {
     return <div className="nx-loading-shell">{t('common.loading', { defaultValue: 'Loading…' })}</div>
   }
+
+  const openEdit = () => setEditOpen(true)
+
+  const cancelEdit = () => {
+    if (entity) {
+      const f: Record<string, any> = {}
+      for (const field of contactConfig.fields) {
+        let val = (entity as any)[field.key]
+        if (field.type === 'multi_select' && typeof val === 'string') val = val ? [val] : []
+        f[field.key] = val ?? (field.type === 'multi_select' ? [] : field.type === 'checkbox' ? false : '')
+      }
+      setForm(f)
+    }
+    setEditOpen(false)
+  }
+
+  const handleChange = (key: string, value: any) => setForm(f => ({ ...f, [key]: value }))
+
+  const handleSave = async () => {
+    if (!entity) return
+    setSaving(true)
+    try {
+      await apiClient.patch(`/api/v1/crm/contacts/${entity.id}`, buildPayload(form, contactConfig.fields))
+      setEditOpen(false)
+      refresh()
+    } catch (e: any) { alert(apiErrorToString(e)) }
+    finally { setSaving(false) }
+  }
+
+  const detailFields = (contactConfig.detailTabs?.find(tb => tb.id === 'details')?.fields
+    ? contactConfig.fields.filter(f => contactConfig.detailTabs!.find(tb => tb.id === 'details')!.fields!.includes(f.key))
+    : contactConfig.fields
+  ).filter(f => !f.dependsOnModule || isModuleEnabled(f.dependsOnModule))
 
   const subline = [
     entity.job_title,
@@ -52,8 +104,8 @@ export default function ContactDetailPage() {
   ]
 
   const tabs: DetailTab[] = [
-    { key: 'overview', label: t('common.overview', { defaultValue: 'Overview' }), render: () => <TimelineTab entity={entity} moduleConfig={contactConfig} refresh={refresh} /> },
-    { key: 'timeline', label: t('common.timeline', { defaultValue: 'Timeline' }), render: () => <TimelineTab entity={entity} moduleConfig={contactConfig} refresh={refresh} /> },
+    { key: 'overview', label: t('common.overview', { defaultValue: 'Overview' }), render: () => <V2ActivityTimeline entityId={id!} filterType="contact" /> },
+    { key: 'timeline', label: t('common.timeline', { defaultValue: 'Timeline' }), render: () => <V2ActivityTimeline entityId={id!} filterType="contact" /> },
     ...(salesOn ? [{ key: 'deals', label: t('common.deals', { defaultValue: 'Deals' }), render: () => <DealsTab entity={entity} moduleConfig={contactConfig} refresh={refresh} /> }] : []),
     { key: 'tasks', label: t('common.tasks', { defaultValue: 'Tasks' }), render: () => <TasksTab entity={entity} moduleConfig={contactConfig} refresh={refresh} /> },
     { key: 'touchpoints', label: t('common.touchpoints', { defaultValue: 'Touchpoints' }), render: () => <TouchpointsTab entity={entity} moduleConfig={contactConfig} refresh={refresh} /> },
@@ -62,48 +114,66 @@ export default function ContactDetailPage() {
   ]
 
   return (
-    <NexusDetailPageV2
-      entity={entity}
-      moduleConfig={contactConfig}
-      avatarLabel={String(entity.name || '?').slice(0, 2).toUpperCase()}
-      subline={subline.slice(0, 3)}
-      highlights={highlights}
-      aiInsight={insight ?? undefined}
-      aiInsightLoading={insightLoading}
-      onRefreshInsight={refreshInsight}
-      breadcrumbLabel={t('pages.contacts.title', { defaultValue: 'Contacts' })}
-      breadcrumbHref="/contacts"
-      onEdit={() => navigate(`/contacts/${id}/edit`)}
-      onAskAI={() => window.dispatchEvent(new CustomEvent('nexus:open-ai-panel', { detail: { context: entity } }))}
-      sidebarSections={[
-        {
-          title: t('common.generalInfo', { defaultValue: 'General Info' }),
-          fields: [
-            { label: t('fields.jobTitle', { defaultValue: 'Title' }), value: entity.job_title || '—' },
-            { label: t('fields.department', { defaultValue: 'Department' }), value: entity.department || '—' },
-            { label: t('fields.email', { defaultValue: 'Email' }), value: entity.email || '—' },
-            { label: t('fields.phone', { defaultValue: 'Phone' }), value: entity.phone || '—' },
-            { label: t('fields.linkedin', { defaultValue: 'LinkedIn' }), value: entity.linkedin_url || '—', aiEnriched: !!entity.linkedin_ai_filled },
-            { label: t('fields.address', { defaultValue: 'Address' }), value: entity.address || '—' },
-            { label: t('fields.company', { defaultValue: 'Company' }), value: (entity.company as any)?.name || '—' },
-          ],
-        },
-        {
-          title: t('common.ownership', { defaultValue: 'Ownership' }),
-          fields: [
-            { label: t('fields.contactType', { defaultValue: 'Contact Type' }), value: entity.contact_type || '—' },
-            { label: t('fields.grade', { defaultValue: 'Grade' }), value: entity.grade || '—' },
-            { label: t('fields.status', { defaultValue: 'Status' }), value: entity.status || '—' },
-            { label: t('fields.created', { defaultValue: 'Created' }), value: formatDate(entity.created_at) },
-          ],
-        },
-      ]}
-      relatedCards={companies.length > 0 ? [{
-        title: (entity.company as any)?.name || 'Company',
-        meta: (entity.company as any)?.industry || '—',
-        badge: 'Company',
-      }] : []}
-      tabs={tabs}
-    />
+    <>
+      <NexusDetailPageV2
+        entity={entity}
+        moduleConfig={contactConfig}
+        avatarLabel={String(entity.name || '?').slice(0, 2).toUpperCase()}
+        subline={subline.slice(0, 3)}
+        highlights={highlights}
+        aiInsight={insight ?? undefined}
+        aiInsightLoading={insightLoading}
+        onRefreshInsight={refreshInsight}
+        breadcrumbLabel={t('pages.contacts.title', { defaultValue: 'Contacts' })}
+        breadcrumbHref="/contacts"
+        onEdit={openEdit}
+        editMode={editOpen}
+        editSaving={saving}
+        onSaveEdit={handleSave}
+        onCancelEdit={cancelEdit}
+        onAskAI={() => window.dispatchEvent(new CustomEvent('nexus:open-ai-panel', { detail: { context: entity } }))}
+        sidebarSections={[
+          {
+            title: t('common.generalInfo', { defaultValue: 'General Info' }),
+            fields: [
+              { label: t('fields.jobTitle', { defaultValue: 'Title' }), value: entity.job_title || '—' },
+              { label: t('fields.department', { defaultValue: 'Department' }), value: entity.department || '—' },
+              { label: t('fields.email', { defaultValue: 'Email' }), value: entity.email || '—' },
+              { label: t('fields.phone', { defaultValue: 'Phone' }), value: entity.phone || '—' },
+              { label: t('fields.linkedin', { defaultValue: 'LinkedIn' }), value: entity.linkedin_url || '—', aiEnriched: !!entity.linkedin_ai_filled },
+              { label: t('fields.address', { defaultValue: 'Address' }), value: entity.address || '—' },
+              { label: t('fields.company', { defaultValue: 'Company' }), value: (entity.company as any)?.name || '—' },
+            ],
+          },
+          {
+            title: t('common.ownership', { defaultValue: 'Ownership' }),
+            fields: [
+              { label: t('fields.contactType', { defaultValue: 'Contact Type' }), value: entity.contact_type || '—' },
+              { label: t('fields.grade', { defaultValue: 'Grade' }), value: entity.grade || '—' },
+              { label: t('fields.status', { defaultValue: 'Status' }), value: entity.status || '—' },
+              { label: t('fields.created', { defaultValue: 'Created' }), value: formatDate(entity.created_at) },
+            ],
+          },
+        ]}
+        relatedCards={companies.length > 0 ? [{
+          title: (entity.company as any)?.name || 'Company',
+          meta: (entity.company as any)?.industry || '—',
+          badge: 'Company',
+        }] : []}
+        tabs={tabs}
+      />
+      {editOpen && (
+        <div className="nx-inline-edit-panel">
+          <div className="nx-inline-edit-title">{t('common.editing', { defaultValue: '編輯' })}</div>
+          <div className="nx-inline-edit-grid">
+            {detailFields.map(f => (
+              <FieldsRenderer key={f.key} field={f} entity={entity} form={form}
+                onChange={handleChange} editOpen={true}
+                relationData={{ companies }} />
+            ))}
+          </div>
+        </div>
+      )}
+    </>
   )
 }
