@@ -40,7 +40,11 @@ interface Props {
   /** Callback when a relation link is clicked — navigates to detail page */
   onNavigate?: (url: string) => void
   /** Extra select/status options merged after field.options (dedupe by value, defaults first) */
-  extraOptions?: Record<string, { value: string; label: string }[]>
+  extraOptions?: Record<string, { value: string; label: string; id?: string; isCustom?: boolean }[]>
+  /** ＋Create click — parent persist (POST /field-options) 後先 pick */
+  onCreateCustom?: (fieldKey: string, label: string) => void
+  /** custom option 右邊 × — parent delete (DELETE /field-options/{id}) */
+  onDeleteOption?: (fieldKey: string, id: string) => void
 }
 
 // ═══ TABLE CELL RENDERER ═══
@@ -123,14 +127,14 @@ export function CellRenderer({ value, field, onNavigate }: { value: any; field: 
 }
 
 // ═══ DETAIL / FORM FIELD RENDERER ═══
-export function FieldsRenderer({ field, entity, form, onChange, editOpen, onNavigate, extraOptions }: Props) {
+export function FieldsRenderer({ field, entity, form, onChange, editOpen, onNavigate, extraOptions, onCreateCustom, onDeleteOption }: Props) {
   const { t } = useTranslation()
   const label = <div className="field-label">{localizeFieldLabel(field, t)}{field.required ? ' *' : ''}</div>
   const isReadonly = !editOpen || field.editable === false
     || ['rollup', 'formula', 'created_time', 'last_edited_time', 'created_by', 'last_edited_by', 'unique_id'].includes(field.type)
   const value = form?.[field.key] ?? entity?.[field.key]
   const displayVal = entity?.[field.key]
-  // merged select/status options（config defaults + tenant extraOptions，dedupe by value，defaults 行先）
+  // merged select/status options（config defaults + tenant/user extraOptions，dedupe by value，defaults 行先）
   const mergedSelectOptions = useMemo(() => {
     const defaults = (field.options || []).map(o => ({ value: String(o.value), label: String(o.label ?? o.value) }))
     const extra = (extraOptions?.[field.key] || [])
@@ -139,7 +143,12 @@ export function FieldsRenderer({ field, entity, form, onChange, editOpen, onNavi
     for (const o of extra) {
       if (seen.has(o.value)) continue
       seen.add(o.value)
-      out.push({ value: String(o.value), label: String(o.label ?? o.value) })
+      out.push({
+        value: String(o.value),
+        label: String(o.label ?? o.value),
+        ...(o.id ? { id: o.id } : {}),
+        ...(o.isCustom ? { isCustom: true } : {}),
+      })
     }
     return out
   }, [field.options, extraOptions, field.key])
@@ -158,13 +167,15 @@ export function FieldsRenderer({ field, entity, form, onChange, editOpen, onNavi
   if (['select', 'status'].includes(field.type)) {
     const stringValue = value == null ? '' : String(value)
     return (
-      <div className="floating-field">
+      <div className="form-field" style={field.gridColumn === 'full' ? { gridColumn: '1 / -1' } : {}}>
         <SelectCombobox
           value={stringValue}
           options={mergedSelectOptions}
           onChange={v => onChange?.(field.key, v)}
+          label={localizeFieldLabel(field, t) + (field.required ? ' *' : '')}
+          onCreateCustom={onCreateCustom ? (lbl: string) => onCreateCustom(field.key, lbl) : undefined}
+          onDeleteOption={onDeleteOption ? (id: string) => onDeleteOption(field.key, id) : undefined}
         />
-        <label className="floating-label">{localizeFieldLabel(field, t)}{field.required ? ' *' : ''}</label>
       </div>
     )
   }

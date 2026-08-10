@@ -318,5 +318,11 @@
 .select-item.active { background: var(--color-primary-highlight, rgba(79,108,255,.12)); }
 .select-item-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .select-item-check { color: var(--color-primary); flex-shrink: 0; }
+.select-item-delete {
+  background: none; border: none; color: var(--color-text-faint);
+  cursor: pointer; padding: 2px; display: flex; align-items: center;
+  border-radius: 50%; flex-shrink: 0; line-height: 0;
+}
+.select-item-delete:hover { color: var(--color-danger, #e5484d); background: var(--color-surface-offset); }
 .select-item.create { color: var(--color-primary); font-weight: 500; }
 .select-empty { padding: 10px; font-size: 13px; color: var(--color-text-faint); text-align: center; }

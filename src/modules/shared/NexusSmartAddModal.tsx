@@ -38,7 +38,7 @@ export default function NexusSmartAddModal({ config, open, onClose, onCreated, e
   const [aiState, setAiState] = useState<'idle' | 'thinking' | 'done' | 'error'>('idle')
   const [dupMatch, setDupMatch] = useState<DuplicateMatch | null>(null)
   const [suggestions, setSuggestions] = useState<Record<string, Suggestion>>({})
-  const [extraOptions, setExtraOptions] = useState<Record<string, { value: string; label: string }[]>>({})
+  const [extraOptions, setExtraOptions] = useState<Record<string, { value: string; label: string; id?: string; isCustom?: boolean }[]>>({})
   const [visible, setVisible] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const suggestTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -60,13 +60,17 @@ export default function NexusSmartAddModal({ config, open, onClose, onCreated, e
     const selectFields = config.fields.filter(f => f.type === 'select' || f.type === 'status')
     if (selectFields.length === 0) return
     ;(async () => {
-      const accumulated: Record<string, { value: string; label: string }[]> = {}
+      const accumulated: Record<string, { value: string; label: string; id?: string; isCustom?: boolean }[]> = {}
       for (const f of selectFields) {
         try {
-          const res = await apiClient.get<{ options: { value: string; label: string }[] }>(
-            '/api/v1/crm/field-options', { params: { module: config.name, field: f.key } }
-          )
-          if (!cancelled && res.options?.length) accumulated[f.key] = res.options
+          const res = await apiClient.get<{
+            options: { value: string; label: string }[]
+            userOptions?: { id: string; value: string; label: string }[]
+          }>('/api/v1/crm/field-options', { params: { module: config.name, field: f.key } })
+          if (cancelled) return
+          const opts = (res.options || []).map(o => ({ value: o.value, label: o.label }))
+          const userOpts = (res.userOptions || []).map(o => ({ value: o.value, label: o.label, id: o.id, isCustom: true }))
+          if (opts.length || userOpts.length) accumulated[f.key] = [...opts, ...userOpts]
         } catch { /* silent — non-blocking */ }
       }
       if (!cancelled && Object.keys(accumulated).length) setExtraOptions(accumulated)
@@ -83,6 +87,37 @@ export default function NexusSmartAddModal({ config, open, onClose, onCreated, e
       if (!(key in prev)) return prev
       const next = { ...prev }; delete next[key]; return next
     })
+  }, [])
+
+  // v5: ＋Create custom option — POST persist，成功先寫入 form value + 更新 dropdown
+  const handleCreateCustom = useCallback((fieldKey: string, label: string) => {
+    if (!label.trim()) return
+    // POST fail 都照樣寫入 form value（form 值唔可以丟），但 console warn
+    setForm(f => ({ ...f, [fieldKey]: label.trim() }))
+    setAiFilledKeys(prev => {
+      if (!(fieldKey in prev)) return prev
+      const next = { ...prev }; delete next[fieldKey]; return next
+    })
+    apiClient.post<{ id: string; value: string; label: string }>('/api/v1/crm/field-options', {
+      module: config.name, field: fieldKey, value: label.trim(),
+    }).then(res => {
+      // 成功 → 將新 custom option 加入 dropdown（等下次 GET 都會返）
+      setExtraOptions(prev => {
+        const cur = prev[fieldKey] || []
+        if (cur.some(o => o.value === res.value)) return prev
+        return { ...prev, [fieldKey]: [...cur, { value: res.value, label: res.label, id: res.id, isCustom: true }] }
+      })
+    }).catch(() => { /* warn only — value already written above */ })
+  }, [config.name])
+
+  // v5: custom option 右邊 × — DELETE persist 成功後從 dropdown 移除
+  const handleDeleteOption = useCallback((fieldKey: string, id: string) => {
+    apiClient.delete(`/api/v1/crm/field-options/${id}`).then(() => {
+      setExtraOptions(prev => {
+        const cur = prev[fieldKey] || []
+        return { ...prev, [fieldKey]: cur.filter(o => o.id !== id) }
+      })
+    }).catch(() => { /* silent — non-critical */ })
   }, [])
 
   const fetchSuggestions = useCallback(async (title: string) => {
@@ -292,7 +327,7 @@ export default function NexusSmartAddModal({ config, open, onClose, onCreated, e
                     >{t('ai.applySuggestion')}</button>
                   </div>
                 )}
-                <FieldsRenderer field={f} form={form} onChange={handleFieldChange} editOpen={true} relationData={extraData} extraOptions={extraOptions} />
+                <FieldsRenderer field={f} form={form} onChange={handleFieldChange} editOpen={true} relationData={extraData} extraOptions={extraOptions} onCreateCustom={handleCreateCustom} onDeleteOption={handleDeleteOption} />
                 {f.key in aiFilledKeys && <AIConfidenceBadge confidence={aiFilledKeys[f.key]} />}
               </div>
             ))}

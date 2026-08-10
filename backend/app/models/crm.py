@@ -1,6 +1,6 @@
 import uuid
 from datetime import datetime, timezone
-from sqlalchemy import Column, String, Text, Boolean, DateTime, ForeignKey, Integer, Date, Numeric, JSON, ARRAY
+from sqlalchemy import Column, String, Text, Boolean, DateTime, ForeignKey, Integer, Date, Numeric, JSON, ARRAY, UniqueConstraint
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 from app.db import Base
@@ -418,4 +418,25 @@ class AiAgentLog(Base):
     user_decision = Column(Text)                  # accept | reject | override | none
     latency_ms = Column(Integer)
     success = Column(Boolean, default=True)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+
+
+class UserFieldOption(Base):
+    """v5: per-user custom option（industry/category/status combobox 嘅 custom value）。
+
+    Tenant DISTINCT values 之外嘅額外 layer — 用戶自己打字 + Create 自訂嘅 option，
+    tenant-wide persistence（多 user 共用 tenant）但 per-user 管轄（自己 delete 自己嘅）。
+    """
+    __tablename__ = "user_field_options"
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "user_id", "module", "field", "value", name="uq_user_field_option"),
+        {"schema": "nexus_crm"},
+    )
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id = Column(UUID(as_uuid=True), ForeignKey("nexus_auth.nexus_auth_tenants.id", ondelete="CASCADE"), nullable=False, index=True)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("nexus_auth.nexus_auth_users.id", ondelete="CASCADE"), nullable=False, index=True)
+    module = Column(String(50), nullable=False)
+    field = Column(String(50), nullable=False)
+    value = Column(Text, nullable=False)
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))

@@ -745,3 +745,20 @@ class ListShareResponse(BaseModel):
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
+
+
+# ===========================================================================
+# FieldOption (v5: per-user custom option — industry/category/status combobox)
+# ===========================================================================
+
+class FieldOptionCreate(BaseModel):
+    module: str
+    field: str
+    value: str
+
+
+class FieldOptionResponse(BaseModel):
+    id: UUID
+    value: str
+    label: str
+

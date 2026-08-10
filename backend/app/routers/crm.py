@@ -37,6 +37,7 @@ from app.models.crm import (
     Task,
     Touchpoint,
     TouchpointParticipant,
+    UserFieldOption,
 )
 from app.models.crm_module_b import Deal, DealStage
 from app.services import namecard_agents, namecard_llm
@@ -74,6 +75,8 @@ from app.schemas.crm import (
     TouchpointCreate,
     TouchpointResponse,
     TouchpointUpdate,
+    FieldOptionCreate,
+    FieldOptionResponse,
 )
 
 router = APIRouter(prefix="/api/v1/crm", tags=["crm"])
@@ -327,18 +330,22 @@ async def get_field_options(
     field: str = Query(...),
     db: AsyncSession = Depends(get_tenant_session),
 ):
-    """分頁欄位（industry/category/status）嘅 tenant-scoped distinct values。
+    """分頁欄位（industry/category/status）嘅 options。
 
-    用嚟做 searchable combobox 嘅 custom options — 用戶自己打嘅值 persists
-    （DISTINCT 現有值 = implicit persistence，唔使 migration）。
-    Response: {"options": [{"value": "...", "label": "..."}]}（value == label）。
+    v3: tenant-scoped distinct values（DISTINCT 現有值 = implicit persistence）。
+    v5: 加返當前 user 嘅 custom options（user_field_options table，per-user 管轄）。
+    Response: {"options": [...], "userOptions": [{id, value, label}...]}
+      - options: tenant distinct values（value == label）
+      - userOptions: 只返 user_id == request.state.user_id 嘅 custom rows（有 id 先可以 delete）
     """
     tenant_id = _get_tenant_id(request)
+    user_id = _get_user_id(request)
     cols = _FIELD_OPTION_COLUMNS.get(module)
     model = _FIELD_OPTION_MODELS.get(module)
     if cols is None or model is None or field not in cols:
         raise HTTPException(status_code=404, detail=f"No field option mapping for module={module} field={field}")
 
+    # tenant distinct values（v3 原有行為唔變）
     col = getattr(model, cols[field])
     q = (
         select(col)
@@ -350,7 +357,113 @@ async def get_field_options(
         .limit(100)
     )
     rows = (await db.execute(q)).scalars().all()
-    return {"options": [{"value": v, "label": v} for v in rows if v is not None]}
+    options = [
+        {"value": v, "label": v}
+        for v in rows
+        if v is not None
+    ]
+
+    # v5: per-user custom options（淨返自己 user_id 嘅 rows）
+    user_options: list[dict[str, Any]] = []
+    if user_id is not None:
+        uq = (
+            select(UserFieldOption)
+            .where(UserFieldOption.tenant_id == tenant_id)
+            .where(UserFieldOption.user_id == user_id)
+            .where(UserFieldOption.module == module)
+            .where(UserFieldOption.field == field)
+            .order_by(UserFieldOption.created_at.asc())
+        )
+        urows = (await db.execute(uq)).scalars().all()
+        user_options = [
+            {"id": str(u.id), "value": u.value, "label": u.value}
+            for u in urows
+        ]
+
+    return {"options": options, "userOptions": user_options}
+
+
+@router.post("/field-options", status_code=201)
+async def create_field_option(
+    body: FieldOptionCreate,
+    request: Request,
+    db: AsyncSession = Depends(get_tenant_session),
+):
+    """v5: 新增 per-user custom option。
+
+    (tenant_id, user_id, module, field, value) unique — duplicate → 409。
+    value 空 / 全 whitespace → 422。module/field 唔喺 mapping → 404。
+    """
+    value = body.value
+    if value is None or not value.strip():
+        raise HTTPException(status_code=422, detail="value must not be empty")
+    value = value.strip()
+
+    tenant_id = _get_tenant_id(request)
+    user_id = _get_user_id(request)
+    cols = _FIELD_OPTION_COLUMNS.get(body.module)
+    model = _FIELD_OPTION_MODELS.get(body.module)
+    if cols is None or model is None or body.field not in cols:
+        raise HTTPException(status_code=404, detail=f"No field option mapping for module={body.module} field={body.field}")
+    if user_id is None:
+        raise HTTPException(status_code=401, detail="Authentication required")
+
+    # duplicate check（unique constraint 兜底）
+    dup = (
+        select(UserFieldOption.id)
+        .where(UserFieldOption.tenant_id == tenant_id)
+        .where(UserFieldOption.user_id == user_id)
+        .where(UserFieldOption.module == body.module)
+        .where(UserFieldOption.field == body.field)
+        .where(UserFieldOption.value == value)
+        .limit(1)
+    )
+    existing = (await db.execute(dup)).scalar_one_or_none()
+    if existing is not None:
+        row = existing[0] if isinstance(existing, tuple) else existing
+        raise HTTPException(status_code=409, detail=f"Field option already exists: {value}")
+
+    option = UserFieldOption(
+        tenant_id=tenant_id,
+        user_id=user_id,
+        module=body.module,
+        field=body.field,
+        value=value,
+    )
+    db.add(option)
+    await db.commit()
+    await db.refresh(option)
+    return FieldOptionResponse(id=option.id, value=option.value, label=option.value)
+
+
+@router.delete("/field-options/{option_id}", status_code=204)
+async def delete_field_option(
+    option_id: UUID,
+    request: Request,
+    db: AsyncSession = Depends(get_tenant_session),
+):
+    """v5: 刪除自己嘅 custom option。
+
+    只可以刪 user_id == request.state.user_id + tenant match 嘅 row — 其他人嘅 → 404。
+    """
+    tenant_id = _get_tenant_id(request)
+    user_id = _get_user_id(request)
+    if user_id is None:
+        raise HTTPException(status_code=401, detail="Authentication required")
+
+    q = (
+        select(UserFieldOption)
+        .where(UserFieldOption.id == option_id)
+        .where(UserFieldOption.tenant_id == tenant_id)
+        .where(UserFieldOption.user_id == user_id)
+        .limit(1)
+    )
+    option = (await db.execute(q)).scalar_one_or_none()
+    if option is None:
+        raise HTTPException(status_code=404, detail="Field option not found")
+    await db.delete(option)
+    await db.commit()
+    return None
 
 
 @router.get("/companies/duplicate-check")
