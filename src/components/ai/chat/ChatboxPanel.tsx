@@ -331,6 +331,7 @@ export default function ChatboxPanel() {
 
   // ── State ──
   const [isOpen, setIsOpen] = useState(false)
+  const [activeContext, setActiveContext] = useState<{ type?: string; name?: string; id?: string } | null>(null)
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [input, setInput] = useState('')
   const [isLoading, setIsLoading] = useState(false)
@@ -466,6 +467,20 @@ export default function ChatboxPanel() {
     return () => window.removeEventListener('toggle-ai-chat', handler)
   }, [togglePanel])
 
+  // ── Listen for open-with-context event (Ask AI buttons on detail pages) ──
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent).detail
+      openPanel()
+      if (detail?.context) {
+        const c = detail.context
+        setActiveContext({ type: c.type || c.entity_type || 'entity', name: c.name || c.company_name || c.title || '此項目', id: c.id })
+      }
+    }
+    window.addEventListener('nexus:open-ai-panel', handler)
+    return () => window.removeEventListener('nexus:open-ai-panel', handler)
+  }, [openPanel])
+
   // ── Load sessions as soon as the panel starts opening ──
   // (fires on 'opening' so the latest session loads during the
   // 320ms open animation → panel opens straight into it, no flash)
@@ -596,7 +611,9 @@ export default function ChatboxPanel() {
           'Authorization': `Bearer ${getStoredAuth()?.access_token || ''}`,
         },
         body: JSON.stringify({
-          messages: [{ role: 'user', content: text }],
+          messages: activeContext
+            ? [{ role: 'system', content: `使用者正在查看 ${activeContext.name}（${activeContext.type}）。請以 CRM 助理身份，基於此客戶/實體背景回答問題。` }, { role: 'user', content: text }]
+            : [{ role: 'user', content: text }],
           session_id: sessionId || null,
         }),
         signal: controller.signal,
@@ -680,7 +697,7 @@ export default function ChatboxPanel() {
       setStreamingContent('')
       abortRef.current = null
     }
-  }, [sessionId, t])
+  }, [sessionId, t, activeContext])
 
   const sendMessage = useCallback(async () => {
     const text = input.trim()
