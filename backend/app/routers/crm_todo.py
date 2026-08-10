@@ -29,6 +29,7 @@ from app.models.crm import (
     TaskAttachment,
     ListShare,
 )
+from app.models import User, TenantMember
 from app.schemas.crm import (
     ListResponse,
     TaskListCreate,
@@ -433,6 +434,68 @@ async def delete_task(
         raise HTTPException(status_code=404, detail="Task not found")
     await db.delete(task)
     return None
+
+
+@router.get("/users/{user_id}")
+async def get_tenant_user(
+    request: Request,
+    user_id: UUID,
+    db: AsyncSession = Depends(get_tenant_session),
+):
+    """Return one tenant user by id (for EntitySearch label fetch). Tenant-scoped."""
+    tenant_id = _get_tenant_id(request)
+    row = (
+        await db.execute(
+            select(User)
+            .join(TenantMember, TenantMember.user_id == User.id)
+            .where(TenantMember.tenant_id == tenant_id, User.id == user_id)
+        )
+    ).scalar_one_or_none()
+    if not row:
+        raise HTTPException(status_code=404, detail="User not found")
+    return {
+        "id": str(row.id),
+        "email": row.email,
+        "display_name": row.display_name or "",
+        "name": row.display_name or row.email,
+    }
+
+
+@router.get("/users")
+async def list_tenant_users(
+    request: Request,
+    search: str = "",
+    db: AsyncSession = Depends(get_tenant_session),
+):
+    """List users that belong to the current tenant (for assignee search).
+
+    Strict tenant isolation: joins TenantMember on the caller's tenant_id,
+    never exposing users from other tenants.
+    """
+    tenant_id = _get_tenant_id(request)
+    pattern = f"%{search}%"
+    q = (
+        select(User)
+        .join(TenantMember, TenantMember.user_id == User.id)
+        .where(TenantMember.tenant_id == tenant_id)
+        .order_by(User.email)
+    )
+    if search:
+        q = q.where(
+            or_(
+                User.email.ilike(pattern),
+                User.display_name.ilike(pattern),
+            )
+        )
+    rows = (await db.execute(q.limit(20))).scalars().all()
+    return [
+        {
+            "id": str(u.id),
+            "email": u.email,
+            "display_name": u.display_name or "",
+        }
+        for u in rows
+    ]
 
 
 # ===========================================================================

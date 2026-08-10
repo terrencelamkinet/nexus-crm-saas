@@ -267,7 +267,7 @@ async def _delete_task_cf(
 ) -> None:
     """Delete all custom field values for a task."""
     await db.execute(
-        text("SELECT nexus_crm.delete_custom_field_values(:tid, 'tasks', :rid)"),
+        text("SELECT nexus_crm.delete_custom_fields_for_record(:tid, 'tasks', :rid)"),
         {"tid": tenant_id, "rid": task_id},
     )
 

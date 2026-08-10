@@ -588,6 +588,9 @@ tbody tr:hover .menu-dots{opacity:1}
   .app-shell:has(.sidebar:hover) .sidebar .nav-item{justify-content:flex-start}
 }
 
+/* Shared spinner keyframes (used by todo attachment upload + any loader) */
+@keyframes tbs-rotate{to{transform:rotate(360deg)}}
+
 /* ═══════════════════════════════════════════
    RESPONSIVE — Tablet (≤768px)
    Sidebar → off-canvas drawer with scrim

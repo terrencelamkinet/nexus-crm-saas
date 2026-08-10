@@ -38,7 +38,10 @@ const taskConfig: TaskResourceConfig = {
       relation: { resource: 'contacts', multiple: false, displayField: 'name' } },
     { key: 'company_id',     label: 'Company',      type: 'relation', sortable: false, filterable: true,
       relation: { resource: 'companies', multiple: false, displayField: 'name' } },
- { key: 'assignee_id',     label: 'Assignee',     type: 'text',     sortable: false, filterable: false, visibleByDefault: false, dependsOnModule: 'team' },
+ { key: 'assignee_id',     label: 'Assignee',     type: 'relation', sortable: false, filterable: true, visibleByDefault: false, dependsOnModule: 'team',
+      relation: { resource: 'users', multiple: false, displayField: 'email' } },
+    { key: 'attachments',    label: 'Attachments',  type: 'files',    visibleByDefault: false, editable: false },
+    { key: 'notes_html',     label: 'Notes',        type: 'rich_text', gridColumn: 'full', visibleByDefault: false },
     { key: 'created_at',     label: 'Created',      type: 'created_time', sortable: true, visibleByDefault: true },
   ],
 
@@ -55,7 +58,8 @@ const taskConfig: TaskResourceConfig = {
   detailTabs: [
     { id: 'details', label: 'Details', fields: [
       'title', 'description', 'priority', 'status',
-      'due_date', 'contact_id', 'company_id', 'assignee_id', 'created_at',
+      'due_date', 'contact_id', 'company_id', 'assignee_id',
+      'attachments', 'notes_html', 'created_at',
     ]},
     { id: 'timeline', label: 'Timeline' },
   ],

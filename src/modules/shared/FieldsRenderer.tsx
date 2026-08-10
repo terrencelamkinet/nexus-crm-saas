@@ -12,6 +12,19 @@ const RELATION_ROUTES: Record<string, string> = {
   projects: '/projects',
   tasks: '/tasks',
   touchpoints: '/touchpoints',
+  users: '',
+}
+
+// relation resource → entity-search URL (users live under /todo/users,
+// not /crm/users, and are email-keyed)
+const RELATION_SEARCH_URL: Record<string, string> = {
+  contacts: '/api/v1/crm/contacts',
+  companies: '/api/v1/crm/companies',
+  projects: '/api/v1/crm/projects',
+  tasks: '/api/v1/crm/tasks',
+  touchpoints: '/api/v1/crm/touchpoints',
+  notes: '/api/v1/crm/notes',
+  users: '/api/v1/crm/todo/users',
 }
 
 interface Props {
@@ -196,7 +209,7 @@ export function FieldsRenderer({ field, entity, form, onChange, editOpen, onNavi
 
   if (field.type === 'relation') {
     const resource = field.relation?.resource || ''
-    const searchUrl = `/api/v1/crm/${resource}`
+    const searchUrl = RELATION_SEARCH_URL[resource] || `/api/v1/crm/${resource}`
     const currentVal = (typeof value === 'object' ? value?.id : value) ?? ''
     const titleFields = ['tasks', 'touchpoints', 'notes', 'projects']
     const createTitleField = titleFields.includes(resource) ? 'title' : 'name'
@@ -213,8 +226,8 @@ export function FieldsRenderer({ field, entity, form, onChange, editOpen, onNavi
           placeholder={t('common.searchResource', { resource })}
           label={field.label}
           required={field.required}
-          displayField={field.relation?.displayField || 'name'}
-          createLabel={createLabelMap[resource] || 'Company'}
+          displayField={resource === 'users' ? 'email' : (field.relation?.displayField || 'name')}
+          createLabel={resource === 'users' ? undefined : (createLabelMap[resource] || 'Company')}
           createTitleField={createTitleField}
         />
       </div>

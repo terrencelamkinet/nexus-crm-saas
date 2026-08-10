@@ -4,8 +4,8 @@ import { useSearchParams, useNavigate } from 'react-router-dom'
 import { apiClient } from '../../lib/api'
 import { useTranslation } from 'react-i18next'
 import {
-  Plus, X, Check, Sun, Calendar, Bell, Repeat, FileText,
-  Share2, ChevronRight, Trash2, List,
+  Plus, X, Check, Sun, Calendar, Bell, Repeat, FileText, Paperclip,
+  Share2, ChevronRight, Trash2, List, Loader2,
 } from 'lucide-react'
 
 /* ── Types ── */
@@ -146,6 +146,29 @@ export default function TodoPage() {
       await apiClient.delete(`/api/v1/crm/todo/tasks/${id}`)
       setTasks(prev => prev.filter(t => t.id !== id))
       if (selectedTask?.id === id) setSelectedTask(null)
+    } catch {}
+  }
+
+  // ── Attachments ──
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const [uploading, setUploading] = useState(false)
+  const uploadAttachment = async (taskId: string, file: File) => {
+    setUploading(true)
+    try {
+      const fd = new FormData()
+      fd.append('file', file)
+      const att = await apiClient.post<TaskAttachment>(`/api/v1/crm/todo/tasks/${taskId}/attachments`, fd)
+      setTasks(prev => prev.map(t => t.id === taskId ? { ...t, attachments: [...(t.attachments || []), att] } : t))
+      setSelectedTask(prev => prev?.id === taskId ? { ...prev, attachments: [...(prev.attachments || []), att] } : prev)
+    } catch {}
+    finally { setUploading(false) }
+  }
+  const deleteAttachment = async (taskId: string, attId: string) => {
+    try {
+      await apiClient.delete(`/api/v1/crm/todo/tasks/${taskId}/attachments/${attId}`)
+      const filt = (a: TaskAttachment) => a.id !== attId
+      setTasks(prev => prev.map(t => t.id === taskId ? { ...t, attachments: t.attachments?.filter(filt) } : t))
+      setSelectedTask(prev => prev?.id === taskId ? { ...prev, attachments: prev.attachments?.filter(filt) } : prev)
     } catch {}
   }
 
@@ -462,11 +485,60 @@ export default function TodoPage() {
                   </div>
                 </div>
 
-                {/* Notes */}
+                {/* Attachments — upload + list, backend /tasks/:id/attachments */}
+                <div className="dt-field" style={{flexDirection:'column',alignItems:'stretch',gap:8,borderBottom:'none'}}>
+                  <div style={{display:'flex',alignItems:'center',gap:8}}>
+                    <Paperclip size={15} style={{color:'var(--color-text-muted)',flexShrink:0}} />
+                    <span className="f-label">{t('pages.tasks.attachments')}</span>
+                    <button
+                      className="btn-secondary"
+                      style={{height:26,padding:'0 10px',fontSize:12,marginLeft:'auto'}}
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={uploading}
+                    >
+                      {uploading ? <Loader2 size={13} style={{marginRight:4,animation:'tbs-rotate .8s linear infinite'}} /> : `+ ${t('pages.tasks.addAttachment','Attach')}`}
+                    </button>
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      style={{display:'none'}}
+                      onChange={e => {
+                        const f = e.target.files?.[0]
+                        if (f) uploadAttachment(selectedTask.id, f)
+                        e.target.value = ''
+                      }}
+                    />
+                  </div>
+                  {selectedTask.attachments && selectedTask.attachments.length > 0 && (
+                    <div style={{display:'flex',flexDirection:'column',gap:6}}>
+                      {selectedTask.attachments.map(a => (
+                        <div key={a.id} style={{display:'flex',alignItems:'center',gap:8,padding:'6px 8px',border:'1px solid var(--color-border)',borderRadius:'var(--radius-md)',background:'var(--color-surface-offset)'}}>
+                          <Paperclip size={13} style={{color:'var(--color-text-faint)',flexShrink:0}} />
+                          <a
+                            href={`/api/v1/crm/todo/tasks/${selectedTask.id}/attachments/${a.id}`}
+                            target="_blank"
+                            rel="noreferrer"
+                            style={{flex:1,minWidth:0,fontSize:12.5,color:'var(--color-primary)',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}
+                            title={a.filename}
+                          >{a.filename}</a>
+                          <button
+                            className="icon-btn-small"
+                            onClick={() => deleteAttachment(selectedTask.id, a.id)}
+                            title={t('common.delete')}
+                            style={{color:'var(--color-notification)'}}
+                          ><X size={12} /></button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Notes — text note w/ edit mode for drafting design/links/docs */}
                 <div className="dt-field" style={{flexDirection:'column',alignItems:'stretch',gap:6,borderBottom:'none'}}>
                   <div style={{display:'flex',alignItems:'center',gap:8}}>
                     <FileText size={15} style={{color:'var(--color-text-muted)',flexShrink:0}} />
                     <span className="f-label">{t('pages.tasks.notes')}</span>
+                    <span style={{marginLeft:'auto',fontSize:10.5,color:'var(--color-text-faint)'}}>{t('pages.tasks.notesHint','可貼 design link / Word / Google Sheet 連結')}</span>
                   </div>
                   <textarea value={selectedTask.notes_html || ''}
                     onChange={e => setSelectedTask({ ...selectedTask, notes_html: e.target.value })}
