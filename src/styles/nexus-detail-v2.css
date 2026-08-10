@@ -189,7 +189,7 @@
 }
 
 /* ═══ Preview drawer V2 (DetailDrawerContent) — concise subset ═══ */
-.nx-drawer-v2 { padding: 0; }
+.nx-drawer-v2 { padding: 16px 18px; }
 .nx-drawer-head {
   display: flex; align-items: flex-start; gap: var(--space-3);
   padding: var(--space-1) 0 var(--space-3);
@@ -217,6 +217,7 @@
 .nx-drawer-related:hover { text-decoration: underline; }
 @media (max-width: 767px) {
   .nx-drawer-actions .nx-btn { height: 40px; font-size: 14px; }
+  .nx-drawer-highlights { gap: var(--space-3); }
 }
 
 /* ═══ Loading shell for V2 detail pages ═══ */
