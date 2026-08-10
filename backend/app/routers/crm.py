@@ -303,6 +303,56 @@ async def list_companies(
     return ListResponse(items=list(rows), total=total)
 
 
+# ── v3: custom option system（industry / category / status searchable combobox）──
+# module → {field: column} mapping（v3 範圍）
+_FIELD_OPTION_COLUMNS = {
+    "company": {"industry": "industry", "category": "category", "status": "status"},
+    "contact": {"status": "status"},
+    "task": {"status": "status"},
+    "project": {"status": "status"},
+}
+# module → model
+_FIELD_OPTION_MODELS = {
+    "company": Company,
+    "contact": Contact,
+    "task": Task,
+    "project": Project,
+}
+
+
+@router.get("/field-options")
+async def get_field_options(
+    request: Request,
+    module: str = Query(...),
+    field: str = Query(...),
+    db: AsyncSession = Depends(get_tenant_session),
+):
+    """分頁欄位（industry/category/status）嘅 tenant-scoped distinct values。
+
+    用嚟做 searchable combobox 嘅 custom options — 用戶自己打嘅值 persists
+    （DISTINCT 現有值 = implicit persistence，唔使 migration）。
+    Response: {"options": [{"value": "...", "label": "..."}]}（value == label）。
+    """
+    tenant_id = _get_tenant_id(request)
+    cols = _FIELD_OPTION_COLUMNS.get(module)
+    model = _FIELD_OPTION_MODELS.get(module)
+    if cols is None or model is None or field not in cols:
+        raise HTTPException(status_code=404, detail=f"No field option mapping for module={module} field={field}")
+
+    col = getattr(model, cols[field])
+    q = (
+        select(col)
+        .where(model.tenant_id == tenant_id)
+        .where(col.is_not(None))
+        .where(col != "")
+        .distinct()
+        .order_by(col)
+        .limit(100)
+    )
+    rows = (await db.execute(q)).scalars().all()
+    return {"options": [{"value": v, "label": v} for v in rows if v is not None]}
+
+
 @router.get("/companies/duplicate-check")
 async def duplicate_check_companies(
     request: Request,

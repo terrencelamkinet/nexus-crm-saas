@@ -2689,9 +2689,11 @@ async def smart_fill(
         raise HTTPException(429, f"Quota exceeded for {e.window}: {e.current}/{e.limit}")
 
     # ── Company-name lookup mode（開源 web enrichment）──
+    # 淨係 company module 先跑 web enrichment；其他 module（project/task/contact/
+    # touchpoint）唔上網，靠 internal candidates + LLM 揀 relations（避免 phrase 上網查垃圾）
     lookup_mode = _is_company_name_lookup(body.raw_text)
     enrichment = None
-    if lookup_mode:
+    if lookup_mode and body.module == "company":
         try:
             from app.services.company_enrichment import enrich_company_web
             enrichment = await asyncio.wait_for(enrich_company_web(body.raw_text), timeout=12)

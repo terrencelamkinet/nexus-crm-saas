@@ -290,3 +290,33 @@
 /* ── sr-only: modal 內 file input 用（隱藏但可點擊/鍵盤可達） ── */
 .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
 
+
+/* ═══ Searchable combobox (select/status: industry/category/status) ═══ */
+.select-combobox { position: relative; }
+.select-clear {
+  position: absolute; right: 10px; top: 50%; transform: translateY(-14%);
+  background: none; border: none; color: var(--color-text-faint);
+  cursor: pointer; padding: 2px; display: flex; align-items: center;
+  border-radius: 50%; z-index: 2;
+}
+.select-clear:hover { color: var(--color-text-secondary); background: var(--color-surface-offset); }
+.select-dropdown {
+  position: absolute; left: 0; right: 0; top: calc(100% - 4px);
+  max-height: 240px; overflow-y: auto;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0,0,0,.12);
+  z-index: 50; padding: 4px;
+}
+.select-item {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  width: 100%; text-align: left; padding: 8px 10px;
+  font-size: 14px; border: none; border-radius: 6px;
+  background: none; color: var(--color-text); cursor: pointer;
+}
+.select-item.active { background: var(--color-primary-highlight, rgba(79,108,255,.12)); }
+.select-item-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.select-item-check { color: var(--color-primary); flex-shrink: 0; }
+.select-item.create { color: var(--color-primary); font-weight: 500; }
+.select-empty { padding: 10px; font-size: 13px; color: var(--color-text-faint); text-align: center; }

@@ -4,7 +4,9 @@ import { formatDate, formatRelativeDate, formatAmount } from './field-utils'
 import EntitySearch from './EntitySearch'
 import { isModuleEnabled } from '../enabled-modules'
 import { useTranslation } from 'react-i18next'
+import { useMemo } from 'react'
 import { localizeFieldLabel } from './labels'
+import SelectCombobox from './SelectCombobox'
 
 const RELATION_ROUTES: Record<string, string> = {
   contacts: '/contacts',
@@ -37,6 +39,8 @@ interface Props {
   relationData?: Record<string, { id: string; name: string }[]>
   /** Callback when a relation link is clicked — navigates to detail page */
   onNavigate?: (url: string) => void
+  /** Extra select/status options merged after field.options (dedupe by value, defaults first) */
+  extraOptions?: Record<string, { value: string; label: string }[]>
 }
 
 // ═══ TABLE CELL RENDERER ═══
@@ -119,13 +123,26 @@ export function CellRenderer({ value, field, onNavigate }: { value: any; field: 
 }
 
 // ═══ DETAIL / FORM FIELD RENDERER ═══
-export function FieldsRenderer({ field, entity, form, onChange, editOpen, onNavigate }: Props) {
+export function FieldsRenderer({ field, entity, form, onChange, editOpen, onNavigate, extraOptions }: Props) {
   const { t } = useTranslation()
   const label = <div className="field-label">{localizeFieldLabel(field, t)}{field.required ? ' *' : ''}</div>
   const isReadonly = !editOpen || field.editable === false
     || ['rollup', 'formula', 'created_time', 'last_edited_time', 'created_by', 'last_edited_by', 'unique_id'].includes(field.type)
   const value = form?.[field.key] ?? entity?.[field.key]
   const displayVal = entity?.[field.key]
+  // merged select/status options（config defaults + tenant extraOptions，dedupe by value，defaults 行先）
+  const mergedSelectOptions = useMemo(() => {
+    const defaults = (field.options || []).map(o => ({ value: String(o.value), label: String(o.label ?? o.value) }))
+    const extra = (extraOptions?.[field.key] || [])
+    const seen = new Set(defaults.map(o => o.value))
+    const out = [...defaults]
+    for (const o of extra) {
+      if (seen.has(o.value)) continue
+      seen.add(o.value)
+      out.push({ value: String(o.value), label: String(o.label ?? o.value) })
+    }
+    return out
+  }, [field.options, extraOptions, field.key])
 
   // Readonly display
   if (isReadonly) {
@@ -139,14 +156,14 @@ export function FieldsRenderer({ field, entity, form, onChange, editOpen, onNavi
 
   // Editable form inputs
   if (['select', 'status'].includes(field.type)) {
+    const stringValue = value == null ? '' : String(value)
     return (
       <div className="floating-field">
-        <select value={value ?? ''} onChange={e => onChange?.(field.key, e.target.value)} className="input-field floating-select">
-          <option value=""></option>
-          {field.options?.map(o => (
-            <option key={o.value} value={o.value}>{o.label}</option>
-          ))}
-        </select>
+        <SelectCombobox
+          value={stringValue}
+          options={mergedSelectOptions}
+          onChange={v => onChange?.(field.key, v)}
+        />
         <label className="floating-label">{localizeFieldLabel(field, t)}{field.required ? ' *' : ''}</label>
       </div>
     )
