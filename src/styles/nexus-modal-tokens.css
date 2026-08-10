@@ -262,6 +262,15 @@
 }
 .nx-dup-alert .nx-btn { height: 32px; padding: 0 var(--space-3); font-size: 13px; }
 
+/* ═══ AI suggestion (suggest-related) ═══ */
+.nx-suggest {
+  display: flex; align-items: center; gap: 8px;
+  background: var(--color-surface-2, #f0f4ff);
+  border: 1px solid var(--color-primary, #146EF5);
+  border-radius: 8px; padding: 6px 10px; font-size: 12px; margin-bottom: 6px;
+}
+.nx-suggest strong { color: var(--color-primary, #146EF5); }
+
 /* ═══ Bottom sheet paste box ═══ */
 .nx-paste-box { margin-bottom: var(--space-4); animation: nx-slidedown 180ms var(--ease-out); }
 @keyframes nx-slidedown { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: translateY(0); } }

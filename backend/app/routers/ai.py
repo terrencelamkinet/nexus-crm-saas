@@ -35,6 +35,7 @@ from app.ai.providers import get_provider, ProviderAdapter, UsageReport
 from app.ai.quota.service import QuotaService, QuotaExceeded, TIER_LIMITS
 from app.models.ai import ActionRequest, AISession, Message, UserMemory, UsageEvent, PromptTemplate, SecretarySettings
 from app.models.crm_module_b import ModuleSetting
+from app.models.crm import Company, Contact
 
 # ---------------------------------------------------------------------------
 # Default provider configuration
@@ -2800,3 +2801,204 @@ async def scan_name_card(
         pass
 
     return {"fields": out}
+
+
+# ====================================================================
+# AI suggest related Company/Contact (for Add Modals)
+# ====================================================================
+
+# Which relation fields apply per module (matching real configs):
+#   task → company_id (companies), contact_id (contacts)
+#   touchpoint → contact_id (contacts), company_id (companies)
+#   project → company_id (companies)
+#   contact → company_id (companies)
+RELATION_MAP: dict[str, list[dict[str, str]]] = {
+    "task": [
+        {"field": "company_id", "resource": "companies"},
+        {"field": "contact_id", "resource": "contacts"},
+    ],
+    "touchpoint": [
+        {"field": "contact_id", "resource": "contacts"},
+        {"field": "company_id", "resource": "companies"},
+    ],
+    "project": [
+        {"field": "company_id", "resource": "companies"},
+    ],
+    "contact": [
+        {"field": "company_id", "resource": "companies"},
+    ],
+}
+
+# Resource model lookup (tenant-scoped queries)
+_RELATION_RESOURCE_MODEL = {
+    "companies": Company,
+    "contacts": Contact,
+}
+
+
+class SuggestRelatedRequest(BaseModel):
+    """Request to AI-suggest related Company/Contact records from a title."""
+    module: str
+    title: str
+
+
+@router.post("/suggest-related")
+async def suggest_related(
+    body: SuggestRelatedRequest,
+    request: Request,
+    db: AsyncSession = Depends(get_tenant_session),
+):
+    """AI-suggest which existing Company/Contact to link to a new record.
+
+    Candidates are pre-filtered (tenant-scoped, keyword score) before the LLM
+    call. The LLM picks one id per relation field; only ids that appear in the
+    candidate list are accepted (no hallucination). Confidence < 0.5 dropped.
+    """
+    ctx = getattr(request.state, "ai_context", None)
+    if not ctx:
+        raise HTTPException(400, "AI session context not initialized")
+    if not body.title or not body.title.strip():
+        raise HTTPException(400, "title is required")
+
+    mapping = RELATION_MAP.get(body.module, [])
+    if not mapping:
+        return {"suggestions": []}
+
+    # 1. Candidate pre-filter (tenant-scoped, keyword score → top 10 per resource)
+    field_map: dict[str, list[dict]] = {}  # field key -> candidate list
+    resources_needed: dict[str, list[str]] = {}  # resource -> field keys
+    for rel in mapping:
+        field_map.setdefault(rel["field"], [])
+        resources_needed.setdefault(rel["resource"], []).append(rel["field"])
+
+    title_tokens = [t for t in re.split(r"[\s\W_]+", body.title.lower()) if t]
+    if not title_tokens:
+        return {"suggestions": []}
+
+    for resource, field_keys in resources_needed.items():
+        model = _RELATION_RESOURCE_MODEL[resource]
+        rows = (
+            await db.execute(
+                select(model.id, model.name).where(model.tenant_id == ctx.tenant_id)
+            )
+        ).all()
+        scored = []
+        for rid, rname in rows:
+            rname_l = (rname or "").lower()
+            if not rname_l:
+                continue
+            token_hits = sum(1 for tok in title_tokens if tok in rname_l)
+            score = token_hits / len(title_tokens) if title_tokens else 0.0
+            # substring bonus: continuous title substring present in name
+            if body.title.lower() in rname_l:
+                score += 0.3
+            if score > 0:
+                scored.append({"id": str(rid), "name": rname, "score": score})
+        scored.sort(key=lambda c: c["score"], reverse=True)
+        top = scored[:10]
+        for fk in field_keys:
+            field_map[fk] = top
+
+    # Build per-field candidate list for the LLM
+    per_field = []
+    for rel in mapping:
+        fk = rel["field"]
+        cands = field_map.get(fk) or []
+        if not cands:
+            continue  # no candidates → skip this field, don't call LLM for it
+        lines = ", ".join(f"{c['name']} ({c['id']})" for c in cands)
+        per_field.append(f"{fk}: {lines}")
+
+    if not per_field:
+        # No candidates for any field → nothing to suggest
+        return {"suggestions": []}
+
+    # Quota check before spending tokens
+    try:
+        quota = _get_quota()
+        await quota.check(
+            f"tenant:{ctx.tenant_id}",
+            tier=getattr(ctx, "tier", "pro"),
+            estimated_tokens=len(body.title) // 2,
+        )
+    except QuotaExceeded as e:
+        raise HTTPException(429, f"Quota exceeded for {e.window}: {e.current}/{e.limit}")
+
+    field_desc = "\n".join(per_field)
+    system = (
+        "You are a CRM record-linking assistant. Given a new record's title and a list of "
+        "candidate existing records per relation field, choose the best matching existing "
+        "record for each field. Return ONLY JSON: "
+        '{"suggestions": [{"field": "<field_key>", "id": "<uuid>", "confidence": 0.0-1.0, '
+        '"reason": "<one short reason>"}]}. '
+        "Rules: field must be one of the provided relation fields; id must be one of the "
+        "provided candidate ids (never invent an id); if uncertain (confidence < 0.5) skip "
+        "that field entirely; give at most one suggestion per field; reason should be "
+        "specific (e.g. 'Title mentions Cohesity')."
+    )
+    user = f"New record title: {body.title}\n\nCandidate records:\n{field_desc}"
+
+    try:
+        adapter = await _resolve_adapter(db, ctx.tenant_id)
+        try:
+            text, usage = await adapter.chat(
+                messages=[
+                    {"role": "system", "content": system},
+                    {"role": "user", "content": user},
+                ],
+                model=DEFAULT_MODEL,
+                temperature=0.1,
+                max_tokens=600,
+            )
+        finally:
+            await adapter.close()
+    except Exception as e:
+        raise HTTPException(503, f"AI provider error: {e}")
+
+    # Parse + validate: field in mapping, id in candidates, confidence >= 0.5
+    suggestions: list[dict[str, Any]] = []
+    try:
+        raw = text.strip()
+        if raw.startswith("```"):
+            raw = raw.split("\n", 1)[-1].rsplit("\n", 1)[0]
+        parsed = json.loads(raw)
+    except Exception:
+        parsed = {}
+
+    valid_fields = {rel["field"] for rel in mapping}
+    cand_ids = {fk: {c["id"] for c in (field_map.get(fk) or [])} for fk in field_map}
+    cand_names = {fk: {c["id"]: c["name"] for c in (field_map.get(fk) or [])} for fk in field_map}
+
+    parsed_list = parsed.get("suggestions") if isinstance(parsed, dict) else None
+    if isinstance(parsed_list, list):
+        for sug in parsed_list:
+            if not isinstance(sug, dict):
+                continue
+            fk = sug.get("field")
+            sid = sug.get("id")
+            conf = sug.get("confidence", 0.5)
+            reason = sug.get("reason")
+            if fk not in valid_fields:
+                continue
+            if sid not in cand_ids.get(fk, set()):
+                continue  # hallucinated id — reject
+            if not isinstance(conf, (int, float)) or conf < 0.5:
+                continue
+            suggestions.append(
+                {
+                    "field": fk,
+                    "id": sid,
+                    "name": cand_names[fk].get(sid, ""),
+                    "confidence": round(float(conf), 3),
+                    "reason": (reason or "").strip(),
+                }
+            )
+
+    # Record usage event (core rule G08) — stateless, session_id must be None
+    try:
+        await _record_usage_event(db, ctx, None, usage, module="suggest_related")
+        await db.flush()
+    except Exception:
+        await db.rollback()
+
+    return {"suggestions": suggestions}

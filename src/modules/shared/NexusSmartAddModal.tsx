@@ -13,6 +13,7 @@ import type { AddModalConfig } from './add-modal-configs'
 
 interface AIFillResult { fields: Record<string, { value: any; confidence: number }> }
 interface DuplicateMatch { id: string; name: string; similarity: number }
+interface Suggestion { field: string; id: string; name: string; confidence: number; reason: string }
 
 interface Props {
   config: AddModalConfig
@@ -36,12 +37,18 @@ export default function NexusSmartAddModal({ config, open, onClose, onCreated, e
   const [pasteText, setPasteText] = useState('')
   const [aiState, setAiState] = useState<'idle' | 'thinking' | 'done' | 'error'>('idle')
   const [dupMatch, setDupMatch] = useState<DuplicateMatch | null>(null)
+  const [suggestions, setSuggestions] = useState<Record<string, Suggestion>>({})
   const [visible, setVisible] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const suggestTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  useEffect(() => {
+    return () => { if (suggestTimerRef.current) clearTimeout(suggestTimerRef.current) }
+  }, [])
 
   useEffect(() => {
     if (open) requestAnimationFrame(() => setVisible(true))
-    else setVisible(false)
+    else { setVisible(false); setSuggestions({}) }
   }, [open])
 
   const showNameCardScan = NAME_CARD_ENABLED.has(config.name)
@@ -54,6 +61,33 @@ export default function NexusSmartAddModal({ config, open, onClose, onCreated, e
       const next = { ...prev }; delete next[key]; return next
     })
   }, [])
+
+  const fetchSuggestions = useCallback(async (title: string) => {
+    if (!title.trim()) { setSuggestions({}); return }
+    try {
+      const res = await apiClient.post<{ suggestions: Suggestion[] }>('/api/v1/ai/suggest-related', {
+        module: config.name, title,
+      })
+      const next: Record<string, Suggestion> = {}
+      for (const s of res.suggestions || []) {
+        if (s && s.field && config.fields.some(f => f.key === s.field)) next[s.field] = s
+      }
+      setSuggestions(next)
+    } catch { /* silent — non-blocking */ }
+  }, [config.name, config.fields])
+
+  const triggerSuggest = useCallback((title: string) => {
+    if (suggestTimerRef.current) clearTimeout(suggestTimerRef.current)
+    if (!title.trim()) { setSuggestions({}); return }
+    suggestTimerRef.current = setTimeout(() => fetchSuggestions(title), 800)
+  }, [fetchSuggestions])
+
+  // Trigger AI suggestion on the title field (debounced)
+  const handleFieldChange = useCallback((key: string, value: any) => {
+    handleChange(key, value)
+    const titleField = config.fields.find(f => f.type === 'title')
+    if (titleField && key === titleField.key) triggerSuggest(value?.toString?.() ?? value ?? '')
+  }, [handleChange, config.fields, triggerSuggest])
 
   const checkDuplicate = async (nameValue: string) => {
     if (!showDupCheck || !nameValue) return
@@ -74,7 +108,10 @@ export default function NexusSmartAddModal({ config, open, onClose, onCreated, e
     }
     setForm(newForm); setAiFilledKeys(newConf); setAiState('done')
     const nameField = config.fields.find(f => f.type === 'title')
-    if (nameField && newForm[nameField.key]) checkDuplicate(newForm[nameField.key])
+    if (nameField && newForm[nameField.key]) {
+      checkDuplicate(newForm[nameField.key])
+      triggerSuggest(newForm[nameField.key])
+    }
   }
 
   const handleAIParseText = async () => {
@@ -110,7 +147,13 @@ export default function NexusSmartAddModal({ config, open, onClose, onCreated, e
     if (missing.length) { alert(missing.map(f => f.label).join(', ')); return }
     setSaving(true)
     try {
-      await apiClient.post(config.apiPath, buildPayload(form, config.fields))
+      const payload = buildPayload(form, config.fields)
+      // Omit empty optional fields so backend defaults (e.g. task priority/status) apply —
+      // explicit null bypasses Pydantic field defaults → 422 string_type
+      for (const f of config.fields) {
+        if (!f.required && (payload[f.key] === null || payload[f.key] === '')) delete payload[f.key]
+      }
+      await apiClient.post(config.apiPath, payload)
       onCreated(); handleClose()
     } catch (e: any) { alert(apiErrorToString(e)) } finally { setSaving(false) }
   }
@@ -190,7 +233,21 @@ export default function NexusSmartAddModal({ config, open, onClose, onCreated, e
           <div className={`nx-grid-2col ${isThinking ? 'nx-form-disabled' : ''}`}>
             {editableFields.map(f => (
               <div key={f.key} className={`nx-field ${f.gridColumn === 'full' ? 'full' : ''}`}>
-                <FieldsRenderer field={f} form={form} onChange={handleChange} editOpen={true} relationData={extraData} />
+                {suggestions[f.key] && (
+                  <div className="nx-suggest">
+                    <Sparkles size={12} />
+                    <span>{t('ai.suggestPrefix')} <strong>{suggestions[f.key].name}</strong> — {suggestions[f.key].reason}</span>
+                    <button
+                      className="nx-btn-mini"
+                      onClick={() => {
+                        handleChange(f.key, suggestions[f.key].id)
+                        setAiFilledKeys(prev => ({ ...prev, [f.key]: suggestions[f.key].confidence }))
+                        setSuggestions(prev => { const n = { ...prev }; delete n[f.key]; return n })
+                      }}
+                    >{t('ai.applySuggestion')}</button>
+                  </div>
+                )}
+                <FieldsRenderer field={f} form={form} onChange={handleFieldChange} editOpen={true} relationData={extraData} />
                 {f.key in aiFilledKeys && <AIConfidenceBadge confidence={aiFilledKeys[f.key]} />}
               </div>
             ))}

@@ -1228,6 +1228,9 @@
     "scanningInProgress": "掃描中…",
     "scanNameCardHint": "上傳名片相片，自動填寫聯絡資料",
     "duplicateFound": "「{{name}}」相似度 {{pct}}% 可能係重複",
-    "viewRecord": "查看記錄"
+    "viewRecord": "查看記錄",
+    "applySuggestion": "套用",
+    "suggestPrefix": "AI 建議:",
+    "suggestTriggerHint": "輸入標題後 AI 自動建議關聯記錄"
   }
 }

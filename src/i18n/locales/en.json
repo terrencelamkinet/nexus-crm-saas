@@ -1228,6 +1228,9 @@
     "scanningInProgress": "Scanning…",
     "scanNameCardHint": "Upload a name card photo to auto-fill contact info",
     "duplicateFound": "「{{name}}」{{pct}}% similar — possible duplicate",
-    "viewRecord": "View record"
+    "viewRecord": "View record",
+    "applySuggestion": "Apply",
+    "suggestPrefix": "AI suggests:",
+    "suggestTriggerHint": "Type a title to get AI suggestions"
   }
 }
