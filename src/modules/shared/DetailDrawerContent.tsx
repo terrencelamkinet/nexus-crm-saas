@@ -289,7 +289,7 @@ export default function DetailDrawerContent({ config, id, onClose, extraData }: 
               <Pencil size={13} /> {t('common.edit')}
             </button>
             <button
-              onClick={() => window.dispatchEvent(new CustomEvent('nexus:open-ai-panel', { detail: { context: { id: entity.id, name: entityName, type: config.name } } }))}
+              onClick={() => window.dispatchEvent(new CustomEvent('nexus:open-ai-panel', { detail: { context: { id: entity.id, name: entityName, type: config.name, data: entity } } }))}
               className="nx-btn nx-btn-ai btn-sm"
             >
               <Sparkles size={13} /> {t('common.askAI', { defaultValue: 'Ask AI' })}

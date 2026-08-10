@@ -145,7 +145,7 @@ export default function ActionPreviewModal({
   const paramEntries = Object.entries(params || {})
 
   return createPortal(
-    <div className="modal-overlay" onClick={handleBackdropClick}>
+    <div className="modal-overlay" onClick={handleBackdropClick} style={{ zIndex: 1100 }}>
       <div
         className="modal !max-w-[540px]"
         onClick={e => e.stopPropagation()}
