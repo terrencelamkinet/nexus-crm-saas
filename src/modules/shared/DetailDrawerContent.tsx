@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
-import { User, ExternalLink, Trash2, Pencil } from 'lucide-react'
+import { User, ExternalLink, Trash2, Pencil, Sparkles } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { apiClient } from '../../lib/api'
 import { FieldsRenderer } from './FieldsRenderer'
@@ -287,6 +287,12 @@ export default function DetailDrawerContent({ config, id, onClose, extraData }: 
             </button>
             <button onClick={() => setEditOpen(true)} className="nx-btn nx-btn-primary btn-sm">
               <Pencil size={13} /> {t('common.edit')}
+            </button>
+            <button
+              onClick={() => window.dispatchEvent(new CustomEvent('nexus:open-ai-panel', { detail: { context: { id: entity.id, name: entityName, type: config.name } } }))}
+              className="nx-btn nx-btn-ai btn-sm"
+            >
+              <Sparkles size={13} /> {t('common.askAI', { defaultValue: 'Ask AI' })}
             </button>
           </>
         )}
