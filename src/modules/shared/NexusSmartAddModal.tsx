@@ -11,7 +11,7 @@ import { buildPayload, defaultForm, apiErrorToString } from './field-utils'
 import { apiClient } from '../../lib/api'
 import type { AddModalConfig } from './add-modal-configs'
 
-interface AIFillResult { fields: Record<string, { value: any; confidence: number }> }
+interface AIFillResult { fields: Record<string, { value: any; confidence: number }>; relations?: Record<string, { id: string; name: string; confidence: number; reason: string }> }
 interface DuplicateMatch { id: string; name: string; similarity: number }
 interface Suggestion { field: string; id: string; name: string; confidence: number; reason: string }
 
@@ -106,6 +106,25 @@ export default function NexusSmartAddModal({ config, open, onClose, onCreated, e
       if (!config.fields.some(f => f.key === key) || value == null || value === '') continue
       newForm[key] = value; newConf[key] = confidence
     }
+    // Relations：link 現有 records（id），照 suggest-related 嘅 pattern 設定 value + confidence badge
+    // Relation field key（backend 用 company_id/contact_id）對返 config 嘅實際 field key：
+    //   1) apiKey || key 直接 match
+    //   2) 否則如果 field 係 companies/contacts relation（key='company'/'contact'），
+    //      用 resource-based column name（company_id / contact_id）match
+    for (const [key, rel] of Object.entries(result.relations || {})) {
+      if (!rel?.id || rel.confidence == null || rel.confidence < 0.5) continue
+      const field = config.fields.find(f => {
+        const target = f.apiKey || f.key
+        if (target === key) return true
+        const res = f.relation?.resource
+        if ((res === 'companies' && key === 'company_id' && f.key === 'company') ||
+            (res === 'contacts' && key === 'contact_id' && f.key === 'contact')) return true
+        return false
+      })
+      if (!field) continue
+      newForm[field.key] = rel.id
+      newConf[field.key] = rel.confidence
+    }
     setForm(newForm); setAiFilledKeys(newConf); setAiState('done')
     const nameField = config.fields.find(f => f.type === 'title')
     if (nameField && newForm[nameField.key]) {
@@ -120,7 +139,10 @@ export default function NexusSmartAddModal({ config, open, onClose, onCreated, e
     try {
       const res = await apiClient.post<AIFillResult>('/api/v1/ai/smart-fill', {
         module: config.name, raw_text: pasteText,
-        existing_fields: config.fields.map(f => ({ key: f.key, label: f.label, type: f.type })),
+        existing_fields: config.fields.map(f => ({
+          key: f.key, label: f.label, type: f.type,
+          ...(f.options?.length ? { options: f.options.map(o => o.value ?? o) } : {}),
+        })),
       })
       applyAIResult(res); setPasteOpen(false); setPasteText('')
     } catch (e: any) { setAiState('error'); alert(apiErrorToString(e)) }

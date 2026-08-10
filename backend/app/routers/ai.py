@@ -2622,11 +2622,34 @@ def _is_company_name_lookup(text: str) -> bool:
     return True
 
 
+def _field_options(existing_fields: list[dict[str, Any]], key: str) -> list[str]:
+    """由 existing_fields item 攞 select/status field 嘅 option values（string list）。"""
+    for f in existing_fields:
+        if f.get("key") != key:
+            continue
+        opts = f.get("options")
+        if not isinstance(opts, list) or not opts:
+            return []
+        out = []
+        for o in opts:
+            if isinstance(o, str):
+                out.append(o)
+            elif isinstance(o, dict):
+                # 支援 {value, label} shape — 用 value，無就 label
+                v = o.get("value")
+                if v is None:
+                    v = o.get("label")
+                if v is not None:
+                    out.append(str(v))
+        return out
+    return []
+
+
 class SmartFillRequest(BaseModel):
     """Request to AI-fill a module's fields from raw pasted text."""
     module: str
     raw_text: str
-    existing_fields: list[dict[str, str]] = []
+    existing_fields: list[dict[str, Any]] = []
 
 
 @router.post("/smart-fill")
@@ -2675,34 +2698,76 @@ async def smart_fill(
         except Exception:
             enrichment = None  # 任何失敗 → fallback 去原本 extraction 行為
 
-    field_list = ", ".join(f"\"{k}\" ({label_map.get(k, k)})" for k in allowed_keys)
+    # ── Internal relation candidates（全 module）──
+    from app.services.entity_search import search_tenant_entities
+    relation_candidates: dict[str, list[dict]] = {}
+    for rel in RELATION_MAP.get(body.module, []):
+        cands = await search_tenant_entities(db, ctx.tenant_id, rel["resource"], body.raw_text)
+        relation_candidates[rel["field"]] = cands[:8]
+
+    # ── field_list（select/status 加 options 註明）──
+    options_map: dict[str, list[str]] = {}  # field key -> option values
+    field_parts = []
+    for k in allowed_keys:
+        desc = f"\"{k}\" ({label_map.get(k, k)})"
+        opts = _field_options(body.existing_fields, k)
+        if opts:
+            desc += f" options: {opts}"
+            options_map[k] = opts
+        field_parts.append(desc)
+    field_list = ", ".join(field_parts)
+
+    # ── user prompt：加 Internal CRM candidates section ──
+    cand_lines = []
+    for fk, cands in relation_candidates.items():
+        if cands:
+            items = ", ".join(f"{c['name']} ({c['id']})" for c in cands)
+            cand_lines.append(f"{fk}: [{items}]")
+    cand_block = "\n".join(cand_lines) if cand_lines else "(none)"
+
+    has_relations = bool(relation_candidates)
+
+    relation_rules = (
+        " For relation fields (company_id/contact_id), pick ONE id from the provided "
+        "Internal CRM candidates only; never invent an id; if no candidate matches, omit "
+        "the key. For select/status fields, use EXACTLY one of the listed options. "
+        "Relations are returned in a separate \"relations\" object with {\"id\", "
+        "\"confidence\", \"reason\"} per field."
+        if has_relations
+        else " For select/status fields, use EXACTLY one of the listed options."
+    )
+
     if enrichment:
         system = (
             "You are a CRM data-enrichment engine. Web research about the company "
             "produced the following verified facts. Fill the given fields using these "
             "facts. name should be the company's FULL registered name if identifiable "
             "(e.g. 新華三集團有限公司 / H3C Technologies Co., Ltd.), otherwise the best-known "
-            "name. For select/status fields use the exact option value. If a field is "
-            "absent or you are uncertain (confidence < 0.5), omit that key entirely. "
-            "value should be a string, number, or ISO date string as appropriate. "
-            "Return ONLY JSON: "
-            '{"fields": {"<key>": {"value": <value>, "confidence": 0.0-1.0}}}.'
+            "name. If a field is absent or you are uncertain (confidence < 0.5), omit that "
+            "key entirely. value should be a string, number, or ISO date string as "
+            "appropriate." + relation_rules +
+            " Return ONLY JSON: "
+            '{"fields": {"<key>": {"value": <value>, "confidence": 0.0-1.0}}, '
+            '"relations": {"<relation_key>": {"id": "<uuid>", "confidence": 0.0-1.0, '
+            '"reason": "<short reason>"}}}.'
         )
         user = (
             f"Fields: {field_list}\nCompany query: {body.raw_text}\n"
-            f"Web facts:\n{json.dumps(enrichment, ensure_ascii=False)}"
+            f"Web facts:\n{json.dumps(enrichment, ensure_ascii=False)}\n"
+            f"Internal CRM candidates:\n{cand_block}"
         )
     else:
         system = (
             "You are a CRM data-extraction engine. From the user's pasted text, extract values "
-            "for the given fields. Return ONLY JSON: "
-            '{"fields": {"<key>": {"value": <value>, "confidence": 0.0-1.0}}}. '
-            "Rules: only fill keys from the provided field list; for select/status fields use the "
-            "exact option value (lowercase/underscore form where that is the stored value); "
-            "if a field is absent or you are uncertain (confidence < 0.5), omit that key entirely. "
-            "value should be a string, number, or ISO date string as appropriate."
+            "for the given fields." + relation_rules +
+            " If a field is absent or you are uncertain (confidence < 0.5), omit that key "
+            "entirely. value should be a string, number, or ISO date string as appropriate."
+            " Return ONLY JSON: "
+            '{"fields": {"<key>": {"value": <value>, "confidence": 0.0-1.0}}, '
+            '"relations": {"<relation_key>": {"id": "<uuid>", "confidence": 0.0-1.0, '
+            '"reason": "<short reason>"}}}.'
         )
-        user = f"Fields: {field_list}\nRaw text:\n{body.raw_text}"
+        user = f"Fields: {field_list}\nRaw text:\n{body.raw_text}\nInternal CRM candidates:\n{cand_block}"
 
     try:
         adapter = await _resolve_adapter(db, ctx.tenant_id)
@@ -2751,6 +2816,30 @@ async def smart_fill(
                 continue
             out[key] = {"value": val, "confidence": round(float(conf), 3)}
 
+    # ── relations：只接受 candidate list 入面存在嘅 id（no hallucination）──
+    relations_dict = parsed.get("relations") if isinstance(parsed, dict) else {}
+    relations_out: dict[str, Any] = {}
+    cand_ids = {fk: {c["id"] for c in (relation_candidates.get(fk) or [])} for fk in relation_candidates}
+    cand_names = {fk: {c["id"]: c["name"] for c in (relation_candidates.get(fk) or [])} for fk in relation_candidates}
+    if isinstance(relations_dict, dict):
+        for fk, entry in relations_dict.items():
+            if fk not in relation_candidates:
+                continue
+            if not isinstance(entry, dict):
+                continue
+            rid = entry.get("id")
+            conf = entry.get("confidence", 0.5)
+            if rid not in cand_ids.get(fk, set()):
+                continue  # hallucinated id — reject
+            if not isinstance(conf, (int, float)) or conf < 0.5:
+                continue
+            relations_out[fk] = {
+                "id": rid,
+                "name": cand_names[fk].get(rid, ""),
+                "confidence": round(float(conf), 3),
+                "reason": (entry.get("reason") or "").strip(),
+            }
+
     # Record usage event (core rule G08)
     try:
         await _record_usage_event(db, ctx, None, usage, module="smart_fill")
@@ -2758,7 +2847,7 @@ async def smart_fill(
     except Exception:
         await db.rollback()
 
-    return {"fields": out}
+    return {"fields": out, "relations": relations_out}
 
 
 # ====================================================================
@@ -2872,11 +2961,7 @@ RELATION_MAP: dict[str, list[dict[str, str]]] = {
     ],
 }
 
-# Resource model lookup (tenant-scoped queries)
-_RELATION_RESOURCE_MODEL = {
-    "companies": Company,
-    "contacts": Contact,
-}
+# Resource model lookup (tenant-scoped queries) — 已移至 app/services/entity_search.py (_RESOURCE_MODEL)
 
 
 class SuggestRelatedRequest(BaseModel):
@@ -2908,39 +2993,19 @@ async def suggest_related(
         return {"suggestions": []}
 
     # 1. Candidate pre-filter (tenant-scoped, keyword score → top 10 per resource)
+    #    共用 entity_search service（同 smart-fill 同一套 internal search）
+    from app.services.entity_search import search_tenant_entities
+
     field_map: dict[str, list[dict]] = {}  # field key -> candidate list
     resources_needed: dict[str, list[str]] = {}  # resource -> field keys
     for rel in mapping:
         field_map.setdefault(rel["field"], [])
         resources_needed.setdefault(rel["resource"], []).append(rel["field"])
 
-    title_tokens = [t for t in re.split(r"[\s\W_]+", body.title.lower()) if t]
-    if not title_tokens:
-        return {"suggestions": []}
-
     for resource, field_keys in resources_needed.items():
-        model = _RELATION_RESOURCE_MODEL[resource]
-        rows = (
-            await db.execute(
-                select(model.id, model.name).where(model.tenant_id == ctx.tenant_id)
-            )
-        ).all()
-        scored = []
-        for rid, rname in rows:
-            rname_l = (rname or "").lower()
-            if not rname_l:
-                continue
-            token_hits = sum(1 for tok in title_tokens if tok in rname_l)
-            score = token_hits / len(title_tokens) if title_tokens else 0.0
-            # substring bonus: continuous title substring present in name
-            if body.title.lower() in rname_l:
-                score += 0.3
-            if score > 0:
-                scored.append({"id": str(rid), "name": rname, "score": score})
-        scored.sort(key=lambda c: c["score"], reverse=True)
-        top = scored[:10]
+        cands = await search_tenant_entities(db, ctx.tenant_id, resource, body.title, limit=10)
         for fk in field_keys:
-            field_map[fk] = top
+            field_map[fk] = cands
 
     # Build per-field candidate list for the LLM
     per_field = []
