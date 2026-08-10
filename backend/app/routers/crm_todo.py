@@ -321,6 +321,7 @@ async def create_task(
     """Create a task. Defaults list_id to the 'All' smart list if not specified."""
     tenant_id = _get_tenant_id(request)
     user_id = _get_user_id(request)
+    workspace_id = getattr(request.state, "workspace_id", None)
 
     data = body.model_dump()
     if not data.get("list_id"):
@@ -330,6 +331,7 @@ async def create_task(
 
     task = Task(
         tenant_id=tenant_id,
+        workspace_id=workspace_id,
         created_by=user_id,
         **{k: v for k, v in data.items() if hasattr(Task, k)},
     )
