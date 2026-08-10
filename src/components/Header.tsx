@@ -1,10 +1,29 @@
-import { Bell, ChevronDown, LogOut, Search, Moon, Sun } from 'lucide-react';
+import { Bell, ChevronDown, LogOut, Search, Moon, Sun, Users, Building2, TrendingUp, CheckSquare, FolderKanban, Activity, FileText, X } from 'lucide-react';
 import { useAuth } from '../lib/AuthContext';
 import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { apiClient } from '../lib/api';
 import { useTranslation } from 'react-i18next';
 import MobileSearchSheet from './MobileSearchSheet';
+
+// Desktop top-bar global search result type (mirrors MobileSearchSheet)
+interface TopBarSearchResult {
+  id: string;
+  type: string;
+  label: string;
+  sub: string;
+  url: string;
+}
+
+const TOPBAR_TYPE_ICONS: Record<string, any> = {
+  contact: Users,
+  company: Building2,
+  deal: TrendingUp,
+  task: CheckSquare,
+  project: FolderKanban,
+  touchpoint: Activity,
+  note: FileText,
+};
 
 export default function Header() {
   const { t } = useTranslation();
@@ -14,6 +33,55 @@ export default function Header() {
   const [searchOpen, setSearchOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const [aiEnabled, setAiEnabled] = useState(true); // default show until loaded
+
+  // ── Desktop top-bar global search (mirrors MobileSearchSheet behaviour) ──
+  const [topQuery, setTopQuery] = useState('');
+  const [topResults, setTopResults] = useState<TopBarSearchResult[]>([]);
+  const [topLoading, setTopLoading] = useState(false);
+  const [topOpen, setTopOpen] = useState(false);
+  const topSearchRef = useRef<HTMLDivElement>(null);
+  const topInputRef = useRef<HTMLInputElement>(null);
+
+  // Debounced global search — same 200ms + /api/v1/crm/search pattern as MobileSearchSheet
+  useEffect(() => {
+    const q = topQuery.trim();
+    if (!q) { setTopResults([]); setTopLoading(false); return; }
+    setTopLoading(true);
+    const timer = setTimeout(async () => {
+      try {
+        const data = await apiClient.get<{ results: TopBarSearchResult[] }>(
+          `/api/v1/crm/search?q=${encodeURIComponent(q)}&limit=10`
+        );
+        setTopResults(data?.results || []);
+        setTopOpen(true);
+      } catch { setTopResults([]); }
+      setTopLoading(false);
+    }, 200);
+    return () => clearTimeout(timer);
+  }, [topQuery]);
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (topSearchRef.current && !topSearchRef.current.contains(e.target as Node)) setTopOpen(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
+  const topSearchGo = (url: string) => {
+    setTopOpen(false);
+    setTopQuery('');
+    setTopResults([]);
+    navigate(url);
+  };
+
+  const topSearchClear = () => {
+    setTopQuery('');
+    setTopResults([]);
+    setTopOpen(false);
+    topInputRef.current?.focus();
+  };
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -122,9 +190,50 @@ export default function Header() {
         aria-label={t('header.searchPlaceholder')}>
         <Search size={19} />
       </button>
-      <div className="topbar-search">
+      <div className="topbar-search" ref={topSearchRef}>
         <Search />
-        <input type="text" placeholder={t('header.searchPlaceholder')} />
+        <input
+          ref={topInputRef}
+          type="text"
+          value={topQuery}
+          onChange={(e) => setTopQuery(e.target.value)}
+          onFocus={() => { if (topQuery.trim()) setTopOpen(true); }}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && topResults.length > 0) topSearchGo(topResults[0].url);
+            if (e.key === 'Escape') setTopOpen(false);
+          }}
+          placeholder={t('header.searchPlaceholder')}
+        />
+        {topQuery && (
+          <button className="topbar-search-clear" onClick={topSearchClear} aria-label={t('common.clear')}>
+            <X size={14} />
+          </button>
+        )}
+        {topOpen && topQuery.trim() && (
+          <div className="topbar-search-dropdown">
+            {topLoading && topResults.length === 0 && (
+              <div className="topbar-search-msg">{t('common.loading', '載入中…')}</div>
+            )}
+            {!topLoading && topResults.length === 0 && (
+              <div className="topbar-search-msg">{t('header.searchNoResults')}</div>
+            )}
+            {topResults.map((r) => {
+              const Icon = TOPBAR_TYPE_ICONS[r.type] || FileText;
+              return (
+                <button key={r.type + r.id} className="topbar-search-item" onClick={() => topSearchGo(r.url)}>
+                  <span className={`topbar-search-item-icon topbar-search-item-icon--${r.type}`}>
+                    <Icon size={15} />
+                  </span>
+                  <span className="topbar-search-item-body">
+                    <span className="topbar-search-item-label">{r.label}</span>
+                    {r.sub && <span className="topbar-search-item-sub">{r.sub}</span>}
+                  </span>
+                  <span className="topbar-search-item-type">{r.type}</span>
+                </button>
+              );
+            })}
+          </div>
+        )}
       </div>
       <div className="topbar-actions">
         <button className="icon-btn" onClick={() => setDark(!dark)} title={t('header.toggleTheme')}>
