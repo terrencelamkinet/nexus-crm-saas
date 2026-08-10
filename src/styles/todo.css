@@ -58,6 +58,29 @@
 .todo-add-task .at-btn{width:32px;height:32px;border-radius:var(--radius-md);background:var(--color-primary);color:#fff;border:none;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0}
 .todo-add-task .at-btn:hover{background:var(--color-primary-hover)}
 
+/* ── Floating Label (design04 spec) ── */
+.todo-add-task.at-float{position:relative}
+.todo-add-task.at-float .at-input{padding-top:14px;padding-bottom:4px;height:40px}
+.todo-add-task .at-label{position:absolute;left:14px;top:50%;transform:translateY(-50%);font-size:14px;color:var(--color-text-faint);pointer-events:none;transition:all .18s ease;background:transparent;line-height:1}
+.todo-add-task.at-float .at-input:focus + .at-label,
+.todo-add-task.at-float .at-input:not(:placeholder-shown) + .at-label{
+  top:6px;transform:none;font-size:10px;color:var(--color-primary);letter-spacing:.02em;font-weight:600
+}
+.todo-add-task.at-float .at-input::placeholder{color:transparent}
+
+/* ── Rich Text Editor (notes) — design04 spec ── */
+.rt-wrap{position:relative;width:100%}
+.rt-toolbar{display:flex;align-items:center;gap:4px;flex-wrap:wrap;opacity:0;transform:translateY(-6px);pointer-events:none;transition:all .2s ease;background:var(--color-surface-2);border:1px solid var(--color-border);border-radius:var(--radius-md);padding:4px 6px;margin-bottom:6px;box-shadow:var(--shadow-sm)}
+.rt-toolbar.show{opacity:1;transform:translateY(0);pointer-events:auto}
+.rt-btn{min-width:30px;height:30px;display:flex;align-items:center;justify-content:center;border:1px solid transparent;border-radius:6px;background:transparent;color:var(--color-text);cursor:pointer;font-size:13px;transition:background .15s}
+.rt-btn:hover{background:var(--color-surface-offset-2)}
+.rt-sep{width:1px;height:18px;background:var(--color-border);margin:0 2px}
+.rt-editor{width:100%;min-height:64px;border:1px solid var(--color-border);border-radius:var(--radius-md);padding:8px 12px;font-size:14px;resize:vertical;overflow-y:auto;background:var(--color-surface-offset);color:var(--color-text);font-family:inherit;outline:none;line-height:1.5}
+.rt-editor:focus{border-color:var(--color-primary)}
+.rt-editor:empty::before{content:attr(data-placeholder);color:var(--color-text-faint);pointer-events:none}
+.rt-editor a{color:var(--color-primary);text-decoration:underline}
+.rt-editor a:hover{opacity:.8}
+
 /* ── Right Detail Panel ── */
 .todo-right{display:none;border-left:1px solid var(--color-divider);overflow-y:auto;background:var(--color-surface);width:380px;flex-shrink:0;flex-direction:column}
 .todo-right.open{display:flex}
@@ -144,4 +167,10 @@
   .todo-detail .dt-field textarea{font-size:16px;min-height:88px}
   /* Guide §2: mobile inputs >=16px (avoid iOS zoom) */
   .todo-detail .dt-field .input-field{font-size:16px;height:44px}
+  /* Guide §2/§3: mobile floating-label add-task + rich editor */
+  .todo-add-task.at-float .at-input{height:44px;font-size:16px;padding-top:16px}
+  .todo-add-task.at-float .at-input:focus + .at-label,
+  .todo-add-task.at-float .at-input:not(:placeholder-shown) + .at-label{top:4px}
+  .rt-editor{font-size:16px;min-height:88px}
+  .rt-btn{min-width:40px;height:40px}
 }

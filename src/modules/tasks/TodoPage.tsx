@@ -362,10 +362,12 @@ export default function TodoPage() {
             ))}
           </div>
 
-          <div className="todo-add-task">
-            <input ref={inputRef} className="at-input" type="text" placeholder={t('pages.tasks.taskPlaceholder')} value={newTitle}
+          <div className="todo-add-task at-float">
+            <input ref={inputRef} className="at-input" type="text" placeholder=" " value={newTitle}
               onChange={e => setNewTitle(e.target.value)}
-              onKeyDown={e => { if (e.key === 'Enter') createTask() }} />
+              onKeyDown={e => { if (e.key === 'Enter') createTask() }}
+              aria-label={t('pages.tasks.taskPlaceholder')} />
+            <label className="at-label">{t('pages.tasks.taskPlaceholder')}</label>
             <button className="at-btn" onClick={createTask}><Plus size={16} /></button>
           </div>
         </div>
@@ -533,18 +535,19 @@ export default function TodoPage() {
                   )}
                 </div>
 
-                {/* Notes — text note w/ edit mode for drafting design/links/docs */}
+                {/* Notes — rich text editor w/ floating toolbar (design04 spec) */}
                 <div className="dt-field" style={{flexDirection:'column',alignItems:'stretch',gap:6,borderBottom:'none'}}>
                   <div style={{display:'flex',alignItems:'center',gap:8}}>
                     <FileText size={15} style={{color:'var(--color-text-muted)',flexShrink:0}} />
                     <span className="f-label">{t('pages.tasks.notes')}</span>
                     <span style={{marginLeft:'auto',fontSize:11,color:'var(--color-text-faint)'}}>{t('pages.tasks.notesHint','可貼 design link / Word / Google Sheet 連結')}</span>
                   </div>
-                  <textarea value={selectedTask.notes_html || ''}
-                    onChange={e => setSelectedTask({ ...selectedTask, notes_html: e.target.value })}
-                    onBlur={e => updateTask(selectedTask.id, { notes_html: e.target.value || null })}
+                  <RichTextEditor
+                    value={selectedTask.notes_html || ''}
+                    onChange={html => setSelectedTask({ ...selectedTask, notes_html: html })}
+                    onBlur={html => updateTask(selectedTask.id, { notes_html: html || null })}
                     placeholder={t('pages.tasks.addNotes')}
-                    style={{width:'100%',minHeight:64,border:'1px solid var(--color-border)',borderRadius:'var(--radius-md)',padding:'8px 12px',fontSize:14,resize:'vertical',background:'var(--color-surface-offset)',color:'var(--color-text)',fontFamily:'inherit',outline:'none'}} />
+                  />
                 </div>
               </div>
 
@@ -567,6 +570,81 @@ export default function TodoPage() {
         <ShareDialog listId={activeList.id} onClose={() => setShowShare(false)} />
       )}
     </>
+  )
+}
+
+/* ── RichTextEditor — contenteditable w/ floating format toolbar (design04 spec) ── */
+interface RichTextEditorProps {
+  value: string
+  onChange: (html: string) => void
+  onBlur: (html: string) => void
+  placeholder?: string
+}
+function RichTextEditor({ value, onChange, onBlur, placeholder }: RichTextEditorProps) {
+  const ref = useRef<HTMLDivElement>(null)
+  const [focus, setFocus] = useState(false)
+  const [sel, setSel] = useState(false)
+  const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  // sync external value -> DOM (only when not focused, avoid caret jump)
+  useEffect(() => {
+    if (ref.current && !focus && ref.current.innerHTML !== value) {
+      ref.current.innerHTML = value || ''
+    }
+  }, [value, focus])
+
+  const run = (cmd: string, val?: string) => {
+    ref.current?.focus()
+    document.execCommand(cmd, false, val)
+    if (ref.current) onChange(ref.current.innerHTML)
+    setSel(true)
+  }
+  const addLink = () => {
+    const url = window.prompt('連結 URL (https://...)') || ''
+    if (url) {
+      ref.current?.focus()
+      document.execCommand('createLink', false, url)
+      if (ref.current) onChange(ref.current.innerHTML)
+    }
+  }
+  const handleBlur = (e: React.FocusEvent) => {
+    // ignore when moving focus to toolbar button
+    if (e.relatedTarget && (e.relatedTarget as HTMLElement).closest?.('.rt-toolbar')) return
+    setFocus(false)
+    setSel(false)
+    if (ref.current) onBlur(ref.current.innerHTML)
+  }
+
+  return (
+    <div className="rt-wrap">
+      <div
+        className={`rt-toolbar${sel && focus ? ' show' : ''}`}
+        onMouseDown={e => e.preventDefault()}
+        role="toolbar" aria-label="Rich text 格式">
+        <button type="button" className="rt-btn" onMouseDown={e => { e.preventDefault(); run('bold') }} title="粗體"><b>B</b></button>
+        <button type="button" className="rt-btn" onMouseDown={e => { e.preventDefault(); run('italic') }} title="斜體"><i>I</i></button>
+        <button type="button" className="rt-btn" onMouseDown={e => { e.preventDefault(); run('underline') }} title="底線"><u>U</u></button>
+        <button type="button" className="rt-btn" onMouseDown={e => { e.preventDefault(); run('strikeThrough') }} title="刪除線"><s>S</s></button>
+        <button type="button" className="rt-btn" onMouseDown={e => { e.preventDefault(); addLink() }} title="插入連結">🔗</button>
+        <span className="rt-sep" />
+        <button type="button" className="rt-btn" onMouseDown={e => { e.preventDefault(); run('insertUnorderedList') }} title="項目符號">•</button>
+        <button type="button" className="rt-btn" onMouseDown={e => { e.preventDefault(); run('insertOrderedList') }} title="編號">1.</button>
+        <button type="button" className="rt-btn" onMouseDown={e => { e.preventDefault(); run('formatBlock', '<blockquote>') }} title="引言">❝</button>
+        <span className="rt-sep" />
+        <button type="button" className="rt-btn" onMouseDown={e => { e.preventDefault(); run('removeFormat') }} title="清除格式">⌫</button>
+      </div>
+      <div
+        ref={ref}
+        className="rt-editor"
+        contentEditable
+        data-placeholder={placeholder || ''}
+        onInput={e => onChange((e.currentTarget as HTMLDivElement).innerHTML)}
+        onFocus={() => { setFocus(true); setSel(false); if (hideTimer.current) clearTimeout(hideTimer.current) }}
+        onMouseUp={() => { const s = window.getSelection()?.toString(); if (s) setSel(true); hideTimer.current = setTimeout(() => setSel(false), 2500) }}
+        onKeyUp={() => { const s = window.getSelection()?.toString(); if (s) setSel(true); else if (focus) setSel(false) }}
+        onBlur={handleBlur}
+      />
+    </div>
   )
 }
 
