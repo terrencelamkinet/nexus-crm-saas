@@ -5,6 +5,8 @@ import { useNavigate } from 'react-router-dom'
 import { apiClient } from '../lib/api'
 import { CellRenderer, FieldsRenderer } from './shared/FieldsRenderer'
 import { buildPayload, defaultForm, apiErrorToString } from './shared/field-utils'
+import NexusSmartAddModal from './shared/NexusSmartAddModal'
+import { ADD_CONFIGS } from './shared/add-modal-configs'
 import useColumnLayout from './shared/useColumnLayout'
 import { statusColors, optionColorToClass } from './module-types'
 import type { ModuleConfig, EntityRecord, ListResponse, FieldConfig } from './module-types'
@@ -324,24 +326,7 @@ const [filters, setFilters] = useState<Record<string, FilterEntry>>(() => ({ ...
     setEditTarget(item)
   }
 
-  const handleCreate = async () => {
-    const nameField = config.fields.find(f => f.type === 'title')
-    if (nameField && !form[nameField.key]?.toString().trim()) return
-    const requiredFields = config.fields.filter(f => f.required)
-    const missing = requiredFields.filter(f => !form[f.key]?.toString().trim())
-    if (missing.length) {
-      alert(`請填寫必填欄位：${missing.map(f => f.label).join(', ')}`)
-      return
-    }
-    setSaving(true)
-    try {
-      await apiClient.post(config.apiPath, buildPayload(form, config.fields))
-      resetForm()
-      setCreateOpen(false)
-      fetchDataRef.current()
-    } catch (e: any) { alert(apiErrorToString(e)) }
-    finally { setSaving(false) }
-  }
+  const refresh = () => fetchDataRef.current()
 
   const handleEdit = async () => {
     if (!editTarget) return
@@ -1014,27 +999,13 @@ const [filters, setFilters] = useState<Record<string, FilterEntry>>(() => ({ ...
       )}
 
       {createOpen && (
-        <div className="modal-overlay" onClick={e => { if (e.target === e.currentTarget) setCreateOpen(false) }}>
-          <div className="modal">
-            <div className="modal-head">
-              <h2>{t('pages.' + filterModuleKey + '.new')}</h2>
-              <button onClick={() => setCreateOpen(false)} className="modal-x"><X className="icon-16" /></button>
-            </div>
-            <div className="modal-body form-body">
-              <div className="grid-2col">
-                {config.fields.filter(f => f.editable !== false && !['rollup', 'formula', 'created_time', 'last_edited_time', 'created_by', 'last_edited_by', 'unique_id'].includes(f.type) && f.key !== 'created_at' && f.key !== 'updated_at').map(f => (
-                  <FieldsRenderer key={f.key} field={f} form={form} onChange={handleChange}
-                    editOpen={true} relationData={{ companies: extraData?.companies }} />
-                ))}
-              </div>
-            </div>
-            <div className="modal-foot">
-              <button onClick={() => setCreateOpen(false)} className="btn-secondary">{t('common.cancel')}</button>
-              <button onClick={handleCreate} disabled={saving || config.fields.filter(f => f.required).some(f => !form[f.key]?.toString().trim())}
-                className="btn-primary">{saving ? t('common.processing') : t('common.create')}</button>
-            </div>
-          </div>
-        </div>
+        <NexusSmartAddModal
+          config={ADD_CONFIGS[config.name]}
+          open={createOpen}
+          onClose={() => setCreateOpen(false)}
+          onCreated={refresh}
+          extraData={extraData}
+        />
       )}
 
       {editTarget && (

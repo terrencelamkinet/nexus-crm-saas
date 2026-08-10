@@ -14,7 +14,7 @@ from datetime import datetime, timezone, timedelta
 
 HKT = timezone(timedelta(hours=8))
 from typing import Any, AsyncGenerator
-from fastapi import APIRouter, Depends, HTTPException, Request, Query
+from fastapi import APIRouter, Depends, HTTPException, Request, Query, UploadFile, File
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -880,8 +880,8 @@ async def _load_im_history(
 async def _record_usage_event(
     db: AsyncSession,
     ctx: Any,
-    session_id: UUID,
-    report: UsageReport,
+    session_id: UUID | None = None,
+    report: UsageReport | None = None,
     result_status: str = "success",
     module: str = "chat",
 ) -> None:
@@ -2604,3 +2604,199 @@ async def create_prompt_version(
     db.add(pt)
     await db.flush()
     return {"status": "created", "key": pt.key, "version": pt.version}
+
+
+# ====================================================================
+# Smart-fill: AI one-click fill for Add Modals
+# ====================================================================
+
+class SmartFillRequest(BaseModel):
+    """Request to AI-fill a module's fields from raw pasted text."""
+    module: str
+    raw_text: str
+    existing_fields: list[dict[str, str]] = []
+
+
+@router.post("/smart-fill")
+async def smart_fill(
+    body: SmartFillRequest,
+    request: Request,
+    db: AsyncSession = Depends(get_tenant_session),
+):
+    """AI one-click fill: extract field values from raw_text.
+
+    Only returns values for keys listed in existing_fields. AI-skipped or
+    low-confidence (< 0.5) fields are omitted. Tenant-scoped via RLS context.
+    """
+    ctx = getattr(request.state, "ai_context", None)
+    if not ctx:
+        raise HTTPException(400, "AI session context not initialized")
+    if not body.raw_text or not body.raw_text.strip():
+        raise HTTPException(400, "raw_text is required")
+
+    # Allowed keys = exactly the ones the modal sent (drop anything else)
+    allowed_keys = [f.get("key") for f in body.existing_fields if f.get("key")]
+    allowed_keys = list(dict.fromkeys(a for a in allowed_keys if a))
+    if not allowed_keys:
+        raise HTTPException(400, "existing_fields must contain at least one field key")
+
+    label_map = {f.get("key"): f.get("label", f.get("key")) for f in body.existing_fields}
+
+    # Quota check before spending tokens
+    try:
+        quota = _get_quota()
+        await quota.check(
+            f"tenant:{ctx.tenant_id}",
+            tier=getattr(ctx, "tier", "pro"),
+            estimated_tokens=len(body.raw_text) // 2,
+        )
+    except QuotaExceeded as e:
+        raise HTTPException(429, f"Quota exceeded for {e.window}: {e.current}/{e.limit}")
+
+    field_list = ", ".join(f"\"{k}\" ({label_map.get(k, k)})" for k in allowed_keys)
+    system = (
+        "You are a CRM data-extraction engine. From the user's pasted text, extract values "
+        "for the given fields. Return ONLY JSON: "
+        '{"fields": {"<key>": {"value": <value>, "confidence": 0.0-1.0}}}. '
+        "Rules: only fill keys from the provided field list; for select/status fields use the "
+        "exact option value (lowercase/underscore form where that is the stored value); "
+        "if a field is absent or you are uncertain (confidence < 0.5), omit that key entirely. "
+        "value should be a string, number, or ISO date string as appropriate."
+    )
+    user = f"Fields: {field_list}\nRaw text:\n{body.raw_text}"
+
+    try:
+        adapter = await _resolve_adapter(db, ctx.tenant_id)
+        try:
+            text, usage = await adapter.chat(
+                messages=[
+                    {"role": "system", "content": system},
+                    {"role": "user", "content": user},
+                ],
+                model=DEFAULT_MODEL,
+                temperature=0.1,
+                max_tokens=1200,
+            )
+        finally:
+            await adapter.close()
+    except Exception as e:
+        raise HTTPException(503, f"AI provider error: {e}")
+
+    # Drop fields not in allowed_keys; drop confidence < 0.5
+    try:
+        raw = text.strip()
+        if raw.startswith("```"):
+            raw = raw.split("\n", 1)[-1].rsplit("\n", 1)[0]
+        parsed = json.loads(raw)
+    except Exception:
+        parsed = {}
+
+    fields_dict = parsed.get("fields") if isinstance(parsed, dict) else {}
+    out: dict[str, Any] = {}
+    if isinstance(fields_dict, dict):
+        for key, entry in fields_dict.items():
+            if key not in allowed_keys:
+                continue
+            if not isinstance(entry, dict):
+                continue
+            conf = entry.get("confidence", 0.5)
+            val = entry.get("value")
+            if val is None or val == "":
+                continue
+            if not isinstance(conf, (int, float)) or conf < 0.5:
+                continue
+            out[key] = {"value": val, "confidence": round(float(conf), 3)}
+
+    # Record usage event (core rule G08)
+    try:
+        await _record_usage_event(db, ctx, None, usage, module="smart_fill")
+        await db.flush()
+    except Exception:
+        await db.rollback()
+
+    return {"fields": out}
+
+
+# ====================================================================
+# Scan name card → contact fields (for Add Contact modal)
+# ====================================================================
+
+@router.post("/scan-name-card")
+async def scan_name_card(
+    request: Request,
+    image: UploadFile = File(...),
+    module: str = Query("contact"),
+    db: AsyncSession = Depends(get_tenant_session),
+):
+    """OCR a name-card image → map parsed fields to contact field keys.
+
+    Reuses the existing namecard pipeline (namecard_ocr + namecard_agents).
+    Returns {"fields": {"<key>": {"value": ..., "confidence": ...}}}.
+    """
+    ctx = getattr(request.state, "ai_context", None)
+    if not ctx:
+        raise HTTPException(400, "AI session context not initialized")
+
+    import io as _io
+    from app.services import namecard_ocr, namecard_agents, namecard_llm
+
+    content = await image.read()
+    if not content:
+        raise HTTPException(400, "Empty file")
+
+    # Save to temp for OCR
+    import tempfile
+    from pathlib import Path
+    suffix = Path(image.filename or "card.jpg").suffix.lower()
+    if suffix not in (".jpg", ".jpeg", ".png", ".webp", ".gif"):
+        suffix = ".jpg"
+    with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tmp:
+        tmp.write(content)
+        tmp_path = tmp.name
+
+    usage_reports: list = []
+    try:
+        raw_text = namecard_ocr.ocr_image(tmp_path, usage_out=usage_reports)
+        heuristic = namecard_ocr.parse_namecard(raw_text) if raw_text else {}
+        s1 = namecard_agents.ingestion_agent(raw_text, heuristic, image_url="")
+        s2 = namecard_agents.extraction_agent(s1.output["signal"], usage_out=usage_reports)
+        parsed = s2.output["parsed"] or {}
+    finally:
+        Path(tmp_path).unlink(missing_ok=True)
+
+    # Map namecard keys → contact module field keys
+    # namecard keys: name, chinese_name, title, company, email, phone, website, address, linkedin
+    KEY_MAP = {
+        "name": "name",
+        "chinese_name": "chinese_name",
+        "title": "job_title",
+        "email": "email",
+        "phone": "phone",
+        "address": "address",
+        "linkedin": "linkedin_url",
+    }
+    # OCR-direct fields (heuristic) → high confidence; LLM-only fields → lower
+    OCR_DIRECT = {"name", "chinese_name", "title", "company", "email", "phone", "address"}
+
+    out: dict[str, Any] = {}
+    for nk, ck in KEY_MAP.items():
+        val = (parsed.get(nk) or "").strip()
+        if not val:
+            continue
+        conf = 0.9 if nk in OCR_DIRECT else 0.6
+        out[ck] = {"value": val, "confidence": conf}
+
+    # Company name → relation field key (company). Frontend relation field will
+    # show a placeholder the user can confirm; keep the name for reference.
+    comp = (parsed.get("company") or "").strip()
+    if comp:
+        out["company"] = {"value": comp, "confidence": 0.8}
+
+    # Record usage (namecard scan module) — real LLM usage is recorded
+    # inside namecard_llm.llm_structured via usage_out; no double counting here.
+    try:
+        await db.flush()
+    except Exception:
+        pass
+
+    return {"fields": out}

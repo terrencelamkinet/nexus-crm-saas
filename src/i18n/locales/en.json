@@ -606,7 +606,8 @@
       "classify": "Category",
       "other": "Other"
     },
-    "viewFullProfile": "View Full Profile"
+    "viewFullProfile": "View Full Profile",
+    "dismiss": "Dismiss"
   },
   "contacts": {
     "title": "Contacts",
@@ -1079,19 +1080,24 @@
       "summary": "{{total}} total · {{unread}} unread"
     },
     "contact": {
-      "title": "Contacts"
+      "title": "Contacts",
+      "new": "New Contact"
     },
     "company": {
-      "title": "Companies"
+      "title": "Companies",
+      "new": "New Company"
     },
     "project": {
-      "title": "Projects"
+      "title": "Projects",
+      "new": "New Project"
     },
     "task": {
-      "title": "Tasks"
+      "title": "Tasks",
+      "new": "New Task"
     },
     "touchpoint": {
-      "title": "Touchpoints"
+      "title": "Touchpoints",
+      "new": "New Touchpoint"
     },
     "touchpoints": {
       "title": "Touchpoints",
@@ -1210,5 +1216,18 @@
     "scannerTitle": "NameCard Scanner",
     "scannedCount": "{{count}} cards scanned",
     "empty": "No name cards yet"
+  },
+  "ai": {
+    "oneClickFill": "AI Auto-fill",
+    "oneClickFillHint": "Paste company intro, meeting notes or chat text — AI extracts fields",
+    "pasteText": "Paste text",
+    "pasteTextPlaceholder": "Paste your text here (company intro / meeting notes / WhatsApp conversation)…",
+    "analyzeAndFill": "Analyze & fill",
+    "thinkingMessage": "Analyzing and filling fields…",
+    "scanNameCard": "Scan name card",
+    "scanningInProgress": "Scanning…",
+    "scanNameCardHint": "Upload a name card photo to auto-fill contact info",
+    "duplicateFound": "「{{name}}」{{pct}}% similar — possible duplicate",
+    "viewRecord": "View record"
   }
 }

@@ -606,7 +606,8 @@
       "classify": "分類",
       "other": "其他"
     },
-    "viewFullProfile": "查看完整檔案"
+    "viewFullProfile": "查看完整檔案",
+    "dismiss": "忽略"
   },
   "contacts": {
     "title": "聯絡人",
@@ -1079,19 +1080,24 @@
       "calendar": "日曆"
     },
     "contact": {
-      "title": "聯絡人"
+      "title": "聯絡人",
+      "new": "新增聯絡人"
     },
     "company": {
-      "title": "公司"
+      "title": "公司",
+      "new": "新增公司"
     },
     "project": {
-      "title": "項目"
+      "title": "項目",
+      "new": "新增項目"
     },
     "task": {
-      "title": "任務"
+      "title": "任務",
+      "new": "新增任務"
     },
     "touchpoint": {
-      "title": "互動記錄"
+      "title": "互動記錄",
+      "new": "新增互動"
     },
     "touchpoints": {
       "title": "互動記錄",
@@ -1210,5 +1216,18 @@
     "scannerTitle": "名片掃描器",
     "scannedCount": "已掃描 {{count}} 張",
     "empty": "未有名片"
+  },
+  "ai": {
+    "oneClickFill": "AI 一鍵填寫",
+    "oneClickFillHint": "貼上公司簡介、會議記錄或對話文字，AI 自動拆解欄位",
+    "pasteText": "貼上文字",
+    "pasteTextPlaceholder": "喺度貼上文字（公司簡介／會議記錄／WhatsApp 對話）…",
+    "analyzeAndFill": "分析並填寫",
+    "thinkingMessage": "正在分析並填寫欄位…",
+    "scanNameCard": "掃描名片",
+    "scanningInProgress": "掃描中…",
+    "scanNameCardHint": "上傳名片相片，自動填寫聯絡資料",
+    "duplicateFound": "「{{name}}」相似度 {{pct}}% 可能係重複",
+    "viewRecord": "查看記錄"
   }
 }

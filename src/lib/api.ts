@@ -126,8 +126,10 @@ export async function api<T = any>(
 
   const doFetch = async (): Promise<{ res: Response; body: any }> => {
     const auth = getStoredAuth();
+    const isForm = options.body instanceof FormData;
     const headers: Record<string, string> = {
-      'Content-Type': 'application/json',
+      // JSON default, but skip Content-Type for FormData (browser sets boundary)
+      ...(isForm ? {} : { 'Content-Type': 'application/json' }),
       ...(options.headers as Record<string, string>),
     };
 
@@ -179,10 +181,25 @@ export async function api<T = any>(
 // Convenience methods
 // ---------------------------------------------------------------------------
 
+export interface GetOptions { params?: Record<string, string> }
+
+/** Append a `?k=v` query string (URL-encoded) to a path. */
+function withQuery(path: string, params?: Record<string, string>): string {
+  if (!params) return path
+  const qs = Object.entries(params)
+    .filter(([, v]) => v != null && v !== '')
+    .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v)}`)
+    .join('&')
+  return qs ? `${path}${path.includes('?') ? '&' : '?'}${qs}` : path
+}
+
 export const apiClient = {
-  get: <T = any>(path: string) => api<T>(path),
+  get: <T = any>(path: string, opts?: GetOptions) => api<T>(withQuery(path, opts?.params)),
   post: <T = any>(path: string, data?: any) =>
     api<T>(path, { method: 'POST', body: data ? JSON.stringify(data) : undefined }),
+  /** POST multipart/form-data (skips JSON stringify; attaches auth header like uploadFile). */
+  postForm: <T = any>(path: string, formData: FormData) =>
+    api<T>(path, { method: 'POST', body: formData }),
   put: <T = any>(path: string, data: any) =>
     api<T>(path, { method: 'PUT', body: JSON.stringify(data) }),
   patch: <T = any>(path: string, data: any) =>

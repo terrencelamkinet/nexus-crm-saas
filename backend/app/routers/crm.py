@@ -18,7 +18,7 @@ from datetime import datetime, timezone, timedelta
 from pathlib import Path
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, Request, UploadFile, File
+from fastapi import APIRouter, Depends, HTTPException, Request, UploadFile, File, Query
 from sqlalchemy import func, select, or_, text
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import ColumnProperty, selectinload
@@ -301,6 +301,83 @@ async def list_companies(
     rows = (await db.execute(items_q)).scalars().all()
 
     return ListResponse(items=list(rows), total=total)
+
+
+@router.get("/companies/duplicate-check")
+async def duplicate_check_companies(
+    request: Request,
+    name: str = Query(""),
+    limit: int = Query(5, ge=1, le=10),
+    db: AsyncSession = Depends(get_tenant_session),
+):
+    """Fuzzy-match company names → possible duplicates (tenant-scoped).
+
+    Returns top matches with similarity > 0.5 (difflib ratio on normalised name).
+    """
+    import difflib
+    tenant_id = _get_tenant_id(request)
+    q = (name or "").strip()
+    if not q or len(q) < 2:
+        return {"matches": []}
+    norm = q.lower()
+
+    rows = (
+        await db.execute(
+            select(Company.id, Company.name)
+            .where(Company.tenant_id == tenant_id)
+            .limit(2000)
+        )
+    ).fetchall()
+
+    matches = []
+    for rid, rname in rows:
+        if not rname:
+            continue
+        rn = rname.lower()
+        sim = difflib.SequenceMatcher(None, norm, rn).ratio()
+        if sim >= 0.5:
+            matches.append({"id": str(rid), "name": rname, "similarity": round(sim, 3)})
+    matches.sort(key=lambda m: m["similarity"], reverse=True)
+    return {"matches": matches[:limit]}
+
+
+@router.get("/contacts/duplicate-check")
+async def duplicate_check_contacts(
+    request: Request,
+    name: str = Query(""),
+    limit: int = Query(5, ge=1, le=10),
+    db: AsyncSession = Depends(get_tenant_session),
+):
+    """Fuzzy-match contact names → possible duplicates (tenant-scoped).
+
+    Returns top matches with similarity > 0.5 (difflib ratio on normalised name).
+    """
+    import difflib
+    tenant_id = _get_tenant_id(request)
+    q = (name or "").strip()
+    if not q or len(q) < 2:
+        return {"matches": []}
+    norm = q.lower()
+
+    rows = (
+        await db.execute(
+            select(Contact.id, Contact.name)
+            .where(Contact.tenant_id == tenant_id)
+            .limit(2000)
+        )
+    ).fetchall()
+
+    matches = []
+    for rid, rname in rows:
+        if not rname:
+            continue
+        rn = rname.lower()
+        sim = difflib.SequenceMatcher(None, norm, rn).ratio()
+        if sim >= 0.5:
+            matches.append({"id": str(rid), "name": rname, "similarity": round(sim, 3)})
+    matches.sort(key=lambda m: m["similarity"], reverse=True)
+    return {"matches": matches[:limit]}
+
 
 
 @router.post("/companies", response_model=CompanyResponse, status_code=201)
