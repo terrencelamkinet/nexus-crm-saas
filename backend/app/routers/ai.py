@@ -2611,6 +2611,17 @@ async def create_prompt_version(
 # Smart-fill: AI one-click fill for Add Modals
 # ====================================================================
 
+def _is_company_name_lookup(text: str) -> bool:
+    """短、單行、冇 contact info 嘅 raw_text → 判定係公司名 lookup 而唔係貼文 extraction。"""
+    import re as _re
+    t = (text or "").strip()
+    if not t or len(t) > 60 or "\n" in t or "\r" in t:
+        return False
+    if _re.search(r"@|https?://|www\.|\d{4,}", t):  # email / URL / 電話號碼 → extraction mode
+        return False
+    return True
+
+
 class SmartFillRequest(BaseModel):
     """Request to AI-fill a module's fields from raw pasted text."""
     module: str
@@ -2654,17 +2665,44 @@ async def smart_fill(
     except QuotaExceeded as e:
         raise HTTPException(429, f"Quota exceeded for {e.window}: {e.current}/{e.limit}")
 
+    # ── Company-name lookup mode（開源 web enrichment）──
+    lookup_mode = _is_company_name_lookup(body.raw_text)
+    enrichment = None
+    if lookup_mode:
+        try:
+            from app.services.company_enrichment import enrich_company_web
+            enrichment = await asyncio.wait_for(enrich_company_web(body.raw_text), timeout=12)
+        except Exception:
+            enrichment = None  # 任何失敗 → fallback 去原本 extraction 行為
+
     field_list = ", ".join(f"\"{k}\" ({label_map.get(k, k)})" for k in allowed_keys)
-    system = (
-        "You are a CRM data-extraction engine. From the user's pasted text, extract values "
-        "for the given fields. Return ONLY JSON: "
-        '{"fields": {"<key>": {"value": <value>, "confidence": 0.0-1.0}}}. '
-        "Rules: only fill keys from the provided field list; for select/status fields use the "
-        "exact option value (lowercase/underscore form where that is the stored value); "
-        "if a field is absent or you are uncertain (confidence < 0.5), omit that key entirely. "
-        "value should be a string, number, or ISO date string as appropriate."
-    )
-    user = f"Fields: {field_list}\nRaw text:\n{body.raw_text}"
+    if enrichment:
+        system = (
+            "You are a CRM data-enrichment engine. Web research about the company "
+            "produced the following verified facts. Fill the given fields using these "
+            "facts. name should be the company's FULL registered name if identifiable "
+            "(e.g. 新華三集團有限公司 / H3C Technologies Co., Ltd.), otherwise the best-known "
+            "name. For select/status fields use the exact option value. If a field is "
+            "absent or you are uncertain (confidence < 0.5), omit that key entirely. "
+            "value should be a string, number, or ISO date string as appropriate. "
+            "Return ONLY JSON: "
+            '{"fields": {"<key>": {"value": <value>, "confidence": 0.0-1.0}}}.'
+        )
+        user = (
+            f"Fields: {field_list}\nCompany query: {body.raw_text}\n"
+            f"Web facts:\n{json.dumps(enrichment, ensure_ascii=False)}"
+        )
+    else:
+        system = (
+            "You are a CRM data-extraction engine. From the user's pasted text, extract values "
+            "for the given fields. Return ONLY JSON: "
+            '{"fields": {"<key>": {"value": <value>, "confidence": 0.0-1.0}}}. '
+            "Rules: only fill keys from the provided field list; for select/status fields use the "
+            "exact option value (lowercase/underscore form where that is the stored value); "
+            "if a field is absent or you are uncertain (confidence < 0.5), omit that key entirely. "
+            "value should be a string, number, or ISO date string as appropriate."
+        )
+        user = f"Fields: {field_list}\nRaw text:\n{body.raw_text}"
 
     try:
         adapter = await _resolve_adapter(db, ctx.tenant_id)
