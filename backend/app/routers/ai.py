@@ -2669,17 +2669,22 @@ async def smart_fill(
     try:
         adapter = await _resolve_adapter(db, ctx.tenant_id)
         try:
-            text, usage = await adapter.chat(
-                messages=[
-                    {"role": "system", "content": system},
-                    {"role": "user", "content": user},
-                ],
-                model=DEFAULT_MODEL,
-                temperature=0.1,
-                max_tokens=1200,
+            text, usage = await asyncio.wait_for(
+                adapter.chat(
+                    messages=[
+                        {"role": "system", "content": system},
+                        {"role": "user", "content": user},
+                    ],
+                    model=DEFAULT_MODEL,
+                    temperature=0.1,
+                    max_tokens=1200,
+                ),
+                timeout=25,
             )
         finally:
             await adapter.close()
+    except asyncio.TimeoutError:
+        raise HTTPException(503, "AI provider timeout, please try again")
     except Exception as e:
         raise HTTPException(503, f"AI provider error: {e}")
 
@@ -2941,17 +2946,23 @@ async def suggest_related(
     try:
         adapter = await _resolve_adapter(db, ctx.tenant_id)
         try:
-            text, usage = await adapter.chat(
-                messages=[
-                    {"role": "system", "content": system},
-                    {"role": "user", "content": user},
-                ],
-                model=DEFAULT_MODEL,
-                temperature=0.1,
-                max_tokens=600,
+            text, usage = await asyncio.wait_for(
+                adapter.chat(
+                    messages=[
+                        {"role": "system", "content": system},
+                        {"role": "user", "content": user},
+                    ],
+                    model=DEFAULT_MODEL,
+                    temperature=0.1,
+                    max_tokens=600,
+                ),
+                timeout=25,
             )
         finally:
             await adapter.close()
+    except asyncio.TimeoutError:
+        await db.rollback()
+        return {"suggestions": []}   # 建議係 non-critical — 唔好 block 個 form
     except Exception as e:
         raise HTTPException(503, f"AI provider error: {e}")
 
