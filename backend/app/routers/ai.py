@@ -18,7 +18,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request, Query, UploadFil
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, text
+from sqlalchemy import select, func, text, nullslast
 
 from app.db import get_tenant_session
 from app.ai.tool_registry import TOOL_REGISTRY, ToolDef
@@ -35,7 +35,7 @@ from app.ai.providers import get_provider, ProviderAdapter, UsageReport
 from app.ai.quota.service import QuotaService, QuotaExceeded, TIER_LIMITS
 from app.models.ai import ActionRequest, AISession, Message, UserMemory, UsageEvent, PromptTemplate, SecretarySettings
 from app.models.crm_module_b import ModuleSetting
-from app.models.crm import Company, Contact
+from app.models.crm import Company, Contact, Project, Task, Touchpoint, Note
 
 # ---------------------------------------------------------------------------
 # Default provider configuration
@@ -3123,3 +3123,250 @@ async def suggest_related(
         await db.rollback()
 
     return {"suggestions": suggestions}
+
+
+# ====================================================================
+# entity-insight — AI 客戶摘要 / 風險 / 機會（Detail Page V2）
+# ====================================================================
+
+class EntityInsightRequest(BaseModel):
+    entity_type: str  # company | contact | project | task | touchpoint
+    entity_id: str
+
+
+@router.post("/entity-insight")
+async def entity_insight(
+    body: EntityInsightRequest,
+    request: Request,
+    db: AsyncSession = Depends(get_tenant_session),
+):
+    """AI 生成 entity 摘要 + 機會/風險 tags（Detail Page V2 置頂 AI Insight Card）。
+
+    - Entity lookup：tenant-scoped，唔存在 → 404
+    - Context 收集：拉近期 activity（touchpoints/tasks/notes）俾 LLM
+    - LLM：中文 prompt，要求 JSON {summary, tags[{label,kind}]}
+    - 失敗 / 解析失敗 / LLM timeout → 靜默 fallback {"summary":"","tags":[]}（200）
+    """
+    tenant_id = getattr(request.state, "tenant_id", None)
+    if not tenant_id:
+        raise HTTPException(status_code=403, detail="Tenant not identified")
+
+    entity_type = (body.entity_type or "").strip().lower()
+    model_map: dict[str, Any] = {
+        "company": Company,
+        "contact": Contact,
+        "project": Project,
+        "task": Task,
+        "touchpoint": Touchpoint,
+    }
+    model = model_map.get(entity_type)
+    if model is None:
+        raise HTTPException(status_code=404, detail=f"Unsupported entity_type: {body.entity_type}")
+
+    try:
+        entity_id_uuid = UUID(body.entity_id)
+    except Exception:
+        raise HTTPException(status_code=404, detail="Invalid entity id")
+
+    # ── tenant-scoped entity lookup ──
+    # ⚠️ request.state.tenant_id 係 str（JWT payload），obj.tenant_id 係 UUID object —
+    #    直接 != 比較永遠 True（UUID != str）→ 一律 404。兩邊都 cast 做 str 先比。
+    obj = await db.get(model, entity_id_uuid)
+    if obj is None or str(getattr(obj, "tenant_id", None)) != str(tenant_id):
+        raise HTTPException(status_code=404, detail=f"{entity_type} not found")
+
+    # ── 收集 context（近期 activity，3-8 條，唔好太長）──
+    context_lines: list[str] = []
+    try:
+        await _collect_entity_context(db, entity_type, obj, tenant_id, context_lines)
+    except Exception:
+        context_lines = context_lines[:5]  # best-effort：失敗就淨係用已有
+
+    entity_preview = _entity_preview(entity_type, obj)
+    prompt = _build_insight_prompt(entity_type, entity_preview, context_lines)
+
+    summary = ""
+    tags: list[dict[str, str]] = []
+    generated_at = datetime.now(timezone.utc).isoformat()
+
+    try:
+        adapter = await _resolve_adapter(db, tenant_id)
+        try:
+            text, _usage = await asyncio.wait_for(
+                adapter.chat(
+                    messages=[
+                        {"role": "system", "content": _INSIGHT_SYSTEM_PROMPT},
+                        {"role": "user", "content": prompt},
+                    ],
+                    model=DEFAULT_MODEL,
+                    temperature=0.3,
+                    max_tokens=600,
+                ),
+                timeout=15,
+            )
+        finally:
+            await adapter.close()
+    except Exception:
+        # 靜默 fallback（LLM error / timeout）→ 200 + empty
+        return {"summary": summary, "tags": tags, "generatedAt": generated_at}
+
+    # ── 解析 JSON fallback ──
+    parsed = _parse_insight_json(text)
+    if parsed:
+        summary = parsed.get("summary") or ""
+        tlist = parsed.get("tags") or []
+        if isinstance(tlist, list):
+            for tg in tlist:
+                if not isinstance(tg, dict):
+                    continue
+                label = str(tg.get("label") or "").strip()
+                kind = str(tg.get("kind") or "info").strip()
+                if kind not in ("opportunity", "risk", "info"):
+                    kind = "info"
+                if label:
+                    tags.append({"label": label, "kind": kind})
+
+    return {"summary": summary, "tags": tags, "generatedAt": generated_at}
+
+
+_INSIGHT_SYSTEM_PROMPT = (
+    "你係 NEXUS CRM 嘅 AI 客戶分析助手。根據客戶/聯絡人/專案/任務/互動記錄嘅資料，"
+    "用繁體中文（香港用語）生成簡短摘要同標籤。"
+    "摘要要 2-3 句，突出客戶健康度、近期動態、機會或風險。"
+    "標籤 2-4 個，每個係好短嘅一句（10 字內），kind 只可以係 opportunity（機會）、risk（風險）或 info（資訊）。"
+    "如果資料太少，寧願 summary 留空（''）同 tags 空 array，都唔好亂作。"
+    "淨係輸出 JSON，格式：{\"summary\": \"...\", \"tags\": [{\"label\": \"...\", \"kind\": \"opportunity\"|\"risk\"|\"info\"}]}"
+)
+
+
+def _entity_preview(entity_type: str, obj: Any) -> str:
+    d = obj.__dict__
+    if entity_type == "company":
+        return f"公司：{d.get('name','')}｜行業：{d.get('industry','') or '—'}｜狀態：{d.get('status','') or '—'}"
+    if entity_type == "contact":
+        return f"聯絡人：{d.get('name','')}｜職稱：{d.get('job_title','') or '—'}｜公司：{d.get('company_id','') or '—'}｜狀態：{d.get('status','') or '—'}"
+    if entity_type == "project":
+        return f"專案：{d.get('name','')}｜狀態：{d.get('status','') or '—'}｜優先度：{d.get('priority','') or '—'}｜截止：{d.get('deadline','') or '—'}"
+    if entity_type == "task":
+        return f"任務：{d.get('title','')}｜狀態：{d.get('status','') or '—'}｜優先度：{d.get('priority','') or '—'}｜到期：{d.get('due_date','') or '—'}｜描述：{str(d.get('description','') or '')[:200]}"
+    if entity_type == "touchpoint":
+        return f"互動：{d.get('title','')}｜類型：{d.get('type','') or '—'}｜日期：{d.get('date','') or '—'}｜描述：{str(d.get('description','') or '')[:200]}"
+    return str(d.get('name') or d.get('title') or '')
+
+
+async def _collect_entity_context(
+    db: AsyncSession, entity_type: str, obj: Any,
+    tenant_id: UUID, out: list[str],
+) -> None:
+    """拉近期 activity（touchpoints/tasks/notes）做 LLM context，best-effort。"""
+    oid = obj.id
+
+    async def run(query):
+        res = await db.execute(query)
+        return res.all()
+
+    if entity_type == "company":
+        rows = await run(
+            select(Touchpoint.title, Touchpoint.date, Touchpoint.type)
+            .where(Touchpoint.tenant_id == tenant_id, Touchpoint.company_id == oid)
+            .order_by(Touchpoint.date.desc()).limit(5)
+        )
+        for t, date, tp in rows:
+            out.append(f"[互動 {tp or 'other'}] {t}（{date}）" if date else f"[互動 {tp or 'other'}] {t}")
+        rows = await run(
+            select(Task.title, Task.due_date, Task.status)
+            .where(Task.tenant_id == tenant_id, Task.company_id == oid)
+            .order_by(Task.due_date.desc().nullslast()).limit(5)
+        )
+        for t, due, st in rows:
+            out.append(f"[任務 {st or 'pending'}] {t}（到期 {due}）" if due else f"[任務 {st or 'pending'}] {t}")
+        rows = await run(
+            select(Note.title, Note.content, Note.created_at)
+            .where(Note.tenant_id == tenant_id, Note.company_id == oid)
+            .order_by(Note.created_at.desc()).limit(3)
+        )
+        for t, content, cdate in rows:
+            out.append(f"[備註] {t}：{str(content or '')[:120]}")
+
+    elif entity_type == "contact":
+        rows = await run(
+            select(Touchpoint.title, Touchpoint.date, Touchpoint.type)
+            .where(Touchpoint.tenant_id == tenant_id, Touchpoint.contact_id == oid)
+            .order_by(Touchpoint.date.desc()).limit(5)
+        )
+        for t, date, tp in rows:
+            out.append(f"[互動 {tp or 'other'}] {t}（{date}）" if date else f"[互動 {tp or 'other'}] {t}")
+        rows = await run(
+            select(Task.title, Task.due_date, Task.status)
+            .where(Task.tenant_id == tenant_id, Task.contact_id == oid)
+            .order_by(Task.due_date.desc().nullslast()).limit(5)
+        )
+        for t, due, st in rows:
+            out.append(f"[任務 {st or 'pending'}] {t}（到期 {due}）" if due else f"[任務 {st or 'pending'}] {t}")
+
+    elif entity_type == "project":
+        # 專案冇 direct task FK（task 用 list_id 連 task_lists，唔係 project）—
+        # 所以 context 用「專案所属公司嘅近期 touchpoints」做 proxy，best-effort。
+        cid = getattr(obj, "company_id", None)
+        if cid:
+            rows = await run(
+                select(Touchpoint.title, Touchpoint.date, Touchpoint.type)
+                .where(Touchpoint.tenant_id == tenant_id, Touchpoint.company_id == cid)
+                .order_by(Touchpoint.date.desc()).limit(5)
+            )
+            for t, date, tp in rows:
+                out.append(f"[互動 {tp or 'other'}] {t}（{date}）" if date else f"[互動 {tp or 'other'}] {t}")
+
+    elif entity_type == "task":
+        # task 自身資料已經喺 preview；補 notes_html（如果有）
+        nh = getattr(obj, "notes_html", None) or ""
+        if nh:
+            out.append(f"[備註] {nh[:200]}")
+
+    elif entity_type == "touchpoint":
+        nid = getattr(obj, "contact_id", None)
+        if nid:
+            rows = await run(
+                select(Touchpoint.title, Touchpoint.date, Touchpoint.type)
+                .where(Touchpoint.tenant_id == tenant_id, Touchpoint.contact_id == nid)
+                .order_by(Touchpoint.date.desc()).limit(5)
+            )
+            for t, date, tp in rows:
+                out.append(f"[相關互動 {tp or 'other'}] {t}（{date}）" if date else f"[相關互動 {tp or 'other'}] {t}")
+
+
+def _build_insight_prompt(entity_type: str, entity_preview: str, context_lines: list[str]) -> str:
+    ctx = "\n".join(context_lines) if context_lines else "（暫無近期活動記錄）"
+    return (
+        f"Entity 類型：{entity_type}\n"
+        f"Entity 資料：{entity_preview}\n"
+        f"近期活動：\n{ctx}\n\n"
+        "請生成摘要同標籤（JSON）。"
+    )
+
+
+def _parse_insight_json(text: str) -> dict | None:
+    """寬鬆解析 LLM 輸出 — 可能包 ```json fence。失敗返 None。"""
+    if not text:
+        return None
+    raw = text.strip()
+    if raw.startswith("```"):
+        raw = raw.split("\n", 1)[-1]
+        if raw.endswith("```"):
+            raw = raw.rsplit("```", 1)[0]
+        raw = raw.strip()
+    try:
+        parsed = json.loads(raw)
+        if isinstance(parsed, dict):
+            return parsed
+    except Exception:
+        pass
+    # 嘗試搵第一個 { ... } JSON block
+    try:
+        start = raw.find("{")
+        end = raw.rfind("}")
+        if start >= 0 and end > start:
+            return json.loads(raw[start:end + 1])
+    except Exception:
+        pass
+    return None
