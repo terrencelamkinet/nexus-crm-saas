@@ -1445,6 +1445,13 @@ async def update_task(
         setattr(task, field, value)
         changes[field] = str(value)
 
+    # Sync completed_at when status flips to/from done (match todo endpoint behaviour)
+    status_val = body_dict.get("status")
+    if status_val == "done" and not task.completed_at:
+        task.completed_at = datetime.now(timezone.utc)
+    elif status_val and status_val != "done" and task.completed_at:
+        task.completed_at = None
+
     task.updated_at = datetime.now(timezone.utc)
 
     await _log_activity(

@@ -12,7 +12,7 @@ from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request, UploadFile, File, Form
 from fastapi.responses import FileResponse
-from sqlalchemy import func, select, or_, and_, update, delete
+from sqlalchemy import func, select, or_, and_, update, delete, case
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 import aiofiles
@@ -268,7 +268,7 @@ async def list_tasks(
     elif smart == "planned":
         base = base.where(Task.due_date.isnot(None), Task.status != "done")
     elif smart == "all":
-        base = base.where(Task.status != "done")
+        pass  # 'all' shows every task (MS To Do "Tasks" behaviour) — completed sink to bottom, so ticked tasks stay visible as done
     elif smart == "completed":
         base = base.where(Task.status == "done")
     elif smart == "assigned":
@@ -303,7 +303,10 @@ async def list_tasks(
             selectinload(Task.categories),
             selectinload(Task.attachments),
         )
-        .order_by(Task.created_at.desc())
+        .order_by(
+            *((case((Task.status == "done", 1), else_=0), Task.created_at.desc())
+              if smart == "all" else (Task.created_at.desc(),))
+        )
         .offset(offset)
         .limit(limit)
     )
