@@ -1151,12 +1151,6 @@ export default function ChatboxPanel() {
               }}
               onHover={setMenuIndex}
             />
-            {activeContext && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 12px', fontSize: 12, color: 'var(--color-primary, #146EF5)', background: 'rgba(20,110,245,0.08)', borderRadius: 8, margin: '0 12px 6px', flexShrink: 0 }}>
-                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>📎 正在討論: {activeContext.name}</span>
-                <button onClick={() => { setActiveContext(null); setContextData(null) }} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, color: 'inherit', padding: '0 2px', lineHeight: 1 }} aria-label="清除上下文">✕</button>
-              </div>
-            )}
             <div onPointerDown={(e) => {
               const ta = e.currentTarget.querySelector('textarea')
               if (ta) {
