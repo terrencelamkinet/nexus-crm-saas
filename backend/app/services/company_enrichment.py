@@ -200,28 +200,227 @@ def _extract_emails(text: str | None) -> list[str]:
     return seen[:5]
 
 
-def _extract_phones(text: str | None) -> str | None:
+def _extract_phones_strict(text: str | None) -> str | None:
+    """強化電話抽取：HK 格式 / 國際格式優先；寧願 None 都唔好 partial garbage。
+
+    - 優先揾完整帶 country code 嘅號碼（+852 / +86 / +1 等）
+    - 唔好抽到 partial（例如淨得 8 位冇 country code 嘅，除非有明顯分隔格式）
+    - 排除年份（20XX-20XX）、排除過長/過短
+    回傳最完整嗰個（最長 digits）。搵唔到合格 → None。
+    """
     if not text:
         return None
-    found = re.findall(r"\+?\d[\d\s()\-]{7,}", text)
-    for p in found:
-        p = p.strip()
-        digits = re.sub(r"\D", "", p)
+    candidates: list[str] = []
+    # 1) 優先國際格式（含 +country code）
+    for m in re.finditer(
+        r"\+\d{1,3}[\s\-]?\(?\d{2,4}\)?[\s\-]?\d{3,4}[\s\-]?\d{3,4}", text
+    ):
+        candidates.append(m.group(0).strip())
+    # 2) 其他帶多位分隔嘅本地號碼（如 1234 5678 / 1234-5678），但要整齊分隔
+    for m in re.finditer(
+        r"\b(?:\d{2,4}[\s\-]){1,2}\d{3,4}(?:[\s\-]\d{2,4})?\b", text
+    ):
+        cand = m.group(0).strip()
+        digits = re.sub(r"\D", "", cand)
+        if 6 <= len(digits) <= 15:
+            candidates.append(cand)
+
+    # 揀最完整（digits 最長、且有分隔符、優先帶 +）
+    best: str | None = None
+    best_score = -1
+    for c in candidates:
+        c = c.strip()
+        digits = re.sub(r"\D", "", c)
+        # 排除年份
+        if re.fullmatch(r"(?:20\d{2})[\s\-]*(?:20\d{2})?", c) and len(digits) <= 8:
+            continue
         if len(digits) < 7 or len(digits) > 15:
             continue
-        # 排除版權年份 range（e.g. 「2003-2026」）— 似 `20XX-20XX` 唔係電話
-        if re.fullmatch(r"20\d{2}\s*-\s*20\d{2}", p.strip()):
-            continue
-        # 排除純年份組合
-        if re.fullmatch(r"(?:20\d{2})[\s\-]*(?:20\d{2})?", p.strip()) and len(digits) <= 8:
-            continue
-        return p
+        score = len(digits)
+        if c.startswith("+"):
+            score += 10  # 帶 country code 優先
+        if re.search(r"[\s\-]", c):
+            score += 2  # 有分隔符更完整
+        if score > best_score:
+            best_score = score
+            best = c
+    return best
+
+
+def _extract_address_from_text(text: str | None) -> str | None:
+    """由頁面 text 抽地址 pattern（含 street/road/號嘅完整地址，優先 HK / 有 district）。"""
+    if not text:
+        return None
+    # 地址 keyword（suffix）— 單字母縮寫要加 (?!\w) 確保係完整字（避免 St 撞 Stories/Store）
+    kw = (
+        r"(?:Floor|Floors?|Rd\.?(?!\w)|Road|St\.?(?!\w)|Street|Ave\.?(?!\w)|Avenue|Lane|"
+        r"Place|Building|Buildings|Centre|Center|Plaza|Tower|Boulevard|Blvd|Highway|Hwy|Way)"
+    )
+    patterns = [
+        r"[A-Za-z0-9 ,.\-/]{6,80}" + kw + r"(?=[\s,.]|$)[A-Za-z0-9 ,.\-/]{2,60}",
+        r"\d{1,5}\s+[A-Za-z0-9 ,.\-]{4,60}(?:Street|St\.?(?!\w)|Road|Rd\.?(?!\w)|Avenue|Ave\.?(?!\w)|Lane|Boulevard|Blvd)",
+        r"[^\n]{4,60}(?:區|市|县|縣|镇|鎮)[^\n]{0,50}(?:路|街|道|號|号|大厦|大廈|中心|广场|廣場)",
+    ]
+    for pat in patterns:
+        m = re.search(pat, text)
+        if m:
+            addr = re.sub(r"\s+", " ", m.group(0)).strip().strip(",.、，。")
+            # 太短（<8）或太長（>140）唔算地址
+            if 8 <= len(addr) <= 140:
+                # 排除純 email / 純電話 pattern 誤判
+                if re.fullmatch(r"[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}", addr):
+                    continue
+                # 要含數字（樓號/街號/郵遞區號）先當地址 — 擋住 "Customer Stories" 呢類 nav phrase
+                if not re.search(r"\d", addr):
+                    continue
+                return addr
     return None
 
 
-async def _scrape_facts(page: Any, url: str, deadline: float) -> dict[str, Any]:
-    """開官方站抽 facts。任何一步失敗都唔 throw（best-effort）。deadline = time.monotonic 上限。"""
+def _extract_ceo_from_text(text: str | None) -> str | None:
+    """由頁面 text 抽 CEO/創始人 附近嘅人名。Best-effort，搵唔到 → None，唔好 hallucinate。"""
+    if not text:
+        return None
+    # 名稱唔應該包含呢啲 stopword（出現 = regex over-capture，唔算人名）
+    STOP = (" the ", " of ", " and ", " at ", " our ", " company ", " founded ", " board ")
+    # CEO 名通常喺 "CEO" / "Chief Executive Officer" / "行政總裁" / "創始人" 後 2-3 個詞
+    ceo_pat = re.compile(
+        r"(?:Chief Executive Officer|Chief Executive|CEO|行政總裁|行政总裁|总裁|總裁|創始人|创始人|Founder|Co-?founder)\s*[:：\-–—]*\s*"
+        r"([A-Z][A-Za-z'\-]+(?:\s+[A-Z][A-Za-z'\-]+){1,3})"
+    )
+    m = ceo_pat.search(text)
+    if m:
+        name = m.group(1).strip()
+        if 2 <= len(name.split()) <= 4 and len(name) <= 40 and not any(sw in f" {name} " for sw in STOP):
+            return name
+    # 試埋 name 喺 title 之前（"John Smith — CEO"）
+    m2 = re.search(
+        r"([A-Z][A-Za-z'\-]+(?:\s+[A-Z][A-Za-z'\-]+){1,3})\s*[\-–—:]\s*(?:CEO|Chief Executive Officer|行政總裁|創始人|Founder)",
+        text,
+    )
+    if m2:
+        name = m2.group(1).strip()
+        if 2 <= len(name.split()) <= 4 and len(name) <= 40 and not any(sw in f" {name} " for sw in STOP):
+            return name
+    return None
+
+
+def _extract_linkedin_from_search(results: list[dict[str, Any]]) -> str | None:
+    """由 search results 抽 `linkedin.com/company/<slug>` URL（唔開 LinkedIn，防 block）。
+
+    搵到第一個含 linkedin.com/company/ 嘅 href → 回傳（normalize 去 https://）。
+    冇 → None。
+    """
+    for r in results or []:
+        url = (r.get("url") or "").strip()
+        if "linkedin.com/company/" in url.lower():
+            # normalize：確保 https:// 開頭
+            norm = url if url.startswith("http") else "https://" + url.lstrip("/")
+            # 切走 query/fragment + 結尾 slash
+            norm = norm.split("?")[0].split("#")[0].rstrip("/")
+            if "linkedin.com/company/" in norm.lower():
+                return norm
+    return None
+
+
+async def _search_linkedin(page: Any, query: str) -> str | None:
+    """做一次 site:linkedin.com/company 嘅 search（DDG→Bing fallback），抽返 LinkedIn company URL。
+
+    只係 search（唔開 LinkedIn 網頁，防 block bots）。搵唔到 → None。
+    """
+    lq = f'site:linkedin.com/company "{query}"' if query else ""
+    if not lq:
+        return None
+    for searcher in (_search_ddg, _search_bing):
+        try:
+            results = await searcher(page, lq)
+        except Exception:
+            results = []
+        if results:
+            li = _extract_linkedin_from_search(results)
+            if li:
+                return li
+    return None
+
+
+async def _extract_address_from_page(page: Any) -> str | None:
+    """由官方站抽地址：優先 JSON-LD schema（PostalAddress / Organization.address），
+
+    fallback 去 footer / body text。冇 → None。
+    """
+    # 1) JSON-LD
+    try:
+        scripts = await page.locator('script[type="application/ld+json"]').all_text_contents()
+        for raw in scripts:
+            try:
+                import json as _json
+                data = _json.loads(raw)
+            except Exception:
+                continue
+            # 支援單一 object 或 @graph list
+            nodes = data if isinstance(data, list) else [data]
+            for n in nodes:
+                addr = None
+                if isinstance(n, dict) and n.get("@type") in (
+                    "PostalAddress", "Organization", "LocalBusiness", "Corporation",
+                ):
+                    a = n.get("address")
+                    if isinstance(a, dict):
+                        addr = " ".join(
+                            str(a.get(k, "")) for k in (
+                                "streetAddress", "addressLocality", "addressRegion",
+                                "postalCode", "addressCountry",
+                            ) if a.get(k)
+                        ).strip()
+                    elif isinstance(a, str) and a:
+                        addr = a
+                    elif isinstance(n, dict) and isinstance(n.get("address"), str):
+                        addr = n.get("address")
+                    if addr:
+                        return re.sub(r"\s+", " ", addr).strip()
+        # @graph 內可能係 list of dict
+        for raw in scripts:
+            try:
+                import json as _json
+                data = _json.loads(raw)
+            except Exception:
+                continue
+            if isinstance(data, dict) and isinstance(data.get("@graph"), list):
+                for n in data["@graph"]:
+                    if isinstance(n, dict) and isinstance(n.get("address"), dict):
+                        addr = " ".join(str(n.get("address", {}).get(k, "")) for k in (
+                            "streetAddress", "addressLocality", "addressRegion",
+                            "postalCode", "addressCountry",
+                        ) if n.get("address", {}).get(k)).strip()
+                        if addr:
+                            return re.sub(r"\s+", " ", addr).strip()
+    except Exception:
+        pass
+    # 2) footer / body text fallback
+    try:
+        txt = await page.evaluate(
+            """() => {
+                const f = document.querySelector('footer');
+                const body = document.body ? document.body.innerText : '';
+                return (f ? f.innerText.slice(0, 2000) : '') + '\\n' + body.slice(0, 6000);
+            }"""
+        )
+        return _extract_address_from_text(txt)
+    except Exception:
+        return None
+
+
+async def _scrape_facts(page: Any, url: str, deadline: float, target_fields: list[str] | None = None, search_results: list[dict[str, Any]] | None = None, query: str | None = None) -> dict[str, Any]:
+    """開官方站抽 facts。任何一步失敗都唔 throw（best-effort）。deadline = time.monotonic 上限。
+
+    target_fields（可選，smart_fill existing_fields keys）：決定要唔要抽
+    phone / address / ceo_name / linkedin_url。冇指定（None）= 抽齊晒（backward compatible）。
+    search_results：由 search 步驟傳入，用嚟抽 linkedin_url（唔開 LinkedIn，防 block）。
+    query：原始公司名，用嚟做額外 LinkedIn-targeted search（唔開 LinkedIn，只係 search）。
+    """
     import time as _time
+    wants = target_fields or []
+    want = lambda k: (not target_fields) or (k in wants)  # noqa: E731 — None = 全部
     facts: dict[str, Any] = {
         "full_name": None,
         "domain": None,
@@ -230,6 +429,8 @@ async def _scrape_facts(page: Any, url: str, deadline: float) -> dict[str, Any]:
         "phone": None,
         "address": None,
         "emails": [],
+        "ceo_name": None,
+        "linkedin_url": None,
     }
     try:
         facts["domain"] = (urllib.parse.urlsplit(url).netloc or "").replace("www.", "").lower()
@@ -282,19 +483,44 @@ async def _scrape_facts(page: Any, url: str, deadline: float) -> dict[str, Any]:
     except Exception:
         pass
 
-    # body 抽 email / 電話 / 地址（off page 首頁 + 嘗試 /about /contact）
+    # ── body 抽 email（always）+ 電話 / 地址（視乎 target_fields）──
     page_text = ""
     try:
         page_text = await page.evaluate("() => document.body ? document.body.innerText.slice(0, 6000) : ''")
     except Exception:
         pass
     facts["emails"] = _extract_emails(page_text + " " + (desc or ""))
-    ph = _extract_phones(page_text)
-    if ph:
-        facts["phone"] = ph
 
-    # best-effort 開 /about、/about-us、/contact
-    for sub in ("/about", "/about-us", "/about/", "/contact", "/contact-us"):
+    # LinkedIn URL：由 search results 抽（唔開 LinkedIn 網頁，防 block）
+    if want("linkedin_url"):
+        if search_results:
+            li = _extract_linkedin_from_search(search_results)
+            if li:
+                facts["linkedin_url"] = li
+        # 未搵到 → 做一次 LinkedIn-targeted search（site: 限定，只係 search 唔開網頁）
+        if not facts["linkedin_url"] and query and _time.monotonic() < deadline:
+            li2 = await _search_linkedin(page, query)
+            if li2:
+                facts["linkedin_url"] = li2
+
+    # 電話（field-driven 強化）
+    if want("phone"):
+        ph = _extract_phones_strict(page_text)
+        if ph:
+            facts["phone"] = ph
+
+    # 地址（field-driven）— homepage JSON-LD + footer regex
+    if want("address"):
+        addr = await _extract_address_from_page(page)
+        if addr:
+            facts["address"] = addr
+
+    # ── best-effort 開子頁（/about /about-us /contact /contact-us /leadership /team）──
+    # 每個子頁都有獨立 timeout guard（deadline 內先開；每個 page 自身 4000ms）
+    core_subs = ("/about", "/about-us", "/about/", "/contact", "/contact-us")
+    ceo_subs = ("/about", "/about-us", "/about/", "/leadership", "/team", "/team/")
+    # 已用 home text 抽過嘅，睇下仲有冇嘢要補
+    for sub in core_subs:
         if _time.monotonic() > deadline:
             break
         try:
@@ -307,19 +533,49 @@ async def _scrape_facts(page: Any, url: str, deadline: float) -> dict[str, Any]:
             for e in sms:
                 if e not in facts["emails"]:
                     facts["emails"].append(e)
-            if not facts["phone"]:
-                ph2 = _extract_phones(sub_text)
+            if want("phone") and not facts["phone"]:
+                ph2 = _extract_phones_strict(sub_text)
                 if ph2:
                     facts["phone"] = ph2
+            if want("address") and not facts["address"]:
+                addr2 = _extract_address_from_text(sub_text)
+                if addr2:
+                    facts["address"] = addr2
+            # CEO：喺 /about 頁先試抽（避免為 CEO 開多幾頁）
+            if want("ceo_name") and not facts["ceo_name"] and sub.startswith("/about"):
+                ceo = _extract_ceo_from_text(sub_text)
+                if ceo:
+                    facts["ceo_name"] = ceo
         except Exception:
             continue  # 失敗就 skip，唔好令成個 function 失敗
+
+    # CEO 仍未有 + field-driven + 未超時 → 專門去 leadership/team 頁
+    if want("ceo_name") and not facts["ceo_name"]:
+        for sub in (s for s in ceo_subs if not s.startswith("/about")):
+            if _time.monotonic() > deadline:
+                break
+            try:
+                sub_url = urllib.parse.urljoin(url, sub)
+                await page.goto(sub_url, timeout=4000, wait_until="domcontentloaded")
+                sub_text = await page.evaluate(
+                    "() => document.body ? document.body.innerText.slice(0, 6000) : ''"
+                )
+                ceo = _extract_ceo_from_text(sub_text)
+                if ceo:
+                    facts["ceo_name"] = ceo
+                    break
+            except Exception:
+                continue
 
     return facts
 
 
-async def enrich_company_web(query: str) -> dict | None:
+async def enrich_company_web(query: str, target_fields: list[str] | None = None) -> dict | None:
     """開源 browser 公司 enrichment：DDG search → 揀官方站 → 抽 facts。
 
+    target_fields：需要收集嘅 form fields（smart_fill 嘅 existing_fields keys）。
+    按 target_fields 決定抽咩 facts（phone/address/ceo_name/linkedin_url）—
+    冇指定就抽核心 set（backward compatible，None = 抽齊）。
     任何失敗 return None（caller fallback 去原本行為）。總 budget ~15s。
     """
     if not query or not query.strip():
@@ -356,8 +612,8 @@ async def enrich_company_web(query: str) -> dict | None:
                 if not best:
                     return None
 
-                # Step 3 — 開官方站抽 facts
-                facts = await _scrape_facts(page, best["url"], _deadline)
+                # Step 3 — 開官方站抽 facts（field-driven）
+                facts = await _scrape_facts(page, best["url"], _deadline, target_fields, decoded, query)
                 return facts
             finally:
                 await browser.close()

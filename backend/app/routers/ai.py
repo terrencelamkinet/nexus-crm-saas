@@ -2696,7 +2696,12 @@ async def smart_fill(
     if lookup_mode and body.module == "company":
         try:
             from app.services.company_enrichment import enrich_company_web
-            enrichment = await asyncio.wait_for(enrich_company_web(body.raw_text), timeout=12)
+            # v4: 傳 form 需要嘅 fields（allowed_keys = existing_fields keys）俾 enrichment，
+            # 等佢按 fields 決定 collect 咩（field-driven）— 唔使嘅就唔好嘥時間抽
+            enrichment = await asyncio.wait_for(
+                enrich_company_web(body.raw_text, target_fields=allowed_keys),
+                timeout=15,   # v4 頁數多咗（/contact /about /leadership /team），由 12 加到 15
+            )
         except Exception:
             enrichment = None  # 任何失敗 → fallback 去原本 extraction 行為
 
