@@ -492,7 +492,7 @@ export default function TodoPage() {
                     <span className="f-label">{t('pages.tasks.attachments')}</span>
                     <button
                       className="btn-secondary"
-                      style={{height:26,padding:'0 10px',fontSize:12,marginLeft:'auto'}}
+                      style={{height:32,padding:'0 12px',fontSize:13,marginLeft:'auto'}}
                       onClick={() => fileInputRef.current?.click()}
                       disabled={uploading}
                     >
@@ -512,7 +512,7 @@ export default function TodoPage() {
                   {selectedTask.attachments && selectedTask.attachments.length > 0 && (
                     <div style={{display:'flex',flexDirection:'column',gap:6}}>
                       {selectedTask.attachments.map(a => (
-                        <div key={a.id} style={{display:'flex',alignItems:'center',gap:8,padding:'6px 8px',border:'1px solid var(--color-border)',borderRadius:'var(--radius-md)',background:'var(--color-surface-offset)'}}>
+                        <div key={a.id} style={{display:'flex',alignItems:'center',gap:8,padding:'8px',border:'1px solid var(--color-border)',borderRadius:'var(--radius-md)',background:'var(--color-surface-offset)'}}>
                           <Paperclip size={13} style={{color:'var(--color-text-faint)',flexShrink:0}} />
                           <a
                             href={`/api/v1/crm/todo/tasks/${selectedTask.id}/attachments/${a.id}`}
@@ -538,13 +538,13 @@ export default function TodoPage() {
                   <div style={{display:'flex',alignItems:'center',gap:8}}>
                     <FileText size={15} style={{color:'var(--color-text-muted)',flexShrink:0}} />
                     <span className="f-label">{t('pages.tasks.notes')}</span>
-                    <span style={{marginLeft:'auto',fontSize:10.5,color:'var(--color-text-faint)'}}>{t('pages.tasks.notesHint','可貼 design link / Word / Google Sheet 連結')}</span>
+                    <span style={{marginLeft:'auto',fontSize:11,color:'var(--color-text-faint)'}}>{t('pages.tasks.notesHint','可貼 design link / Word / Google Sheet 連結')}</span>
                   </div>
                   <textarea value={selectedTask.notes_html || ''}
                     onChange={e => setSelectedTask({ ...selectedTask, notes_html: e.target.value })}
                     onBlur={e => updateTask(selectedTask.id, { notes_html: e.target.value || null })}
                     placeholder={t('pages.tasks.addNotes')}
-                    style={{width:'100%',minHeight:60,border:'1px solid var(--color-border)',borderRadius:'var(--radius-md)',padding:'8px 10px',fontSize:13,resize:'vertical',background:'var(--color-surface-offset)',color:'var(--color-text)',fontFamily:'inherit',outline:'none'}} />
+                    style={{width:'100%',minHeight:64,border:'1px solid var(--color-border)',borderRadius:'var(--radius-md)',padding:'8px 12px',fontSize:14,resize:'vertical',background:'var(--color-surface-offset)',color:'var(--color-text)',fontFamily:'inherit',outline:'none'}} />
                 </div>
               </div>
 
