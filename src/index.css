@@ -460,7 +460,11 @@ tbody tr:hover .menu-dots{opacity:1}
    overflow-x:auto lets added columns scroll; min-width:max-content stops columns being
    pinched to fit a fixed layout. */
 .table-scroll{overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch;position:relative;max-width:100%}
-.table-scroll table{min-width:max-content}
+/* Table content must never squeeze — columns keep their natural width and the
+   container scrolls horizontally instead (filters / column settings / narrow
+   viewports must not compress content). Overrides .data-table table width:100%.
+   (2026-08-11 user request: 加 filter items 時 allow 橫向 scrolling，內容唔好全收窄) */
+.data-table .table-scroll table{width:max-content;min-width:max-content;table-layout:auto}
 .table-scroll::after{content:'';position:absolute;top:0;right:0;bottom:0;width:24px;background:linear-gradient(to right,transparent,var(--color-surface));pointer-events:none;transition:opacity .2s}
 .table-scroll.at-end::after{opacity:0}
 /* GenericListPage table rows — hover highlight + selected (checkbox) feedback */
@@ -2577,6 +2581,10 @@ textarea.input-field{resize:vertical;min-height:60px}
 .glp-inline-trigger{cursor:pointer;transition:border-color var(--transition-interactive);max-width:100%;overflow:hidden;text-overflow:ellipsis}
 .glp-inline-trigger:hover{border-color:var(--color-primary)}
 .glp-inline-trigger.glp-inline-open{border-color:var(--color-primary);box-shadow:0 0 0 2px var(--color-primary-highlight)}
+/* Inline dropdown must escape the cell's ellipsis overflow:hidden — otherwise the
+   absolutely-positioned menu gets clipped at the td boundary and the next table
+   row paints over it (2026-08-10 bug: status/select dropdown blocked by next record). */
+.table-scroll td:has(> .glp-inline-cell .glp-inline-dropdown){overflow:visible}
 .glp-inline-dropdown{
   position:absolute;top:calc(100% + 4px);left:0;z-index:60;
   min-width:160px;max-height:240px;overflow-y:auto;

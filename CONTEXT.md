@@ -219,7 +219,7 @@ App role `nexus_app` has `NOBYPASSRLS` — cannot bypass.
 |-------|-------|
 | **Admin** | |
 | Email | `terrence_lam@kinetix.com.hk` |
-| Password | `102834` |
+| Password | `test1234`（⚠️ 2026-08-10 reset — 舊 `102834` 已失效） |
 | OTP (dev) | `000000` |
 | **Test User** | |
 | Email | `caleb.ck.lee@fwdlife.com.hk` |

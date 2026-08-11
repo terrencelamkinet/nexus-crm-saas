@@ -817,8 +817,17 @@ async def update_contact(
     )
 
     await db.flush()
-    await db.refresh(contact)
-    return contact
+    # Reload with company eager-loaded (same pattern as GET) — the lazy
+    # `contact.company` relationship would otherwise 500 during response
+    # serialization (MissingGreenlet in async session) → inline status/select
+    # edits in the table view could not save (2026-08-11).
+    result = await db.execute(
+        select(Contact).options(selectinload(Contact.company)).where(Contact.id == contact_id, Contact.tenant_id == tenant_id)
+    )
+    contact = result.scalar_one()
+    d = {col.name: getattr(contact, col.name) for col in contact.__table__.columns}
+    d['company'] = {"id": str(contact.company.id), "name": contact.company.name} if contact.company else None
+    return d
 
 
 @router.delete("/contacts/{contact_id}", status_code=204)
@@ -1471,7 +1480,14 @@ async def update_task(
         await _apply_task_cf(db, tenant_id, task.id, cf_update)
 
     await db.flush()
-    await db.refresh(task)
+    # Re-query with relationships eager-loaded — lazy `task.company` after
+    # refresh() would 500 during serialization (MissingGreenlet, async session).
+    result = await db.execute(
+        select(Task)
+        .options(selectinload(Task.company), selectinload(Task.contact))
+        .where(Task.id == task.id, Task.tenant_id == tenant_id)
+    )
+    task = result.scalar_one()
 
     # Return with custom fields
     d = {col.name: getattr(task, col.name) for col in task.__table__.columns}
@@ -2416,8 +2432,18 @@ async def update_note(
     )
 
     await db.flush()
-    await db.refresh(note)
-    return note
+    # Re-query with relationships eager-loaded — lazy contact/company would 500
+    # during serialization (MissingGreenlet, async session) for notes that have them.
+    result = await db.execute(
+        select(Note)
+        .options(selectinload(Note.contact), selectinload(Note.company))
+        .where(Note.id == note.id, Note.tenant_id == tenant_id)
+    )
+    note = result.scalar_one()
+    d = {col.name: getattr(note, col.name) for col in note.__table__.columns}
+    d['contact'] = {'id': str(note.contact.id), 'name': note.contact.name} if note.contact else None
+    d['company'] = {'id': str(note.company.id), 'name': note.company.name} if note.company else None
+    return d
 
 
 @router.delete("/notes/{note_id}", status_code=204)
