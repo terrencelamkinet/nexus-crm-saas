@@ -95,17 +95,17 @@ h1, h2, h3,
   letter-spacing: -0.01em;
 }
 
-/* ── 表面層次微調：offset 帶 2% 主色調 ──
+/* ── 表面層次微調 ──
    ⚠️ 2026-08-10 fix：原本 `var(--color-surface-offset)` 自引用 = cyclic →
    custom property 變 guaranteed-invalid → 全 app hover/背景全部失效。
-   改用實際 base color（light #F1F4F9 / dark #20252F）。 */
+   ⚠️ 2026-08-10 v2：Terrence 要求 hover 用純淺灰 — 移除 2%/3% 主色 tint。 */
 :root,
 [data-theme="light"] {
-  --color-surface-offset: color-mix(in srgb, #F1F4F9 98%, var(--color-primary) 2%);
+  --color-surface-offset: #F1F4F9;
 }
 
 [data-theme="dark"] {
-  --color-surface-offset: color-mix(in srgb, #20252F 97%, var(--color-primary) 3%);
+  --color-surface-offset: #20252F;
 }
 
 /* ── Login 頁獨立色系 — 原本喺 index.css 寫死 teal (#0e6b70)，換做藍色 ── */

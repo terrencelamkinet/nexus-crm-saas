@@ -466,8 +466,8 @@ tbody tr:hover .menu-dots{opacity:1}
 /* GenericListPage table rows — hover highlight + selected (checkbox) feedback */
 .table-scroll tbody tr{transition:background var(--transition-interactive)}
 .table-scroll tbody tr:hover{background:var(--color-surface-offset)}
-.table-scroll tbody tr.row-selected{background:color-mix(in srgb, var(--color-primary) 7%, var(--color-surface))}
-.table-scroll tbody tr.row-selected:hover{background:color-mix(in srgb, var(--color-primary) 11%, var(--color-surface))}
+.table-scroll tbody tr.row-selected{background:var(--color-surface-offset-2)}
+.table-scroll tbody tr.row-selected:hover{background:var(--color-surface-offset-2)}
 .data-table table{width:100%;table-layout:fixed}
 .data-table th,.data-table td{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .data-table .th-checkbox,.data-table td.th-checkbox{width:40px;min-width:40px}
