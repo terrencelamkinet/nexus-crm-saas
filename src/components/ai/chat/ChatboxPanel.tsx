@@ -323,99 +323,6 @@ function EmptyState({ prompts, onSelect }: { prompts: string[]; onSelect: (p: st
 }
 
 // ---------------------------------------------------------------------------
-// Object context card (shown when the panel opens with an object context)
-// ---------------------------------------------------------------------------
-
-const KNOWN_TYPES = ['contact', 'company', 'deal', 'project', 'task', 'touchpoint']
-
-function inferEntityType(c: any): string {
-  const t = c?.type || c?.entity_type
-  if (KNOWN_TYPES.includes(t)) return t
-  // Detail pages pass the raw entity — infer module from its fields.
-  if (c?.job_title != null || c?.email != null) return 'contact'
-  if (c?.industry != null || c?.ceo_name != null) return 'company'
-  if (c?.amount != null || c?.pipeline_id != null) return 'deal'
-  if (c?.deadline != null && c?.start_date != null) return 'project'
-  if (c?.due_date != null) return 'task'
-  if (c?.duration_minutes != null) return 'touchpoint'
-  return t || 'entity'
-}
-
-const TYPE_LABELS: Record<string, string> = {
-  contact: '聯絡人', company: '公司', deal: '商機', project: '專案',
-  task: '任務', touchpoint: '互動記錄', 'name-card': '名片',
-}
-
-function introRows(type: string, d: any): [string, string][] {
-  if (!d) return []
-  const rows: [string, string][] = []
-  const add = (k: string, v: any) => {
-    if (v === null || v === undefined) return
-    const s = String(v).trim()
-    if (!s || s === '—') return
-    rows.push([k, s])
-  }
-  const companyName = d.company?.name || d.company_name
-  switch (type) {
-    case 'contact':
-      add('職位', d.job_title); add('公司', companyName); add('電話', d.phone); add('Email', d.email)
-      break
-    case 'company':
-      add('行業', d.industry); add('類別', d.category); add('電話', d.phone); add('網站', d.website)
-      break
-    case 'deal':
-      add('金額', d.amount != null ? `$${d.amount} ${d.currency || 'HKD'}` : null)
-      add('階段', d.stage_name || d.stage); add('機會', d.probability != null ? `${d.probability}%` : null)
-      add('客戶', companyName)
-      break
-    case 'project':
-      add('狀態', d.status); add('優先級', d.priority); add('截止', d.deadline); add('客戶', companyName)
-      break
-    case 'task':
-      add('狀態', d.status); add('優先級', d.priority); add('到期', d.due_date)
-      break
-    case 'touchpoint':
-      add('類型', d.type); add('日期', d.date); add('地點', d.location)
-      break
-  }
-  return rows.slice(0, 4)
-}
-
-function ObjectIntroCard({ context, data, loading, onClear }: {
-  context: { type?: string; name?: string; id?: string }
-  data: any
-  loading: boolean
-  onClear: () => void
-}) {
-  const type = context.type || 'entity'
-  const label = TYPE_LABELS[type] || type
-  const rows = introRows(type, data)
-  return (
-    <div className="cb-ctx-card">
-      <div className="cb-ctx-head">
-        <span className="cb-ctx-badge">{label}</span>
-        <span className="cb-ctx-name">{context.name}</span>
-        <button className="cb-ctx-clear" onClick={onClear} aria-label="清除上下文" title="清除上下文">✕</button>
-      </div>
-      {loading ? (
-        <div className="cb-ctx-loading">載入簡介…</div>
-      ) : rows.length > 0 ? (
-        <div className="cb-ctx-rows">
-          {rows.map(([k, v]) => (
-            <div key={k} className="cb-ctx-row">
-              <span className="cb-ctx-k">{k}</span>
-              <span className="cb-ctx-v">{v}</span>
-            </div>
-          ))}
-        </div>
-      ) : (
-        <div className="cb-ctx-hint">問我關於呢個{label}嘅問題，例如「總結一下」</div>
-      )}
-    </div>
-  )
-}
-
-// ---------------------------------------------------------------------------
 // Main ChatboxPanel
 // ---------------------------------------------------------------------------
 
@@ -442,8 +349,6 @@ export default function ChatboxPanel() {
   const [animPhase, setAnimPhase] = useState<'closed' | 'opening' | 'open' | 'closing'>('closed')
   const [kbHeight, setKbHeight] = useState(0)
   const [actionPreview, setActionPreview] = useState<{ tool_key: string; params: Record<string, unknown>; action_id?: string } | null>(null)
-  const [contextData, setContextData] = useState<any>(null)
-  const [contextLoading, setContextLoading] = useState(false)
 
   // ── Slash / mention state ──
   const [menuType, setMenuType] = useState<'slash' | 'mention' | null>(null)
@@ -569,30 +474,7 @@ export default function ChatboxPanel() {
       openPanel()
       if (detail?.context) {
         const c = detail.context
-        const type = inferEntityType(c)
-        const name = c.name || c.company_name || c.title || c.summary || '此項目'
-        setActiveContext({ type, name, id: c.id })
-        // Prefer an already-loaded entity payload (drawer/detail page pass it);
-        // otherwise enrich from the CRM API (best effort, silent).
-        const hasEntityPayload = c.data || c.entity || ['job_title', 'industry', 'amount', 'stage', 'due_date', 'duration_minutes', 'email', 'phone'].some(k => c[k] != null)
-        const data = c.data || c.entity || (hasEntityPayload ? c : null)
-        setContextData(data || null)
-        if (!data && c.id && type !== 'entity') {
-          setContextLoading(true)
-          const routeMap: Record<string, string> = {
-            contact: 'contacts', company: 'companies', deal: 'deals',
-            project: 'projects', task: 'tasks', touchpoint: 'touchpoints',
-          }
-          const route = routeMap[type]
-          if (route) {
-            apiClient.get<any>(`/api/v1/crm/${route}/${c.id}`)
-              .then(d => setContextData(d || null))
-              .catch(() => setContextData(null))
-              .finally(() => setContextLoading(false))
-          } else {
-            setContextLoading(false)
-          }
-        }
+        setActiveContext({ type: c.type || c.entity_type || 'entity', name: c.name || c.company_name || c.title || '此項目', id: c.id })
       }
     }
     window.addEventListener('nexus:open-ai-panel', handler)
@@ -989,16 +871,6 @@ export default function ChatboxPanel() {
           </div>
         )}
 
-        {/* ── Object context intro card ── */}
-        {isOpen && !showSidebar && activeContext && (
-          <ObjectIntroCard
-            context={activeContext}
-            data={contextData}
-            loading={contextLoading}
-            onClear={() => { setActiveContext(null); setContextData(null) }}
-          />
-        )}
-
         {/* ── Mobile session list (full screen) ── */}
         {isMobile && showSidebar && (
           <div className="cb-mobile-sessions">
@@ -1151,6 +1023,12 @@ export default function ChatboxPanel() {
               }}
               onHover={setMenuIndex}
             />
+            {activeContext && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 12px', fontSize: 12, color: 'var(--color-primary, #146EF5)', background: 'rgba(20,110,245,0.08)', borderRadius: 8, margin: '0 12px 6px', flexShrink: 0 }}>
+                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>📎 正在討論: {activeContext.name}</span>
+                <button onClick={() => setActiveContext(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, color: 'inherit', padding: '0 2px', lineHeight: 1 }} aria-label="清除上下文">✕</button>
+              </div>
+            )}
             <div onPointerDown={(e) => {
               const ta = e.currentTarget.querySelector('textarea')
               if (ta) {
