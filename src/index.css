@@ -455,7 +455,7 @@ tbody tr:hover .menu-dots{opacity:1}
 .search-box{display:flex;align-items:center;gap:8px;background:var(--color-surface);border:1px solid var(--color-border);border-radius:var(--radius-md);padding:0 12px;height:36px;flex:1;max-width:320px}
 .search-box svg{width:15px;height:15px;color:var(--color-text-faint);flex-shrink:0}
 .pos-relative{position:relative}
-.data-table{background:var(--color-surface);border:1px solid var(--color-divider);border-radius:var(--radius-lg)}
+.data-table{background:color-mix(in srgb, var(--color-surface) 30%, transparent);border:1px solid var(--color-divider);border-radius:var(--radius-lg)}
 /* GenericListPage table horizontal scroll — applies desktop + mobile (was mobile-only).
    overflow-x:auto lets added columns scroll; min-width:max-content stops columns being
    pinched to fit a fixed layout. */
