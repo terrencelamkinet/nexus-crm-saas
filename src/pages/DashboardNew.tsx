@@ -1280,7 +1280,11 @@ export default function DashboardNew() {
           // user-resized: span from width level; height from aspect ratio w/h (n,n) = square
           const effSpan = wLv ? SPAN_BY_LEVEL[wLv] : (isKpi && isCompact ? 6 : def.span)
           const kpiSquare = isKpi && isCompact && !isPhone && !wLv
-          const aspect = (wLv && hLv) ? `${wLv} / ${hLv}` : (kpiSquare ? '1 / 1' : undefined)
+          // Fix (mobile): on phones (≤640px) ignore any saved inline aspect ratio so
+          // all widgets render full-width like the other KPI cards — a persisted
+          // widgetLevels entry on kpi_contacts previously forced a 1:1 square
+          // that inline style (which wins over the CSS media-query aspect) kept.
+          const aspect = !isPhone && (wLv && hLv) ? `${wLv} / ${hLv}` : (kpiSquare ? '1 / 1' : undefined)
           return (
             <div key={k} className={`widget${editing && dragKey.current === k ? ' dragging' : ''}`}
               style={{gridColumn:`span ${effSpan}`,aspectRatio: aspect,background:'var(--color-surface-2)',border: editing ? '2px dashed var(--color-primary)' : '1px solid var(--color-border)',borderRadius:'var(--radius-lg)',padding:16,display:'flex',flexDirection:'column',position:'relative',minHeight:isKpi && isCompact ? 0 : 160,transition:'grid-column .12s ease, aspect-ratio .12s ease',cursor: editing ? 'grab' : undefined}}
