@@ -175,6 +175,27 @@ export default function AIBriefingDrawer() {
 
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
+  // ── Tick overdue task → mark done (task list) + remove from briefing (delete effect) ──
+  const [taskDoneBusy, setTaskDoneBusy] = useState<Record<string, boolean>>({})
+  const handleTaskDone = useCallback(async (taskId: string) => {
+    if (taskDoneBusy[taskId]) return
+    setTaskDoneBusy(prev => ({ ...prev, [taskId]: true }))
+    try {
+      // Mark done in task list (MS To Do semantics — completed_at set server-side)
+      await apiClient.patch(`/api/v1/crm/todo/tasks/${taskId}`, { status: 'done' })
+      // Delete effect: drop the task from the overdue list in this briefing
+      setPayload(prev => {
+        if (!prev) return prev
+        const overdueTasks = prev.overdueTasks.filter(t => t.id !== taskId)
+        return { ...prev, overdueTasks, taskCount: overdueTasks.length }
+      })
+    } catch {
+      // non-fatal — leave task visible on failure (user can retry)
+    } finally {
+      setTaskDoneBusy(prev => { const n = { ...prev }; delete n[taskId]; return n })
+    }
+  }, [taskDoneBusy])
+
   // ── Load briefing data ──
   const loadBriefing = useCallback(async () => {
     setLoading(true)
@@ -575,7 +596,13 @@ export default function AIBriefingDrawer() {
                 >
                   {payload.overdueTasks.map(task => (
                     <label key={task.id} className="ab-task-row">
-                      <input type="checkbox" className="ab-task-check" />
+                      <input
+                        type="checkbox"
+                        className="ab-task-check"
+                        checked={false}
+                        disabled={!!taskDoneBusy[task.id]}
+                        onChange={() => handleTaskDone(task.id)}
+                      />
                       <span className="ab-task-title">{task.title}</span>
                       <span className="ab-badge-overdue">
                         {task.due_date ? t('pages.briefing.overdueDays', { count: daysSince(task.due_date) }) : t('pages.briefing.overduePlain')}
