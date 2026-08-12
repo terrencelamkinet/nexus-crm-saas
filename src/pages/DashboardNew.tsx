@@ -379,6 +379,7 @@ export default function DashboardNew() {
   const [projectsTotal, setProjectsTotal] = useState(0)
   const [projects, setProjects] = useState<any[]>([])
   const [contacts, setContacts] = useState<Contact[]>([])
+  const [calendarEvents, setCalendarEvents] = useState<any[]>([])
 
   // ── Drawer state ──
   const [detailDrawer, setDetailDrawer] = useState(false)
@@ -398,7 +399,7 @@ export default function DashboardNew() {
 
   const fetchData = useCallback(async () => {
     try {
-      const [cRes, coRes, dRes, tRes, tpRes, coListRes, pRes, contRes] = await Promise.all([
+      const [cRes, coRes, dRes, tRes, tpRes, coListRes, pRes, contRes, calRes] = await Promise.all([
         apiClient.get<{ total: number }>('/api/v1/crm/contacts?page=1&page_size=1'),
         apiClient.get<{ total: number }>('/api/v1/crm/companies?page=1&page_size=1'),
         apiClient.get<{ items: Deal[]; total: number }>('/api/v1/crm/deals?page=1&page_size=100'),
@@ -407,6 +408,7 @@ export default function DashboardNew() {
         apiClient.get<{ items: Company[]; total: number }>('/api/v1/crm/companies?limit=50'),
         apiClient.get<{ items: any[]; total: number }>('/api/v1/crm/projects?limit=50').catch(() => ({ items: [], total: 0 })),
         apiClient.get<{ items: Contact[]; total: number }>('/api/v1/crm/contacts?page=1&page_size=10').catch(() => ({ items: [], total: 0 })),
+        apiClient.get<any[]>('/api/v1/crm/calendar-events').catch(() => []),
       ])
       const dealsList = dRes.items || demoDeals
       const totalVal = dealsList.reduce((s: number, d: Deal) => s + (d.amount || 0), 0)
@@ -422,6 +424,9 @@ export default function DashboardNew() {
       setProjectsTotal(pRes.total || 0)
       setProjects(pRes.items || [])
       setContacts(contRes.items?.length ? contRes.items : demoContacts)
+      const evtList: any[] = Array.isArray(calRes) ? calRes : []
+      const nowMs = Date.now()
+      setCalendarEvents(evtList.filter((e: any) => e && e.start && new Date(e.start).getTime() >= nowMs - 60000).sort((a: any, b: any) => new Date(a.start).getTime() - new Date(b.start).getTime()).slice(0, 3))
     } catch {
       // Fallback to demo data
       setStats({ contacts: 3, deals: 5, dealValue: '$545K', tasks: 5, companies: 3 })
@@ -1078,12 +1083,26 @@ export default function DashboardNew() {
         </div>
       )
     },
-    // ── Calendar (demo data) ──
-    cal1: () => (
-      <><div className="list-row"><Calendar size={14} style={{color:'var(--color-text-muted)',flexShrink:0}} /><span className="name">10:30 Deal Review</span><span className="meta">30分</span></div>
-      <div className="list-row"><Calendar size={14} style={{color:'var(--color-text-muted)',flexShrink:0}} /><span className="name">14:00 客戶續約會議</span><span className="meta">1時</span></div>
-      <div className="list-row"><Calendar size={14} style={{color:'var(--color-text-muted)',flexShrink:0}} /><span className="name">16:00 團隊週會</span><span className="meta">45分</span></div></>
-    ),
+    // ── Calendar (real data) ──
+    cal1: () => {
+      const evts: any[] = calendarEvents && calendarEvents.length ? calendarEvents : []
+      if (!evts.length) {
+        return (
+          <div style={{display:'flex',flexDirection:'column',gap:10,alignItems:'center',justifyContent:'center',height:'100%',color:'var(--color-text-muted)',fontSize:13}}>
+            {t('dashboard.widgets.noEvents')}
+          </div>
+        )
+      }
+      const fmtTime = (iso: string) => {
+        const d = new Date(iso)
+        return `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`
+      }
+      return (
+        <>{evts.map((e: any, i: number) => (
+          <div className="list-row" key={i}><Calendar size={14} style={{color:'var(--color-text-muted)',flexShrink:0}} /><span className="name">{fmtTime(e.start)} {e.title}</span><span className="meta">{e.event_type || ''}</span></div>
+        ))}</>
+      )
+    },
     cal2: () => (
       <div style={{display:'flex',flexDirection:'column',gap:10}}>
         <div className="stage-row"><div className="stage-label"><span>週一</span><span>3h</span></div><div className="bar-track"><div className="bar-fill" style={{width:'60%',background:'var(--color-blue)'}} /></div></div>
