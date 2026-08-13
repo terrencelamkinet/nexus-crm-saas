@@ -1,9 +1,9 @@
 import { BrowserRouter, Routes, Route, Navigate, useParams, useLocation } from 'react-router-dom';
 import { useEffect } from 'react';
-import Layout from './components/Layout';
+import LayoutV2 from './components/v4/LayoutV2';
 import AuthGuard from './components/AuthGuard';
 import LoginPage from './pages/LoginPage';
-import DashboardNew from './pages/DashboardNew';
+import DashboardV2 from './components/v4/DashboardV2';
 import ContactsPage from './modules/contacts/ContactsPage';
 import ContactDetailPage from './modules/contacts/ContactDetailPage';
 import ContactCalendarPage from './modules/contacts/ContactCalendarPage';
@@ -43,12 +43,12 @@ function App() {
           path="/"
           element={
             <AuthGuard>
-              <Layout />
+              <LayoutV2 />
             </AuthGuard>
           }
         >
           <Route index element={<Navigate to="/dashboard" replace />} />
-          <Route path="dashboard" element={<DashboardNew />} />
+          <Route path="dashboard" element={<DashboardV2 />} />
           {/* IM push deep links — WhatsApp briefing links resolve to real pages */}
           <Route path="l/dashboard" element={<Navigate to="/dashboard" replace />} />
           <Route path="l/t/:id" element={<DeepLinkTask />} />

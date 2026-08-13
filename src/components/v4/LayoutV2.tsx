@@ -1,0 +1,50 @@
+import { useState, useEffect } from 'react'
+import { Outlet } from 'react-router-dom'
+import SidebarV2 from './SidebarV2'
+import HeaderV2 from './HeaderV2'
+import ChatboxPanel from '../ChatboxPanel'
+
+const COLLAPSE_KEY = 'nexus-sidebar-collapsed'
+
+/* LayoutV2 — wires SidebarV2 + HeaderV2 together, manages
+   collapse state (persisted) and mobile drawer/scrim. */
+
+export default function LayoutV2() {
+  const [collapsed, setCollapsed] = useState(() => localStorage.getItem(COLLAPSE_KEY) === '1')
+
+  const toggleCollapse = () => {
+    setCollapsed(v => {
+      const next = !v
+      localStorage.setItem(COLLAPSE_KEY, next ? '1' : '0')
+      return next
+    })
+  }
+
+  const handleHeaderToggle = () => {
+    if (window.innerWidth < 1024) {
+      document.getElementById('appShell')?.classList.toggle('mobile-open')
+    } else {
+      toggleCollapse()
+    }
+  }
+
+  useEffect(() => {
+    const closeOnResize = () => { if (window.innerWidth >= 1024) document.getElementById('appShell')?.classList.remove('mobile-open') }
+    window.addEventListener('resize', closeOnResize)
+    return () => window.removeEventListener('resize', closeOnResize)
+  }, [])
+
+  return (
+    <div id="appShell" className={`nx2-app-shell ${collapsed ? 'sidebar-collapsed' : ''}`}>
+      <SidebarV2 collapsed={collapsed} onToggleCollapse={toggleCollapse} />
+      <div className="nx2-mobile-scrim" onClick={() => document.getElementById('appShell')?.classList.remove('mobile-open')} />
+      <div className="nx2-main">
+        <HeaderV2 onToggleSidebar={handleHeaderToggle} sidebarCollapsed={collapsed} />
+        <main className="nx2-content">
+          <Outlet />
+        </main>
+      </div>
+      <ChatboxPanel />
+    </div>
+  )
+}

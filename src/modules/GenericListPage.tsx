@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Plus, Search, X, Trash2, Edit3, ChevronRight, MoreHorizontal, Download, ArrowUpDown, Upload } from 'lucide-react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { apiClient } from '../lib/api'
 import { CellRenderer, FieldsRenderer } from './shared/FieldsRenderer'
 import { buildPayload, defaultForm, apiErrorToString } from './shared/field-utils'
@@ -38,6 +38,16 @@ export default function GenericListPage({ config, extraData }: Props) {
   const [form, setForm] = useState<Record<string, any>>(() => defaultForm(config.fields))
   const [saving, setSaving] = useState(false)
   const [deleting, setDeleting] = useState(false)
+
+  // ?new=1 support — Command Palette / Header New(+) dropdown open create modal
+  const [searchParams] = useSearchParams()
+  useEffect(() => {
+    if (searchParams.get('new') === '1') {
+      setCreateOpen(true)
+      // clean the param so refresh doesn't re-open
+      window.history.replaceState(null, '', window.location.pathname)
+    }
+  }, [searchParams])
 
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [bulkOpen, setBulkOpen] = useState(false)

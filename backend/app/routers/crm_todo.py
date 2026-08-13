@@ -636,6 +636,28 @@ async def reorder_steps(
 # ===========================================================================
 
 
+@router.get("/categories")
+async def list_categories(
+    request: Request,
+    db: AsyncSession = Depends(get_tenant_session),
+):
+    """List all task categories for the tenant."""
+    tenant_id = _get_tenant_id(request)
+    result = await db.execute(
+        select(TaskCategory)
+        .where(TaskCategory.tenant_id == tenant_id)
+        .order_by(TaskCategory.name)
+    )
+    rows = result.scalars().all()
+    return {
+        "items": [
+            {"id": str(c.id), "name": c.name, "color": c.color}
+            for c in rows
+        ],
+        "total": len(rows),
+    }
+
+
 @router.post("/tasks/{task_id}/categories", status_code=201)
 async def add_task_category(
     request: Request,
