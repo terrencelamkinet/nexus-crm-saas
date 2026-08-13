@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom'
 import {
   TrendingUp, Users, Building2, CheckSquare, Calendar, Activity, Sparkles,
   AlertTriangle, ArrowUpRight, ArrowDownRight, Plus, LayoutGrid, ChevronRight,
-  X, GripVertical, Check, Phone, Mail, MessageSquare, Clock,
+  X, GripVertical, Check, Phone, Mail, MessageSquare, Clock, ChevronDown,
 } from 'lucide-react'
 import { apiClient } from '../../lib/api'
 import { useToast } from './useToast'
@@ -68,6 +68,7 @@ export default function DashboardV2() {
   })
   const [todosExpanded, setTodosExpanded] = useState(false)
   const [activityDrawer, setActivityDrawer] = useState<any | null>(null)
+  const [aiExpanded, setAiExpanded] = useState(false)
 
   // ── Drag reorder (Pointer Events — works desktop + touch) ──
   const [dragWid, setDragWid] = useState<string | null>(null)
@@ -234,34 +235,44 @@ export default function DashboardV2() {
         <div className={widgetCls(wid)} data-wid={wid}>
           {dragHandle(wid)}
           <div className="dv2-ai-aura" aria-hidden="true" />
-          <div className="dv2-widget-header">
+          <button
+            className="dv2-widget-header dv2-ai-toggle"
+            onClick={() => setAiExpanded(v => !v)}
+            aria-expanded={aiExpanded}
+            title={aiExpanded ? '收起 AI 洞察' : '展開 AI 洞察詳情'}
+          >
             <div className="dv2-widget-title"><Sparkles size={15} className="dv2-ai-spark" /> {t('dashboard.aiInsight', { defaultValue: 'AI 洞察摘要' })}</div>
-            <span className="dv2-widget-badge">{t('dashboard.liveUpdated', { defaultValue: '即時更新' })}</span>
-          </div>
-          <div className="dv2-widget-body dv2-ai-body">
-            {aiLoading ? (
-              <div className="dv2-ai-skeleton">
-                <div className="dv2-skel-line w70" /><div className="dv2-skel-line w90" /><div className="dv2-skel-line w50" />
-              </div>
-            ) : aiInsight ? (
-              <>
-                <p className="dv2-ai-headline">{aiInsight.headline}</p>
-                <div className="dv2-ai-chips">
-                  {aiInsight.risk_count > 0 && <span className="dv2-chip dv2-chip-risk"><AlertTriangle size={12} /> {aiInsight.risk_count} {t('dashboard.risksLabel', { defaultValue: '風險' })}</span>}
-                  {aiInsight.opportunity_count > 0 && <span className="dv2-chip dv2-chip-opp"><ArrowUpRight size={12} /> {aiInsight.opportunity_count} {t('dashboard.opportunitiesLabel', { defaultValue: '機會' })}</span>}
+            <span className="dv2-ai-toggle-right">
+              <span className="dv2-widget-badge">{t('dashboard.liveUpdated', { defaultValue: '即時更新' })}</span>
+              <ChevronDown size={16} className={`dv2-ai-chevron ${aiExpanded ? 'open' : ''}`} />
+            </span>
+          </button>
+          {aiExpanded && (
+            <div className="dv2-widget-body dv2-ai-body">
+              {aiLoading ? (
+                <div className="dv2-ai-skeleton">
+                  <div className="dv2-skel-line w70" /><div className="dv2-skel-line w90" /><div className="dv2-skel-line w50" />
                 </div>
-                <div className="dv2-ai-items">
-                  {aiInsight.items?.slice(0, 4).map((it, i) => (
-                    <button key={i} className={`dv2-ai-item ${it.type}`} onClick={() => handleAiItemClick(it)}>
-                      {it.type === 'risk' ? <AlertTriangle size={13} /> : <ArrowUpRight size={13} />}
-                      <span>{it.text}</span>
-                      <ChevronRight size={13} className="dv2-ai-item-go" />
-                    </button>
-                  ))}
-                </div>
-              </>
-            ) : <div className="dv2-empty-mini">{t('dashboard.noAiInsight', { defaultValue: '暫無 AI 洞察' })}</div>}
-          </div>
+              ) : aiInsight ? (
+                <>
+                  <p className="dv2-ai-headline">{aiInsight.headline}</p>
+                  <div className="dv2-ai-chips">
+                    {aiInsight.risk_count > 0 && <span className="dv2-chip dv2-chip-risk"><AlertTriangle size={12} /> {aiInsight.risk_count} {t('dashboard.risksLabel', { defaultValue: '風險' })}</span>}
+                    {aiInsight.opportunity_count > 0 && <span className="dv2-chip dv2-chip-opp"><ArrowUpRight size={12} /> {aiInsight.opportunity_count} {t('dashboard.opportunitiesLabel', { defaultValue: '機會' })}</span>}
+                  </div>
+                  <div className="dv2-ai-items">
+                    {aiInsight.items?.slice(0, 4).map((it, i) => (
+                      <button key={i} className={`dv2-ai-item ${it.type}`} onClick={() => handleAiItemClick(it)}>
+                        {it.type === 'risk' ? <AlertTriangle size={13} /> : <ArrowUpRight size={13} />}
+                        <span>{it.text}</span>
+                        <ChevronRight size={13} className="dv2-ai-item-go" />
+                      </button>
+                    ))}
+                  </div>
+                </>
+              ) : <div className="dv2-empty-mini">{t('dashboard.noAiInsight', { defaultValue: '暫無 AI 洞察' })}</div>}
+            </div>
+          )}
         </div>
       )
     }

@@ -142,6 +142,12 @@
 .dv2-widget.dragging, .dv2-grid.customizing .dv2-widget:hover { box-shadow: 0 8px 24px rgba(0,0,0,.12); }
 .dv2-widget { background: var(--color-surface); border: 1px solid var(--color-border); border-radius: 14px; display: flex; flex-direction: column; overflow: hidden; position: relative; transition: box-shadow .15s ease; }
 .dv2-widget-header { display: flex; align-items: center; justify-content: space-between; padding: 13px 16px; border-bottom: 1px solid var(--color-divider); flex-shrink: 0; }
+.dv2-ai-toggle { width: 100%; background: none; border: none; font: inherit; color: inherit; cursor: pointer; text-align: left; transition: background .15s ease; border-bottom: 1px solid var(--color-divider); }
+.dv2-ai-toggle:hover { background: color-mix(in oklch, var(--color-primary) 6%, transparent); }
+.dv2-ai-toggle:active { transform: scale(.995); }
+.dv2-ai-toggle-right { display: flex; align-items: center; gap: 8px; }
+.dv2-ai-chevron { color: var(--color-text-faint); transition: transform .2s ease; flex-shrink: 0; }
+.dv2-ai-chevron.open { transform: rotate(180deg); }
 .dv2-widget-title { display: flex; align-items: center; gap: 7px; font-size: 13.5px; font-weight: 700; color: var(--color-text); }
 .dv2-widget-badge { font-size: 10.5px; font-weight: 700; color: var(--ai-glow-1); background: color-mix(in oklch, var(--ai-glow-1) 14%, transparent); padding: 3px 8px; border-radius: 999px; }
 .dv2-widget-action { font-size: 12px; font-weight: 600; color: var(--color-primary); background: none; border: none; cursor: pointer; padding: 4px 6px; border-radius: 6px; }
