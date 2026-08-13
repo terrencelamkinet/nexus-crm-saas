@@ -163,17 +163,17 @@ export default function NameCardsPageV2() {
           <div className="nc-dropzone-sub">{t('nameCard.dropSub', { defaultValue: '支援拍照、相簿選取、剪貼板貼上 · 上載後自動 OCR 辨識並偵測重複聯絡人' })}</div>
           {uploadError && <div style={{ color: 'var(--color-danger)', fontSize: 12, marginTop: 8 }}>{uploadError}</div>}
           <div className="nc-dropzone-methods">
-            <div className="nc-quick-btn" onClick={() => cameraInputRef.current?.click()}>
-              <Camera size={14} /> {t('nameCard.takePhoto', { defaultValue: '拍照上載' })}
+            <div className="nc-quick-btn" title={t('nameCard.takePhoto', { defaultValue: '拍照上載' })} onClick={() => cameraInputRef.current?.click()}>
+              <Camera size={14} /> <span className="nc-quick-label">{t('nameCard.takePhoto', { defaultValue: '拍照上載' })}</span>
             </div>
-            <div className="nc-quick-btn" onClick={() => galleryInputRef.current?.click()}>
-              <ImageIcon size={14} /> {t('nameCard.pickGallery', { defaultValue: '相簿選取' })}
+            <div className="nc-quick-btn" title={t('nameCard.pickGallery', { defaultValue: '相簿選取' })} onClick={() => galleryInputRef.current?.click()}>
+              <ImageIcon size={14} /> <span className="nc-quick-label">{t('nameCard.pickGallery', { defaultValue: '相簿選取' })}</span>
             </div>
-            <div className="nc-quick-btn">
-              <Clipboard size={14} /> {t('nameCard.pasteImage', { defaultValue: '貼上圖片 (Ctrl+V)' })}
+            <div className="nc-quick-btn" title={t('nameCard.pasteImage', { defaultValue: '貼上圖片 (Ctrl+V)' })}>
+              <Clipboard size={14} /> <span className="nc-quick-label">{t('nameCard.pasteImage', { defaultValue: '貼上圖片 (Ctrl+V)' })}</span>
             </div>
-            <div className="nc-quick-btn" onClick={() => bulkInputRef.current?.click()}>
-              <UploadCloud size={14} /> {t('nameCard.bulkUpload', { defaultValue: '批量上載' })}
+            <div className="nc-quick-btn" title={t('nameCard.bulkUpload', { defaultValue: '批量上載' })} onClick={() => bulkInputRef.current?.click()}>
+              <UploadCloud size={14} /> <span className="nc-quick-label">{t('nameCard.bulkUpload', { defaultValue: '批量上載' })}</span>
             </div>
           </div>
           <input ref={cameraInputRef} type="file" accept="image/*" capture="environment" hidden

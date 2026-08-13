@@ -36,6 +36,13 @@
 }
 .nc-quick-btn:hover { border-color: var(--color-primary); color: var(--color-primary); }
 .nc-quick-btn input[type=file] { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+/* quick-method button text label — hidden on mobile (icon-only), visible on desktop + tooltip title */
+.nc-quick-label { display: inline; }
+@media (max-width: 640px) {
+  .nc-dropzone-methods { gap: var(--space-1); }
+  .nc-quick-btn { padding: 8px 10px; } /* bigger touch area, icon-only */
+  .nc-quick-btn .nc-quick-label { display: none; }
+}
 
 /* Filter/search row */
 .nc-filter-row { display: flex; gap: var(--space-3); align-items: center; flex-wrap: wrap; }
