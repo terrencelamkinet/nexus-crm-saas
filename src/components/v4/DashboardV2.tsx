@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
 import {
@@ -17,9 +17,9 @@ import { useToast } from './useToast'
      Row 2: Stat(span3) + Stat(span3) + List(span6)     = 12
      Row 3: List(span6) + List(span6)                    = 12
      Row 4: Table(span12)                                 = 12
-   DOM order below is intentional: AI, 4×Stat, 3×List, Table.
-   Never change the render order without re-checking spans in
-   nexus-topbar-dashboard-v2.css.
+   Default DOM order below is intentional: AI, 4×Stat, 3×List, Table.
+   In customize mode the user can drag to reorder — CSS grid auto-flows
+   spans per widget class, so reordering never breaks the packing.
 
    Every button below has a real handler + visible feedback
    (toast / modal / drawer / inline expand / checkbox state).
@@ -38,6 +38,8 @@ const ALL_WIDGETS = [
   { id: 'activity', label: '最近活動表格' },
 ]
 const WIDGET_PREF_KEY = 'nexus-dashboard-widgets'
+const WIDGET_ORDER_KEY = 'nexus-dashboard-widget-order'
+const DEFAULT_ORDER = ['ai', 'stats:0', 'stats:1', 'stats:2', 'stats:3', 'todos', 'events', 'interactions', 'activity']
 
 export default function DashboardV2() {
   const { t, i18n } = useTranslation()
@@ -57,8 +59,67 @@ export default function DashboardV2() {
     try { return JSON.parse(localStorage.getItem(WIDGET_PREF_KEY) || 'null') || ALL_WIDGETS.map(w => w.id) }
     catch { return ALL_WIDGETS.map(w => w.id) }
   })
+  const [widgetOrder, setWidgetOrder] = useState<string[]>(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem(WIDGET_ORDER_KEY) || 'null')
+      if (Array.isArray(saved) && saved.length === DEFAULT_ORDER.length) return saved
+    } catch { /* ignore */ }
+    return DEFAULT_ORDER
+  })
   const [todosExpanded, setTodosExpanded] = useState(false)
   const [activityDrawer, setActivityDrawer] = useState<any | null>(null)
+
+  // ── Drag reorder (Pointer Events — works desktop + touch) ──
+  const [dragWid, setDragWid] = useState<string | null>(null)
+  const dragRef = useRef<{ wid: string; startX: number; startY: number; moved: boolean } | null>(null)
+  const MOVE_THRESHOLD = 6
+
+  const onDragMove = (e: PointerEvent) => {
+    const d = dragRef.current
+    if (!d) return
+    if (!d.moved && Math.hypot(e.clientX - d.startX, e.clientY - d.startY) < MOVE_THRESHOLD) return
+    d.moved = true
+    setDragWid(d.wid)
+    const widgets = [...document.querySelectorAll<HTMLElement>('.dv2-grid .dv2-widget[data-wid]')]
+    let best: HTMLElement | null = null
+    let bestDist = Infinity
+    for (const w of widgets) {
+      const r = w.getBoundingClientRect()
+      const dist = Math.hypot(e.clientX - (r.left + r.width / 2), e.clientY - (r.top + r.height / 2))
+      if (dist < bestDist) { bestDist = dist; best = w }
+    }
+    const targetWid = best?.dataset.wid
+    if (!targetWid || targetWid === d.wid) return
+    setWidgetOrder(prev => {
+      const from = prev.indexOf(d.wid)
+      const to = prev.indexOf(targetWid)
+      if (from === -1 || to === -1 || from === to) return prev
+      const next = [...prev]
+      next.splice(from, 1)
+      next.splice(to, 0, d.wid)
+      return next
+    })
+  }
+
+  const onDragEnd = () => {
+    document.removeEventListener('pointermove', onDragMove)
+    document.removeEventListener('pointerup', onDragEnd)
+    if (dragRef.current?.moved) showToast(t('dashboard.layoutUpdated', { defaultValue: '版面順序已更新' }))
+    dragRef.current = null
+    setDragWid(null)
+  }
+
+  const startDrag = (e: React.PointerEvent, wid: string) => {
+    if (!customizeMode) return
+    e.preventDefault()
+    dragRef.current = { wid, startX: e.clientX, startY: e.clientY, moved: false }
+    document.addEventListener('pointermove', onDragMove)
+    document.addEventListener('pointerup', onDragEnd)
+  }
+
+  useEffect(() => {
+    localStorage.setItem(WIDGET_ORDER_KEY, JSON.stringify(widgetOrder))
+  }, [widgetOrder])
 
   useEffect(() => {
     // ── Stats: compose from existing endpoints (no new backend needed) ──
@@ -132,6 +193,172 @@ export default function DashboardV2() {
   const has = (id: string) => enabledWidgets.includes(id)
   const openTaskRow = (tp: any) => setActivityDrawer(tp)
 
+  const dragHandle = (wid: string) => customizeMode ? (
+    <span
+      className="dv2-drag-handle"
+      data-wid={wid}
+      onPointerDown={(e) => startDrag(e, wid)}
+      aria-label="拖曳調整順序"
+    ><GripVertical size={14} /></span>
+  ) : null
+
+  const widgetCls = (wid: string) => {
+    const span = wid.startsWith('stats:') ? 'dv2-w-stat' : wid === 'activity' ? 'dv2-w-table' : wid === 'ai' ? 'dv2-w-ai dv2-widget-ai' : 'dv2-w-list'
+    return `dv2-widget ${span} ${dragWid === wid ? 'dragging' : ''}`
+  }
+
+  const renderWidget = (wid: string) => {
+    if (wid.startsWith('stats:')) {
+      const i = Number(wid.split(':')[1])
+      const cards = [
+        { icon: <Users size={15} />, label: t('dashboard.widgets.totalCustomers', { defaultValue: '總客戶數' }), value: stats.contacts, color: 'var(--color-primary)', trend: '+12', trendUp: true, onClick: () => navigate('/contacts') },
+        { icon: <Building2 size={15} />, label: t('dashboard.widgets.totalCompanies', { defaultValue: '總公司數' }), value: stats.companies, color: 'var(--color-purple, #7c3aed)', trend: '+5', trendUp: true, onClick: () => navigate('/companies') },
+        { icon: <CheckSquare size={15} />, label: t('dashboard.widgets.tasksDue', { defaultValue: '待辦任務' }), value: stats.tasksDue, color: 'var(--color-amber, #d97706)', trend: '-3', trendUp: false, accent: true, onClick: () => navigate('/tasks') },
+        { icon: <TrendingUp size={15} />, label: t('dashboard.widgets.pipelineValue', { defaultValue: '商機總值' }), value: `$${(stats.dealsValue || 0).toLocaleString()}`, color: 'var(--color-green, #16a34a)', trend: '+8%', trendUp: true, onClick: () => navigate('/deals') },
+      ]
+      const c = cards[i]
+      if (!c) return null
+      return (
+        <button className={widgetCls(wid)} data-wid={wid} onClick={c.onClick}>
+          {dragHandle(wid)}
+          <div className="dv2-widget-header"><div className="dv2-widget-title">{c.icon} {c.label}</div></div>
+          <div className="dv2-widget-body dv2-stat-body">
+            <div className="dv2-stat-value" style={{ color: c.color }}>{c.value}</div>
+            <div className={`dv2-stat-trend ${c.trendUp ? 'up' : ''}`}>{c.trendUp ? <ArrowUpRight size={13} /> : <ArrowDownRight size={13} />} {c.trend} 較上週</div>
+          </div>
+        </button>
+      )
+    }
+    if (wid === 'ai') {
+      return (
+        <div className={widgetCls(wid)} data-wid={wid}>
+          {dragHandle(wid)}
+          <div className="dv2-ai-aura" aria-hidden="true" />
+          <div className="dv2-widget-header">
+            <div className="dv2-widget-title"><Sparkles size={15} className="dv2-ai-spark" /> {t('dashboard.aiInsight', { defaultValue: 'AI 洞察摘要' })}</div>
+            <span className="dv2-widget-badge">{t('dashboard.liveUpdated', { defaultValue: '即時更新' })}</span>
+          </div>
+          <div className="dv2-widget-body dv2-ai-body">
+            {aiLoading ? (
+              <div className="dv2-ai-skeleton">
+                <div className="dv2-skel-line w70" /><div className="dv2-skel-line w90" /><div className="dv2-skel-line w50" />
+              </div>
+            ) : aiInsight ? (
+              <>
+                <p className="dv2-ai-headline">{aiInsight.headline}</p>
+                <div className="dv2-ai-chips">
+                  {aiInsight.risk_count > 0 && <span className="dv2-chip dv2-chip-risk"><AlertTriangle size={12} /> {aiInsight.risk_count} {t('dashboard.risksLabel', { defaultValue: '風險' })}</span>}
+                  {aiInsight.opportunity_count > 0 && <span className="dv2-chip dv2-chip-opp"><ArrowUpRight size={12} /> {aiInsight.opportunity_count} {t('dashboard.opportunitiesLabel', { defaultValue: '機會' })}</span>}
+                </div>
+                <div className="dv2-ai-items">
+                  {aiInsight.items?.slice(0, 4).map((it, i) => (
+                    <button key={i} className={`dv2-ai-item ${it.type}`} onClick={() => handleAiItemClick(it)}>
+                      {it.type === 'risk' ? <AlertTriangle size={13} /> : <ArrowUpRight size={13} />}
+                      <span>{it.text}</span>
+                      <ChevronRight size={13} className="dv2-ai-item-go" />
+                    </button>
+                  ))}
+                </div>
+              </>
+            ) : <div className="dv2-empty-mini">{t('dashboard.noAiInsight', { defaultValue: '暫無 AI 洞察' })}</div>}
+          </div>
+        </div>
+      )
+    }
+    if (wid === 'todos') {
+      return (
+        <div className={widgetCls(wid)} data-wid={wid}>
+          {dragHandle(wid)}
+          <div className="dv2-widget-header">
+            <div className="dv2-widget-title"><CheckSquare size={15} /> {t('dashboard.widgets.todaysTodos', { defaultValue: '今日待辦' })}</div>
+            <button className="dv2-widget-action" onClick={() => handleViewAll('todos')}>{todosExpanded ? '收起' : t('common.viewAll', { defaultValue: '查看全部' })}</button>
+          </div>
+          <div className="dv2-widget-body dv2-list-body">
+            {todos.length === 0 ? <div className="dv2-empty-mini">{t('dashboard.noTasksYet', { defaultValue: '暫無任務' })}</div> :
+              (todosExpanded ? todos : todos.slice(0, 4)).map((td) => (
+                <button key={td.id} className="dv2-list-row dv2-list-row-btn" onClick={() => toggleTodo(td.id)}>
+                  <span className={`dv2-checkbox ${td.done ? 'checked' : ''}`}>{td.done && <Check size={11} />}</span>
+                  <span className={`dv2-list-row-title ${td.done ? 'done' : ''}`}>{td.title}</span>
+                  <span className="dv2-list-row-meta">{td.due_time || ''}</span>
+                </button>
+              ))}
+          </div>
+        </div>
+      )
+    }
+    if (wid === 'events') {
+      return (
+        <div className={widgetCls(wid)} data-wid={wid}>
+          {dragHandle(wid)}
+          <div className="dv2-widget-header">
+            <div className="dv2-widget-title"><Calendar size={15} /> {t('dashboard.widgets.upcomingEvents', { defaultValue: '即將舉行' })}</div>
+            <button className="dv2-widget-action" onClick={() => handleViewAll('events')}>{t('common.viewAll', { defaultValue: '查看全部' })}</button>
+          </div>
+          <div className="dv2-widget-body dv2-list-body">
+            {events.length === 0 ? <div className="dv2-empty-mini">{t('dashboard.noEvents', { defaultValue: '暫無活動' })}</div> :
+              events.slice(0, 4).map((ev) => (
+                <button key={ev.id} className="dv2-list-row dv2-list-row-btn" onClick={() => navigate('/calendar')}>
+                  <Calendar size={13} className="dv2-list-row-icon" />
+                  <span className="dv2-list-row-title">{ev.time} {ev.title}</span>
+                  <span className="dv2-list-row-tag">{ev.type}</span>
+                </button>
+              ))}
+          </div>
+        </div>
+      )
+    }
+    if (wid === 'interactions') {
+      return (
+        <div className={widgetCls(wid)} data-wid={wid}>
+          {dragHandle(wid)}
+          <div className="dv2-widget-header">
+            <div className="dv2-widget-title"><Activity size={15} /> {t('dashboard.widgets.recentInteractions', { defaultValue: '近期互動' })}</div>
+            <button className="dv2-widget-action" onClick={() => handleViewAll('interactions')}>{t('common.viewAll', { defaultValue: '查看全部' })}</button>
+          </div>
+          <div className="dv2-widget-body dv2-list-body">
+            {activity.slice(0, 4).map((tp) => (
+              <button key={tp.id} className="dv2-list-row dv2-list-row-btn" onClick={() => openTaskRow(tp)}>
+                {tp.channel === 'call' ? <Phone size={13} className="dv2-list-row-icon" /> : tp.channel === 'email' ? <Mail size={13} className="dv2-list-row-icon" /> : <MessageSquare size={13} className="dv2-list-row-icon" />}
+                <span className="dv2-list-row-title">{tp.title}</span>
+                <span className="dv2-list-row-tag">{tp.type}</span>
+              </button>
+            ))}
+            {activity.length === 0 && <div className="dv2-empty-mini">暫無互動記錄</div>}
+          </div>
+        </div>
+      )
+    }
+    if (wid === 'activity') {
+      return (
+        <div className={widgetCls(wid)} data-wid={wid}>
+          {dragHandle(wid)}
+          <div className="dv2-widget-header">
+            <div className="dv2-widget-title"><Activity size={15} /> {t('dashboard.widgets.recentActivity', { defaultValue: '最近活動' })}</div>
+            <button className="dv2-widget-action" onClick={() => handleViewAll('activity')}>{t('common.viewAll', { defaultValue: '查看全部' })}</button>
+          </div>
+          <div className="dv2-widget-body dv2-table-body">
+            <table className="dv2-table">
+              <thead><tr><th>{t('touchpoint.type', { defaultValue: '類型' })}</th><th>{t('touchpoint.title', { defaultValue: '標題' })}</th><th>{t('contacts.company', { defaultValue: '公司' })}</th><th>{t('touchpoint.date', { defaultValue: '日期' })}</th></tr></thead>
+              <tbody>
+                {activity.length === 0 ? (
+                  <tr><td colSpan={4} className="dv2-empty-mini">{t('dashboard.noActivity', { defaultValue: '暫無活動記錄' })}</td></tr>
+                ) : activity.map((tp) => (
+                  <tr key={tp.id} className="dv2-table-row-clickable" onClick={() => openTaskRow(tp)}>
+                    <td><span className="dv2-table-type-tag">{tp.type}</span></td>
+                    <td>{tp.title}</td>
+                    <td>{tp.company?.name || '—'}</td>
+                    <td className="dv2-table-date">{tp.created_at}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )
+    }
+    return null
+  }
+
   return (
     <div className="dv2-page">
       <div className="dv2-toolbar">
@@ -152,144 +379,13 @@ export default function DashboardV2() {
         </div>
       </div>
 
-      {/* IMPORTANT: keep DOM order = AI, Stat×4, List×3, Table — this order
-          is required for the 12-column grid math to pack with zero gaps. */}
+      {/* Default order = AI, Stat×4, List×3, Table (12-col packing).
+          In customize mode drag handles reorder — spans are per-class so packing holds. */}
       <div className={`dv2-grid ${customizeMode ? 'customizing' : ''}`}>
-
-        {has('ai') && (
-          <div className="dv2-widget dv2-w-ai dv2-widget-ai">
-            {customizeMode && <span className="dv2-drag-handle"><GripVertical size={14} /></span>}
-            <div className="dv2-ai-aura" aria-hidden="true" />
-            <div className="dv2-widget-header">
-              <div className="dv2-widget-title"><Sparkles size={15} className="dv2-ai-spark" /> {t('dashboard.aiInsight', { defaultValue: 'AI 洞察摘要' })}</div>
-              <span className="dv2-widget-badge">{t('dashboard.liveUpdated', { defaultValue: '即時更新' })}</span>
-            </div>
-            <div className="dv2-widget-body dv2-ai-body">
-              {aiLoading ? (
-                <div className="dv2-ai-skeleton">
-                  <div className="dv2-skel-line w70" /><div className="dv2-skel-line w90" /><div className="dv2-skel-line w50" />
-                </div>
-              ) : aiInsight ? (
-                <>
-                  <p className="dv2-ai-headline">{aiInsight.headline}</p>
-                  <div className="dv2-ai-chips">
-                    {aiInsight.risk_count > 0 && <span className="dv2-chip dv2-chip-risk"><AlertTriangle size={12} /> {aiInsight.risk_count} {t('dashboard.risksLabel', { defaultValue: '風險' })}</span>}
-                    {aiInsight.opportunity_count > 0 && <span className="dv2-chip dv2-chip-opp"><ArrowUpRight size={12} /> {aiInsight.opportunity_count} {t('dashboard.opportunitiesLabel', { defaultValue: '機會' })}</span>}
-                  </div>
-                  <div className="dv2-ai-items">
-                    {aiInsight.items?.slice(0, 4).map((it, i) => (
-                      <button key={i} className={`dv2-ai-item ${it.type}`} onClick={() => handleAiItemClick(it)}>
-                        {it.type === 'risk' ? <AlertTriangle size={13} /> : <ArrowUpRight size={13} />}
-                        <span>{it.text}</span>
-                        <ChevronRight size={13} className="dv2-ai-item-go" />
-                      </button>
-                    ))}
-                  </div>
-                </>
-              ) : <div className="dv2-empty-mini">{t('dashboard.noAiInsight', { defaultValue: '暫無 AI 洞察' })}</div>}
-            </div>
-          </div>
-        )}
-
-        {has('stats') && (
-          <>
-            <StatCard customizeMode={customizeMode} icon={<Users size={15} />} label={t('dashboard.widgets.totalCustomers', { defaultValue: '總客戶數' })}
-              value={stats.contacts} color="var(--color-primary)" trend="+12" trendUp onClick={() => navigate('/contacts')} />
-            <StatCard customizeMode={customizeMode} icon={<Building2 size={15} />} label={t('dashboard.widgets.totalCompanies', { defaultValue: '總公司數' })}
-              value={stats.companies} color="var(--color-purple, #7c3aed)" trend="+5" trendUp onClick={() => navigate('/companies')} />
-            <StatCard customizeMode={customizeMode} icon={<CheckSquare size={15} />} label={t('dashboard.widgets.tasksDue', { defaultValue: '待辦任務' })}
-              value={stats.tasksDue} color="var(--color-amber, #d97706)" trend="-3" trendUp={false} accent onClick={() => navigate('/tasks')} />
-            <StatCard customizeMode={customizeMode} icon={<TrendingUp size={15} />} label={t('dashboard.widgets.pipelineValue', { defaultValue: '商機總值' })}
-              value={`$${(stats.dealsValue || 0).toLocaleString()}`} color="var(--color-green, #16a34a)" trend="+8%" trendUp onClick={() => navigate('/deals')} />
-          </>
-        )}
-
-        {has('todos') && (
-          <div className="dv2-widget dv2-w-list">
-            {customizeMode && <span className="dv2-drag-handle"><GripVertical size={14} /></span>}
-            <div className="dv2-widget-header">
-              <div className="dv2-widget-title"><CheckSquare size={15} /> {t('dashboard.widgets.todaysTodos', { defaultValue: '今日待辦' })}</div>
-              <button className="dv2-widget-action" onClick={() => handleViewAll('todos')}>{todosExpanded ? '收起' : t('common.viewAll', { defaultValue: '查看全部' })}</button>
-            </div>
-            <div className="dv2-widget-body dv2-list-body">
-              {todos.length === 0 ? <div className="dv2-empty-mini">{t('dashboard.noTasksYet', { defaultValue: '暫無任務' })}</div> :
-                (todosExpanded ? todos : todos.slice(0, 4)).map((td) => (
-                  <button key={td.id} className="dv2-list-row dv2-list-row-btn" onClick={() => toggleTodo(td.id)}>
-                    <span className={`dv2-checkbox ${td.done ? 'checked' : ''}`}>{td.done && <Check size={11} />}</span>
-                    <span className={`dv2-list-row-title ${td.done ? 'done' : ''}`}>{td.title}</span>
-                    <span className="dv2-list-row-meta">{td.due_time || ''}</span>
-                  </button>
-                ))}
-            </div>
-          </div>
-        )}
-
-        {has('events') && (
-          <div className="dv2-widget dv2-w-list">
-            {customizeMode && <span className="dv2-drag-handle"><GripVertical size={14} /></span>}
-            <div className="dv2-widget-header">
-              <div className="dv2-widget-title"><Calendar size={15} /> {t('dashboard.widgets.upcomingEvents', { defaultValue: '即將舉行' })}</div>
-              <button className="dv2-widget-action" onClick={() => handleViewAll('events')}>{t('common.viewAll', { defaultValue: '查看全部' })}</button>
-            </div>
-            <div className="dv2-widget-body dv2-list-body">
-              {events.length === 0 ? <div className="dv2-empty-mini">{t('dashboard.noEvents', { defaultValue: '暫無活動' })}</div> :
-                events.slice(0, 4).map((ev) => (
-                  <button key={ev.id} className="dv2-list-row dv2-list-row-btn" onClick={() => navigate('/calendar')}>
-                    <Calendar size={13} className="dv2-list-row-icon" />
-                    <span className="dv2-list-row-title">{ev.time} {ev.title}</span>
-                    <span className="dv2-list-row-tag">{ev.type}</span>
-                  </button>
-                ))}
-            </div>
-          </div>
-        )}
-
-        {has('interactions') && (
-          <div className="dv2-widget dv2-w-list">
-            {customizeMode && <span className="dv2-drag-handle"><GripVertical size={14} /></span>}
-            <div className="dv2-widget-header">
-              <div className="dv2-widget-title"><Activity size={15} /> {t('dashboard.widgets.recentInteractions', { defaultValue: '近期互動' })}</div>
-              <button className="dv2-widget-action" onClick={() => handleViewAll('interactions')}>{t('common.viewAll', { defaultValue: '查看全部' })}</button>
-            </div>
-            <div className="dv2-widget-body dv2-list-body">
-              {activity.slice(0, 4).map((tp) => (
-                <button key={tp.id} className="dv2-list-row dv2-list-row-btn" onClick={() => openTaskRow(tp)}>
-                  {tp.channel === 'call' ? <Phone size={13} className="dv2-list-row-icon" /> : tp.channel === 'email' ? <Mail size={13} className="dv2-list-row-icon" /> : <MessageSquare size={13} className="dv2-list-row-icon" />}
-                  <span className="dv2-list-row-title">{tp.title}</span>
-                  <span className="dv2-list-row-tag">{tp.type}</span>
-                </button>
-              ))}
-              {activity.length === 0 && <div className="dv2-empty-mini">暫無互動記錄</div>}
-            </div>
-          </div>
-        )}
-
-        {has('activity') && (
-          <div className="dv2-widget dv2-w-table">
-            {customizeMode && <span className="dv2-drag-handle"><GripVertical size={14} /></span>}
-            <div className="dv2-widget-header">
-              <div className="dv2-widget-title"><Activity size={15} /> {t('dashboard.widgets.recentActivity', { defaultValue: '最近活動' })}</div>
-              <button className="dv2-widget-action" onClick={() => handleViewAll('activity')}>{t('common.viewAll', { defaultValue: '查看全部' })}</button>
-            </div>
-            <div className="dv2-widget-body dv2-table-body">
-              <table className="dv2-table">
-                <thead><tr><th>{t('touchpoint.type', { defaultValue: '類型' })}</th><th>{t('touchpoint.title', { defaultValue: '標題' })}</th><th>{t('contacts.company', { defaultValue: '公司' })}</th><th>{t('touchpoint.date', { defaultValue: '日期' })}</th></tr></thead>
-                <tbody>
-                  {activity.length === 0 ? (
-                    <tr><td colSpan={4} className="dv2-empty-mini">{t('dashboard.noActivity', { defaultValue: '暫無活動記錄' })}</td></tr>
-                  ) : activity.map((tp) => (
-                    <tr key={tp.id} className="dv2-table-row-clickable" onClick={() => openTaskRow(tp)}>
-                      <td><span className="dv2-table-type-tag">{tp.type}</span></td>
-                      <td>{tp.title}</td>
-                      <td>{tp.company?.name || '—'}</td>
-                      <td className="dv2-table-date">{tp.created_at}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
+        {widgetOrder.map(wid => {
+          if (wid.startsWith('stats:')) return has('stats') ? renderWidget(wid) : null
+          return has(wid) ? renderWidget(wid) : null
+        })}
       </div>
 
       {addWidgetOpen && (
@@ -340,18 +436,5 @@ export default function DashboardV2() {
         </div>
       )}
     </div>
-  )
-}
-
-function StatCard({ icon, label, value, color, trend, trendUp, accent, customizeMode, onClick }: any) {
-  return (
-    <button className={`dv2-widget dv2-w-stat ${accent ? 'dv2-widget-stat-accent' : ''}`} onClick={onClick}>
-      {customizeMode && <span className="dv2-drag-handle"><GripVertical size={14} /></span>}
-      <div className="dv2-widget-header"><div className="dv2-widget-title">{icon} {label}</div></div>
-      <div className="dv2-widget-body dv2-stat-body">
-        <div className="dv2-stat-value" style={{ color }}>{value}</div>
-        <div className={`dv2-stat-trend ${trendUp ? 'up' : ''}`}>{trendUp ? <ArrowUpRight size={13} /> : <ArrowDownRight size={13} />} {trend} 較上週</div>
-      </div>
-    </button>
   )
 }
