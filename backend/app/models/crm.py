@@ -263,6 +263,9 @@ class NameCard(Base):
     raw_ocr_text = Column(Text)
     parsed_data = Column(JSON, default=lambda: {})
     review_candidates = Column(JSON, default=lambda: [])  # potential duplicates for user resolution
+    tags = Column(JSON, default=lambda: [])  # V2: label list (e.g. ['物流', '供應商'])
+    field_confidence = Column(JSON, default=lambda: {})  # V2: per-field AI confidence 0..1 (e.g. {'name': 0.97})
+    duplicate_candidate = Column(JSON)  # V2: { contact_id, reason } when AI suspects a duplicate match
     dedup_status = Column(Text)  # none | auto_matched | llm_review | unresolved | user_override
     status = Column(Text, default="pending")  # pending, matched, created, review, ignored
     scanned_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
@@ -319,6 +322,17 @@ class Tag(Base):
     name = Column(Text, nullable=False)
     color = Column(Text)
     entity_type = Column(Text)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+
+
+class NameCardTag(Base):
+    __tablename__ = "namecard_tags"
+    __table_args__ = {"schema": "nexus_crm"}
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id = Column(UUID(as_uuid=True), ForeignKey("nexus_auth.nexus_auth_tenants.id", ondelete="CASCADE"), nullable=False)
+    label = Column(Text, nullable=False)
+    color = Column(Text)
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
 

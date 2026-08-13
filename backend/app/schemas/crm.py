@@ -306,6 +306,9 @@ class NameCardResponse(BaseModel):
     raw_ocr_text: Optional[str] = None
     parsed_data: Optional[dict[str, Any]] = None
     review_candidates: Optional[list[dict[str, Any]]] = None
+    tags: Optional[list[str]] = None  # V2: label list
+    field_confidence: Optional[dict[str, Any]] = None  # V2: per-field confidence 0..1
+    duplicate_candidate: Optional[dict[str, Any]] = None  # V2: { contact_id, reason }
     status: Optional[str] = None
     contact_id: Optional[UUID] = None
     created_at: datetime
@@ -415,6 +418,44 @@ class TagResponse(BaseModel):
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
+
+
+# ===========================================================================
+# NameCard Tag (V2 module) — dedicated tag definitions for name cards
+# ===========================================================================
+
+class NameCardTagResponse(BaseModel):
+    id: UUID
+    tenant_id: UUID
+    label: str
+    color: Optional[str] = None
+    usage_count: int = 0  # number of name_cards carrying this tag label
+    created_at: datetime
+
+
+class NameCardTagCreate(BaseModel):
+    label: str
+    color: Optional[str] = None
+
+
+class NameCardTagUpdate(BaseModel):
+    label: Optional[str] = None
+    color: Optional[str] = None
+
+
+class NameCardTagMergeRequest(BaseModel):
+    tag_ids: list[UUID]
+    into_label: str
+
+
+class NameCardTagCleanupGroup(BaseModel):
+    tag_ids: list[UUID]
+    group_label: str
+    reason: str
+
+
+class NameCardTagCleanupResponse(BaseModel):
+    groups: list[NameCardTagCleanupGroup]
 
 
 # ===========================================================================

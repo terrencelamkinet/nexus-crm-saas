@@ -8,6 +8,9 @@ import './styles/design4-overrides.css'
 import './styles/design4-v2-patch.css'
 import './styles/nexus-modal-tokens.css'
 import './styles/nexus-detail-v2.css'
+import './styles/nexus-namecards-v2.css'
+import './styles/nexus-tag-management.css'
+import './styles/nexus-module-shell.css'
 import './i18n/config'; // i18n init — must be before App
 import App from './App'
 

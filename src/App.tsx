@@ -19,7 +19,7 @@ import TouchpointDetailPage from './modules/touchpoints/TouchpointDetailPage';
 import MarketplacePage from './pages/MarketplacePage';
 import IntegrationDetailPage from './pages/IntegrationDetailPage';
 import OAuthCallbackPage from './pages/OAuthCallbackPage';
-import NameCardsPage from './pages/NameCardsPage';
+import NameCardModuleRouter from './namecards/NameCardModuleRouter';
 import SettingsPage from './pages/SettingsPage';
 import AIAppsPage from './pages/AIAppsPage';
 import NotificationsPage from './pages/NotificationsPage';
@@ -72,7 +72,7 @@ function App() {
           <Route path="touchpoints/:id" element={<TouchpointDetailPage />} />
           <Route path="tasks" element={<TasksPage />} />
           <Route path="tasks/:id" element={<TaskDetailPage />} />
-          <Route path="namecards" element={<NameCardsPage />} />
+          <Route path="namecards/*" element={<NameCardModuleRouter />} />
           <Route path="reports" element={
             <div className="p-8">
               <h1 className="text-2xl font-bold text-slate-900">Reports & Analytics</h1>

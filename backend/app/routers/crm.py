@@ -30,6 +30,7 @@ from app.models.crm import (
     Contact,
     ContactProject,
     NameCard,
+    NameCardTag,
     Note,
     Project,
     ProjectCalendarEvent,
@@ -69,6 +70,11 @@ from app.schemas.crm import (
     TagCreate,
     TagResponse,
     TagUpdate,
+    NameCardTagResponse,
+    NameCardTagCreate,
+    NameCardTagUpdate,
+    NameCardTagMergeRequest,
+    NameCardTagCleanupResponse,
     TaskCreate,
     TaskResponse,
     TaskUpdate,
@@ -2021,12 +2027,58 @@ async def delete_name_card(
     return None
 
 
-def _resolve_image_file(url: str | None) -> Path | None:
-    """Map a stored image URL to its file on disk (name-guarded)."""
-    if not url:
-        return None
-    path = UPLOAD_DIR / Path(url.rsplit("/", 1)[-1]).name
-    return path if path.is_file() else None
+@router.post("/name-cards/{name_card_id}/duplicate", response_model=NameCardResponse)
+async def duplicate_name_card(
+    request: Request,
+    name_card_id: UUID,
+    db: AsyncSession = Depends(get_tenant_session),
+):
+    """Create a copy of a name card (new id, same image + parsed data,
+    unlinked contact). Used by the V2 gallery '建立副本' action."""
+    tenant_id = _get_tenant_id(request)
+    user_id = _get_user_id(request)
+
+    src = (
+        await db.execute(
+            select(NameCard).where(
+                NameCard.id == name_card_id, NameCard.tenant_id == tenant_id
+            )
+        )
+    ).scalar_one_or_none()
+    if not src:
+        raise HTTPException(status_code=404, detail="NameCard not found")
+
+    new_card = NameCard(
+        tenant_id=tenant_id,
+        image_url=src.image_url,
+        original_image_url=src.original_image_url,
+        cropped_image_url=src.cropped_image_url,
+        display_image=src.display_image,
+        raw_ocr_text=src.raw_ocr_text,
+        parsed_data=src.parsed_data,
+        review_candidates=[],
+        tags=src.tags,
+        field_confidence=src.field_confidence,
+        duplicate_candidate=None,
+        status="pending",
+        dedup_status="none",
+        contact_id=None,
+    )
+    db.add(new_card)
+    await db.flush()
+    await db.refresh(new_card)
+
+    await _log_activity(
+        db,
+        tenant_id=tenant_id,
+        actor_id=user_id,
+        action="created",
+        entity_type="name_card",
+        entity_id=new_card.id,
+        summary="Duplicated name card",
+    )
+
+    return new_card
 
 
 @router.delete("/name-cards/{name_card_id}/image/{variant}", response_model=NameCardResponse)
@@ -2696,6 +2748,263 @@ async def delete_tag(
     )
 
     return None
+
+
+# ===========================================================================
+# NAMECARD TAGS (V2 module) — dedicated tag definitions for name cards
+# ===========================================================================
+
+@router.get("/namecard-tags", response_model=ListResponse[NameCardTagResponse])
+async def list_namecard_tags(
+    request: Request,
+    with_counts: bool = False,
+    db: AsyncSession = Depends(get_tenant_session),
+):
+    """List name card tags. When with_counts=true, each tag carries the number
+    of name_cards whose tags[] array contains that label."""
+    tenant_id = _get_tenant_id(request)
+    rows = (await db.execute(
+        select(NameCardTag).where(NameCardTag.tenant_id == tenant_id).order_by(NameCardTag.label.asc())
+    )).scalars().all()
+
+    label_counts: dict[str, int] = {}
+    if with_counts:
+        cards = (await db.execute(
+            select(NameCard.tags).where(NameCard.tenant_id == tenant_id)
+        )).scalars().all()
+        for tg_list in cards:
+            for label in (tg_list or []):
+                label_counts[label] = label_counts.get(label, 0) + 1
+
+    items = [
+        NameCardTagResponse(
+            id=t.id, tenant_id=t.tenant_id, label=t.label, color=t.color,
+            usage_count=label_counts.get(t.label, 0), created_at=t.created_at,
+        )
+        for t in rows
+    ]
+    return ListResponse(items=items, total=len(items))
+
+
+@router.post("/namecard-tags", response_model=NameCardTagResponse, status_code=201)
+async def create_namecard_tag(
+    request: Request,
+    body: NameCardTagCreate,
+    db: AsyncSession = Depends(get_tenant_session),
+):
+    tenant_id = _get_tenant_id(request)
+    user_id = _get_user_id(request)
+    label = (body.label or "").strip()
+    if not label:
+        raise HTTPException(status_code=422, detail="label is required")
+    dup = (await db.execute(
+        select(NameCardTag).where(NameCardTag.tenant_id == tenant_id, NameCardTag.label == label)
+    )).scalar_one_or_none()
+    if dup:
+        raise HTTPException(status_code=409, detail=f"Tag '{label}' already exists")
+    tag = NameCardTag(tenant_id=tenant_id, label=label, color=body.color)
+    db.add(tag)
+    await db.flush()
+    await db.refresh(tag)
+    await _log_activity(
+        db, tenant_id=tenant_id, actor_id=user_id, action="created",
+        entity_type="namecard_tag", entity_id=tag.id, summary=f"Created namecard tag '{label}'",
+        workspace_id=getattr(request.state, "workspace_id", None),
+    )
+    usage_count = 0  # a fresh tag has no cards attached yet
+    return NameCardTagResponse(
+        id=tag.id, tenant_id=tag.tenant_id, label=tag.label,
+        color=tag.color, usage_count=usage_count, created_at=tag.created_at,
+    )
+
+
+@router.patch("/namecard-tags/{tag_id}", response_model=NameCardTagResponse)
+async def update_namecard_tag(
+    request: Request,
+    tag_id: UUID,
+    body: NameCardTagUpdate,
+    db: AsyncSession = Depends(get_tenant_session),
+):
+    tenant_id = _get_tenant_id(request)
+    user_id = _get_user_id(request)
+    tag = (await db.execute(
+        select(NameCardTag).where(NameCardTag.id == tag_id, NameCardTag.tenant_id == tenant_id)
+    )).scalar_one_or_none()
+    if not tag:
+        raise HTTPException(status_code=404, detail="NameCard tag not found")
+    changes: list[str] = []
+    if body.label is not None and body.label.strip() and body.label.strip() != tag.label:
+        old_label = tag.label
+        tag.label = body.label.strip()
+        # Keep name_cards in sync: relabel every card carrying the old label.
+        cards = (await db.execute(
+            select(NameCard).where(NameCard.tenant_id == tenant_id)
+        )).scalars().all()
+        for card in cards:
+            tg = card.tags or []
+            if old_label in tg:
+                card.tags = [old_label if x == old_label else x for x in tg]
+        changes.append(f"label {old_label}→{tag.label}")
+    if body.color is not None and body.color != tag.color:
+        tag.color = body.color
+        changes.append("color")
+    if changes:
+        await _log_activity(
+            db, tenant_id=tenant_id, actor_id=user_id, action="updated",
+            entity_type="namecard_tag", entity_id=tag_id, summary=f"Updated namecard tag: {', '.join(changes)}",
+            workspace_id=getattr(request.state, "workspace_id", None),
+        )
+    await db.flush()
+    await db.refresh(tag)
+    return NameCardTagResponse(
+        id=tag.id, tenant_id=tag.tenant_id, label=tag.label,
+        color=tag.color, usage_count=0, created_at=tag.created_at,
+    )
+
+
+@router.delete("/namecard-tags/{tag_id}", status_code=204)
+async def delete_namecard_tag(
+    request: Request,
+    tag_id: UUID,
+    db: AsyncSession = Depends(get_tenant_session),
+):
+    """Delete a tag definition and strip its label from every name_card."""
+    tenant_id = _get_tenant_id(request)
+    user_id = _get_user_id(request)
+    tag = (await db.execute(
+        select(NameCardTag).where(NameCardTag.id == tag_id, NameCardTag.tenant_id == tenant_id)
+    )).scalar_one_or_none()
+    if not tag:
+        raise HTTPException(status_code=404, detail="NameCard tag not found")
+    label = tag.label
+    cards = (await db.execute(
+        select(NameCard).where(NameCard.tenant_id == tenant_id)
+    )).scalars().all()
+    for card in cards:
+        tg = card.tags or []
+        if label in tg:
+            card.tags = [x for x in tg if x != label]
+    await db.delete(tag)
+    await _log_activity(
+        db, tenant_id=tenant_id, actor_id=user_id, action="deleted",
+        entity_type="namecard_tag", entity_id=tag_id, summary=f"Deleted namecard tag '{label}'",
+        workspace_id=getattr(request.state, "workspace_id", None),
+    )
+    return None
+
+
+@router.post("/namecard-tags/merge", response_model=ListResponse[NameCardTagResponse])
+async def merge_namecard_tags(
+    request: Request,
+    body: NameCardTagMergeRequest,
+    db: AsyncSession = Depends(get_tenant_session),
+):
+    """Merge several tag definitions into one survivor label. Every name_card
+    carrying any of the merged labels is relabelled to the survivor."""
+    tenant_id = _get_tenant_id(request)
+    user_id = _get_user_id(request)
+    into_label = (body.into_label or "").strip()
+    if not into_label or len(body.tag_ids) < 1:
+        raise HTTPException(status_code=422, detail="into_label and at least one tag_id required")
+    tags = (await db.execute(
+        select(NameCardTag).where(
+            NameCardTag.tenant_id == tenant_id, NameCardTag.id.in_(body.tag_ids)
+        )
+    )).scalars().all()
+    if not tags:
+        raise HTTPException(status_code=404, detail="None of the tag ids found")
+    old_labels = [t.label for t in tags if t.label != into_label]
+    # Relabel cards
+    cards = (await db.execute(
+        select(NameCard).where(NameCard.tenant_id == tenant_id)
+    )).scalars().all()
+    for card in cards:
+        tg = card.tags or []
+        if any(x in tg for x in old_labels):
+            card.tags = [into_label if x in old_labels else x for x in tg]
+    # Keep survivor definition (or create one if it didn't exist)
+    survivor = (await db.execute(
+        select(NameCardTag).where(NameCardTag.tenant_id == tenant_id, NameCardTag.label == into_label)
+    )).scalar_one_or_none()
+    if not survivor:
+        survivor = NameCardTag(tenant_id=tenant_id, label=into_label, color=tags[0].color)
+        db.add(survivor)
+    # Delete the merged-away definitions (except the survivor itself)
+    for t in tags:
+        if t.label != into_label:
+            await db.delete(t)
+    await db.flush()
+    await _log_activity(
+        db, tenant_id=tenant_id, actor_id=user_id, action="updated",
+        entity_type="namecard_tag", entity_id=survivor.id,
+        summary=f"Merged {len(old_labels)} tag(s) into '{into_label}'",
+        workspace_id=getattr(request.state, "workspace_id", None),
+    )
+    rows = (await db.execute(
+        select(NameCardTag).where(NameCardTag.tenant_id == tenant_id).order_by(NameCardTag.label.asc())
+    )).scalars().all()
+    return ListResponse(items=[
+        NameCardTagResponse(id=t.id, tenant_id=t.tenant_id, label=t.label, color=t.color, usage_count=0, created_at=t.created_at)
+        for t in rows
+    ], total=len(rows))
+
+
+@router.post("/namecard-tags/ai-cleanup-scan", response_model=NameCardTagCleanupResponse)
+async def namecard_tags_ai_cleanup_scan(
+    request: Request,
+    db: AsyncSession = Depends(get_tenant_session),
+):
+    """Proactively suggest near-duplicate tags to merge. Uses simple string
+    similarity (token-sorted ratio) on the merged label surface. Production can
+    swap this for embedding-based semantic matching."""
+    tenant_id = _get_tenant_id(request)
+    rows = (await db.execute(
+        select(NameCardTag).where(NameCardTag.tenant_id == tenant_id)
+    )).scalars().all()
+    labels = sorted({t.label for t in rows})
+    groups: list[dict] = []
+    seen: set[tuple[str, str]] = set()
+    for i, a in enumerate(labels):
+        for b in labels[i + 1:]:
+            key = tuple(sorted([a, b]))
+            if key in seen:
+                continue
+            ratio = _token_sort_ratio(a, b)
+            if ratio >= 70:
+                seen.add(key)
+                survivor = max(a, b, key=lambda x: _usage_or_0(x, rows))
+                groups.append({
+                    "tag_ids": [_def_id(label, rows) for label in (a, b)],
+                    "group_label": survivor,
+                    "reason": f"字面相似度 {ratio}%",
+                })
+    return NameCardTagCleanupResponse(groups=groups)
+
+
+def _token_sort_ratio(a: str, b: str) -> int:
+    import re
+    norm = lambda s: sorted(re.findall(r"[\w]+|[\u4e00-\u9fff]+", s.lower()))
+    ta, tb = norm(a), norm(b)
+    if not ta or not tb:
+        return 0
+    seta, setb = set(ta), set(tb)
+    inter = seta & setb
+    union = seta | setb
+    if not union:
+        return 0
+    return int(round(len(inter) / len(union) * 100))
+
+
+def _usage_or_0(label: str, rows) -> int:
+    # rough proxy for choosing survivor: longer/most common label wins
+    return len(label)
+
+
+def _def_id(label: str, rows):
+    for r in rows:
+        if r.label == label:
+            return r.id
+    raise HTTPException(status_code=404, detail=f"Tag '{label}' missing")
 
 
 # ===========================================================================
