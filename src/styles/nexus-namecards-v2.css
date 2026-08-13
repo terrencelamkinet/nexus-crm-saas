@@ -38,10 +38,19 @@
 .nc-quick-btn input[type=file] { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
 /* quick-method button text label — hidden on mobile (icon-only), visible on desktop + tooltip title */
 .nc-quick-label { display: inline; }
+/* Generic button label (inner pages: DetailModal / TagManagement / BulkUpload) —
+   same pattern: mobile icon-only, desktop text + title tooltip. Added 2026-08-14. */
+.nc-btn-label { display: inline; }
 @media (max-width: 640px) {
   .nc-dropzone-methods { gap: var(--space-1); }
   .nc-quick-btn { padding: 8px 10px; } /* bigger touch area, icon-only */
   .nc-quick-btn .nc-quick-label { display: none; }
+  /* inner-page buttons: icon-only on mobile to prevent overflow/wrapping */
+  .nc-btn-label { display: none; }
+  .nx-btn { gap: 4px; } /* tighter icon-only spacing */
+  .nc-detail-footer { flex-wrap: nowrap; }
+  .nc-detail-footer-left { gap: 4px; }
+  .nc-image-actions .nx-btn { min-width: 0; padding: 6px 8px; }
 }
 
 /* Filter/search row */

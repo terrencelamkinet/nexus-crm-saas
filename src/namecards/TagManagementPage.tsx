@@ -113,20 +113,25 @@ export default function TagManagementPage() {
         <div className="tg-header-actions">
           {mergeMode ? (
             <>
-              <button className="nx-btn nx-btn-secondary" onClick={() => { setMergeMode(false); setMergeSelection(new Set()) }}>
-                {t('common.cancel', { defaultValue: '取消' })}
+              <button className="nx-btn nx-btn-secondary" onClick={() => { setMergeMode(false); setMergeSelection(new Set()) }}
+                title={t('common.cancel', { defaultValue: '取消' })}>
+                <X size={14} /> <span className="nc-btn-label">{t('common.cancel', { defaultValue: '取消' })}</span>
               </button>
-              <button className="nx-btn nx-btn-primary" disabled={mergeSelection.size < 2} onClick={handleManualMerge}>
-                <Merge size={14} /> {t('tags.mergeSelected', { defaultValue: '合併已選' })} ({mergeSelection.size})
+              <button className="nx-btn nx-btn-primary" disabled={mergeSelection.size < 2} onClick={handleManualMerge}
+                title={t('tags.mergeSelected', { defaultValue: '合併已選' })}>
+                <Merge size={14} /> <span className="nc-btn-label">{t('tags.mergeSelected', { defaultValue: '合併已選' })}</span>
+                <span className="nc-btn-label"> ({mergeSelection.size})</span>
               </button>
             </>
           ) : (
             <>
-              <button className="nx-btn nx-btn-secondary" onClick={() => setMergeMode(true)}>
-                <Merge size={14} /> {t('tags.mergeMode', { defaultValue: '合併模式' })}
+              <button className="nx-btn nx-btn-secondary" onClick={() => setMergeMode(true)}
+                title={t('tags.mergeMode', { defaultValue: '合併模式' })}>
+                <Merge size={14} /> <span className="nc-btn-label">{t('tags.mergeMode', { defaultValue: '合併模式' })}</span>
               </button>
-              <button className="nx-btn nx-btn-primary" onClick={() => setNewTagOpen(true)}>
-                <Plus size={14} /> {t('tags.newTag', { defaultValue: '新增 Tag' })}
+              <button className="nx-btn nx-btn-primary" onClick={() => setNewTagOpen(true)}
+                title={t('tags.newTag', { defaultValue: '新增 Tag' })}>
+                <Plus size={14} /> <span className="nc-btn-label">{t('tags.newTag', { defaultValue: '新增 Tag' })}</span>
               </button>
             </>
           )}
@@ -141,8 +146,9 @@ export default function TagManagementPage() {
             <div className="tg-ai-title">{t('tags.aiCleanupTitle', { defaultValue: 'AI Tag 整理建議' })}</div>
             <div className="tg-ai-sub">{t('tags.aiCleanupSub', { defaultValue: '偵測相似或重複嘅 Tag（例如「物流」同「物流業」），建議合併' })}</div>
           </div>
-          <button className="nx-btn nx-btn-secondary" onClick={runAiCleanupScan} disabled={aiScanLoading}>
-            {aiScanLoading ? t('tags.scanning', { defaultValue: '掃描中…' }) : t('tags.scanNow', { defaultValue: '立即掃描' })}
+          <button className="nx-btn nx-btn-secondary" onClick={runAiCleanupScan} disabled={aiScanLoading}
+            title={t('tags.scanNow', { defaultValue: '立即掃描' })}>
+            <Sparkles size={14} /> <span className="nc-btn-label">{aiScanLoading ? t('tags.scanning', { defaultValue: '掃描中…' }) : t('tags.scanNow', { defaultValue: '立即掃描' })}</span>
           </button>
         </div>
         {aiSuggestions.length > 0 && (
@@ -158,8 +164,9 @@ export default function TagManagementPage() {
                   <span className="nc-tag-editable">{g.groupLabel}</span>
                 </div>
                 <div className="tg-ai-suggestion-reason">{g.reason}</div>
-                <button className="nx-btn nx-btn-primary" style={{ height: 30, fontSize: 12 }} onClick={() => acceptMergeSuggestion(g)}>
-                  <Check size={12} /> {t('tags.acceptMerge', { defaultValue: '採用' })}
+                <button className="nx-btn nx-btn-primary" style={{ height: 30, fontSize: 12 }} onClick={() => acceptMergeSuggestion(g)}
+                  title={t('tags.acceptMerge', { defaultValue: '採用' })}>
+                  <Check size={12} /> <span className="nc-btn-label">{t('tags.acceptMerge', { defaultValue: '採用' })}</span>
                 </button>
                 <button className="nx-btn nx-btn-secondary" style={{ height: 30, fontSize: 12 }}
                   onClick={() => setAiSuggestions(s => s.filter(x => x !== g))}>

@@ -204,13 +204,21 @@ export default function BulkUploadPage() {
       {/* ═══ Action bar ═══ */}
       <div className="nc-bulk-actions">
         {queue.length > 0 && stats.done > 0 && (
-          <button className="nx-btn nx-btn-secondary" onClick={clearDone}>{t('nameCard.clearDone', { defaultValue: '清除已完成' })}</button>
+          <button className="nx-btn nx-btn-secondary" onClick={clearDone}
+            title={t('nameCard.clearDone', { defaultValue: '清除已完成' })}>
+            <Check size={14} /> <span className="nc-btn-label">{t('nameCard.clearDone', { defaultValue: '清除已完成' })}</span>
+          </button>
         )}
         {isProcessing ? (
-          <button className="nx-btn nc-btn-danger-ghost" onClick={cancelAll}>{t('common.cancel', { defaultValue: '取消上載' })}</button>
+          <button className="nx-btn nc-btn-danger-ghost" onClick={cancelAll}
+            title={t('common.cancel', { defaultValue: '取消上載' })}>
+            <X size={14} /> <span className="nc-btn-label">{t('common.cancel', { defaultValue: '取消上載' })}</span>
+          </button>
         ) : (
-          <button className="nx-btn nx-btn-primary" disabled={stats.pending === 0} onClick={startUpload}>
-            <ArrowRight size={14} /> {t('nameCard.startUpload', { defaultValue: '開始上載' })} ({stats.pending})
+          <button className="nx-btn nx-btn-primary" disabled={stats.pending === 0} onClick={startUpload}
+            title={t('nameCard.startUpload', { defaultValue: '開始上載' })}>
+            <ArrowRight size={14} /> <span className="nc-btn-label">{t('nameCard.startUpload', { defaultValue: '開始上載' })}</span>
+            <span className="nc-btn-label"> ({stats.pending})</span>
           </button>
         )}
       </div>

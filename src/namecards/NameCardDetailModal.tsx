@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { X, RotateCw, Download, Trash2, Copy, Files, Search, Check } from 'lucide-react'
+import { X, RotateCw, Download, Trash2, Copy, Files, Search, Check, Link2Off } from 'lucide-react'
 import { apiClient } from '../lib/api'
 import { EntitySearch } from './EntitySearch'
 import type { NameCardRecord, LinkedContact } from './module-types'
@@ -106,12 +106,14 @@ export function NameCardDetailModal({ card, onClose, onSaved, onDeleted }: Props
               )}
             </div>
             <div className="nc-image-actions">
-              <button className="nx-btn nx-btn-secondary" style={{ flex: 1 }} onClick={handleRecrop}>
-                <RotateCw size={13} /> {t('nameCard.recrop', { defaultValue: '重新裁剪' })}
+              <button className="nx-btn nx-btn-secondary" style={{ flex: 1 }} onClick={handleRecrop}
+                title={t('nameCard.recrop', { defaultValue: '重新裁剪' })}>
+                <RotateCw size={13} /> <span className="nc-btn-label">{t('nameCard.recrop', { defaultValue: '重新裁剪' })}</span>
               </button>
               <button className="nx-btn nx-btn-secondary" style={{ flex: 1 }}
-                onClick={() => window.open(card.image_url, '_blank')}>
-                <Download size={13} /> {t('nameCard.downloadOriginal', { defaultValue: '下載原圖' })}
+                onClick={() => window.open(card.image_url, '_blank')}
+                title={t('nameCard.downloadOriginal', { defaultValue: '下載原圖' })}>
+                <Download size={13} /> <span className="nc-btn-label">{t('nameCard.downloadOriginal', { defaultValue: '下載原圖' })}</span>
               </button>
             </div>
 
@@ -129,7 +131,10 @@ export function NameCardDetailModal({ card, onClose, onSaved, onDeleted }: Props
                     </div>
                   </div>
                   <button className="nx-btn nx-btn-secondary" style={{ height: 28, fontSize: 11 }}
-                    onClick={() => setLinkedContact(null)}>{t('common.unlink', { defaultValue: '取消連結' })}</button>
+                    onClick={() => setLinkedContact(null)}
+                    title={t('common.unlink', { defaultValue: '取消連結' })}>
+                    <Link2Off size={12} /> <span className="nc-btn-label">{t('common.unlink', { defaultValue: '取消連結' })}</span>
+                  </button>
                 </div>
               ) : showLinkSearch ? (
                 <EntitySearch
@@ -143,8 +148,9 @@ export function NameCardDetailModal({ card, onClose, onSaved, onDeleted }: Props
                   }}
                 />
               ) : (
-                <button className="nx-btn nx-btn-secondary" style={{ width: '100%' }} onClick={() => setShowLinkSearch(true)}>
-                  <Search size={13} /> {t('nameCard.linkContact', { defaultValue: '連結聯絡人' })}
+                <button className="nx-btn nx-btn-secondary" style={{ width: '100%' }} onClick={() => setShowLinkSearch(true)}
+                  title={t('nameCard.linkContact', { defaultValue: '連結聯絡人' })}>
+                  <Search size={13} /> <span className="nc-btn-label">{t('nameCard.linkContact', { defaultValue: '連結聯絡人' })}</span>
                 </button>
               )}
             </div>
@@ -227,18 +233,22 @@ export function NameCardDetailModal({ card, onClose, onSaved, onDeleted }: Props
 
         <div className="nc-detail-footer">
           <div className="nc-detail-footer-left">
-            <button className="nx-btn nc-btn-danger-ghost" onClick={handleDelete}>
-              <Trash2 size={13} /> {t('common.delete', { defaultValue: '刪除' })}
+            <button className="nx-btn nc-btn-danger-ghost" onClick={handleDelete}
+              title={t('common.delete', { defaultValue: '刪除' })}>
+              <Trash2 size={13} /> <span className="nc-btn-label">{t('common.delete', { defaultValue: '刪除' })}</span>
             </button>
-            <button className="nx-btn nx-btn-secondary" onClick={handleCopyContact}>
-              <Copy size={13} /> {t('nameCard.copyContact', { defaultValue: '複製名片' })}
+            <button className="nx-btn nx-btn-secondary" onClick={handleCopyContact}
+              title={t('nameCard.copyContact', { defaultValue: '複製名片' })}>
+              <Copy size={13} /> <span className="nc-btn-label">{t('nameCard.copyContact', { defaultValue: '複製名片' })}</span>
             </button>
-            <button className="nx-btn nx-btn-secondary" onClick={handleDuplicate}>
-              <Files size={13} /> {t('nameCard.duplicateCard', { defaultValue: '建立副本' })}
+            <button className="nx-btn nx-btn-secondary" onClick={handleDuplicate}
+              title={t('nameCard.duplicateCard', { defaultValue: '建立副本' })}>
+              <Files size={13} /> <span className="nc-btn-label">{t('nameCard.duplicateCard', { defaultValue: '建立副本' })}</span>
             </button>
           </div>
-          <button className="nx-btn nx-btn-primary" onClick={handleSave} disabled={saving}>
-            {saving ? t('common.saving') : (<><Check size={13} /> {t('common.saveChanges', { defaultValue: '儲存變更' })}</>)}
+          <button className="nx-btn nx-btn-primary" onClick={handleSave} disabled={saving}
+            title={t('common.saveChanges', { defaultValue: '儲存變更' })}>
+            {saving ? t('common.saving') : (<><Check size={13} /> <span className="nc-btn-label">{t('common.saveChanges', { defaultValue: '儲存變更' })}</span></>)}
           </button>
         </div>
       </div>
