@@ -70,6 +70,32 @@ export default function DashboardV2() {
   const [activityDrawer, setActivityDrawer] = useState<any | null>(null)
   const [aiExpanded, setAiExpanded] = useState(false)
 
+  // ── Typewriter for AI headline (plays once per mount, then instant) ──
+  const [typedHeadline, setTypedHeadline] = useState('')
+  const [headlineTyping, setHeadlineTyping] = useState(false)
+  const headlineTypedRef = useRef(false)
+  const typeTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
+
+  useEffect(() => {
+    if (!aiExpanded || !aiInsight) return
+    const full = aiInsight.headline || ''
+    if (headlineTypedRef.current || full.length === 0) { setTypedHeadline(full); return }
+    setHeadlineTyping(true)
+    setTypedHeadline('')
+    let i = 0
+    typeTimerRef.current = setInterval(() => {
+      i += 2
+      setTypedHeadline(full.slice(0, i))
+      if (i >= full.length) {
+        if (typeTimerRef.current) clearInterval(typeTimerRef.current)
+        typeTimerRef.current = null
+        setHeadlineTyping(false)
+        headlineTypedRef.current = true
+      }
+    }, 24)
+    return () => { if (typeTimerRef.current) clearInterval(typeTimerRef.current) }
+  }, [aiExpanded, aiInsight])
+
   // ── Drag reorder (Pointer Events — works desktop + touch) ──
   const [dragWid, setDragWid] = useState<string | null>(null)
   const dragRef = useRef<{ wid: string; startX: number; startY: number; moved: boolean } | null>(null)
@@ -255,20 +281,26 @@ export default function DashboardV2() {
                 </div>
               ) : aiInsight ? (
                 <>
-                  <p className="dv2-ai-headline">{aiInsight.headline}</p>
-                  <div className="dv2-ai-chips">
-                    {aiInsight.risk_count > 0 && <span className="dv2-chip dv2-chip-risk"><AlertTriangle size={12} /> {aiInsight.risk_count} {t('dashboard.risksLabel', { defaultValue: '風險' })}</span>}
-                    {aiInsight.opportunity_count > 0 && <span className="dv2-chip dv2-chip-opp"><ArrowUpRight size={12} /> {aiInsight.opportunity_count} {t('dashboard.opportunitiesLabel', { defaultValue: '機會' })}</span>}
-                  </div>
-                  <div className="dv2-ai-items">
-                    {aiInsight.items?.slice(0, 4).map((it, i) => (
-                      <button key={i} className={`dv2-ai-item ${it.type}`} onClick={() => handleAiItemClick(it)}>
-                        {it.type === 'risk' ? <AlertTriangle size={13} /> : <ArrowUpRight size={13} />}
-                        <span>{it.text}</span>
-                        <ChevronRight size={13} className="dv2-ai-item-go" />
-                      </button>
-                    ))}
-                  </div>
+                  <p className="dv2-ai-headline">
+                    {typedHeadline}{headlineTyping && <span className="dv2-ai-caret">▍</span>}
+                  </p>
+                  {!headlineTyping && (
+                    <>
+                      <div className="dv2-ai-chips">
+                        {aiInsight.risk_count > 0 && <span className="dv2-chip dv2-chip-risk"><AlertTriangle size={12} /> {aiInsight.risk_count} {t('dashboard.risksLabel', { defaultValue: '風險' })}</span>}
+                        {aiInsight.opportunity_count > 0 && <span className="dv2-chip dv2-chip-opp"><ArrowUpRight size={12} /> {aiInsight.opportunity_count} {t('dashboard.opportunitiesLabel', { defaultValue: '機會' })}</span>}
+                      </div>
+                      <div className="dv2-ai-items">
+                        {aiInsight.items?.slice(0, 4).map((it, i) => (
+                          <button key={i} className={`dv2-ai-item ${it.type}`} onClick={() => handleAiItemClick(it)}>
+                            {it.type === 'risk' ? <AlertTriangle size={13} /> : <ArrowUpRight size={13} />}
+                            <span>{it.text}</span>
+                            <ChevronRight size={13} className="dv2-ai-item-go" />
+                          </button>
+                        ))}
+                      </div>
+                    </>
+                  )}
                 </>
               ) : <div className="dv2-empty-mini">{t('dashboard.noAiInsight', { defaultValue: '暫無 AI 洞察' })}</div>}
             </div>

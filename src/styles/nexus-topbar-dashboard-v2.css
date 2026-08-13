@@ -148,6 +148,8 @@
 .dv2-ai-toggle-right { display: flex; align-items: center; gap: 8px; }
 .dv2-ai-chevron { color: var(--color-text-faint); transition: transform .2s ease; flex-shrink: 0; }
 .dv2-ai-chevron.open { transform: rotate(180deg); }
+.dv2-ai-caret { color: var(--ai-glow-1, #146EF5); animation: dv2-caret-blink 1s steps(1) infinite; margin-left: 1px; }
+@keyframes dv2-caret-blink { 50% { opacity: 0; } }
 .dv2-widget-title { display: flex; align-items: center; gap: 7px; font-size: 13.5px; font-weight: 700; color: var(--color-text); }
 .dv2-widget-badge { font-size: 10.5px; font-weight: 700; color: var(--ai-glow-1); background: color-mix(in oklch, var(--ai-glow-1) 14%, transparent); padding: 3px 8px; border-radius: 999px; }
 .dv2-widget-action { font-size: 12px; font-weight: 600; color: var(--color-primary); background: none; border: none; cursor: pointer; padding: 4px 6px; border-radius: 6px; }
