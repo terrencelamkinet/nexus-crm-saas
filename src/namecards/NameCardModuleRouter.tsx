@@ -17,13 +17,16 @@ export default function NameCardModuleRouter() {
   return (
     <div className="nc-module-shell">
       <nav className="nc-module-nav">
-        <NavLink to="" end className="nc-module-tab">
+        {/* Absolute paths — relative to="" breaks when inside /namecards/tags
+            (e.g. to="upload" resolves to /namecards/tags/upload → blank page).
+            Fixed by GG-Fighter 2026-08-13 L3 review. */}
+        <NavLink to="/namecards" end className="nc-module-tab">
           <Images size={15} /> {t('nameCard.navGallery', { defaultValue: '名片庫' })}
         </NavLink>
-        <NavLink to="upload" className="nc-module-tab">
+        <NavLink to="/namecards/upload" className="nc-module-tab">
           <UploadCloud size={15} /> {t('nameCard.navBulkUpload', { defaultValue: '批量上載' })}
         </NavLink>
-        <NavLink to="tags" className="nc-module-tab">
+        <NavLink to="/namecards/tags" className="nc-module-tab">
           <Tags size={15} /> {t('nameCard.navTags', { defaultValue: 'Tag 管理' })}
         </NavLink>
       </nav>
