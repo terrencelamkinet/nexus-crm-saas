@@ -1969,15 +1969,17 @@ async def get_briefing(
     except Exception:
         pass
 
-    # ── Latest LLM-generated briefing (AI-app pipeline) ──
+    # ── Latest LLM-generated briefing (AI-app pipeline) — THIS user only ──
     gen_content, gen_slot, gen_at = "", "", ""
     try:
         row = (
             await db.execute(
                 text(
                     "SELECT content, slot, created_at::text FROM nexus_crm.generated_briefings "
-                    "WHERE briefing_date = CURRENT_DATE ORDER BY id DESC LIMIT 1"
-                )
+                    "WHERE tenant_id = :tid AND user_id = :uid AND briefing_date = CURRENT_DATE "
+                    "ORDER BY id DESC LIMIT 1"
+                ),
+                {"tid": ctx.tenant_id, "uid": ctx.user_id},
             )
         ).first()
         if row:

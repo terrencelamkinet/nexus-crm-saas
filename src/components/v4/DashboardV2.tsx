@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
 import {
   TrendingUp, Users, Building2, CheckSquare, Calendar, Activity, Sparkles,
-  AlertTriangle, ArrowUpRight, ArrowDownRight, Plus, LayoutGrid, ChevronRight,
+  AlertTriangle, ArrowUpRight, ArrowDownRight, Plus, LayoutGrid, CloudSun,
   X, GripVertical, Check, Phone, Mail, MessageSquare, Clock, ChevronDown,
 } from 'lucide-react'
 import { apiClient } from '../../lib/api'
@@ -26,8 +26,50 @@ import { useToast } from './useToast'
    ═══════════════════════════════════════════════════════════ */
 
 interface Stats { contacts: number; companies: number; tasksDue: number; dealsOpen?: number; dealsValue?: number }
-interface AiInsight { headline: string; risk_count: number; opportunity_count: number; items: { type: 'risk' | 'opportunity'; text: string; url?: string }[] }
+interface AiSection { header: string; items: string[] }
+interface AiInsight { headline: string; sections: AiSection[]; slot?: string; generatedAt?: string; source: 'generated' | 'fallback' }
 interface Todo { id: string; title: string; priority: number; due_time?: string; done?: boolean }
+
+// ── IM markdown briefing → portal sections (system auto-applies portal style) ──
+function parseBriefing(content: string): { title: string; sections: AiSection[] } {
+  const lines = content.split('\n').map(l => l.trim()).filter(Boolean)
+  const title = lines[0] || ''
+  const sections: AiSection[] = []
+  let cur: AiSection | null = null
+  for (const line of lines.slice(1)) {
+    if (line.startsWith('**') && line.endsWith('**')) {
+      cur = { header: line.replace(/\*\*/g, ''), items: [] }
+      sections.push(cur)
+    } else if (line.startsWith('- ') || line.startsWith('• ')) {
+      if (!cur) { cur = { header: '', items: [] }; sections.push(cur) }
+      cur.items.push(line.replace(/^[-•]\s*/, ''))
+    } else if (cur) {
+      cur.items.push(line)
+    } else {
+      cur = { header: '', items: [line] }
+      sections.push(cur)
+    }
+  }
+  return { title, sections }
+}
+
+const SLOT_LABELS: Record<string, { emoji: string; label: string }> = {
+  morning: { emoji: '🌅', label: '早間簡報' },
+  noon: { emoji: '☀️', label: '午間簡報' },
+  evening: { emoji: '🌆', label: '晚間簡報' },
+  night: { emoji: '🌙', label: '凌晨簡報' },
+}
+
+// Portal section header icon — auto by header keywords
+function sectionIcon(header: string) {
+  if (/天氣|weather/i.test(header)) return 'weather'
+  if (/行程|會議|活動|schedule|calendar/i.test(header)) return 'calendar'
+  if (/任務|todo|task/i.test(header)) return 'tasks'
+  if (/風險|risk/i.test(header)) return 'risk'
+  if (/機會|opp/i.test(header)) return 'opp'
+  if (/CRM/i.test(header)) return 'crm'
+  return 'spark'
+}
 
 const ALL_WIDGETS = [
   { id: 'ai', label: 'AI 洞察摘要', required: true },
@@ -162,21 +204,34 @@ export default function DashboardV2() {
     apiClient.get<{ items: Todo[] }>('/api/v1/crm/tasks?due=today&page_size=8').then((d: any) => setTodos(d?.items || [])).catch(() => {})
     apiClient.get<{ items: any[] }>('/api/v1/crm/calendar-events').then((d: any) => setEvents(d?.items || d || [])).catch(() => {})
     apiClient.get<{ items: any[] }>('/api/v1/crm/touchpoints?page_size=8').then((d: any) => setActivity(d?.items || [])).catch(() => {})
-    // ── AI insight: map existing /ai/briefing → AiInsight shape ──
+    // ── AI insight: content = same generated briefing as Telegram (portal style applied here) ──
     apiClient.get<any>('/api/v1/ai/briefing').then((d: any) => {
-      const tasks = (d?.tasks || []) as any[]
-      const risks = tasks.filter((x: any) => x.priority === 'P0' || x.priority === 'P1').slice(0, 2)
-      const events = (d?.schedule || []).slice(0, 2)
-      const items: { type: 'risk' | 'opportunity'; text: string; url?: string }[] = [
-        ...risks.map((x: any) => ({ type: 'risk' as const, text: `${x.priority} ${x.title}`, url: '/tasks' })),
-        ...events.map((x: any) => ({ type: 'opportunity' as const, text: `活動：${x.title}`, url: '/calendar' })),
-      ]
-      setAiInsight({
-        headline: d?.ai_tip || '今日重點：請查看待辦任務及即將來臨的會議。',
-        risk_count: risks.length,
-        opportunity_count: events.length,
-        items,
-      })
+      if (d?.content) {
+        // Same content as Telegram → portal rendering
+        const parsed = parseBriefing(d.content)
+        setAiInsight({
+          headline: parsed.title,
+          sections: parsed.sections,
+          slot: d.slot || '',
+          generatedAt: d.generated_at || '',
+          source: 'generated',
+        })
+      } else {
+        // Fallback: CRM-core mapping (no generated briefing yet today)
+        const tasks = (d?.tasks || []) as any[]
+        const risks = tasks.filter((x: any) => x.priority === 'P0' || x.priority === 'P1').slice(0, 3)
+        const events = (d?.schedule || []).slice(0, 3)
+        const sections: AiSection[] = []
+        if (risks.length) sections.push({ header: '風險', items: risks.map((x: any) => `${x.priority} ${x.title}`) })
+        if (events.length) sections.push({ header: '活動', items: events.map((x: any) => `${x.title}`) })
+        setAiInsight({
+          headline: d?.ai_tip || '今日重點：請查看待辦任務及即將來臨的會議。',
+          sections,
+          slot: d.slot || '',
+          generatedAt: d.generated_at || '',
+          source: 'fallback',
+        })
+      }
       setAiLoading(false)
     }).catch(() => setAiLoading(false))
   }, [])
@@ -193,11 +248,6 @@ export default function DashboardV2() {
     // Persist via existing task update endpoint (status done/pending)
     apiClient.patch(`/api/v1/crm/tasks/${id}`, { status: nextDone ? 'done' : 'pending' }).catch(() => {})
     showToast(nextDone ? '任務已完成 ✓' : '已重新標記為待辦')
-  }
-
-  const handleAiItemClick = (item: { type: string; text: string; url?: string }) => {
-    if (item.url) { navigate(item.url); return }
-    showToast(`正在導航到相關記錄：${item.text.slice(0, 16)}…`)
   }
 
   const handleViewAll = (which: string) => {
@@ -286,19 +336,33 @@ export default function DashboardV2() {
                   </p>
                   {!headlineTyping && (
                     <>
-                      <div className="dv2-ai-chips">
-                        {aiInsight.risk_count > 0 && <span className="dv2-chip dv2-chip-risk"><AlertTriangle size={12} /> {aiInsight.risk_count} {t('dashboard.risksLabel', { defaultValue: '風險' })}</span>}
-                        {aiInsight.opportunity_count > 0 && <span className="dv2-chip dv2-chip-opp"><ArrowUpRight size={12} /> {aiInsight.opportunity_count} {t('dashboard.opportunitiesLabel', { defaultValue: '機會' })}</span>}
-                      </div>
-                      <div className="dv2-ai-items">
-                        {aiInsight.items?.slice(0, 4).map((it, i) => (
-                          <button key={i} className={`dv2-ai-item ${it.type}`} onClick={() => handleAiItemClick(it)}>
-                            {it.type === 'risk' ? <AlertTriangle size={13} /> : <ArrowUpRight size={13} />}
-                            <span>{it.text}</span>
-                            <ChevronRight size={13} className="dv2-ai-item-go" />
-                          </button>
-                        ))}
-                      </div>
+                      {aiInsight.sections.length > 0 ? (
+                        <div className="dv2-ai-sections">
+                          {aiInsight.sections.map((sec, si) => (
+                            <div key={si} className="dv2-ai-section">
+                              {sec.header && (
+                                <div className="dv2-ai-section-header">
+                                  <SectionIcon kind={sectionIcon(sec.header)} />
+                                  <span>{sec.header}</span>
+                                </div>
+                              )}
+                              <div className="dv2-ai-section-body">
+                                {sec.items.map((it, ii) => (
+                                  <div key={ii} className="dv2-ai-section-item">{it}</div>
+                                ))}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="dv2-empty-mini">{t('dashboard.noAiInsight', { defaultValue: '暫無 AI 洞察' })}</div>
+                      )}
+                      {aiInsight.slot && (
+                        <div className="dv2-ai-meta">
+                          {SLOT_LABELS[aiInsight.slot]?.emoji || ''} {SLOT_LABELS[aiInsight.slot]?.label || aiInsight.slot}
+                          {aiInsight.generatedAt ? ` · ${new Date(aiInsight.generatedAt).toLocaleTimeString(i18n.language, { hour: '2-digit', minute: '2-digit' })} 生成` : ''}
+                        </div>
+                      )}
                     </>
                   )}
                 </>
@@ -480,4 +544,18 @@ export default function DashboardV2() {
       )}
     </div>
   )
+}
+
+// Portal section icon — auto per header keyword (system-applied portal style)
+function SectionIcon({ kind }: { kind: string }) {
+  const s = 13
+  switch (kind) {
+    case 'weather': return <CloudSun size={s} style={{ color: 'var(--color-amber, #d97706)' }} />
+    case 'calendar': return <Calendar size={s} style={{ color: 'var(--color-primary)' }} />
+    case 'tasks': return <CheckSquare size={s} style={{ color: 'var(--color-amber, #d97706)' }} />
+    case 'risk': return <AlertTriangle size={s} style={{ color: 'var(--color-danger, #dc2626)' }} />
+    case 'opp': return <TrendingUp size={s} style={{ color: 'var(--color-green, #16a34a)' }} />
+    case 'crm': return <Building2 size={s} style={{ color: 'var(--color-purple, #7c3aed)' }} />
+    default: return <Sparkles size={s} style={{ color: 'var(--ai-glow-1)' }} />
+  }
 }
