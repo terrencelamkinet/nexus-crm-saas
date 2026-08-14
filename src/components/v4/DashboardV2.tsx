@@ -3,12 +3,13 @@ import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
 import {
   TrendingUp, Users, Building2, CheckSquare, Calendar, Activity, Sparkles,
-  AlertTriangle, ArrowUpRight, ArrowDownRight, Plus, LayoutGrid, CloudSun, ChevronRight,
+  AlertTriangle, Plus, LayoutGrid, CloudSun, ChevronRight,
   X, GripVertical, Check, Phone, Mail, MessageSquare, Clock, ChevronDown,
 } from 'lucide-react'
 import { apiClient } from '../../lib/api'
 import { useToast } from './useToast'
 import { sectionIcon, sectionRouteWithItemFallback } from './briefingRoutes'
+import WidgetAskAI from '../WidgetAskAI'
 
 /* ═══════════════════════════════════════════════════════════
    DashboardV2 — AI-integrated, fully-interactive widget grid.
@@ -68,20 +69,29 @@ const ALL_WIDGETS = [
   { id: 'events', label: '即將舉行' },
   { id: 'interactions', label: '近期互動' },
   { id: 'activity', label: '最近活動表格' },
+  { id: 'ask_ai', label: 'Ask AI' },
+  { id: 'c2', label: '待處理客戶' },
+  { id: 'co3', label: '續約提醒' },
+  { id: 's1', label: '待處理訂單' },
+  { id: 'te2', label: '團隊成員' },
 ]
 const WIDGET_PREF_KEY = 'nexus-dashboard-widgets'
 const WIDGET_ORDER_KEY = 'nexus-dashboard-widget-order'
-const DEFAULT_ORDER = ['ai', 'stats:0', 'stats:1', 'stats:2', 'stats:3', 'todos', 'events', 'interactions', 'activity']
+const DEFAULT_ORDER = ['stats:0', 'stats:1', 'stats:2', 'stats:3', 'todos', 'events', 'interactions', 'activity', 'ask_ai', 'c2', 'co3', 's1', 'te2']
 
 export default function DashboardV2() {
   const { t, i18n } = useTranslation()
   const navigate = useNavigate()
   const { showToast } = useToast()
 
-  const [stats, setStats] = useState<Stats>({ contacts: 205, companies: 108, tasksDue: 125, dealsValue: 482000 })
+  const [stats, setStats] = useState<Stats>({ contacts: 0, companies: 0, tasksDue: 0, dealsValue: 0 })
   const [todos, setTodos] = useState<Todo[]>([])
   const [events, setEvents] = useState<any[]>([])
   const [activity, setActivity] = useState<any[]>([])
+  const [pendingContacts, setPendingContacts] = useState<any[]>([])
+  const [companies3, setCompanies3] = useState<any[]>([])
+  const [openDeals, setOpenDeals] = useState<any[]>([])
+  const [teamUsers, setTeamUsers] = useState<any[]>([])
   const [aiInsight, setAiInsight] = useState<AiInsight | null>(null)
   const [aiLoading, setAiLoading] = useState(true)
 
@@ -194,6 +204,15 @@ export default function DashboardV2() {
     apiClient.get<{ items: Todo[] }>('/api/v1/crm/tasks?due=today&page_size=8').then((d: any) => setTodos(d?.items || [])).catch(() => {})
     apiClient.get<{ items: any[] }>('/api/v1/crm/calendar-events').then((d: any) => setEvents(d?.items || d || [])).catch(() => {})
     apiClient.get<{ items: any[] }>('/api/v1/crm/touchpoints?page_size=8').then((d: any) => setActivity(d?.items || [])).catch(() => {})
+    // ── New widgets (all real API data — no demo fallback) ──
+    apiClient.get<{ items: any[] }>('/api/v1/crm/contacts?status=lead&limit=5').then((d: any) => setPendingContacts(d?.items || [])).catch(() => {})
+    apiClient.get<{ items: any[] }>('/api/v1/crm/companies?limit=3').then((d: any) => setCompanies3(d?.items || [])).catch(() => {})
+    apiClient.get<{ items: any[] }>('/api/v1/crm/deals?limit=20').then((d: any) => {
+      const closed = ['won', 'lost', 'closed', 'closed_won', 'closed_lost']
+      const open = (d?.items || []).filter((x: any) => !closed.includes((x?.status || 'open').toLowerCase()))
+      setOpenDeals(open.slice(0, 5))
+    }).catch(() => {})
+    apiClient.get<any[]>('/api/v1/crm/todo/users').then((d: any) => setTeamUsers(Array.isArray(d) ? d : [])).catch(() => {})
     // ── AI insight: content = same generated briefing as Telegram (portal style applied here) ──
     apiClient.get<any>('/api/v1/ai/briefing').then((d: any) => {
       if (d?.content) {
@@ -278,10 +297,10 @@ export default function DashboardV2() {
     if (wid.startsWith('stats:')) {
       const i = Number(wid.split(':')[1])
       const cards = [
-        { icon: <Users size={15} />, label: t('dashboard.widgets.totalCustomers', { defaultValue: '總客戶數' }), value: stats.contacts, color: 'var(--color-primary)', trend: '+12', trendUp: true, onClick: () => navigate('/contacts') },
-        { icon: <Building2 size={15} />, label: t('dashboard.widgets.totalCompanies', { defaultValue: '總公司數' }), value: stats.companies, color: 'var(--color-purple, #7c3aed)', trend: '+5', trendUp: true, onClick: () => navigate('/companies') },
-        { icon: <CheckSquare size={15} />, label: t('dashboard.widgets.tasksDue', { defaultValue: '待辦任務' }), value: stats.tasksDue, color: 'var(--color-amber, #d97706)', trend: '-3', trendUp: false, accent: true, onClick: () => navigate('/tasks') },
-        { icon: <TrendingUp size={15} />, label: t('dashboard.widgets.pipelineValue', { defaultValue: '商機總值' }), value: `$${(stats.dealsValue || 0).toLocaleString()}`, color: 'var(--color-green, #16a34a)', trend: '+8%', trendUp: true, onClick: () => navigate('/deals') },
+        { icon: <Users size={15} />, label: t('dashboard.widgets.totalCustomers', { defaultValue: '總客戶數' }), value: stats.contacts, color: 'var(--color-primary)', onClick: () => navigate('/contacts') },
+        { icon: <Building2 size={15} />, label: t('dashboard.widgets.totalCompanies', { defaultValue: '總公司數' }), value: stats.companies, color: 'var(--color-purple, #7c3aed)', onClick: () => navigate('/companies') },
+        { icon: <CheckSquare size={15} />, label: t('dashboard.widgets.tasksDue', { defaultValue: '待辦任務' }), value: stats.tasksDue, color: 'var(--color-amber, #d97706)', accent: true, onClick: () => navigate('/tasks') },
+        { icon: <TrendingUp size={15} />, label: t('dashboard.widgets.pipelineValue', { defaultValue: '商機總值' }), value: `$${(stats.dealsValue || 0).toLocaleString()}`, color: 'var(--color-green, #16a34a)', onClick: () => navigate('/deals') },
       ]
       const c = cards[i]
       if (!c) return null
@@ -291,7 +310,6 @@ export default function DashboardV2() {
           <div className="dv2-widget-header"><div className="dv2-widget-title">{c.icon} {c.label}</div></div>
           <div className="dv2-widget-body dv2-stat-body">
             <div className="dv2-stat-value" style={{ color: c.color }}>{c.value}</div>
-            <div className={`dv2-stat-trend ${c.trendUp ? 'up' : ''}`}>{c.trendUp ? <ArrowUpRight size={13} /> : <ArrowDownRight size={13} />} {c.trend} 較上週</div>
           </div>
         </button>
       )
@@ -466,6 +484,102 @@ export default function DashboardV2() {
         </div>
       )
     }
+    if (wid === 'ask_ai') {
+      return (
+        <div className={widgetCls(wid)} data-wid={wid}>
+          {dragHandle(wid)}
+          <div className="dv2-widget-header">
+            <div className="dv2-widget-title"><Sparkles size={15} /> Ask AI</div>
+          </div>
+          <div className="dv2-widget-body dv2-list-body" style={{ maxHeight: 260 }}>
+            <WidgetAskAI />
+          </div>
+        </div>
+      )
+    }
+    if (wid === 'c2') {
+      return (
+        <div className={widgetCls(wid)} data-wid={wid}>
+          {dragHandle(wid)}
+          <div className="dv2-widget-header">
+            <div className="dv2-widget-title"><Users size={15} /> {t('dashboard.widgets.pendingContacts', { defaultValue: '待處理客戶' })}</div>
+            <button className="dv2-widget-action" onClick={() => navigate('/contacts')}>{t('common.viewAll', { defaultValue: '查看全部' })}</button>
+          </div>
+          <div className="dv2-widget-body dv2-list-body">
+            {pendingContacts.length === 0 ? <div className="dv2-empty-mini">{t('dashboard.noContacts', { defaultValue: '暫無待處理客戶' })}</div> :
+              pendingContacts.slice(0, 5).map((c) => (
+                <button key={c.id} className="dv2-list-row dv2-list-row-btn" onClick={() => navigate('/contacts')}>
+                  <Users size={13} className="dv2-list-row-icon" />
+                  <span className="dv2-list-row-title">{c.name}</span>
+                  <span className="dv2-list-row-meta">{c.company?.name || c.company || ''}</span>
+                </button>
+              ))}
+          </div>
+        </div>
+      )
+    }
+    if (wid === 'co3') {
+      return (
+        <div className={widgetCls(wid)} data-wid={wid}>
+          {dragHandle(wid)}
+          <div className="dv2-widget-header">
+            <div className="dv2-widget-title"><Building2 size={15} /> {t('dashboard.widgets.renewalReminders', { defaultValue: '續約提醒' })}</div>
+            <button className="dv2-widget-action" onClick={() => navigate('/companies')}>{t('common.viewAll', { defaultValue: '查看全部' })}</button>
+          </div>
+          <div className="dv2-widget-body dv2-list-body">
+            {companies3.length === 0 ? <div className="dv2-empty-mini">{t('dashboard.noCompanies', { defaultValue: '暫無公司' })}</div> :
+              companies3.map((co) => (
+                <button key={co.id} className="dv2-list-row dv2-list-row-btn" onClick={() => navigate('/companies')}>
+                  <Building2 size={13} className="dv2-list-row-icon" />
+                  <span className="dv2-list-row-title">{co.name}</span>
+                  <span className="dv2-list-row-tag">{co.industry || co.category || ''}</span>
+                </button>
+              ))}
+          </div>
+        </div>
+      )
+    }
+    if (wid === 's1') {
+      return (
+        <div className={widgetCls(wid)} data-wid={wid}>
+          {dragHandle(wid)}
+          <div className="dv2-widget-header">
+            <div className="dv2-widget-title"><Clock size={15} /> {t('dashboard.widgets.pendingOrders', { defaultValue: '待處理訂單' })}</div>
+            <button className="dv2-widget-action" onClick={() => navigate('/deals')}>{t('common.viewAll', { defaultValue: '查看全部' })}</button>
+          </div>
+          <div className="dv2-widget-body dv2-list-body">
+            {openDeals.length === 0 ? <div className="dv2-empty-mini">{t('dashboard.noPendingOrders', { defaultValue: '暫無待處理訂單' })}</div> :
+              openDeals.map((d) => (
+                <button key={d.id} className="dv2-list-row dv2-list-row-btn" onClick={() => navigate('/deals')}>
+                  <Clock size={13} className="dv2-list-row-icon" />
+                  <span className="dv2-list-row-title">{d.name}</span>
+                  <span className="dv2-list-row-meta">${(d.amount || 0).toLocaleString()}</span>
+                </button>
+              ))}
+          </div>
+        </div>
+      )
+    }
+    if (wid === 'te2') {
+      return (
+        <div className={widgetCls(wid)} data-wid={wid}>
+          {dragHandle(wid)}
+          <div className="dv2-widget-header">
+            <div className="dv2-widget-title"><Users size={15} /> {t('dashboard.widgets.onlineStatus', { defaultValue: '在線狀態' })}</div>
+          </div>
+          <div className="dv2-widget-body dv2-list-body">
+            {teamUsers.length === 0 ? <div className="dv2-empty-mini">{t('dashboard.noTeamUsers', { defaultValue: '暫無團隊成員' })}</div> :
+              teamUsers.slice(0, 6).map((u) => (
+                <div key={u.id} className="dv2-list-row">
+                  <Users size={13} className="dv2-list-row-icon" />
+                  <span className="dv2-list-row-title">{u.display_name || u.email}</span>
+                  <span className="dv2-list-row-meta">{teamUsers.length} 人</span>
+                </div>
+              ))}
+          </div>
+        </div>
+      )
+    }
     return null
   }
 
@@ -489,10 +603,16 @@ export default function DashboardV2() {
         </div>
       </div>
 
-      {/* Default order = AI, Stat×4, List×3, Table (12-col packing).
+      {/* AI 洞察摘要 — 頂部全寬獨立 section（唔喺 widget grid 內） */}
+      <section className="dv2-ai-hero">
+        {renderWidget('ai')}
+      </section>
+
+      {/* Default order = Stat×4, List×3, Table, then new widgets (12-col packing).
           In customize mode drag handles reorder — spans are per-class so packing holds. */}
       <div className={`dv2-grid ${customizeMode ? 'customizing' : ''}`}>
         {widgetOrder.map(wid => {
+          if (wid === 'ai') return null
           if (wid.startsWith('stats:')) return has('stats') ? renderWidget(wid) : null
           return has(wid) ? renderWidget(wid) : null
         })}

@@ -174,6 +174,8 @@
 
 /* ═══ GRID SPANS — the fix: every row sums to exactly 12 ═══ */
 .dv2-w-ai    { grid-column: span 6; }
+/* AI hero — full-width wrapper above the widget grid (AI 唔再係 grid 成員) */
+.dv2-ai-hero { width: 100%; margin-bottom: 16px; }
 .dv2-w-stat  { grid-column: span 3; aspect-ratio: 1.35 / 1; min-height: 148px; }
 .dv2-w-list  { grid-column: span 6; }
 .dv2-w-table { grid-column: span 12; }
