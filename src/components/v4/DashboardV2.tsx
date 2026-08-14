@@ -5,6 +5,8 @@ import {
   TrendingUp, Users, Building2, CheckSquare, Calendar, Activity, Sparkles,
   AlertTriangle, Plus, LayoutGrid, CloudSun, ChevronRight,
   X, GripVertical, Check, Phone, Mail, MessageSquare, Clock, ChevronDown,
+  FolderKanban, Truck, Target, BarChart3, Tags, HandCoins,
+  Trophy, Percent,
 } from 'lucide-react'
 import { apiClient } from '../../lib/api'
 import { useToast } from './useToast'
@@ -74,10 +76,44 @@ const ALL_WIDGETS = [
   { id: 'co3', label: '續約提醒' },
   { id: 's1', label: '待處理訂單' },
   { id: 'te2', label: '團隊成員' },
+  // ── Legacy（真實數據）──
+  { id: 'kpi_deals', label: '商機數量' },
+  { id: 'pipeline', label: '商機管道' },
+  { id: 'touchpoints', label: '近期互動' },
+  { id: 'dealvalue', label: '商機總值' },
+  // ── Contacts ──
+  { id: 'c1', label: '新增客戶' },
+  { id: 'c3', label: '資料完整度' },
+  { id: 'c5', label: '來源分佈' },
+  // ── Companies ──
+  { id: 'co1', label: '公司總數' },
+  { id: 'co2', label: '客戶分級' },
+  { id: 'co4', label: '健康分數' },
+  { id: 'co5', label: '行業分佈' },
+  // ── Deals ──
+  { id: 'd1', label: '管道總額' },
+  { id: 'd2', label: '階段分佈' },
+  { id: 'd3', label: '停滯警示' },
+  { id: 'd4', label: '預測達成率' },
+  { id: 'd5', label: '近期贏單' },
+  // ── Projects ──
+  { id: 'p1', label: '進行中專案' },
+  { id: 'p2', label: '里程碑追蹤' },
+  { id: 'p3', label: '進度概覽' },
+  { id: 'p4', label: '資源分配' },
+  // ── Tasks ──
+  { id: 't2', label: '逾期待辦' },
+  { id: 't3', label: '優先級列表' },
+  { id: 't4', label: '完成率' },
+  // ── Calendar ──
+  { id: 'cal2', label: '會議密度' },
+  { id: 'cal3', label: '拜訪行程' },
+  // ── Cost（唯一可 hardcode）──
+  { id: 's5', label: '運費成本概覽' },
 ]
 const WIDGET_PREF_KEY = 'nexus-dashboard-widgets'
 const WIDGET_ORDER_KEY = 'nexus-dashboard-widget-order'
-const DEFAULT_ORDER = ['stats:0', 'stats:1', 'stats:2', 'stats:3', 'todos', 'events', 'interactions', 'activity', 'ask_ai', 'c2', 'co3', 's1', 'te2']
+const DEFAULT_ORDER = ['stats:0', 'stats:1', 'stats:2', 'stats:3', 'kpi_deals', 'dealvalue', 'c1', 'co1', 'p1', 'todos', 'events', 'interactions', 'activity', 'ask_ai', 'c2', 'co3', 's1', 'te2', 'touchpoints', 'pipeline', 'c3', 'c5', 'co2', 'co4', 'co5', 'd1', 'd2', 'd3', 'd4', 'd5', 'p2', 'p3', 'p4', 't2', 't3', 't4', 'cal2', 'cal3', 's5']
 
 export default function DashboardV2() {
   const { t, i18n } = useTranslation()
@@ -90,7 +126,15 @@ export default function DashboardV2() {
   const [activity, setActivity] = useState<any[]>([])
   const [pendingContacts, setPendingContacts] = useState<any[]>([])
   const [companies3, setCompanies3] = useState<any[]>([])
+  const [allCompanies, setAllCompanies] = useState<any[]>([])
+  const [allContacts, setAllContacts] = useState<any[]>([])
+  const [deals, setDeals] = useState<any[]>([])
   const [openDeals, setOpenDeals] = useState<any[]>([])
+  const [projects, setProjects] = useState<any[]>([])
+  const [projectsTotal, setProjectsTotal] = useState(0)
+  const [overdueTasks, setOverdueTasks] = useState<any[]>([])
+  const [taskTotal, setTaskTotal] = useState(0)
+  const [doneTaskTotal, setDoneTaskTotal] = useState(0)
   const [teamUsers, setTeamUsers] = useState<any[]>([])
   const [aiInsight, setAiInsight] = useState<AiInsight | null>(null)
   const [aiLoading, setAiLoading] = useState(true)
@@ -192,26 +236,39 @@ export default function DashboardV2() {
 
   useEffect(() => {
     // ── Stats: compose from existing endpoints (no new backend needed) ──
+    const deals$ = apiClient.get<{ items: any[]; total: number }>('/api/v1/crm/deals?page=1&page_size=100').catch(() => ({ items: [], total: 0 }))
     Promise.all([
       apiClient.get<{ total: number }>('/api/v1/crm/contacts?page=1&page_size=1').catch(() => ({ total: 0 })),
       apiClient.get<{ total: number }>('/api/v1/crm/companies?page=1&page_size=1').catch(() => ({ total: 0 })),
       apiClient.get<{ total: number }>('/api/v1/crm/tasks?page=1&page_size=1').catch(() => ({ total: 0 })),
-      apiClient.get<{ items: { amount: number | null }[]; total: number }>('/api/v1/crm/deals?page=1&page_size=100').catch(() => ({ items: [], total: 0 })),
+      deals$,
     ]).then(([c, co, t, d]) => {
       const dealsValue = (d?.items || []).reduce((s: number, x: { amount: number | null }) => s + (x.amount || 0), 0)
       setStats({ contacts: c?.total || 0, companies: co?.total || 0, tasksDue: t?.total || 0, dealsValue })
     })
+    deals$.then((d: any) => {
+      const list = d?.items || []
+      setDeals(list)
+      const closed = ['won', 'lost', 'closed', 'closed_won', 'closed_lost']
+      const open = list.filter((x: any) => !closed.includes((x?.status || 'open').toLowerCase()))
+      setOpenDeals(open.slice(0, 5))
+    })
+    apiClient.get<{ items: any[]; total: number }>('/api/v1/crm/contacts?page=1&page_size=100').then((d: any) => setAllContacts(d?.items || [])).catch(() => {})
+    apiClient.get<{ items: any[]; total: number }>('/api/v1/crm/companies?page=1&page_size=100').then((d: any) => setAllCompanies(d?.items || [])).catch(() => {})
+    apiClient.get<{ items: any[]; total: number }>('/api/v1/crm/projects?page=1&page_size=50').then((d: any) => { setProjects(d?.items || []); setProjectsTotal(d?.total || 0) }).catch(() => {})
+    apiClient.get<{ total: number }>('/api/v1/crm/tasks?status=done&page=1&page_size=1').then((d: any) => setDoneTaskTotal(d?.total || 0)).catch(() => {})
+    apiClient.get<{ items: any[]; total: number }>('/api/v1/crm/tasks?status=pending&page=1&page_size=20').then((d: any) => {
+      const now = Date.now()
+      const overdue = (d?.items || []).filter((x: any) => x?.due_date && new Date(x.due_date).getTime() < now)
+      setOverdueTasks(overdue.slice(0, 5))
+      setTaskTotal(d?.total || 0)
+    }).catch(() => {})
     apiClient.get<{ items: Todo[] }>('/api/v1/crm/tasks?due=today&page_size=8').then((d: any) => setTodos(d?.items || [])).catch(() => {})
     apiClient.get<{ items: any[] }>('/api/v1/crm/calendar-events').then((d: any) => setEvents(d?.items || d || [])).catch(() => {})
     apiClient.get<{ items: any[] }>('/api/v1/crm/touchpoints?page_size=8').then((d: any) => setActivity(d?.items || [])).catch(() => {})
     // ── New widgets (all real API data — no demo fallback) ──
     apiClient.get<{ items: any[] }>('/api/v1/crm/contacts?status=lead&limit=5').then((d: any) => setPendingContacts(d?.items || [])).catch(() => {})
     apiClient.get<{ items: any[] }>('/api/v1/crm/companies?limit=3').then((d: any) => setCompanies3(d?.items || [])).catch(() => {})
-    apiClient.get<{ items: any[] }>('/api/v1/crm/deals?limit=20').then((d: any) => {
-      const closed = ['won', 'lost', 'closed', 'closed_won', 'closed_lost']
-      const open = (d?.items || []).filter((x: any) => !closed.includes((x?.status || 'open').toLowerCase()))
-      setOpenDeals(open.slice(0, 5))
-    }).catch(() => {})
     apiClient.get<any[]>('/api/v1/crm/todo/users').then((d: any) => setTeamUsers(Array.isArray(d) ? d : [])).catch(() => {})
     // ── AI insight: content = same generated briefing as Telegram (portal style applied here) ──
     apiClient.get<any>('/api/v1/ai/briefing').then((d: any) => {
@@ -289,11 +346,40 @@ export default function DashboardV2() {
   ) : null
 
   const widgetCls = (wid: string) => {
-    const span = wid.startsWith('stats:') ? 'dv2-w-stat' : wid === 'activity' ? 'dv2-w-table' : wid === 'ai' ? 'dv2-w-ai dv2-widget-ai' : 'dv2-w-list'
+    const kpi = wid.startsWith('stats:') || ['kpi_deals', 'dealvalue', 'c1', 'co1', 'p1', 'd1'].includes(wid)
+    const span = kpi ? 'dv2-w-stat' : wid === 'activity' ? 'dv2-w-table' : wid === 'ai' ? 'dv2-w-ai dv2-widget-ai' : 'dv2-w-list'
     return `dv2-widget ${span} ${dragWid === wid ? 'dragging' : ''}`
   }
 
   const renderWidget = (wid: string) => {
+    const kpiCard = (icon: React.ReactNode, label: string, value: React.ReactNode, color: string, onClick: () => void) => (
+      <button className={widgetCls(wid)} data-wid={wid} onClick={onClick}>
+        {dragHandle(wid)}
+        <div className="dv2-widget-header"><div className="dv2-widget-title">{icon} {label}</div></div>
+        <div className="dv2-widget-body dv2-stat-body">
+          <div className="dv2-stat-value" style={{ color }}>{value}</div>
+        </div>
+      </button>
+    )
+    const barRow = (label: string, num: number, denom: number, color: string, right?: string) => {
+      const pct = denom > 0 ? Math.round((num / denom) * 100) : 0
+      return (
+        <div className="dv2-bar-row" key={label}>
+          <div className="dv2-bar-label"><span>{label}</span><span>{right ?? num}</span></div>
+          <div className="dv2-bar-track"><div className="dv2-bar-fill" style={{ width: `${Math.min(100, pct)}%`, background: color }} /></div>
+        </div>
+      )
+    }
+    const listWidget = (title: React.ReactNode, viewAll: () => void, empty: string, rows: React.ReactNode, icon?: React.ReactNode) => (
+      <div className={widgetCls(wid)} data-wid={wid}>
+        {dragHandle(wid)}
+        <div className="dv2-widget-header">
+          <div className="dv2-widget-title">{icon} {title}</div>
+          {viewAll && <button className="dv2-widget-action" onClick={viewAll}>{t('common.viewAll', { defaultValue: '查看全部' })}</button>}
+        </div>
+        <div className="dv2-widget-body dv2-list-body">{rows || <div className="dv2-empty-mini">{empty}</div>}</div>
+      </div>
+    )
     if (wid.startsWith('stats:')) {
       const i = Number(wid.split(':')[1])
       const cards = [
@@ -579,6 +665,211 @@ export default function DashboardV2() {
           </div>
         </div>
       )
+    }
+    // ── Legacy KPI widgets ──
+    if (wid === 'kpi_deals') return kpiCard(<TrendingUp size={15} />, t('dashboard.widgets.activeDeals', { defaultValue: '商機數量' }), deals.length, 'var(--color-primary)', () => navigate('/deals'))
+    if (wid === 'dealvalue') return kpiCard(<HandCoins size={15} />, t('dashboard.widgets.dealTotal', { defaultValue: '商機總值' }), `$${(stats.dealsValue || 0).toLocaleString()}`, 'var(--color-green, #16a34a)', () => navigate('/deals'))
+    if (wid === 'c1') return kpiCard(<Users size={15} />, t('dashboard.widgets.newContacts', { defaultValue: '新增客戶' }), stats.contacts, 'var(--color-primary)', () => navigate('/contacts'))
+    if (wid === 'co1') return kpiCard(<Building2 size={15} />, t('dashboard.widgets.totalCompanies', { defaultValue: '公司總數' }), stats.companies, 'var(--color-purple, #7c3aed)', () => navigate('/companies'))
+    if (wid === 'p1') return kpiCard(<FolderKanban size={15} />, t('dashboard.widgets.activeProjects', { defaultValue: '進行中專案' }), projectsTotal, 'var(--color-amber, #d97706)', () => navigate('/projects'))
+    if (wid === 'd1') return kpiCard(<BarChart3 size={15} />, t('dashboard.widgets.pipelineTotal', { defaultValue: '管道總額' }), `$${(stats.dealsValue || 0).toLocaleString()}`, 'var(--color-primary)', () => navigate('/deals'))
+
+    // ── Legacy list / bar widgets ──
+    if (wid === 'touchpoints') {
+      return listWidget(t('dashboard.widgets.recentActivity', { defaultValue: '近期互動' }), () => navigate('/touchpoints'), t('dashboard.noActivity', { defaultValue: '暫無活動記錄' }),
+        activity.slice(0, 5).map((tp) => (
+          <button key={tp.id} className="dv2-list-row dv2-list-row-btn" onClick={() => openTaskRow(tp)}>
+            {tp.channel === 'call' ? <Phone size={13} className="dv2-list-row-icon" /> : tp.channel === 'email' ? <Mail size={13} className="dv2-list-row-icon" /> : <MessageSquare size={13} className="dv2-list-row-icon" />}
+            <span className="dv2-list-row-title">{tp.title}</span>
+            <span className="dv2-list-row-tag">{tp.type}</span>
+          </button>
+        )), <Activity size={15} />)
+    }
+    if (wid === 'pipeline') {
+      const group = new Map<string, { name: string; total: number; count: number }>()
+      deals.forEach((d) => {
+        const key = d?.stage_id ? String(d.stage_id) : '未分類'
+        const g = group.get(key) || { name: key.slice(0, 8), total: 0, count: 0 }
+        g.total += d.amount || 0
+        g.count += 1
+        group.set(key, g)
+      })
+      const rows = Array.from(group.entries()).map(([k, g]) => ({ ...g, key: k }))
+      const maxTotal = Math.max(1, ...rows.map((r) => r.total))
+      return listWidget(t('dashboard.widgets.pipeline', { defaultValue: '商機管道' }), () => navigate('/deals'), t('dashboard.noDeals', { defaultValue: '暫無商機' }),
+        rows.length === 0 ? null : (
+          <div className="dv2-bar-stack">{rows.map((r) => barRow(r.name, r.total, maxTotal, 'var(--color-primary)', `$${r.total.toLocaleString()}`))}</div>
+        ), <BarChart3 size={15} />)
+    }
+    if (wid === 'c3') {
+      const pct = allCompanies.length ? allCompanies[0]?.data_completeness_pct : undefined
+      const val = typeof pct === 'number' ? pct : '—'
+      return listWidget(t('dashboard.widgets.dataCompleteness', { defaultValue: '資料完整度' }), () => navigate('/companies'), '—',
+        <div className="dv2-bar-stack">{barRow(t('dashboard.widgets.dataCompleteness', { defaultValue: '資料完整度' }), typeof val === 'number' ? val : 0, 100, 'var(--color-blue, #2563eb)', `${val}%`)}</div>, <Tags size={15} />)
+    }
+    if (wid === 'c5') {
+      const colors = ['var(--color-blue, #2563eb)', 'var(--color-purple, #7c3aed)', 'var(--color-success, #16a34a)', 'var(--color-amber, #d97706)']
+      const g = (k?: string) => k || '其他'
+      const dist = new Map<string, number>()
+      allContacts.forEach((c) => { const key = g(c?.source); dist.set(key, (dist.get(key) || 0) + 1) })
+      const top = Array.from(dist.entries()).sort((a, b) => b[1] - a[1]).slice(0, 4)
+      const total = allContacts.length || 1
+      return listWidget(t('dashboard.widgets.sourceDistribution', { defaultValue: '來源分佈' }), () => navigate('/contacts'), t('dashboard.noContactsData', { defaultValue: '暫無聯絡人數據' }),
+        top.length === 0 ? null : (
+          <div className="dv2-bar-stack">{top.map(([k, n], i) => barRow(k, n, total, colors[i % colors.length]))}</div>
+        ), <Tags size={15} />)
+    }
+    if (wid === 'co2') {
+      const g = (k?: string) => k || '未分類'
+      const dist = new Map<string, number>()
+      allCompanies.forEach((c) => { const key = g(c?.category || c?.industry); dist.set(key, (dist.get(key) || 0) + 1) })
+      const top = Array.from(dist.entries()).sort((a, b) => b[1] - a[1]).slice(0, 4)
+      const total = allCompanies.length || 1
+      return listWidget(t('dashboard.widgets.clientTier', { defaultValue: '客戶分級' }), () => navigate('/companies'), t('dashboard.noCompanies', { defaultValue: '暫無公司' }),
+        top.length === 0 ? null : (
+          <div className="dv2-bar-stack">{top.map(([k, n]) => barRow(k, n, total, 'var(--color-purple, #7c3aed)'))}</div>
+        ), <Building2 size={15} />)
+    }
+    if (wid === 'co4') {
+      const items = allCompanies
+        .map((c) => ({ name: c?.name, pct: c?.data_completeness_pct }))
+        .filter((c) => typeof c.pct === 'number')
+        .sort((a, b) => (b.pct as number) - (a.pct as number))
+        .slice(0, 4)
+      return listWidget(t('dashboard.widgets.healthScore', { defaultValue: '健康分數' }), () => navigate('/companies'), '—',
+        items.length === 0 ? null : items.map((c) => (
+          <div key={c.name} className="dv2-list-row"><span className="dv2-list-row-title">{c.name}</span><span className="dv2-list-row-meta">{c.pct}分</span></div>
+        )), <Building2 size={15} />)
+    }
+    if (wid === 'co5') {
+      const g = (k?: string) => k || '未分類'
+      const dist = new Map<string, number>()
+      allCompanies.forEach((c) => { const key = g(c?.industry || c?.category); dist.set(key, (dist.get(key) || 0) + 1) })
+      const top = Array.from(dist.entries()).sort((a, b) => b[1] - a[1]).slice(0, 4)
+      const total = allCompanies.length || 1
+      return listWidget(t('dashboard.widgets.industryDistribution', { defaultValue: '行業分佈' }), () => navigate('/companies'), t('dashboard.noCompanies', { defaultValue: '暫無公司' }),
+        top.length === 0 ? null : (
+          <div className="dv2-bar-stack">{top.map(([k, n], i) => barRow(k, n, total, i === 0 ? 'var(--color-purple, #7c3aed)' : 'var(--color-blue, #2563eb)'))}</div>
+        ), <Tags size={15} />)
+    }
+    if (wid === 'd2') {
+      const group = new Map<string, { name: string; total: number; count: number }>()
+      deals.forEach((d) => {
+        const key = d?.stage_id ? String(d.stage_id) : '未分類'
+        const g = group.get(key) || { name: key.slice(0, 8), total: 0, count: 0 }
+        g.total += d.amount || 0
+        g.count += 1
+        group.set(key, g)
+      })
+      const rows = Array.from(group.values())
+      const maxTotal = Math.max(1, ...rows.map((r) => r.total))
+      return listWidget(t('dashboard.widgets.stageDistribution', { defaultValue: '階段分佈' }), () => navigate('/deals'), t('dashboard.noDeals', { defaultValue: '暫無商機' }),
+        rows.length === 0 ? null : (
+          <div className="dv2-bar-stack">{rows.map((r, i) => barRow(r.name, r.total, maxTotal, i === 0 ? 'var(--color-primary)' : 'var(--color-blue, #2563eb)', `$${r.total.toLocaleString()}`))}</div>
+        ), <BarChart3 size={15} />)
+    }
+    if (wid === 'd3') {
+      const now = Date.now()
+      const stale = deals
+        .filter((d) => d?.updated_at && (now - new Date(d.updated_at).getTime()) > 14 * 86400000)
+        .slice(0, 4)
+      return listWidget(t('dashboard.widgets.stagnationAlerts', { defaultValue: '停滯警示' }), () => navigate('/deals'), t('dashboard.noStaleDeals', { defaultValue: '冇停滯商機' }),
+        stale.length === 0 ? null : stale.map((d) => {
+          const days = Math.floor((now - new Date(d.updated_at).getTime()) / 86400000)
+          return <div key={d.id} className="dv2-list-row"><span className="dv2-list-row-title">{d.name}</span><span className="dv2-list-row-meta">{days}日無更新</span></div>
+        }), <AlertTriangle size={15} />)
+    }
+    if (wid === 'd4') {
+      const won = deals.filter((d) => ['won', 'closed_won', 'closed'].includes((d?.status || '').toLowerCase())).reduce((s, d) => s + (d.amount || 0), 0)
+      const totalVal = deals.reduce((s, d) => s + (d.amount || 0), 0)
+      const pct = totalVal > 0 ? Math.round((won / totalVal) * 100) : 0
+      return listWidget(t('dashboard.widgets.forecastRate', { defaultValue: '預測達成率' }), () => navigate('/deals'), t('dashboard.noDeals', { defaultValue: '暫無商機' }),
+        <div className="dv2-bar-stack">
+          <div className="dv2-bar-label"><span>{t('dashboard.widgets.forecastRate', { defaultValue: '預測達成率' })}</span><span>{pct}%</span></div>
+          <div className="dv2-bar-track"><div className="dv2-bar-fill" style={{ width: `${pct}%`, background: 'var(--color-primary)' }} /></div>
+        </div>, <Target size={15} />)
+    }
+    if (wid === 'd5') {
+      const won = deals
+        .filter((d) => ['won', 'closed_won', 'closed'].includes((d?.status || '').toLowerCase()))
+        .sort((a, b) => new Date(b?.won_at || b?.updated_at || 0).getTime() - new Date(a?.won_at || a?.updated_at || 0).getTime())
+        .slice(0, 3)
+      return listWidget(t('dashboard.widgets.recentWon', { defaultValue: '近期贏單' }), () => navigate('/deals'), t('dashboard.noDeals', { defaultValue: '暫無商機' }),
+        won.length === 0 ? null : won.map((d) => (
+          <div key={d.id} className="dv2-list-row"><span className="dv2-list-row-title">{d.name}</span><span className="dv2-list-row-meta">${(d.amount || 0).toLocaleString()}</span></div>
+        )), <Trophy size={15} />)
+    }
+    if (wid === 'p2' || wid === 'p3' || wid === 'p4') {
+      const label = wid === 'p2' ? t('dashboard.widgets.milestoneTracking', { defaultValue: '里程碑追蹤' })
+        : wid === 'p3' ? t('dashboard.widgets.progressOverview', { defaultValue: '進度概覽' })
+        : t('dashboard.widgets.resourceAllocation', { defaultValue: '資源分配' })
+      const items = wid === 'p2' ? projects.slice(0, 3) : wid === 'p3' ? projects.slice(0, 5) : projects.slice(0, 4)
+      return listWidget(label, () => navigate('/projects'), t('dashboard.noProjects', { defaultValue: '暫無專案' }),
+        items.length === 0 ? null : items.map((p) => (
+          <button key={p.id} className="dv2-list-row dv2-list-row-btn" onClick={() => navigate('/projects')}>
+            <FolderKanban size={13} className="dv2-list-row-icon" />
+            <span className="dv2-list-row-title">{p.name}</span>
+            <span className="dv2-list-row-tag">{p.status || p.priority || ''}</span>
+          </button>
+        )), <FolderKanban size={15} />)
+    }
+    if (wid === 't2') {
+      return listWidget(t('dashboard.widgets.overdueTasks', { defaultValue: '逾期待辦' }), () => navigate('/tasks'), t('dashboard.noOverdue', { defaultValue: '暫無逾期待辦' }),
+        overdueTasks.length === 0 ? null : overdueTasks.slice(0, 5).map((td) => {
+          const days = Math.max(1, Math.ceil((Date.now() - new Date(td.due_date).getTime()) / 86400000))
+          return <div key={td.id} className="dv2-list-row"><span className="dv2-list-row-title">{td.title}</span><span className="dv2-list-row-meta">{days}日逾期</span></div>
+        }), <Clock size={15} />)
+    }
+    if (wid === 't3') {
+      const sorted = [...todos]
+        .filter((td) => !td.done)
+        .sort((a, b) => String(a.priority || '').localeCompare(String(b.priority || '')))
+        .slice(0, 5)
+      return listWidget(t('dashboard.widgets.priorityList', { defaultValue: '優先級列表' }), () => navigate('/tasks'), t('dashboard.noTasksYet', { defaultValue: '暫無任務' }),
+        sorted.length === 0 ? null : sorted.map((td) => (
+          <div key={td.id} className="dv2-list-row"><span className="dv2-list-row-title">{td.title}</span><span className="dv2-list-row-tag">{td.priority || ''}</span></div>
+        )), <CheckSquare size={15} />)
+    }
+    if (wid === 't4') {
+      const pct = taskTotal > 0 ? Math.round((doneTaskTotal / taskTotal) * 100) : 0
+      return listWidget(t('dashboard.widgets.completionRate', { defaultValue: '完成率' }), () => navigate('/tasks'), t('dashboard.noTasksYet', { defaultValue: '暫無任務' }),
+        <div className="dv2-bar-stack">
+          <div className="dv2-bar-label"><span>{t('dashboard.widgets.completionRate', { defaultValue: '完成率' })}</span><span>{pct}%</span></div>
+          <div className="dv2-bar-track"><div className="dv2-bar-fill" style={{ width: `${pct}%`, background: 'var(--color-success, #16a34a)' }} /></div>
+        </div>, <Percent size={15} />)
+    }
+    if (wid === 'cal2') {
+      const byDay = new Map<string, number>()
+      events.forEach((ev) => {
+        const d = new Date(ev?.start || ev?.time || Date.now())
+        const day = d.getDay()
+        const names = ['日', '一', '二', '三', '四', '五', '六']
+        const key = `週${names[day] || day}`
+        byDay.set(key, (byDay.get(key) || 0) + 1)
+      })
+      const rows = Array.from(byDay.entries()).sort((a, b) => b[1] - a[1])
+      const maxN = Math.max(1, ...rows.map(([, n]) => n))
+      return listWidget(t('dashboard.widgets.meetingDensity', { defaultValue: '會議密度' }), () => navigate('/calendar'), t('dashboard.noEvents', { defaultValue: '暫無活動' }),
+        rows.length === 0 ? null : (
+          <div className="dv2-bar-stack">{rows.map(([k, n]) => barRow(k, n, maxN, 'var(--color-primary)', `${n} 場`))}</div>
+        ), <Calendar size={15} />)
+    }
+    if (wid === 'cal3') {
+      return listWidget(t('dashboard.widgets.visitSchedule', { defaultValue: '拜訪行程' }), () => navigate('/calendar'), t('dashboard.noEvents', { defaultValue: '暫無活動' }),
+        events.slice(0, 3).map((ev) => (
+          <div key={ev.id} className="dv2-list-row"><Calendar size={13} className="dv2-list-row-icon" /><span className="dv2-list-row-title">{ev.time || ''} {ev.title}</span><span className="dv2-list-row-tag">{ev.event_type || ev.type || ''}</span></div>
+        )), <Calendar size={15} />)
+    }
+    if (wid === 's5') {
+      // 唯一例外：系統冇成本數據源，允許 hardcode（用戶明示）
+      return listWidget(t('dashboard.widgets.shippingCostOverview', { defaultValue: '運費成本概覽' }), () => navigate('/settings'), '',
+        <div className="dv2-bar-stack">
+          <div className="dv2-bar-label"><span>{t('dashboard.widgets.shippingCostOverview', { defaultValue: '運費成本概覽' })}</span><span>$124.5K</span></div>
+          <div className="dv2-bar-track"><div className="dv2-bar-fill" style={{ width: '69%', background: 'var(--color-amber, #d97706)' }} /></div>
+          <div className="dv2-bar-label"><span>{t('dashboard.widgets.monthlyBudget', { defaultValue: '本月預算' })}</span><span>$180K</span></div>
+          <div className="dv2-bar-track"><div className="dv2-bar-fill" style={{ width: '100%', background: 'var(--color-blue, #2563eb)' }} /></div>
+          <div className="dv2-kpi-delta up">↑8% vs 上月</div>
+        </div>, <Truck size={15} />)
     }
     return null
   }
