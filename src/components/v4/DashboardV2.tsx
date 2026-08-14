@@ -65,51 +65,55 @@ const SLOT_LABELS: Record<string, { emoji: string; label: string }> = {
 }
 
 const ALL_WIDGETS = [
-  { id: 'ai', label: 'AI 洞察摘要', required: true },
-  { id: 'stats', label: '關鍵指標（客戶/公司/任務/商機）', required: true },
-  { id: 'todos', label: '今日待辦' },
-  { id: 'events', label: '即將舉行' },
-  { id: 'interactions', label: '近期互動' },
-  { id: 'activity', label: '最近活動表格' },
-  { id: 'ask_ai', label: 'Ask AI' },
-  { id: 'c2', label: '待處理客戶' },
-  { id: 'co3', label: '續約提醒' },
-  { id: 's1', label: '待處理訂單' },
-  { id: 'te2', label: '團隊成員' },
-  // ── Legacy（真實數據）──
-  { id: 'kpi_deals', label: '商機數量' },
-  { id: 'pipeline', label: '商機管道' },
-  { id: 'touchpoints', label: '近期互動' },
-  { id: 'dealvalue', label: '商機總值' },
-  // ── Contacts ──
-  { id: 'c1', label: '新增客戶' },
-  { id: 'c3', label: '資料完整度' },
-  { id: 'c5', label: '來源分佈' },
-  // ── Companies ──
-  { id: 'co1', label: '公司總數' },
-  { id: 'co2', label: '客戶分級' },
-  { id: 'co4', label: '健康分數' },
-  { id: 'co5', label: '行業分佈' },
-  // ── Deals ──
-  { id: 'd1', label: '管道總額' },
-  { id: 'd2', label: '階段分佈' },
-  { id: 'd3', label: '停滯警示' },
-  { id: 'd4', label: '預測達成率' },
-  { id: 'd5', label: '近期贏單' },
-  // ── Projects ──
-  { id: 'p1', label: '進行中專案' },
-  { id: 'p2', label: '里程碑追蹤' },
-  { id: 'p3', label: '進度概覽' },
-  { id: 'p4', label: '資源分配' },
-  // ── Tasks ──
-  { id: 't2', label: '逾期待辦' },
-  { id: 't3', label: '優先級列表' },
-  { id: 't4', label: '完成率' },
-  // ── Calendar ──
-  { id: 'cal2', label: '會議密度' },
-  { id: 'cal3', label: '拜訪行程' },
-  // ── Cost（唯一可 hardcode）──
-  { id: 's5', label: '運費成本概覽' },
+  { id: 'ai', label: 'AI 洞察摘要', group: 'ai', required: true },
+  { id: 'stats', label: '關鍵指標（客戶/公司/任務/商機）', group: 'core', required: true },
+  { id: 'todos', label: '今日待辦', group: 'core' },
+  { id: 'events', label: '即將舉行', group: 'core' },
+  { id: 'interactions', label: '近期互動', group: 'core' },
+  { id: 'activity', label: '最近活動表格', group: 'core' },
+  { id: 'ask_ai', label: 'Ask AI', group: 'core' },
+  { id: 'touchpoints', label: '近期互動', group: 'core' },
+  { id: 'c2', label: '待處理客戶', group: 'contacts' },
+  { id: 'c1', label: '新增客戶', group: 'contacts' },
+  { id: 'c3', label: '資料完整度', group: 'contacts' },
+  { id: 'c5', label: '來源分佈', group: 'contacts' },
+  { id: 'co3', label: '續約提醒', group: 'companies' },
+  { id: 'co1', label: '公司總數', group: 'companies' },
+  { id: 'co2', label: '客戶分級', group: 'companies' },
+  { id: 'co4', label: '健康分數', group: 'companies' },
+  { id: 'co5', label: '行業分佈', group: 'companies' },
+  { id: 's1', label: '待處理訂單', group: 'deals' },
+  { id: 'kpi_deals', label: '商機數量', group: 'deals' },
+  { id: 'pipeline', label: '商機管道', group: 'deals' },
+  { id: 'dealvalue', label: '商機總值', group: 'deals' },
+  { id: 'd1', label: '管道總額', group: 'deals' },
+  { id: 'd2', label: '階段分佈', group: 'deals' },
+  { id: 'd3', label: '停滯警示', group: 'deals' },
+  { id: 'd4', label: '預測達成率', group: 'deals' },
+  { id: 'd5', label: '近期贏單', group: 'deals' },
+  { id: 'p1', label: '進行中專案', group: 'projects' },
+  { id: 'p2', label: '里程碑追蹤', group: 'projects' },
+  { id: 'p3', label: '進度概覽', group: 'projects' },
+  { id: 'p4', label: '資源分配', group: 'projects' },
+  { id: 't2', label: '逾期待辦', group: 'tasks' },
+  { id: 't3', label: '優先級列表', group: 'tasks' },
+  { id: 't4', label: '完成率', group: 'tasks' },
+  { id: 'cal2', label: '會議密度', group: 'calendar' },
+  { id: 'cal3', label: '拜訪行程', group: 'calendar' },
+  { id: 'te2', label: '團隊成員', group: 'team' },
+  { id: 's5', label: '運費成本概覽', group: 'cost' },
+]
+const WIDGET_GROUPS: { key: string; label: string }[] = [
+  { key: 'ai', label: 'AI' },
+  { key: 'core', label: '核心' },
+  { key: 'contacts', label: '聯絡人' },
+  { key: 'companies', label: '公司' },
+  { key: 'deals', label: '商機' },
+  { key: 'projects', label: '專案' },
+  { key: 'tasks', label: '任務' },
+  { key: 'calendar', label: '行事曆' },
+  { key: 'team', label: '團隊' },
+  { key: 'cost', label: '成本' },
 ]
 const WIDGET_PREF_KEY = 'nexus-dashboard-widgets'
 const WIDGET_ORDER_KEY = 'nexus-dashboard-widget-order'
@@ -141,6 +145,7 @@ export default function DashboardV2() {
 
   const [customizeMode, setCustomizeMode] = useState(false)
   const [addWidgetOpen, setAddWidgetOpen] = useState(false)
+  const [widgetSearch, setWidgetSearch] = useState('')
   const [enabledWidgets, setEnabledWidgets] = useState<string[]>(() => {
     try { return JSON.parse(localStorage.getItem(WIDGET_PREF_KEY) || 'null') || ALL_WIDGETS.map(w => w.id) }
     catch { return ALL_WIDGETS.map(w => w.id) }
@@ -888,7 +893,7 @@ export default function DashboardV2() {
           >
             <LayoutGrid size={14} /> {customizeMode ? t('dashboard.doneCustomizing', { defaultValue: '完成自訂' }) : t('dashboard.customize', { defaultValue: '自訂版面' })}
           </button>
-          <button className="dv2-btn dv2-btn-primary" onClick={() => setAddWidgetOpen(true)}>
+          <button className="dv2-btn dv2-btn-primary" onClick={() => { setWidgetSearch(''); setAddWidgetOpen(true) }}>
             <Plus size={14} /> {t('dashboard.addWidget', { defaultValue: '新增小工具' })}
           </button>
         </div>
@@ -917,13 +922,29 @@ export default function DashboardV2() {
               <button className="dv2-modal-x" onClick={() => setAddWidgetOpen(false)}><X size={16} /></button>
             </div>
             <div className="dv2-modal-body">
-              {ALL_WIDGETS.map(w => (
-                <label key={w.id} className="dv2-widget-option">
-                  <input type="checkbox" checked={has(w.id)} disabled={w.required} onChange={() => toggleWidget(w.id)} />
-                  <span>{w.label}</span>
-                  {w.required && <span className="dv2-widget-required">必要</span>}
-                </label>
-              ))}
+              <input
+                className="dv2-widget-search"
+                placeholder={t('dashboard.searchWidgets', { defaultValue: '搜尋小工具...' })}
+                value={widgetSearch}
+                onChange={(e) => setWidgetSearch(e.target.value)}
+              />
+              {WIDGET_GROUPS.map(g => {
+                const widgets = ALL_WIDGETS.filter(w => w.group === g.key)
+                const visible = widgetSearch ? widgets.filter(w => w.label.toLowerCase().includes(widgetSearch.toLowerCase())) : widgets
+                if (visible.length === 0) return null
+                return (
+                  <div key={g.key} className="dv2-widget-group">
+                    <div className="dv2-widget-group-title">{g.label}</div>
+                    {visible.map(w => (
+                      <label key={w.id} className="dv2-widget-option">
+                        <input type="checkbox" checked={has(w.id)} disabled={w.required} onChange={() => toggleWidget(w.id)} />
+                        <span>{w.label}</span>
+                        {w.required && <span className="dv2-widget-required">必要</span>}
+                      </label>
+                    ))}
+                  </div>
+                )
+              })}
             </div>
             <div className="dv2-modal-foot">
               <button className="dv2-btn dv2-btn-secondary" onClick={() => setAddWidgetOpen(false)}>{t('common.cancel', { defaultValue: '取消' })}</button>
