@@ -8,6 +8,7 @@ import {
 } from 'lucide-react'
 import { apiClient } from '../../lib/api'
 import { useToast } from './useToast'
+import { sectionIcon, sectionRouteWithItemFallback } from './briefingRoutes'
 
 /* ═══════════════════════════════════════════════════════════
    DashboardV2 — AI-integrated, fully-interactive widget grid.
@@ -58,27 +59,6 @@ const SLOT_LABELS: Record<string, { emoji: string; label: string }> = {
   noon: { emoji: '☀️', label: '午間簡報' },
   evening: { emoji: '🌆', label: '晚間簡報' },
   night: { emoji: '🌙', label: '凌晨簡報' },
-}
-
-// Portal section header icon — auto by header keywords
-function sectionIcon(header: string) {
-  if (/天氣|weather/i.test(header)) return 'weather'
-  if (/行程|會議|活動|schedule|calendar/i.test(header)) return 'calendar'
-  if (/任務|todo|task/i.test(header)) return 'tasks'
-  if (/風險|risk/i.test(header)) return 'risk'
-  if (/機會|opp/i.test(header)) return 'opp'
-  if (/CRM/i.test(header)) return 'crm'
-  return 'spark'
-}
-
-// Portal navigation target — auto by section header (click → list page, NOT detail)
-function sectionTarget(header: string): string | null {
-  if (/天氣|weather/i.test(header)) return null
-  if (/行程|會議|活動|schedule|calendar/i.test(header)) return '/calendar'
-  if (/任務|優先|todo|task/i.test(header)) return '/tasks'
-  if (/CRM/i.test(header)) return '/contacts'
-  if (/機會|商機|opp/i.test(header)) return '/deals'
-  return null
 }
 
 const ALL_WIDGETS = [
@@ -358,7 +338,7 @@ export default function DashboardV2() {
                               )}
                               <div className="dv2-ai-section-body">
                                 {sec.items.map((it, ii) => {
-                                  const target = sectionTarget(sec.header)
+                                  const target = sectionRouteWithItemFallback(sec.header, it)
                                   return target ? (
                                     <button
                                       key={ii}
