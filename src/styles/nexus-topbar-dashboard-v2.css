@@ -157,6 +157,14 @@
 .dv2-ai-section-body { display: flex; flex-direction: column; }
 .dv2-ai-section-item { padding: 8px 12px; font-size: 13px; line-height: 1.45; color: var(--color-text); word-break: break-word; }
 .dv2-ai-section-item + .dv2-ai-section-item { border-top: 1px solid var(--color-divider); }
+.dv2-ai-section-link { display: flex; align-items: flex-start; gap: 8px; width: 100%; text-align: left; background: none; border: none; font: inherit; cursor: pointer; }
+.dv2-ai-section-link:hover { background: color-mix(in oklch, var(--color-primary) 7%, transparent); }
+.dv2-ai-section-link:active { transform: scale(.995); }
+.dv2-ai-section-go { margin-left: auto; flex-shrink: 0; color: var(--color-text-faint); margin-top: 2px; }
+@media (max-width: 640px) {
+  .dv2-ai-section-link { min-height: 44px; align-items: center; }
+  .dv2-ai-section-link .dv2-ai-section-go { margin-top: 0; }
+}
 .dv2-ai-meta { margin-top: 10px; font-size: 11px; color: var(--color-text-faint); display: flex; align-items: center; gap: 4px; }
 .dv2-widget-title { display: flex; align-items: center; gap: 7px; font-size: 13.5px; font-weight: 700; color: var(--color-text); }
 .dv2-widget-badge { font-size: 10.5px; font-weight: 700; color: var(--ai-glow-1); background: color-mix(in oklch, var(--ai-glow-1) 14%, transparent); padding: 3px 8px; border-radius: 999px; }

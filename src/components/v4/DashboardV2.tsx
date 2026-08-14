@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
 import {
   TrendingUp, Users, Building2, CheckSquare, Calendar, Activity, Sparkles,
-  AlertTriangle, ArrowUpRight, ArrowDownRight, Plus, LayoutGrid, CloudSun,
+  AlertTriangle, ArrowUpRight, ArrowDownRight, Plus, LayoutGrid, CloudSun, ChevronRight,
   X, GripVertical, Check, Phone, Mail, MessageSquare, Clock, ChevronDown,
 } from 'lucide-react'
 import { apiClient } from '../../lib/api'
@@ -69,6 +69,16 @@ function sectionIcon(header: string) {
   if (/機會|opp/i.test(header)) return 'opp'
   if (/CRM/i.test(header)) return 'crm'
   return 'spark'
+}
+
+// Portal navigation target — auto by section header (click → list page, NOT detail)
+function sectionTarget(header: string): string | null {
+  if (/天氣|weather/i.test(header)) return null
+  if (/行程|會議|活動|schedule|calendar/i.test(header)) return '/calendar'
+  if (/任務|優先|todo|task/i.test(header)) return '/tasks'
+  if (/CRM/i.test(header)) return '/contacts'
+  if (/機會|商機|opp/i.test(header)) return '/deals'
+  return null
 }
 
 const ALL_WIDGETS = [
@@ -347,9 +357,22 @@ export default function DashboardV2() {
                                 </div>
                               )}
                               <div className="dv2-ai-section-body">
-                                {sec.items.map((it, ii) => (
-                                  <div key={ii} className="dv2-ai-section-item">{it}</div>
-                                ))}
+                                {sec.items.map((it, ii) => {
+                                  const target = sectionTarget(sec.header)
+                                  return target ? (
+                                    <button
+                                      key={ii}
+                                      className="dv2-ai-section-item dv2-ai-section-link"
+                                      onClick={() => navigate(target)}
+                                      title={`前往${sec.header}`}
+                                    >
+                                      <span>{it}</span>
+                                      <ChevronRight size={13} className="dv2-ai-section-go" />
+                                    </button>
+                                  ) : (
+                                    <div key={ii} className="dv2-ai-section-item">{it}</div>
+                                  )
+                                })}
                               </div>
                             </div>
                           ))}
