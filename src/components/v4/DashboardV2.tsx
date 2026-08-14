@@ -119,6 +119,26 @@ const WIDGET_PREF_KEY = 'nexus-dashboard-widgets'
 const WIDGET_ORDER_KEY = 'nexus-dashboard-widget-order'
 const DEFAULT_ORDER = ['stats:0', 'stats:1', 'stats:2', 'stats:3', 'kpi_deals', 'dealvalue', 'c1', 'co1', 'p1', 'todos', 'events', 'interactions', 'activity', 'ask_ai', 'c2', 'co3', 's1', 'te2', 'touchpoints', 'pipeline', 'c3', 'c5', 'co2', 'co4', 'co5', 'd1', 'd2', 'd3', 'd4', 'd5', 'p2', 'p3', 'p4', 't2', 't3', 't4', 'cal2', 'cal3', 's5']
 
+const WIDGET_SIZE_KEY = 'nexus-dashboard-widget-sizes'
+
+const SPAN_BY_LEVEL: Record<number, number> = { 1: 3, 2: 4, 3: 6, 4: 8, 5: 10, 6: 12, 7: 12 }
+const HEIGHT_BY_LEVEL: Record<number, number> = { 1: 160, 2: 200, 3: 240, 4: 280, 5: 320, 6: 400, 7: 480 }
+const SIZE_LEVELS = [1, 2, 3, 4, 5, 6, 7]
+const snapToLevel = (val: number, map: Record<number, number>): number => {
+  let best = SIZE_LEVELS[0]
+  for (const lv of SIZE_LEVELS) {
+    if (Math.abs(val - map[lv]) < Math.abs(val - map[best])) best = lv
+  }
+  return map[best]
+}
+const levelOf = (val: number, map: Record<number, number>): number => {
+  let best = SIZE_LEVELS[0]
+  for (const lv of SIZE_LEVELS) {
+    if (Math.abs(val - map[lv]) < Math.abs(val - map[best])) best = lv
+  }
+  return best
+}
+
 export default function DashboardV2() {
   const { t, i18n } = useTranslation()
   const navigate = useNavigate()
@@ -144,6 +164,29 @@ export default function DashboardV2() {
   const [aiLoading, setAiLoading] = useState(true)
 
   const [customizeMode, setCustomizeMode] = useState(false)
+  const [isPhone, setIsPhone] = useState(() => (typeof window !== 'undefined' ? window.matchMedia('(max-width: 640px)').matches : false))
+  const [wLevels, setWLevels] = useState<Record<string, number>>(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem(WIDGET_SIZE_KEY) || 'null')
+      const out: Record<string, number> = {}
+      for (const k of Object.keys(saved || {})) {
+        const v = saved[k]
+        if (Array.isArray(v) && typeof v[0] === 'number' && SIZE_LEVELS.includes(v[0])) out[k] = v[0]
+      }
+      return out
+    } catch { return {} }
+  })
+  const [hLevels, setHLevels] = useState<Record<string, number>>(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem(WIDGET_SIZE_KEY) || 'null')
+      const out: Record<string, number> = {}
+      for (const k of Object.keys(saved || {})) {
+        const v = saved[k]
+        if (Array.isArray(v) && typeof v[1] === 'number' && SIZE_LEVELS.includes(v[1])) out[k] = v[1]
+      }
+      return out
+    } catch { return {} }
+  })
   const [addWidgetOpen, setAddWidgetOpen] = useState(false)
   const [widgetSearch, setWidgetSearch] = useState('')
   const [enabledWidgets, setEnabledWidgets] = useState<string[]>(() => {
@@ -238,6 +281,17 @@ export default function DashboardV2() {
   useEffect(() => {
     localStorage.setItem(WIDGET_ORDER_KEY, JSON.stringify(widgetOrder))
   }, [widgetOrder])
+
+  useEffect(() => {
+    localStorage.setItem(WIDGET_SIZE_KEY, JSON.stringify(Object.fromEntries(Object.keys(wLevels).map(k => [k, [wLevels[k], hLevels[k] || 3]]))))
+  }, [wLevels, hLevels])
+
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 640px)')
+    const onChg = () => setIsPhone(mq.matches)
+    mq.addEventListener?.('change', onChg)
+    return () => mq.removeEventListener?.('change', onChg)
+  }, [])
 
   useEffect(() => {
     // ── Stats: compose from existing endpoints (no new backend needed) ──
@@ -356,10 +410,80 @@ export default function DashboardV2() {
     return `dv2-widget ${span} ${dragWid === wid ? 'dragging' : ''}`
   }
 
+  // ── Widget sizing (resize) — inline overrides when user has a saved size ──
+  const widgetStyle = (wid: string): React.CSSProperties => {
+    const wl = wLevels[wid]
+    if (!wl) return {}
+    const style: React.CSSProperties = { gridColumn: `span ${SPAN_BY_LEVEL[wl]}` }
+    const hl = hLevels[wid]
+    if (hl && !isPhone) style.aspectRatio = `${wl} / ${hl}`
+    return style
+  }
+
+  // ── Resize (sizing adjust) — user drags grip to snap widget to size levels ──
+  const resizeGrip = (wid: string) => (customizeMode && wid !== 'ai') ? (
+    <div
+      className="dv2-resize-grip"
+      draggable={false}
+      onMouseDown={(e) => {
+        e.preventDefault(); e.stopPropagation()
+        const startX = e.clientX, startY = e.clientY
+        const gripEl = e.currentTarget as HTMLElement
+        const widgetEl = gripEl.closest('[data-wid]') as HTMLElement
+        const grid = gripEl.closest('.dv2-grid') as HTMLElement | null
+        if (!grid || !widgetEl) return
+        const defaultSpan = wid.startsWith('stats:') ? 3 : wid === 'activity' ? 12 : 6
+        const startSpanNum = parseInt(widgetEl.style.gridColumn.match(/span (\d+)/)?.[1] || String(defaultSpan))
+        const gridRect = grid.getBoundingClientRect()
+        const gapVal = 16
+        const colW = (gridRect.width - (11 * gapVal)) / 12
+        let curWLv = wLevels[wid] ?? levelOf(startSpanNum, SPAN_BY_LEVEL)
+        let curHLv = hLevels[wid] ?? 3
+        // Drag tooltip showing (width level, height level)
+        const tip = document.createElement('div')
+        tip.style.cssText = 'position:absolute;bottom:28px;right:0;font-size:11px;font-weight:600;color:var(--color-primary);background:var(--color-surface-2);border:1px solid var(--color-border);padding:2px 8px;border-radius:6px;pointer-events:none;z-index:6'
+        tip.textContent = `(${curWLv},${curHLv})`
+        gripEl.appendChild(tip)
+        const onMove = (ev: MouseEvent) => {
+          const dx = ev.clientX - startX, dy = ev.clientY - startY
+          const rawSpan = startSpanNum + dx / (colW + gapVal)
+          const snappedSpan = snapToLevel(rawSpan, SPAN_BY_LEVEL)
+          const newWLv = levelOf(snappedSpan, SPAN_BY_LEVEL)
+          if (newWLv !== curWLv) {
+            curWLv = newWLv
+            widgetEl.style.gridColumn = `span ${snappedSpan}`
+            widgetEl.style.aspectRatio = `${curWLv} / ${curHLv}`
+          }
+          const baseH = HEIGHT_BY_LEVEL[curHLv]
+          const rawH = baseH + dy
+          const newHLv = levelOf(rawH, HEIGHT_BY_LEVEL)
+          if (newHLv !== curHLv) {
+            curHLv = newHLv
+            widgetEl.style.aspectRatio = `${curWLv} / ${curHLv}`
+          }
+          tip.textContent = `(${curWLv},${curHLv})`
+        }
+        const onUp = () => {
+          document.removeEventListener('mousemove', onMove)
+          document.removeEventListener('mouseup', onUp)
+          tip.remove()
+          setWLevels(prev => ({ ...prev, [wid]: curWLv }))
+          setHLevels(prev => ({ ...prev, [wid]: curHLv }))
+        }
+        document.addEventListener('mousemove', onMove)
+        document.addEventListener('mouseup', onUp)
+      }}
+      aria-label="拖曳調整大小"
+    >
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M22 12L12 22M22 2L2 22"/></svg>
+    </div>
+  ) : null
+
   const renderWidget = (wid: string) => {
     const kpiCard = (icon: React.ReactNode, label: string, value: React.ReactNode, color: string, onClick: () => void) => (
-      <button className={widgetCls(wid)} data-wid={wid} onClick={onClick}>
-        {dragHandle(wid)}
+      <button className={widgetCls(wid)} data-wid={wid} style={widgetStyle(wid)} onClick={onClick}>
+                                {dragHandle(wid)}
+                                {resizeGrip(wid)}
         <div className="dv2-widget-header"><div className="dv2-widget-title">{icon} {label}</div></div>
         <div className="dv2-widget-body dv2-stat-body">
           <div className="dv2-stat-value" style={{ color }}>{value}</div>
@@ -376,8 +500,9 @@ export default function DashboardV2() {
       )
     }
     const listWidget = (title: React.ReactNode, viewAll: () => void, empty: string, rows: React.ReactNode, icon?: React.ReactNode) => (
-      <div className={widgetCls(wid)} data-wid={wid}>
-        {dragHandle(wid)}
+      <div className={widgetCls(wid)} data-wid={wid} style={widgetStyle(wid)}>
+                                {dragHandle(wid)}
+                                {resizeGrip(wid)}
         <div className="dv2-widget-header">
           <div className="dv2-widget-title">{icon} {title}</div>
           {viewAll && <button className="dv2-widget-action" onClick={viewAll}>{t('common.viewAll', { defaultValue: '查看全部' })}</button>}
@@ -396,8 +521,9 @@ export default function DashboardV2() {
       const c = cards[i]
       if (!c) return null
       return (
-        <button className={widgetCls(wid)} data-wid={wid} onClick={c.onClick}>
-          {dragHandle(wid)}
+        <button className={widgetCls(wid)} data-wid={wid} style={widgetStyle(wid)} onClick={c.onClick}>
+                                        {dragHandle(wid)}
+                                        {resizeGrip(wid)}
           <div className="dv2-widget-header"><div className="dv2-widget-title">{c.icon} {c.label}</div></div>
           <div className="dv2-widget-body dv2-stat-body">
             <div className="dv2-stat-value" style={{ color: c.color }}>{c.value}</div>
@@ -407,8 +533,9 @@ export default function DashboardV2() {
     }
     if (wid === 'ai') {
       return (
-        <div className={widgetCls(wid)} data-wid={wid}>
-          {dragHandle(wid)}
+        <div className={widgetCls(wid)} data-wid={wid} style={widgetStyle(wid)}>
+                                        {dragHandle(wid)}
+                                        {resizeGrip(wid)}
           <div className="dv2-ai-aura" aria-hidden="true" />
           <button
             className="dv2-widget-header dv2-ai-toggle"
@@ -486,8 +613,9 @@ export default function DashboardV2() {
     }
     if (wid === 'todos') {
       return (
-        <div className={widgetCls(wid)} data-wid={wid}>
-          {dragHandle(wid)}
+        <div className={widgetCls(wid)} data-wid={wid} style={widgetStyle(wid)}>
+                                        {dragHandle(wid)}
+                                        {resizeGrip(wid)}
           <div className="dv2-widget-header">
             <div className="dv2-widget-title"><CheckSquare size={15} /> {t('dashboard.widgets.todaysTodos', { defaultValue: '今日待辦' })}</div>
             <button className="dv2-widget-action" onClick={() => handleViewAll('todos')}>{todosExpanded ? '收起' : t('common.viewAll', { defaultValue: '查看全部' })}</button>
@@ -507,8 +635,9 @@ export default function DashboardV2() {
     }
     if (wid === 'events') {
       return (
-        <div className={widgetCls(wid)} data-wid={wid}>
-          {dragHandle(wid)}
+        <div className={widgetCls(wid)} data-wid={wid} style={widgetStyle(wid)}>
+                                        {dragHandle(wid)}
+                                        {resizeGrip(wid)}
           <div className="dv2-widget-header">
             <div className="dv2-widget-title"><Calendar size={15} /> {t('dashboard.widgets.upcomingEvents', { defaultValue: '即將舉行' })}</div>
             <button className="dv2-widget-action" onClick={() => handleViewAll('events')}>{t('common.viewAll', { defaultValue: '查看全部' })}</button>
@@ -528,8 +657,9 @@ export default function DashboardV2() {
     }
     if (wid === 'interactions') {
       return (
-        <div className={widgetCls(wid)} data-wid={wid}>
-          {dragHandle(wid)}
+        <div className={widgetCls(wid)} data-wid={wid} style={widgetStyle(wid)}>
+                                        {dragHandle(wid)}
+                                        {resizeGrip(wid)}
           <div className="dv2-widget-header">
             <div className="dv2-widget-title"><Activity size={15} /> {t('dashboard.widgets.recentInteractions', { defaultValue: '近期互動' })}</div>
             <button className="dv2-widget-action" onClick={() => handleViewAll('interactions')}>{t('common.viewAll', { defaultValue: '查看全部' })}</button>
@@ -549,8 +679,9 @@ export default function DashboardV2() {
     }
     if (wid === 'activity') {
       return (
-        <div className={widgetCls(wid)} data-wid={wid}>
-          {dragHandle(wid)}
+        <div className={widgetCls(wid)} data-wid={wid} style={widgetStyle(wid)}>
+                                        {dragHandle(wid)}
+                                        {resizeGrip(wid)}
           <div className="dv2-widget-header">
             <div className="dv2-widget-title"><Activity size={15} /> {t('dashboard.widgets.recentActivity', { defaultValue: '最近活動' })}</div>
             <button className="dv2-widget-action" onClick={() => handleViewAll('activity')}>{t('common.viewAll', { defaultValue: '查看全部' })}</button>
@@ -577,8 +708,9 @@ export default function DashboardV2() {
     }
     if (wid === 'ask_ai') {
       return (
-        <div className={widgetCls(wid)} data-wid={wid}>
-          {dragHandle(wid)}
+        <div className={widgetCls(wid)} data-wid={wid} style={widgetStyle(wid)}>
+                                        {dragHandle(wid)}
+                                        {resizeGrip(wid)}
           <div className="dv2-widget-header">
             <div className="dv2-widget-title"><Sparkles size={15} /> Ask AI</div>
           </div>
@@ -590,8 +722,9 @@ export default function DashboardV2() {
     }
     if (wid === 'c2') {
       return (
-        <div className={widgetCls(wid)} data-wid={wid}>
-          {dragHandle(wid)}
+        <div className={widgetCls(wid)} data-wid={wid} style={widgetStyle(wid)}>
+                                        {dragHandle(wid)}
+                                        {resizeGrip(wid)}
           <div className="dv2-widget-header">
             <div className="dv2-widget-title"><Users size={15} /> {t('dashboard.widgets.pendingContacts', { defaultValue: '待處理客戶' })}</div>
             <button className="dv2-widget-action" onClick={() => navigate('/contacts')}>{t('common.viewAll', { defaultValue: '查看全部' })}</button>
@@ -611,8 +744,9 @@ export default function DashboardV2() {
     }
     if (wid === 'co3') {
       return (
-        <div className={widgetCls(wid)} data-wid={wid}>
-          {dragHandle(wid)}
+        <div className={widgetCls(wid)} data-wid={wid} style={widgetStyle(wid)}>
+                                        {dragHandle(wid)}
+                                        {resizeGrip(wid)}
           <div className="dv2-widget-header">
             <div className="dv2-widget-title"><Building2 size={15} /> {t('dashboard.widgets.renewalReminders', { defaultValue: '續約提醒' })}</div>
             <button className="dv2-widget-action" onClick={() => navigate('/companies')}>{t('common.viewAll', { defaultValue: '查看全部' })}</button>
@@ -632,8 +766,9 @@ export default function DashboardV2() {
     }
     if (wid === 's1') {
       return (
-        <div className={widgetCls(wid)} data-wid={wid}>
-          {dragHandle(wid)}
+        <div className={widgetCls(wid)} data-wid={wid} style={widgetStyle(wid)}>
+                                        {dragHandle(wid)}
+                                        {resizeGrip(wid)}
           <div className="dv2-widget-header">
             <div className="dv2-widget-title"><Clock size={15} /> {t('dashboard.widgets.pendingOrders', { defaultValue: '待處理訂單' })}</div>
             <button className="dv2-widget-action" onClick={() => navigate('/deals')}>{t('common.viewAll', { defaultValue: '查看全部' })}</button>
@@ -653,8 +788,9 @@ export default function DashboardV2() {
     }
     if (wid === 'te2') {
       return (
-        <div className={widgetCls(wid)} data-wid={wid}>
-          {dragHandle(wid)}
+        <div className={widgetCls(wid)} data-wid={wid} style={widgetStyle(wid)}>
+                                        {dragHandle(wid)}
+                                        {resizeGrip(wid)}
           <div className="dv2-widget-header">
             <div className="dv2-widget-title"><Users size={15} /> {t('dashboard.widgets.onlineStatus', { defaultValue: '在線狀態' })}</div>
           </div>

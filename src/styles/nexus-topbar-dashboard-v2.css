@@ -138,6 +138,7 @@
 .dv2-grid.customizing .dv2-widget { outline: 2px dashed color-mix(in oklch, var(--color-primary) 45%, transparent); outline-offset: 2px; cursor: grab; }
 .dv2-drag-handle { position: absolute; top: 10px; right: 10px; color: var(--color-text-faint); z-index: 2; cursor: grab; touch-action: none; padding: 8px; margin: -8px; display: inline-flex; }
 .dv2-drag-handle:active { cursor: grabbing; }
+.dv2-resize-grip { position: absolute; bottom: 4px; right: 4px; cursor: nwse-resize; color: var(--color-primary); opacity: 0.8; z-index: 5; user-select: none; background: var(--color-surface-2); border-radius: 4px; padding: 2px; display: flex; align-items: center; justify-content: center; width: 20px; height: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.15); touch-action: none; }
 .dv2-widget.dragging { opacity: .5; }
 .dv2-widget.dragging, .dv2-grid.customizing .dv2-widget:hover { box-shadow: 0 8px 24px rgba(0,0,0,.12); }
 .dv2-widget { background: var(--color-surface); border: 1px solid var(--color-border); border-radius: 14px; display: flex; flex-direction: column; overflow: hidden; position: relative; transition: box-shadow .15s ease; }
