@@ -774,7 +774,7 @@
       "conflictSummary": "{{count}} 個行程衝突",
       "sentimentSummary": "客戶情緒：{{neg}}% 負面",
       "unreadSummary": "{{count}} 封未讀訊息",
-      "weatherSection": "🌤️ 今日天氣",
+      "weatherSection": "今日天氣",
       "newsSection": "📰 行業新聞",
       "trafficSection": "🚗 交通路況",
       "birthdaySection": "🎂 客戶生日",
@@ -790,6 +790,18 @@
       "sentimentNeutral": "近期客戶情緒平穩",
       "weatherHumidity": "濕度 {{hum}}%",
       "weatherRain": "雨量 {{mm}}mm",
+      "weatherDesc": {
+        "unknown": "天氣",
+        "sunny": "天晴",
+        "partlySunny": "部分時間有陽光",
+        "partlyCloudy": "部分多雲",
+        "overcast": "密雲",
+        "rainy": "有雨",
+        "rain": "雨天",
+        "thunder": "雷雨",
+        "fog": "有霧",
+        "windy": "大風"
+      },
       "conflictOverlap": "{{time}} 起重疊",
       "trafficIncidents": "🚗 交通路況"
     },

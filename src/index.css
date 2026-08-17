@@ -2363,6 +2363,7 @@ textarea.input-field{resize:vertical;min-height:60px}
 /* ── Weather ── */
 .ab-weather-row{display:flex;align-items:center;gap:10px;font-size:13px;padding:2px 0}
 .ab-weather-emoji{flex-shrink:0;font-size:15px;line-height:1}
+.ab-weather-desc{color:var(--color-text-muted);font-weight:600;flex-shrink:0}
 .ab-weather-place{font-weight:700;color:var(--color-text)}
 .ab-weather-hum{color:var(--color-text-muted)}
 .ab-weather-rain{color:var(--color-blue)}

@@ -774,7 +774,7 @@
       "conflictSummary": "{{count}} schedule conflict(s)",
       "sentimentSummary": "Client sentiment: {{neg}}% negative",
       "unreadSummary": "{{count}} unread message(s)",
-      "weatherSection": "🌤️ Today's Weather",
+      "weatherSection": "Today's Weather",
       "newsSection": "📰 Industry News",
       "trafficSection": "🚗 Traffic",
       "birthdaySection": "🎂 Client Birthdays",
@@ -790,6 +790,18 @@
       "sentimentNeutral": "Client sentiment stable",
       "weatherHumidity": "Humidity {{hum}}%",
       "weatherRain": "Rain {{mm}}mm",
+      "weatherDesc": {
+        "unknown": "Weather",
+        "sunny": "Sunny",
+        "partlySunny": "Partly sunny",
+        "partlyCloudy": "Partly cloudy",
+        "overcast": "Overcast",
+        "rainy": "Rainy",
+        "rain": "Rainy",
+        "thunder": "Thunderstorms",
+        "fog": "Foggy",
+        "windy": "Windy"
+      },
       "conflictOverlap": "Overlap from {{time}}",
       "trafficIncidents": "🚗 Traffic"
     },

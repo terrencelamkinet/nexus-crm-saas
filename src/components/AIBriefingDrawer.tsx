@@ -132,6 +132,27 @@ export function hkoWeatherEmoji(icon: number | string | null | undefined): strin
   return '☁️'                  // 未知 code → 多雲（保守,唔會誤報晴天）
 }
 
+/**
+ * HKO rhrread icon code → i18n weather description key.
+ * Lets the AI-briefing weather row show a human-readable condition (e.g.
+ * 「多雲有雨」) so the temperature/icon clearly match reality instead of a
+ * generic sunny label. Keys live under pages.briefing.weatherDesc.*
+ */
+export function weatherDescKey(icon: number | string | null | undefined): string {
+  const n = typeof icon === 'string' ? parseInt(icon, 10) : Number(icon)
+  if (Number.isNaN(n) || n <= 0) return 'pages.briefing.weatherDesc.unknown'
+  if (n <= 50) return 'pages.briefing.weatherDesc.sunny'
+  if (n === 51) return 'pages.briefing.weatherDesc.partlySunny'
+  if (n === 52) return 'pages.briefing.weatherDesc.partlyCloudy'
+  if (n >= 53 && n <= 55) return 'pages.briefing.weatherDesc.overcast'
+  if (n >= 60 && n <= 65) return 'pages.briefing.weatherDesc.rainy'
+  if (n >= 70 && n <= 73) return 'pages.briefing.weatherDesc.rain'
+  if (n >= 74 && n <= 79) return 'pages.briefing.weatherDesc.thunder'
+  if (n >= 80 && n <= 88) return 'pages.briefing.weatherDesc.fog'
+  if (n >= 91) return 'pages.briefing.weatherDesc.windy'
+  return 'pages.briefing.weatherDesc.overcast'
+}
+
 /** HKT (UTC+8) now — 所有 greeting / 日期判斷必須用呢個,唔可以用 browser 本地時間 */
 export function hktNow(): Date {
   // Asia/Hong_Kong 無 DST,直接 +8h 再讀 UTC 欄位就係 HKT 牆鐘時間
@@ -663,6 +684,7 @@ export default function AIBriefingDrawer() {
                   {payload.weather.slice(0, 2).map((w: any, i: number) => (
                     <div key={i} className="ab-weather-row">
                       <span className="ab-weather-emoji">{hkoWeatherEmoji(w.icon)}</span>
+                      <span className="ab-weather-desc">{t(weatherDescKey(w.icon))}</span>
                       <span className="ab-weather-place">
                         {w.place}: {w.temperature != null ? `${w.temperature}°C` : ''}
                       </span>
