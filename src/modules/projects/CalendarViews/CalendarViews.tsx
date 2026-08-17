@@ -142,7 +142,7 @@ export default function CalendarViews({ events, loading, onRefresh }: CalendarVi
   };
 
   const navBar = (
-    <div className="flex items-center max-sm:flex-col max-sm:items-start flex-wrap gap-2">
+    <div className="flex flex-wrap items-center justify-between gap-2">
       <div className="flex items-center gap-1">
         <button onClick={handlePrev}
           className="px-3 py-1.5 rounded-lg text-xs font-medium text-[var(--color-text-muted)] hover:bg-[var(--color-surface-offset)] transition-colors min-h-[36px] min-w-[36px] flex items-center justify-center">
@@ -161,7 +161,7 @@ export default function CalendarViews({ events, loading, onRefresh }: CalendarVi
         </span>
       </div>
 
-      <div className="flex items-center gap-2 max-sm:gap-1.5 flex-wrap max-sm:justify-end ml-auto">
+      <div className="flex items-center gap-2 max-sm:gap-1.5 flex-wrap max-sm:justify-end">
         {/* View switcher — dropdown */}
         <div className="cv-view-dropdown" ref={viewMenuRef}>
           <button
