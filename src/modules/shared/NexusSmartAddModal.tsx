@@ -284,7 +284,7 @@ export default function NexusSmartAddModal({ config, open, onClose, onCreated, e
           {pasteOpen && (
             <div className="nx-paste-box">
               <textarea rows={4} autoFocus value={pasteText} onChange={(e) => setPasteText(e.target.value)}
-                placeholder={t('ai.pasteTextPlaceholder')} className="nx-field" style={{ width: '100%' }} />
+                placeholder={config.name === 'contact' ? t('ai.pasteTextPlaceholderContact', { defaultValue: t('ai.pasteTextPlaceholder') }) : t('ai.pasteTextPlaceholder')} className="nx-field" style={{ width: '100%' }} />
               <div className="nx-paste-actions">
                 <button className="nx-btn-mini" onClick={() => { setPasteOpen(false); setPasteText('') }}>{t('common.cancel')}</button>
                 <button className="nx-btn-mini primary" disabled={!pasteText.trim() || isThinking} onClick={handleAIParseText}>

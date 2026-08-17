@@ -1234,6 +1234,7 @@
     "oneClickFillHint": "貼上公司簡介、會議記錄或對話文字，AI 自動拆解欄位",
     "pasteText": "貼上文字",
     "pasteTextPlaceholder": "喺度貼上文字（公司簡介／會議記錄／WhatsApp 對話）…",
+    "pasteTextPlaceholderContact": "喺度貼上聯絡人資料（名片／個人簡介／WhatsApp 對話）…",
     "analyzeAndFill": "分析並填寫",
     "thinkingMessage": "正在分析並填寫欄位…",
     "scanNameCard": "掃描名片",

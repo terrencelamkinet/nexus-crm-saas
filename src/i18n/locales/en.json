@@ -1234,6 +1234,7 @@
     "oneClickFillHint": "Paste company intro, meeting notes or chat text — AI extracts fields",
     "pasteText": "Paste text",
     "pasteTextPlaceholder": "Paste your text here (company intro / meeting notes / WhatsApp conversation)…",
+    "pasteTextPlaceholderContact": "Paste contact details here (business card / bio / WhatsApp conversation)…",
     "analyzeAndFill": "Analyze & fill",
     "thinkingMessage": "Analyzing and filling fields…",
     "scanNameCard": "Scan name card",
