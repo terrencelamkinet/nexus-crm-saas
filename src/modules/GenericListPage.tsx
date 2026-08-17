@@ -512,7 +512,7 @@ const [filters, setFilters] = useState<Record<string, FilterEntry>>(() => ({ ...
   const countFieldsHidden = config.fields.filter(f => f.type !== 'title' && f.type !== 'created_time' && f.type !== 'last_edited_time' && !visibleCols.includes(f.key)).length
 
   return (
-    <div>
+    <div className="glp-root">
       <div className="breadcrumb">
         <span>{t('common.home')}</span>
         <ChevronRight />

@@ -2165,6 +2165,24 @@ textarea.input-field{resize:vertical;min-height:60px}
 .glp-header-icon-primary{color:var(--color-primary)}
 .glp-header-icon-primary:hover{background:var(--color-primary-highlight);color:var(--color-primary-active)}
 
+/* Table (GenericListPage) header-actions must NOT become the design4 sticky-bottom
+   action bar — that rule (design4-v2-patch.css @media ≤767px) styles .header-actions
+   with position:sticky + 88% surface background + blur + border-top, which painted a
+   background block around the toolbar buttons in table view. Scoped .glp-root override
+   keeps the header actions as plain inline buttons on mobile too. (2026-08-17 user:
+   table view header-actions 唔應該有background / 唔係items background, button外) */
+@media (max-width: 767px) {
+  .glp-root .header-actions {
+    position: static;
+    background: transparent;
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+    padding: 0;
+    margin-top: 0;
+    border-top: none;
+  }
+}
+
 /* Sort panel */
 .glp-sort-body{display:flex;flex-direction:column;gap:8px}
 /* iOS zoom guard: select needs >=16px under 768px, shrinks back on desktop */
