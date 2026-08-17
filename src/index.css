@@ -468,8 +468,10 @@ tbody tr:hover .menu-dots{opacity:1}
    of clipping. (2026-08-11 user request: 加 filter items 時 allow 橫向 scrolling，
    內容唔好全收窄; 2026-08-17 fix: table no longer leaves empty gap on right) */
 .data-table .table-scroll table{width:100%;min-width:max-content;table-layout:auto}
-.table-scroll::after{content:'';position:absolute;top:0;right:0;bottom:0;width:24px;background:linear-gradient(to right,transparent,var(--color-surface));pointer-events:none;transition:opacity .2s}
-.table-scroll.at-end::after{opacity:0}
+/* Removed .table-scroll::after fade gradient (2026-08-17): the 24px right-edge
+   overlay showed as a distracting bar/line on mobile while scrolling — user
+   reported "右邊有條bar, 向右scroll時有條線出來". Removed entirely for a clean
+   edge; horizontal scroll affordance now comes from the native scrollbar only. */
 /* GenericListPage table rows — hover highlight + selected (checkbox) feedback */
 .table-scroll tbody tr{transition:background var(--transition-interactive)}
 .table-scroll tbody tr:hover{background:var(--color-surface-offset)}

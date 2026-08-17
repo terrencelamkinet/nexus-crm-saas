@@ -405,7 +405,8 @@ const [filters, setFilters] = useState<Record<string, FilterEntry>>(() => ({ ...
   }
 
   const renderCell = (item: EntityRecord, fieldKey: string) => {
-    if (fieldKey === 'name' || fieldKey === config.titleField || (!config.titleField && fieldKey === config.fields[0]?.key)) {
+    const isTitleCol = fieldKey === 'name' || fieldKey === config.titleField || (!config.titleField && fieldKey === config.fields[0]?.key)
+    if (isTitleCol) {
       const val = item[fieldKey] || item['name'] || ''
       return (
         <button onClick={e => { e.stopPropagation(); setSelectedId(item.id) }}
