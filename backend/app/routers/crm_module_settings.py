@@ -6,7 +6,7 @@ Endpoints:
   POST   /api/v1/crm/module-settings/{key}/toggle  → toggle enabled
 """
 
-from uuid import UUID
+from uuid import UUID, NAMESPACE_OID, uuid5
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -94,7 +94,7 @@ async def list_module_settings(
         if key not in seen:
             out.append(
                 ModuleSettingResponse(
-                    id=uuid.uuid5(uuid.NAMESPACE_OID, f"hidden-{key}"),  # stable synthetic id (not persisted)
+                    id=uuid5(NAMESPACE_OID, f"hidden-{key}"),  # stable synthetic id (not persisted)
                     tenant_id=tenant_id,
                     module_key=key,
                     enabled=False,
