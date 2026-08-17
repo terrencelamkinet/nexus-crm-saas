@@ -10,6 +10,7 @@ import {
 } from 'lucide-react'
 import { apiClient } from '../../lib/api'
 import { useToast } from './useToast'
+import { useModuleSettings } from '../../lib/useModules'
 import { sectionIcon, sectionRouteWithItemFallback } from './briefingRoutes'
 import WidgetAskAI from '../WidgetAskAI'
 
@@ -117,6 +118,8 @@ const WIDGET_GROUPS: { key: string; label: string }[] = [
 ]
 const WIDGET_PREF_KEY = 'nexus-dashboard-widgets'
 const WIDGET_ORDER_KEY = 'nexus-dashboard-widget-order'
+/** Deal widgets — hidden when the sales module is disabled (kept for future re-enable) */
+const DEAL_WIDGET_IDS: ReadonlySet<string> = new Set(['s1', 'kpi_deals', 'pipeline', 'dealvalue', 'd1', 'd2', 'd3', 'd4', 'd5'])
 const DEFAULT_ORDER = ['stats:0', 'stats:1', 'stats:2', 'stats:3', 'kpi_deals', 'dealvalue', 'c1', 'co1', 'p1', 'todos', 'events', 'interactions', 'activity', 'ask_ai', 'c2', 'co3', 's1', 'te2', 'touchpoints', 'pipeline', 'c3', 'c5', 'co2', 'co4', 'co5', 'd1', 'd2', 'd3', 'd4', 'd5', 'p2', 'p3', 'p4', 't2', 't3', 't4', 'cal2', 'cal3', 's5']
 
 const WIDGET_SIZE_KEY = 'nexus-dashboard-widget-sizes'
@@ -143,6 +146,8 @@ export default function DashboardV2() {
   const { t, i18n } = useTranslation()
   const navigate = useNavigate()
   const { showToast } = useToast()
+  const mods = useModuleSettings()
+  const dealOn = mods['sales'] !== false
 
   const [stats, setStats] = useState<Stats>({ contacts: 0, companies: 0, tasksDue: 0, dealsValue: 0 })
   const [todos, setTodos] = useState<Todo[]>([])
@@ -1055,6 +1060,8 @@ export default function DashboardV2() {
         {widgetOrder.map(wid => {
           if (wid === 'ai') return null
           if (wid.startsWith('stats:')) return has('stats') ? renderWidget(wid) : null
+          // hide deal widgets when sales module off
+          if (!dealOn && DEAL_WIDGET_IDS.has(wid)) return null
           return has(wid) ? renderWidget(wid) : null
         })}
       </div>

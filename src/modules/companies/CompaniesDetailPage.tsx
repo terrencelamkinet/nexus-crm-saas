@@ -105,7 +105,7 @@ export default function CompaniesDetailPage() {
     { key: 'overview', label: t('common.overview', { defaultValue: 'Overview' }), render: () => <V2ActivityTimeline entityId={id!} filterType="company" /> },
     { key: 'timeline', label: t('common.timeline', { defaultValue: 'Timeline' }), render: () => <V2ActivityTimeline entityId={id!} filterType="company" /> },
     { key: 'contacts', label: t('common.contacts', { defaultValue: 'Contacts' }), render: () => <ContactsTab entity={entity} moduleConfig={companyConfig} refresh={refresh} /> },
-    { key: 'deals', label: t('common.deals', { defaultValue: 'Deals' }), render: () => <DealsTab entity={entity} moduleConfig={companyConfig} refresh={refresh} /> },
+    ...(isModuleEnabled('sales') ? [{ key: 'deals', label: t('common.deals', { defaultValue: 'Deals' }), render: () => <DealsTab entity={entity} moduleConfig={companyConfig} refresh={refresh} /> }] : []),
     { key: 'projects', label: t('common.projects', { defaultValue: 'Projects' }), render: () => <ProjectsTab entity={entity} moduleConfig={companyConfig} refresh={refresh} /> },
     { key: 'products', label: t('common.products', { defaultValue: 'Products' }), render: () => <ProductsTab entity={entity} moduleConfig={companyConfig} refresh={refresh} /> },
     { key: 'partners', label: t('common.partners', { defaultValue: 'Partners' }), render: () => <PartnersTab entity={entity} moduleConfig={companyConfig} refresh={refresh} /> },
