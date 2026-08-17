@@ -6,6 +6,7 @@ import {
   FileText, Sparkles, Command, ArrowRight, Clock, Zap, ScanLine, Calendar, X,
 } from 'lucide-react'
 import { apiClient } from '../../lib/api'
+import { useModuleSettings } from '../../lib/useModules'
 
 /* ═══════════════════════════════════════════════════════════
    CommandPalette — Centralized Smart Search (⌘K)
@@ -37,14 +38,17 @@ export default function CommandPalette({ open, onClose }: { open: boolean; onClo
   const inputRef = useRef<HTMLInputElement>(null)
   const reqRef = useRef(0)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+  const mods = useModuleSettings()
 
   useEffect(() => { if (open) setTimeout(() => inputRef.current?.focus(), 50) }, [open])
   useEffect(() => { if (!open) { setQuery(''); setResults([]); setAiAnswer(null); setActiveIndex(0) } }, [open])
 
   const quickActions: QuickAction[] = [
     { id: 'new-contact', label: t('quickAction.newContact', { defaultValue: '新增聯絡人' }), icon: Users, hint: 'N C', action: () => navigate('/contacts?new=1') },
+    ...(mods['sales'] !== false && Object.keys(mods).length > 0
+      ? [{ id: 'new-deal', label: t('quickAction.newDeal', { defaultValue: '新增商機' }), icon: TrendingUp, hint: 'N D', action: () => navigate('/deals?new=1') as any }]
+      : []),
     { id: 'new-task', label: t('quickAction.newTask', { defaultValue: '新增任務' }), icon: CheckSquare, hint: 'N T', action: () => navigate('/tasks?new=1') },
-    { id: 'new-deal', label: t('quickAction.newDeal', { defaultValue: '新增商機' }), icon: TrendingUp, hint: 'N D', action: () => navigate('/deals?new=1') },
     { id: 'scan-namecard', label: t('quickAction.scanNameCard', { defaultValue: '掃描名片' }), icon: ScanLine, action: () => navigate('/namecards?upload=1') },
     { id: 'ai-apps', label: t('quickAction.openAiApps', { defaultValue: '開啟 AI Apps' }), icon: Sparkles, action: () => navigate('/ai-apps') },
   ]

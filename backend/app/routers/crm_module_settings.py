@@ -26,6 +26,25 @@ router = APIRouter(prefix="/api/v1/crm", tags=["crm-module-settings"])
 
 
 # ---------------------------------------------------------------------------
+# Hidden (force-disabled) modules
+# ---------------------------------------------------------------------------
+# Modules removed from the product UI for now (e.g. the Deals/Sales module was
+# temporarily hidden at the owner's request). The feature code, tables and data
+# are untouched and additive — we simply force these off so they cannot be
+# re-enabled accidentally, while keeping it a one-line revert for the future.
+#
+# To re-open a module later: remove its key from this set (and un-hide it in
+# SettingsPage.moduleDefs). No data migration needed.
+HIDDEN_MODULES: set[str] = {
+    "sales",  # Deals pipeline — hidden 2026-08-17, re-open later on request
+}
+
+
+def _module_visible(key: str) -> bool:
+    return key not in HIDDEN_MODULES
+
+
+# ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
 
@@ -56,7 +75,17 @@ async def list_module_settings(
         select(ModuleSetting).where(ModuleSetting.tenant_id == tenant_id)
     )
     rows = result.scalars().all()
-    return list(rows)
+
+    # Force hidden modules to disabled regardless of any stored value, so they
+    # stay off even if a stale/legacy row has them enabled.
+    out: list[ModuleSettingResponse] = []
+    for row in rows:
+        if _module_visible(row.module_key):
+            out.append(row)
+        else:
+            row.enabled = False
+            out.append(row)
+    return out
 
 
 @router.put("/module-settings/{module_key}", response_model=ModuleSettingResponse)
@@ -68,6 +97,11 @@ async def upsert_module_setting(
 ):
     """Create or update a module setting for the current tenant."""
     tenant_id = _get_tenant_id(request)
+
+    # Hidden modules cannot be enabled through the API — keeps the deal module
+    # off even if a client/UI tries to force it back on.
+    if not _module_visible(module_key):
+        raise HTTPException(status_code=409, detail="This module is temporarily hidden")
 
     # Check if setting already exists
     result = await db.execute(
@@ -108,6 +142,10 @@ async def toggle_module_setting(
 ):
     """Toggle the enabled flag for a module setting. Creates with enabled=True if not exists."""
     tenant_id = _get_tenant_id(request)
+
+    # Hidden modules cannot be toggled back on.
+    if not _module_visible(module_key):
+        raise HTTPException(status_code=409, detail="This module is temporarily hidden")
 
     result = await db.execute(
         select(ModuleSetting).where(

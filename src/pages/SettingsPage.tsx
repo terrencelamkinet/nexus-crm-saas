@@ -24,9 +24,13 @@ export default function SettingsPage() {
 
   const moduleDefs = [
     { key: 'projects', label: 'Projects', icon: '📊', desc: 'Project-based tracking, budgets, milestones. Links to contacts and companies.' },
-    { key: 'sales', label: 'Sales', icon: '💰', desc: 'Deal pipeline, stages, sales reports, quotes. Links from Contacts.' },
     { key: 'shipping', label: 'Shipping', icon: '🚢', desc: 'Shipment tracking, dispatch orders, delivery management.' },
     { key: 'ai_assistant', label: 'AI Assistant', icon: '🤖', desc: 'AI daily briefing, smart widget suggestions, and chat assistant on dashboard.' },
+    // NOTE: 'sales' (Deals) is intentionally omitted from Settings so it can't be
+    // re-enabled from the UI — temporarily hidden (see backend HIDDEN_MODULES).
+    // To re-open later, re-add the entry below and remove 'sales' from the
+    // backend HIDDEN_MODULES set.
+    // { key: 'sales', label: 'Sales', icon: '💰', desc: 'Deal pipeline, stages, sales reports, quotes. Links from Contacts.' },
   ]
 
   const loadModules = async () => {
