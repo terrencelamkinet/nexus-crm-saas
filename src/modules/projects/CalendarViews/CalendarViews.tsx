@@ -70,7 +70,7 @@ export default function CalendarViews({ events, loading, onRefresh }: CalendarVi
   const isMobile = useMediaQuery('(max-width: 768px)');
   const [viewType, setViewType] = useState<CalendarViewType>(() => (isMobile ? 'day' : 'month'));
   const [date, setDate] = useState<Date>(new Date());
-  const [showWeekends, setShowWeekends] = useState<boolean>(getStoredShowWeekends);
+  const [showWeekends] = useState<boolean>(getStoredShowWeekends);
   const [viewMenuOpen, setViewMenuOpen] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState<CalendarEventFormatted | null>(null);
   const [morePopup, setMorePopup] = useState<{ events: CalendarEventFormatted[]; date: Date } | null>(null);
@@ -109,7 +109,6 @@ export default function CalendarViews({ events, loading, onRefresh }: CalendarVi
     setViewType(newView);
     setViewMenuOpen(false);
   }, []);
-  const toggleWeekends = useCallback(() => setShowWeekends((prev) => !prev), []);
   const handleEventClick = useCallback((ev: CalendarEventFormatted) => setSelectedEvent(ev), []);
   const handleReviewClose = useCallback(() => setSelectedEvent(null), []);
   const handleMoreClick = useCallback((evs: CalendarEventFormatted[], d: Date) => setMorePopup({ events: evs, date: d }), []);
@@ -163,17 +162,6 @@ export default function CalendarViews({ events, loading, onRefresh }: CalendarVi
       </div>
 
       <div className="flex items-center gap-2 max-sm:gap-1.5 flex-wrap max-sm:justify-end ml-auto">
-        {/* Weekend toggle */}
-        <button onClick={toggleWeekends}
-          className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-colors min-h-[36px] tracking-wide ${
-            showWeekends
-              ? 'text-[var(--color-primary)] bg-[var(--color-primary-highlight)]'
-              : 'text-[var(--color-text-muted)] bg-[var(--color-surface-offset)] hover:bg-[var(--color-surface-offset-2)]'
-          }`}
-          title={showWeekends ? 'Hide weekends' : 'Show weekends'}>
-          Weekend
-        </button>
-
         {/* View switcher — dropdown */}
         <div className="cv-view-dropdown" ref={viewMenuRef}>
           <button
