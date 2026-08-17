@@ -525,13 +525,13 @@ const [filters, setFilters] = useState<Record<string, FilterEntry>>(() => ({ ...
           <p>{total} {t('pages.' + filterModuleKey + '.title').toLowerCase()}</p>
         </div>
         <div className="header-actions">
-          <button className="btn-secondary glp-icon-btn" title={t('common.export')}>
+          <button className="glp-icon-btn glp-header-icon" title={t('common.export')}>
             <Download className="w-4 h-4" />
           </button>
-          <button className="btn-secondary glp-icon-btn" title={t('common.upload')}>
+          <button className="glp-icon-btn glp-header-icon" title={t('common.upload')}>
             <Upload className="w-4 h-4" />
           </button>
-          <button onClick={openCreate} className="btn-primary glp-icon-btn" title={t('pages.' + filterModuleKey + '.new')}>
+          <button onClick={openCreate} className="glp-icon-btn glp-header-icon glp-header-icon-primary" title={t('pages.' + filterModuleKey + '.new')}>
             <Plus className="w-4 h-4" />
           </button>
         </div>

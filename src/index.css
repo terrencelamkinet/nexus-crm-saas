@@ -2156,6 +2156,15 @@ textarea.input-field{resize:vertical;min-height:60px}
 .glp-icon-btn{width:36px;height:36px;padding:0;justify-content:center;flex-shrink:0}
 .glp-icon-btn svg{flex-shrink:0}
 
+/* header-actions icon buttons — no background fill (export/upload/add).
+   Transparent by default, subtle hover surface for affordance; primary add
+   keeps a colored icon so it stays the prominent action. (2026-08-17 user:
+   table view header-actions 唔應該有background) */
+.glp-header-icon{background:transparent;border:none;color:var(--color-text-muted);border-radius:var(--radius-md)}
+.glp-header-icon:hover{background:var(--color-surface-offset);color:var(--color-text)}
+.glp-header-icon-primary{color:var(--color-primary)}
+.glp-header-icon-primary:hover{background:var(--color-primary-highlight);color:var(--color-primary-active)}
+
 /* Sort panel */
 .glp-sort-body{display:flex;flex-direction:column;gap:8px}
 /* iOS zoom guard: select needs >=16px under 768px, shrinks back on desktop */
