@@ -460,11 +460,14 @@ tbody tr:hover .menu-dots{opacity:1}
    overflow-x:auto lets added columns scroll; min-width:max-content stops columns being
    pinched to fit a fixed layout. */
 .table-scroll{overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch;position:relative;max-width:100%}
-/* Table content must never squeeze — columns keep their natural width and the
-   container scrolls horizontally instead (filters / column settings / narrow
-   viewports must not compress content). Overrides .data-table table width:100%.
-   (2026-08-11 user request: 加 filter items 時 allow 橫向 scrolling，內容唔好全收窄) */
-.data-table .table-scroll table{width:max-content;min-width:max-content;table-layout:auto}
+/* Table fills the panel when few columns (width:100%) BUT never squeezes content
+   (min-width:max-content) so added/narrow columns scroll horizontally instead of
+   compressing (filters / column settings / narrow viewports must not squash cells).
+   table-layout:auto lets columns grow with content; per-cell width caps come from
+   the inline min-width only (no max-width), so long text expands the column instead
+   of clipping. (2026-08-11 user request: 加 filter items 時 allow 橫向 scrolling，
+   內容唔好全收窄; 2026-08-17 fix: table no longer leaves empty gap on right) */
+.data-table .table-scroll table{width:100%;min-width:max-content;table-layout:auto}
 .table-scroll::after{content:'';position:absolute;top:0;right:0;bottom:0;width:24px;background:linear-gradient(to right,transparent,var(--color-surface));pointer-events:none;transition:opacity .2s}
 .table-scroll.at-end::after{opacity:0}
 /* GenericListPage table rows — hover highlight + selected (checkbox) feedback */
