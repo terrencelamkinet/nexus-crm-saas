@@ -147,7 +147,10 @@ export default function DashboardV2() {
   const navigate = useNavigate()
   const { showToast } = useToast()
   const mods = useModuleSettings()
-  const dealOn = mods['sales'] !== false
+  // Conservative: only show deal widgets when sales is EXPLICITLY enabled.
+  // mods['sales'] is undefined until the async module-settings fetch resolves,
+  // so `!== false` would wrongly show deals before/without fetch. Use `=== true`.
+  const dealOn = mods['sales'] === true
 
   const [stats, setStats] = useState<Stats>({ contacts: 0, companies: 0, tasksDue: 0, dealsValue: 0 })
   const [todos, setTodos] = useState<Todo[]>([])
