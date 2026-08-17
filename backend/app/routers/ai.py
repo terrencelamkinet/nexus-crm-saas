@@ -2131,10 +2131,17 @@ async def _build_crm_briefing(ctx, db, lang_pref: str = "zh-HK") -> dict:
         from app.ai import briefing_sources as bs
         w = await bs.weather(ctx, db)
         if w and w[0].get("temperature") is not None:
+            hko_icon = w[0].get("icon") or 50
+            # Map HKO rhrread icon code → emoji + short condition so every frontend
+            # widget renders the real weather instead of a hard-coded sunny icon.
+            # (2026-08-17 user: AI insight weather showed 🌤 regardless of real
+            # HKO condition; icon 64 = overcast/rain here.)
             weather = {
                 "temp": w[0]["temperature"],
                 "condition": f"濕度 {w[0]['humidity']}%" if w[0].get("humidity") else "",
-                "icon": "🌤",
+                "icon": hko_icon,
+                "icon_emoji": _hko_weather_emoji(hko_icon),
+                "desc": _hko_weather_desc(hko_icon),
             }
     except Exception:
         pass
@@ -2144,6 +2151,64 @@ async def _build_crm_briefing(ctx, db, lang_pref: str = "zh-HK") -> dict:
 
 _DEFAULT_TIP_ZH = "請先查看今日儀表板，了解待辦任務及即將來臨的會議。"
 _DEFAULT_TIP_EN = "Review your dashboard for today's priorities — check pending tasks and upcoming events."
+
+
+def _hko_weather_emoji(icon) -> str:
+    """HKO rhrread icon code → weather emoji (mirrors frontend hkoWeatherEmoji)."""
+    try:
+        n = int(icon)
+    except (TypeError, ValueError):
+        n = 0
+    if n <= 0:
+        return "🌤️"
+    if n <= 50:
+        return "☀️"
+    if n == 51:
+        return "🌤️"
+    if n == 52:
+        return "🌥️"
+    if 53 <= n <= 55:
+        return "☁️"
+    if 60 <= n <= 65:
+        return "🌦️"
+    if 70 <= n <= 73:
+        return "🌧️"
+    if 74 <= n <= 79:
+        return "⛈️"
+    if 80 <= n <= 88:
+        return "🌫️"
+    if n >= 91:
+        return "💨"
+    return "☁️"
+
+
+def _hko_weather_desc(icon) -> str:
+    """HKO rhrread icon code → short condition label (zh)."""
+    try:
+        n = int(icon)
+    except (TypeError, ValueError):
+        n = 0
+    if n <= 0:
+        return "天氣"
+    if n <= 50:
+        return "天晴"
+    if n == 51:
+        return "部分時間有陽光"
+    if n == 52:
+        return "部分多雲"
+    if 53 <= n <= 55:
+        return "密雲"
+    if 60 <= n <= 65:
+        return "有雨"
+    if 70 <= n <= 73:
+        return "雨天"
+    if 74 <= n <= 79:
+        return "雷雨"
+    if 80 <= n <= 88:
+        return "有霧"
+    if n >= 91:
+        return "大風"
+    return "密雲"
 
 
 @router.get("/prompts/suggested")

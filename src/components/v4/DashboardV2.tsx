@@ -161,6 +161,7 @@ export default function DashboardV2() {
   const [doneTaskTotal, setDoneTaskTotal] = useState(0)
   const [teamUsers, setTeamUsers] = useState<any[]>([])
   const [aiInsight, setAiInsight] = useState<AiInsight | null>(null)
+  const [aiWeather, setAiWeather] = useState<any>(null)
   const [aiLoading, setAiLoading] = useState(true)
 
   const [customizeMode, setCustomizeMode] = useState(false)
@@ -331,6 +332,7 @@ export default function DashboardV2() {
     apiClient.get<any[]>('/api/v1/crm/todo/users').then((d: any) => setTeamUsers(Array.isArray(d) ? d : [])).catch(() => {})
     // ── AI insight: content = same generated briefing as Telegram (portal style applied here) ──
     apiClient.get<any>('/api/v1/ai/briefing').then((d: any) => {
+      if (d?.weather && typeof d.weather === 'object') setAiWeather(d.weather)
       if (d?.content) {
         // Same content as Telegram → portal rendering
         const parsed = parseBriefing(d.content)
@@ -566,12 +568,19 @@ export default function DashboardV2() {
                         <div className="dv2-ai-sections">
                           {aiInsight.sections.map((sec, si) => (
                             <div key={si} className="dv2-ai-section">
-                              {sec.header && (
-                                <div className="dv2-ai-section-header">
-                                  <SectionIcon kind={sectionIcon(sec.header)} />
-                                  <span>{sec.header}</span>
-                                </div>
-                              )}
+                              {sec.header && (() => {
+                                const kind = sectionIcon(sec.header)
+                                return (
+                                  <div className="dv2-ai-section-header">
+                                    {kind === 'weather' && aiWeather?.icon_emoji ? (
+                                      <span className="dv2-ai-weather-emoji">{aiWeather.icon_emoji}</span>
+                                    ) : (
+                                      <SectionIcon kind={kind} />
+                                    )}
+                                    <span>{sec.header}</span>
+                                  </div>
+                                )
+                              })()}
                               <div className="dv2-ai-section-body">
                                 {sec.items.map((it, ii) => {
                                   const target = sectionRouteWithItemFallback(sec.header, it)

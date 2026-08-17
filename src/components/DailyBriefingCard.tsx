@@ -15,7 +15,9 @@ import {
 interface WeatherData {
   temp: number;
   condition: string;
-  icon: string;
+  icon: string | number;
+  icon_emoji?: string;
+  desc?: string;
 }
 
 interface ScheduleEvent {
@@ -55,7 +57,7 @@ interface Props {
 
 // ── Mock fallback data ──
 const mockBriefing: BriefingData = {
-  weather: { temp: 28, condition: 'Partly Cloudy', icon: '⛅' },
+  weather: { temp: 28, condition: 'Partly Cloudy', icon: 51, icon_emoji: '🌤️', desc: '部分時間有陽光' },
   schedule: [
     { id: 'mock-ev-1', title: 'Team standup', time: '09:30', location: 'Meeting Room A' },
     { id: 'mock-ev-2', title: 'Client review call', time: '14:00' },
@@ -269,13 +271,24 @@ export default function DailyBriefingCard({ className = '', style }: Props) {
 
         {/* Weather */}
         <SectionRow
-          icon={<Sun size={15} style={{ color: 'var(--color-warning)' }} />}
+          icon={
+            data!.weather?.icon_emoji ? (
+              <span className="dbc-weather-emoji" style={{ fontSize: 15, lineHeight: 1 }}>{data!.weather.icon_emoji}</span>
+            ) : (
+              <Sun size={15} style={{ color: 'var(--color-warning)' }} />
+            )
+          }
           label={t('pages.briefing.weather')}
           onClick={() => {/* navigate to weather page */}}
         >
           <span style={{ fontSize: 15, fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>
             {data!.weather.temp}°
           </span>
+          {data!.weather?.desc && (
+            <span style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--color-text-muted)' }}>
+              {data!.weather.desc}
+            </span>
+          )}
           <span style={{ fontSize: 12.5, color: 'var(--color-text-muted)' }}>
             {data!.weather.condition}
           </span>
