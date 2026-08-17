@@ -2160,7 +2160,7 @@ textarea.input-field{resize:vertical;min-height:60px}
    Transparent at rest AND on hover; hover only lightens the icon colour for affordance,
    never paints a background block. Primary add keeps a coloured icon. (2026-08-17 user:
    table view header-actions 唔應該有background; hover 亦唔應該有 highlight) */
-.glp-header-icon{background:transparent;border:none;color:var(--color-text-muted);border-radius:var(--radius-md)}
+.glp-header-icon{background:transparent;border:none;color:var(--color-text-muted);border-radius:var(--radius-md);cursor:pointer}
 .glp-header-icon:hover{background:transparent;color:var(--color-text)}
 .glp-header-icon:active{background:transparent}
 .glp-header-icon-primary{color:var(--color-primary)}
