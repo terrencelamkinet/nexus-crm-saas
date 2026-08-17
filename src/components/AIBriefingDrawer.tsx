@@ -108,6 +108,30 @@ const fmtMoney = (n: number | null): string => {
   return `$${n.toLocaleString('en-US')}`
 }
 
+/**
+ * HKO Open Data rhrread weather icon code → emoji.
+ * Backend already passes the HKO icon number (e.g. 50=sunny, 53/54=cloudy,
+ * 60-64=light rain/overcast with rain, 70-79=rain/thunder). Previously the
+ * AI-briefing drawer hard-coded 🌤️ regardless of actual conditions — user
+ * reported a sunny/daytime icon that didn't match reality. (2026-08-17)
+ */
+export function hkoWeatherEmoji(icon: number | string | null | undefined): string {
+  const n = typeof icon === 'string' ? parseInt(icon, 10) : Number(icon)
+  if (Number.isNaN(n)) return '🌤️'
+  if (n <= 0) return '🌤️'
+  // HKO icon groups (current-weather icon set, lower = clearer, higher = rainier)
+  if (n <= 50) return '☀️'      // 50 = 太陽/天晴
+  if (n === 51) return '🌤️'    // 部分時間有陽光
+  if (n === 52) return '🌥️'    // 部分多雲
+  if (n >= 53 && n <= 55) return '☁️'  // 多雲/密雲/陰
+  if (n >= 60 && n <= 65) return '🌦️' // 毛毛雨/微雨/有雨
+  if (n >= 70 && n <= 73) return '🌧️' // 雨
+  if (n >= 74 && n <= 79) return '⛈️' // 大雨/雷雨
+  if (n >= 80 && n <= 88) return '🌫️' // 霧/煙霞
+  if (n >= 91) return '💨'      // 大風/強風
+  return '☁️'                  // 未知 code → 多雲（保守,唔會誤報晴天）
+}
+
 /** HKT (UTC+8) now — 所有 greeting / 日期判斷必須用呢個,唔可以用 browser 本地時間 */
 export function hktNow(): Date {
   // Asia/Hong_Kong 無 DST,直接 +8h 再讀 UTC 欄位就係 HKT 牆鐘時間
@@ -633,11 +657,12 @@ export default function AIBriefingDrawer() {
               {/* ── Weather ── */}
               {payload.weather.length > 0 && (
                 <SectionRow
-                  icon={<span className="ab-emoji-icon">🌤️</span>}
+                  icon={<span className="ab-emoji-icon">{hkoWeatherEmoji(payload.weather[0]?.icon)}</span>}
                   label={t('pages.briefing.weatherSection')}
                 >
                   {payload.weather.slice(0, 2).map((w: any, i: number) => (
                     <div key={i} className="ab-weather-row">
+                      <span className="ab-weather-emoji">{hkoWeatherEmoji(w.icon)}</span>
                       <span className="ab-weather-place">
                         {w.place}: {w.temperature != null ? `${w.temperature}°C` : ''}
                       </span>
