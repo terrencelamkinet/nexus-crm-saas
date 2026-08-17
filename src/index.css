@@ -2153,17 +2153,18 @@ textarea.input-field{resize:vertical;min-height:60px}
 .glp-rel-link:hover{color:var(--color-primary-hover);text-decoration:underline}
 
 /* Icon-only square header action button (export / upload / create) */
-.glp-icon-btn{width:36px;height:36px;padding:0;justify-content:center;flex-shrink:0}
-.glp-icon-btn svg{flex-shrink:0}
+.glp-icon-btn{width:36px;height:36px;padding:0;justify-content:center;align-items:center;display:inline-flex;flex-shrink:0}
+.glp-icon-btn svg{flex-shrink:0;display:block}
 
-/* header-actions icon buttons — no background fill (export/upload/add).
-   Transparent by default, subtle hover surface for affordance; primary add
-   keeps a colored icon so it stays the prominent action. (2026-08-17 user:
-   table view header-actions 唔應該有background) */
+/* header-actions icon buttons — no background fill, no hover highlight (export/upload/add).
+   Transparent at rest AND on hover; hover only lightens the icon colour for affordance,
+   never paints a background block. Primary add keeps a coloured icon. (2026-08-17 user:
+   table view header-actions 唔應該有background; hover 亦唔應該有 highlight) */
 .glp-header-icon{background:transparent;border:none;color:var(--color-text-muted);border-radius:var(--radius-md)}
-.glp-header-icon:hover{background:var(--color-surface-offset);color:var(--color-text)}
+.glp-header-icon:hover{background:transparent;color:var(--color-text)}
+.glp-header-icon:active{background:transparent}
 .glp-header-icon-primary{color:var(--color-primary)}
-.glp-header-icon-primary:hover{background:var(--color-primary-highlight);color:var(--color-primary-active)}
+.glp-header-icon-primary:hover{background:transparent;color:var(--color-primary-active)}
 
 /* Table (GenericListPage) header-actions must NOT become the design4 sticky-bottom
    action bar — that rule (design4-v2-patch.css @media ≤767px) styles .header-actions
