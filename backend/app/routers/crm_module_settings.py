@@ -76,15 +76,33 @@ async def list_module_settings(
     )
     rows = result.scalars().all()
 
-    # Force hidden modules to disabled regardless of any stored value, so they
-    # stay off even if a stale/legacy row has them enabled.
+    # Force hidden modules to disabled regardless of any stored value. Also
+    # synthèse a disabled row for a hidden module even when the tenant has no
+    # row yet, so the frontend sees an explicit `enabled=false` (frontends
+    # default to *visible* when a module key is absent) — otherwise the hidden
+    # module would still appear in nav/quick-actions.
     out: list[ModuleSettingResponse] = []
+    seen: set[str] = set()
     for row in rows:
         if _module_visible(row.module_key):
             out.append(row)
         else:
             row.enabled = False
             out.append(row)
+        seen.add(row.module_key)
+    for key in HIDDEN_MODULES:
+        if key not in seen:
+            out.append(
+                ModuleSettingResponse(
+                    id=uuid.uuid5(uuid.NAMESPACE_OID, f"hidden-{key}"),  # stable synthetic id (not persisted)
+                    tenant_id=tenant_id,
+                    module_key=key,
+                    enabled=False,
+                    settings={},
+                    created_at=datetime.now(timezone.utc),
+                    updated_at=datetime.now(timezone.utc),
+                )
+            )
     return out
 
 
