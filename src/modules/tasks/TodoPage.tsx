@@ -343,7 +343,6 @@ export default function TodoPage() {
               {!activeList?.is_smart && <span className="lh-color" style={{background:activeList?.color}} />}
               {activeList?.name?.replace(/^[^\s]+\s/, '') || t('pages.tasks.title')}
             </h2>
-            <span className="lh-count">{t('pages.tasks.remaining', { count: tasks.filter(t => t.status !== 'done').length })}</span>
             <button type="button" className={`lh-hide-switch${hideCompleted ? ' on' : ''}`}
               onClick={toggleHideCompleted} role="switch" aria-checked={hideCompleted}
               title={hideCompleted ? t('pages.tasks.showCompleted') : t('pages.tasks.hideCompleted')}>
@@ -355,6 +354,7 @@ export default function TodoPage() {
                 <button className="icon-btn-small" onClick={() => setShowShare(true)} title={t('pages.tasks.shareList')}><Share2 size={15} /></button>
               )}
             </div>
+            <span className="lh-count">{t('pages.tasks.remaining', { count: tasks.filter(t => t.status !== 'done').length })}</span>
           </div>
 
           <div className="todo-tasks">
@@ -391,10 +391,13 @@ export default function TodoPage() {
             })())}
           </div>
 
-          <div className="todo-add-task at-float">
-            <input ref={inputRef} className="at-input" type="text" placeholder=" " value={newTitle}
+          <div className="todo-add-task at-float at-top">
+            <textarea ref={inputRef as any} className="at-input" placeholder=" " rows={1}
+              value={newTitle}
               onChange={e => setNewTitle(e.target.value)}
-              onKeyDown={e => { if (e.key === 'Enter') createTask() }}
+              onKeyDown={e => {
+                if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); createTask() }
+              }}
               aria-label={t('pages.tasks.taskPlaceholder')} />
             <label className="at-label">{t('pages.tasks.taskPlaceholder')}</label>
             <button className="at-btn" onClick={createTask}><Plus size={16} /></button>
