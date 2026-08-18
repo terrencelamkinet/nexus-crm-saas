@@ -100,8 +100,7 @@
 .todo-right.open{transform:translateX(0);opacity:1;pointer-events:auto}
 .todo-page.detail-open{grid-template-columns:220px 1fr 380px}
 /* click-outside scrim (dismiss drawer) */
-.todo-right-scrim{position:fixed;inset:0;z-index:40;background:rgba(0,0,0,.35);opacity:0;pointer-events:none;transition:opacity .28s ease}
-.todo-right-scrim:not(:empty){opacity:1;pointer-events:auto}
+.todo-right-scrim{position:fixed;inset:0;z-index:80;background:rgba(0,0,0,.35);opacity:1;pointer-events:auto}
 /* drawer close button */
 .dt-close-wrap{display:flex;justify-content:flex-end;margin-bottom:-4px}
 .dt-close{width:32px;height:32px;display:flex;align-items:center;justify-content:center;border-radius:var(--radius-md);color:var(--color-text-muted);border:none;background:none;cursor:pointer}
