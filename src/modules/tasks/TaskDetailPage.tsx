@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
-import { useParams } from 'react-router-dom'
+import { useParams, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
+import SlideDrawer from '../../components/SlideDrawer'
 import { NexusDetailPageV2, useAIInsight, type DetailTab, type HighlightWidget } from '../shared/NexusDetailPageV2'
 import taskConfig from './config'
 import { useEntity } from '../hooks/useEntity'
@@ -27,6 +28,7 @@ function formatDate(d?: string): string {
 
 export default function TaskDetailPage() {
   const { id } = useParams<{ id: string }>()
+  const navigate = useNavigate()
   const { t } = useTranslation()
   const { entity, loading, refresh } = useEntity('task', id!)
   const { insight, loading: insightLoading, refresh: refreshInsight } = useAIInsight('task', id!)
@@ -154,6 +156,12 @@ export default function TaskDetailPage() {
 
   return (
     <>
+      <SlideDrawer
+        open={!!entity}
+        onClose={() => navigate('/tasks')}
+        title={t('pages.tasks.title', { defaultValue: 'Tasks' })}
+        width="45vw"
+      >
       <NexusDetailPageV2
         entity={entity}
         moduleConfig={taskConfig}
@@ -192,6 +200,7 @@ export default function TaskDetailPage() {
         ]}
         tabs={tabs}
       />
+      </SlideDrawer>
       {editOpen && (
         <div className="nx-inline-edit-panel">
           <div className="nx-inline-edit-title">{t('common.editing', { defaultValue: '編輯' })}</div>

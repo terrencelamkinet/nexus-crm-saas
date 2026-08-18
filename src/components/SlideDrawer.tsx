@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { X } from 'lucide-react'
+import { X, ChevronLeft } from 'lucide-react'
 
 interface SlideDrawerProps {
   open: boolean
@@ -8,9 +8,10 @@ interface SlideDrawerProps {
   title?: string
   children: React.ReactNode
   width?: string // desktop width override, default '25vw'
+  closeOnLeft?: boolean // put the close/exit button on the left with a left-pointing arrow
 }
 
-export default function SlideDrawer({ open, onClose, title, children, width }: SlideDrawerProps) {
+export default function SlideDrawer({ open, onClose, title, children, width, closeOnLeft }: SlideDrawerProps) {
   const ref = useRef<HTMLDivElement>(null)
   // Keep rendering during the close animation so it can slide out (with bounce)
   const [rendered, setRendered] = useState(open)
@@ -67,11 +68,17 @@ export default function SlideDrawer({ open, onClose, title, children, width }: S
           <div className="slide-drawer-handle-bar" />
           <div className="slide-drawer-handle-bar" />
         </div>
-        <div className="slide-drawer-header">
+        <div className={`slide-drawer-header ${closeOnLeft ? 'close-left' : ''}`}>
+          {closeOnLeft ? (
+            <button className="slide-drawer-close slide-drawer-close--left" onClick={onClose} aria-label="Go back">
+              <ChevronLeft className="icon-16" />
+            </button>
+          ) : (
+            <button className="slide-drawer-close" onClick={onClose} aria-label="Close">
+              <X className="icon-16" />
+            </button>
+          )}
           <h3 className="slide-drawer-title">{title || ''}</h3>
-          <button className="slide-drawer-close" onClick={onClose} aria-label="Close">
-            <X className="icon-16" />
-          </button>
         </div>
         <div className="slide-drawer-body">
           {children}
