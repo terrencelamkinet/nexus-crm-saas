@@ -1081,7 +1081,16 @@
       "searchPlaceholder": "Search tasks...",
       "completed": "Completed",
       "inProgress": "In Progress",
-      "pending": "Pending"
+      "pending": "Pending",
+      "renameList": "Rename",
+      "moveUp": "Move Up",
+      "moveDown": "Move Down",
+      "listType": "Type",
+      "listIcon": "Icon",
+      "listColor": "Color",
+      "deleteList": "Delete",
+      "deleteListTitle": "Delete List",
+      "deleteListConfirm": "Delete \"{{name}}\"? Its tasks will move to \"All\". This cannot be undone."
     },
     "notifications": {
       "title": "Notifications",

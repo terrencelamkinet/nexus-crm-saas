@@ -1076,7 +1076,16 @@
       "shareEmailPlaceholder": "電郵地址",
       "shareAdd": "新增",
       "sharePermissionRead": "唯讀",
-      "sharePermissionWrite": "可寫"
+      "sharePermissionWrite": "可寫",
+      "renameList": "重新命名",
+      "moveUp": "上移",
+      "moveDown": "下移",
+      "listType": "類型",
+      "listIcon": "圖示",
+      "listColor": "顏色",
+      "deleteList": "刪除",
+      "deleteListTitle": "刪除清單",
+      "deleteListConfirm": "確定要刪除「{{name}}」？入面嘅任務會移去「所有任務」。此操作無法還原。"
     },
     "notifications": {
       "title": "通知",

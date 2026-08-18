@@ -6,6 +6,8 @@ import { useTranslation } from 'react-i18next'
 import {
   Plus, X, Check, Sun, Calendar, Bell, Repeat, FileText, Paperclip,
   Share2, ChevronRight, Trash2, List, Loader2,
+  MoreVertical, Pencil, ArrowUp, ArrowDown, Palette, Inbox, Star,
+  CheckCircle2, User, Flag, Briefcase, Home, Heart, Bookmark,
 } from 'lucide-react'
 
 /* ── Types ── */
@@ -25,6 +27,25 @@ interface TaskStep { id: string; title: string; is_completed: boolean; sort_orde
 interface TaskCategory { id: string; name: string; color: string }
 interface TaskAttachment { id: string; filename: string; file_size?: number; content_type?: string }
 
+// ── List icon options (lucide design-system icons — 唔用 emoji) ──
+const LIST_ICON_OPTIONS: { value: string; icon: React.ReactNode; label: string }[] = [
+  { value: 'inbox', icon: <Inbox size={16} />, label: 'Inbox' },
+  { value: 'star', icon: <Star size={16} />, label: 'Star' },
+  { value: 'calendar', icon: <Calendar size={16} />, label: 'Calendar' },
+  { value: 'sun', icon: <Sun size={16} />, label: 'Sun' },
+  { value: 'check', icon: <CheckCircle2 size={16} />, label: 'Check' },
+  { value: 'user', icon: <User size={16} />, label: 'User' },
+  { value: 'bell', icon: <Bell size={16} />, label: 'Bell' },
+  { value: 'flag', icon: <Flag size={16} />, label: 'Flag' },
+  { value: 'briefcase', icon: <Briefcase size={16} />, label: 'Briefcase' },
+  { value: 'home', icon: <Home size={16} />, label: 'Home' },
+  { value: 'heart', icon: <Heart size={16} />, label: 'Heart' },
+  { value: 'bookmark', icon: <Bookmark size={16} />, label: 'Bookmark' },
+]
+
+// ── List color palette (design tokens 8 色) ──
+const LIST_COLORS = ['#0f6f6f', '#c23b4a', '#2870b8', '#6f6d68', '#387a3a', '#7350ad', '#b9760f', '#0b7285']
+
 export default function TodoPage() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
@@ -41,6 +62,12 @@ export default function TodoPage() {
   const [showLeft, setShowLeft] = useState(false)
   const [showCatPicker, setShowCatPicker] = useState(false)
   const [categories, setCategories] = useState<TaskCategory[]>([])
+  // List ⋯ menu state (2026-08-18 My List dropdown: rename/priority/type/delete)
+  const [menuFor, setMenuFor] = useState<string | null>(null)
+  const [renamingId, setRenamingId] = useState<string | null>(null)
+  const [renameValue, setRenameValue] = useState('')
+  const [typeFor, setTypeFor] = useState<string | null>(null)
+  const [deleteTarget, setDeleteTarget] = useState<TaskList | null>(null)
   // Persisted toggle: hide completed tasks (default ON). Stored in localStorage so the choice survives reloads.
   const [hideCompleted, setHideCompleted] = useState<boolean>(() => {
     const stored = localStorage.getItem('nexus.todo.hideCompleted')
@@ -116,6 +143,71 @@ export default function TodoPage() {
     } else {
       fetchTasks(list.id)
     }
+  }
+
+  // ── List ⋯ menu actions (2026-08-18: rename / priority / type / delete) ──
+  const startRename = (list: TaskList) => {
+    setRenamingId(list.id); setRenameValue(list.name); setMenuFor(null); setTypeFor(null)
+  }
+  const saveRename = async (list: TaskList) => {
+    const name = renameValue.trim()
+    setRenamingId(null)
+    if (!name || name === list.name) return
+    try {
+      const updated = await apiClient.patch<TaskList>(`/api/v1/crm/todo/lists/${list.id}`, { name })
+      setLists(prev => prev.map(l => l.id === list.id ? { ...l, ...updated } : l))
+      if (activeListId === list.id) setActiveListId(list.id)
+    } catch {}
+  }
+  const moveList = async (list: TaskList, dir: -1 | 1) => {
+    const customs = lists.filter(l => !l.is_smart).sort((a, b) => a.sort_order - b.sort_order || a.name.localeCompare(b.name))
+    const idx = customs.findIndex(l => l.id === list.id)
+    const swap = customs[idx + dir]
+    if (!swap) return
+    setMenuFor(null)
+    try {
+      // 移動後成組重新分配連續 sort_order (0,1,2...) — 解決同值撞車
+      const newOrder = [...customs]
+      ;[newOrder[idx], newOrder[idx + dir]] = [newOrder[idx + dir], newOrder[idx]]
+      await Promise.all(newOrder.map((l, i) =>
+        l.sort_order === i ? Promise.resolve() : apiClient.patch(`/api/v1/crm/todo/lists/${l.id}`, { sort_order: i })
+      ))
+      fetchLists()
+    } catch {}
+  }
+  const setListIcon = async (list: TaskList, icon: string) => {
+    setTypeFor(null)
+    try {
+      const updated = await apiClient.patch<TaskList>(`/api/v1/crm/todo/lists/${list.id}`, { icon })
+      setLists(prev => prev.map(l => l.id === list.id ? { ...l, ...updated } : l))
+    } catch {}
+  }
+  const setListColor = async (list: TaskList, color: string) => {
+    setTypeFor(null)
+    try {
+      const updated = await apiClient.patch<TaskList>(`/api/v1/crm/todo/lists/${list.id}`, { color })
+      setLists(prev => prev.map(l => l.id === list.id ? { ...l, ...updated } : l))
+    } catch {}
+  }
+  const confirmDeleteList = async () => {
+    if (!deleteTarget) return
+    const target = deleteTarget
+    setDeleteTarget(null)
+    try {
+      await apiClient.delete(`/api/v1/crm/todo/lists/${target.id}`)
+      setLists(prev => prev.filter(l => l.id !== target.id))
+      if (activeListId === target.id) {
+        const all = lists.find(l => l.is_smart && l.name.toLowerCase().includes('all'))
+        if (all) { setActiveListId(all.id); fetchTasks(null, 'all') }
+        else fetchLists().then(allLists => { if (allLists?.length) { setActiveListId(allLists[0].id); fetchTasks(allLists[0].id) } })
+      }
+    } catch {}
+  }
+
+  const renderListIcon = (list: TaskList) => {
+    if (!list.icon) return <span className="l-color" style={{ background: list.color || '#999' }} />
+    const opt = LIST_ICON_OPTIONS.find(o => o.value === list.icon)
+    return <span className="l-icon" style={{ color: list.color || 'var(--color-text-muted)' }}>{opt?.icon || <Inbox size={16} />}</span>
   }
 
   // ── Create task ──
@@ -311,13 +403,60 @@ export default function TodoPage() {
           <div className="todo-list-sep" />
           <div className="todo-left-head">{t('pages.tasks.myLists')}</div>
           <div className="todo-list-group">
-            {lists.filter(l => !l.is_smart).map(l => (
-              <div key={l.id} className={`todo-list-item${activeListId === l.id ? ' active' : ''}`} onClick={() => selectList(l)}>
-                <span className="l-color" style={{background:l.color}} />
-                <span className="l-name">{l.name}</span>
-                <span className="l-count">{tasks.length}</span>
-              </div>
-            ))}
+            {lists.filter(l => !l.is_smart).map(l => {
+              const customs = lists.filter(x => !x.is_smart).sort((a, b) => a.sort_order - b.sort_order)
+              const idx = customs.findIndex(x => x.id === l.id)
+              return (
+                <div key={l.id} className={`todo-list-item${activeListId === l.id ? ' active' : ''}${menuFor === l.id || typeFor === l.id ? ' menu-open' : ''}`} onClick={() => selectList(l)}>
+                  {renderListIcon(l)}
+                  {renamingId === l.id ? (
+                    <input
+                      className="l-rename-input"
+                      value={renameValue}
+                      autoFocus
+                      onChange={e => setRenameValue(e.target.value)}
+                      onBlur={() => saveRename(l)}
+                      onKeyDown={e => { if (e.key === 'Enter') saveRename(l); if (e.key === 'Escape') setRenamingId(null) }}
+                      onClick={e => e.stopPropagation()}
+                    />
+                  ) : (
+                    <span className="l-name">{l.name}</span>
+                  )}
+                  <span className="l-count">{tasks.length}</span>
+                  <button
+                    className="l-menu-btn"
+                    aria-label={t('common.moreOptions', { defaultValue: 'More options' })}
+                    onClick={e => { e.stopPropagation(); setMenuFor(menuFor === l.id ? null : l.id); setTypeFor(null) }}
+                  ><MoreVertical size={14} /></button>
+                  {menuFor === l.id && (
+                    <div className="tl-menu" onClick={e => e.stopPropagation()}>
+                      <button onClick={() => startRename(l)}><Pencil size={14} /> {t('pages.tasks.renameList', { defaultValue: '重新命名' })}</button>
+                      <button onClick={() => moveList(l, -1)} disabled={idx <= 0}><ArrowUp size={14} /> {t('pages.tasks.moveUp', { defaultValue: '上移' })}</button>
+                      <button onClick={() => moveList(l, 1)} disabled={idx >= customs.length - 1}><ArrowDown size={14} /> {t('pages.tasks.moveDown', { defaultValue: '下移' })}</button>
+                      <div className="tl-menu-sep" />
+                      <button onClick={() => { setTypeFor(typeFor === l.id ? null : l.id); setMenuFor(null) }}><Palette size={14} /> {t('pages.tasks.listType', { defaultValue: '類型' })}</button>
+                      <button className="danger" onClick={() => setDeleteTarget(l)}><Trash2 size={14} /> {t('pages.tasks.deleteList', { defaultValue: '刪除' })}</button>
+                    </div>
+                  )}
+                  {typeFor === l.id && (
+                    <div className="tl-type-pop" onClick={e => e.stopPropagation()}>
+                      <div className="tl-type-label">{t('pages.tasks.listIcon', { defaultValue: '圖示' })}</div>
+                      <div className="tl-type-icons">
+                        {LIST_ICON_OPTIONS.map(o => (
+                          <button key={o.value} className={l.icon === o.value ? 'active' : ''} onClick={() => setListIcon(l, o.value)} title={o.label}>{o.icon}</button>
+                        ))}
+                      </div>
+                      <div className="tl-type-label">{t('pages.tasks.listColor', { defaultValue: '顏色' })}</div>
+                      <div className="tl-type-colors">
+                        {LIST_COLORS.map(c => (
+                          <button key={c} className={l.color === c ? 'active' : ''} style={{ background: c }} onClick={() => setListColor(l, c)} aria-label={c} />
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )
+            })}
           </div>
           <button className="todo-add-list" onClick={() => setShowNewList(!showNewList)}>
             <Plus size={14} /> {t('pages.tasks.newList')}
@@ -612,6 +751,24 @@ export default function TodoPage() {
       {/* ── Share Dialog ── */}
       {showShare && activeList && (
         <ShareDialog listId={activeList.id} onClose={() => setShowShare(false)} />
+      )}
+
+      {/* ── Delete List Confirm (2026-08-18) ── */}
+      {deleteTarget && (
+        <div className="share-overlay" onClick={() => setDeleteTarget(null)}>
+          <div className="share-dialog" onClick={e => e.stopPropagation()}>
+            <h3>{t('pages.tasks.deleteListTitle', { defaultValue: '刪除清單' })}</h3>
+            <p style={{ fontSize: 13.5, color: 'var(--color-text-secondary)', margin: '8px 0 16px', lineHeight: 1.5 }}>
+              {t('pages.tasks.deleteListConfirm', { defaultValue: '確定要刪除「{{name}}」？入面嘅任務會移去「所有任務」。此操作無法還原。', name: deleteTarget.name })}
+            </p>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+              <button className="btn-secondary" onClick={() => setDeleteTarget(null)}>{t('common.cancel')}</button>
+              <button className="btn-danger" style={{ background: 'var(--color-notification)', color: '#fff', border: 'none', borderRadius: 8, padding: '8px 16px', fontSize: 13, fontWeight: 600, cursor: 'pointer' }} onClick={confirmDeleteList}>
+                {t('common.delete')}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </>
   )

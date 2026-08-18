@@ -14,6 +14,27 @@
 .todo-list-item .l-color{width:8px;height:8px;border-radius:50%;flex-shrink:0}
 .todo-list-item .l-name{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .todo-list-item .l-count{font-size:11px;color:var(--color-text-faint);font-weight:500}
+/* ── List ⋯ menu (2026-08-18 My List dropdown: rename/priority/type/delete) ── */
+.todo-list-item .l-menu-btn{display:none;width:24px;height:24px;align-items:center;justify-content:center;border:none;background:none;border-radius:var(--radius-sm);color:var(--color-text-faint);cursor:pointer;flex-shrink:0;padding:0}
+.todo-list-item:hover .l-menu-btn,.todo-list-item.menu-open .l-menu-btn{display:flex}
+.todo-list-item .l-menu-btn:hover{background:var(--color-surface-offset);color:var(--color-text)}
+.todo-list-item{position:relative}
+.tl-menu{position:absolute;top:calc(100% - 2px);left:8px;right:8px;z-index:80;background:var(--color-surface-elevated,var(--color-surface));border:1px solid var(--color-border);border-radius:var(--radius-md);box-shadow:var(--shadow-lg);padding:4px;display:flex;flex-direction:column;min-width:150px}
+.tl-menu button{display:flex;align-items:center;gap:8px;padding:7px 10px;border:none;background:none;border-radius:var(--radius-sm);font-size:12.5px;font-weight:500;color:var(--color-text);cursor:pointer;text-align:left;width:100%}
+.tl-menu button:hover{background:var(--color-surface-offset)}
+.tl-menu button:disabled{opacity:.4;cursor:not-allowed}
+.tl-menu button.danger{color:var(--color-notification)}
+.tl-menu-sep{height:1px;background:var(--color-divider);margin:4px 6px}
+.tl-type-pop{position:absolute;top:calc(100% - 2px);left:8px;right:8px;z-index:80;background:var(--color-surface-elevated,var(--color-surface));border:1px solid var(--color-border);border-radius:var(--radius-md);box-shadow:var(--shadow-lg);padding:10px;min-width:170px}
+.tl-type-label{font-size:10.5px;font-weight:600;color:var(--color-text-faint);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px}
+.tl-type-icons{display:grid;grid-template-columns:repeat(6,1fr);gap:4px;margin-bottom:10px}
+.tl-type-icons button{width:26px;height:26px;display:flex;align-items:center;justify-content:center;border:1px solid var(--color-border);background:var(--color-surface);border-radius:var(--radius-sm);color:var(--color-text-muted);cursor:pointer}
+.tl-type-icons button:hover{color:var(--color-text);border-color:var(--color-primary)}
+.tl-type-icons button.active{color:var(--color-primary);border-color:var(--color-primary);background:color-mix(in srgb,var(--color-primary) 10%,transparent)}
+.tl-type-colors{display:grid;grid-template-columns:repeat(8,1fr);gap:4px}
+.tl-type-colors button{width:20px;height:20px;border-radius:50%;border:2px solid transparent;cursor:pointer;padding:0}
+.tl-type-colors button.active{border-color:var(--color-text);box-shadow:0 0 0 2px var(--color-surface)}
+.l-rename-input{flex:1;min-width:0;border:1px solid var(--color-primary);border-radius:var(--radius-sm);padding:3px 6px;font-size:12.5px;outline:none;background:var(--color-surface);color:var(--color-text)}
 .todo-list-sep{height:1px;background:var(--color-divider);margin:6px 14px}
 .todo-add-list{display:flex;align-items:center;gap:8px;padding:7px 10px;margin:2px 6px;border-radius:var(--radius-md);font-size:13px;color:var(--color-text-muted);cursor:pointer;border:none;background:none;transition:background var(--transition-interactive)}
 .todo-add-list:hover{background:var(--color-surface);color:var(--color-primary)}
