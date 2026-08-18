@@ -96,8 +96,8 @@
 .rt-editor a:hover{opacity:.8}
 
 /* ── Right Detail Panel (design04 right slide-out drawer) ── */
-.todo-right{display:none;border-left:1px solid var(--color-divider);overflow-y:auto;background:var(--color-surface);width:380px;flex-shrink:0;flex-direction:column;transform:translateX(100%);opacity:0;pointer-events:none;transition:transform .32s cubic-bezier(.4,0,.2,1),opacity .28s ease}
-.todo-page.detail-open .todo-right{display:flex;transform:translateX(0);opacity:1;pointer-events:auto}
+.todo-right{border-left:1px solid var(--color-divider);overflow-y:auto;background:var(--color-surface);width:380px;flex-shrink:0;flex-direction:column;transform:translateX(105%);opacity:0;pointer-events:none;visibility:hidden;transition:transform .36s cubic-bezier(.4,0,.2,1),opacity .3s ease,visibility 0s linear .36s}
+.todo-page.detail-open .todo-right{transform:translateX(0);opacity:1;pointer-events:auto;visibility:visible;transition:transform .36s cubic-bezier(.4,0,.2,1),opacity .3s ease,visibility 0s}
 .todo-page.detail-open{grid-template-columns:220px 1fr 380px}
 /* click-outside scrim — removed per Terrence: dark overlay dims whole page */
 /* drawer close button */
