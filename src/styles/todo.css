@@ -24,6 +24,17 @@
 .todo-list-header h2{font-family:var(--font-display);font-size:20px;font-weight:700;margin:0;display:flex;align-items:center;gap:8px}
 .todo-list-header .lh-count{font-size:12px;color:var(--color-text-faint);font-weight:500;margin-left:auto}
 .todo-list-header .lh-actions{display:flex;gap:4px}
+
+/* ── Hide-completed toggle switch (uiverse calm-deer-81 style) ── */
+.lh-hide-switch{display:flex;align-items:center;gap:8px;background:none;border:none;cursor:pointer;padding:4px 2px;font-family:inherit}
+.lh-hide-switch .lh-hide-track{position:relative;display:inline-block;width:3.5em;height:2em;background-color:rgb(182,182,182);border-radius:10px;transition:.4s;flex-shrink:0}
+.lh-hide-switch .lh-hide-thumb{position:absolute;content:"";height:1.4em;width:1.4em;border-radius:8px;left:.3em;bottom:.3em;transform:rotate(270deg);background-color:#fff;transition:.4s}
+.lh-hide-switch:hover .lh-hide-thumb{box-shadow:0 0 1px #2196F3}
+.lh-hide-switch.on .lh-hide-track{background-color:#21cc4c}
+.lh-hide-switch.on .lh-hide-thumb{transform:translateX(1.5em) rotate(270deg)}
+.lh-hide-switch .lh-hide-label{font-size:12px;color:var(--color-text-faint);font-weight:500;white-space:nowrap}
+.lh-hide-switch.on .lh-hide-label{color:var(--color-text-muted)}
+@media (max-width:640px){.lh-hide-switch .lh-hide-label{display:none}}
 .todo-list-header .icon-btn-small{width:32px;height:32px;display:flex;align-items:center;justify-content:center;border-radius:var(--radius-md);color:var(--color-text-muted);border:none;background:none;cursor:pointer}
 .todo-list-header .icon-btn-small:hover{background:var(--color-surface-offset);color:var(--color-text)}
 .mobile-hamburger{display:none}

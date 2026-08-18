@@ -41,12 +41,26 @@ export default function TodoPage() {
   const [showLeft, setShowLeft] = useState(false)
   const [showCatPicker, setShowCatPicker] = useState(false)
   const [categories, setCategories] = useState<TaskCategory[]>([])
+  // Persisted toggle: hide completed tasks (default ON). Stored in localStorage so the choice survives reloads.
+  const [hideCompleted, setHideCompleted] = useState<boolean>(() => {
+    const stored = localStorage.getItem('nexus.todo.hideCompleted')
+    return stored === null ? true : stored === '1'
+  })
   const inputRef = useRef<HTMLInputElement>(null)
   const detailRef = useRef<HTMLDivElement>(null)
 
   // Pre-select list from URL param
   const contactFilter = searchParams.get('contact_id')
   const companyFilter = searchParams.get('company_id')
+
+  // Per-user toggle: hide completed tasks. Persisted to localStorage.
+  const toggleHideCompleted = () => {
+    setHideCompleted(prev => {
+      const next = !prev
+      localStorage.setItem('nexus.todo.hideCompleted', next ? '1' : '0')
+      return next
+    })
+  }
 
   // ── Fetch lists ──
   const fetchLists = useCallback(async () => {
@@ -330,6 +344,12 @@ export default function TodoPage() {
               {activeList?.name?.replace(/^[^\s]+\s/, '') || t('pages.tasks.title')}
             </h2>
             <span className="lh-count">{t('pages.tasks.remaining', { count: tasks.filter(t => t.status !== 'done').length })}</span>
+            <button type="button" className={`lh-hide-switch${hideCompleted ? ' on' : ''}`}
+              onClick={toggleHideCompleted} role="switch" aria-checked={hideCompleted}
+              title={hideCompleted ? t('pages.tasks.showCompleted') : t('pages.tasks.hideCompleted')}>
+              <span className="lh-hide-track"><span className="lh-hide-thumb" /></span>
+              <span className="lh-hide-label">{hideCompleted ? t('pages.tasks.hideCompleted') : t('pages.tasks.showCompleted')}</span>
+            </button>
             <div className="lh-actions">
               {!activeList?.is_smart && activeList && (
                 <button className="icon-btn-small" onClick={() => setShowShare(true)} title={t('pages.tasks.shareList')}><Share2 size={15} /></button>
@@ -344,22 +364,31 @@ export default function TodoPage() {
               <div style={{padding:40,textAlign:'center',color:'var(--color-text-faint)',fontSize:13}}>
                 {contactFilter ? t('pages.tasks.emptyForContact') : t('pages.tasks.addToGetStarted')}
               </div>
-            ) : tasks.map(task => (
-              <div key={task.id}
-                className={`todo-task-row${task.status === 'done' ? ' done' : ''}${selectedTask?.id === task.id ? ' selected' : ''}`}
-                onClick={() => setSelectedTask(task)}>
-                <button className={`t-check${task.status === 'done' ? ' checked' : ''}`} onClick={e => { e.stopPropagation(); toggleComplete(task) }}>
-                  {task.status === 'done' && <Check size={11} strokeWidth={3} />}
-                </button>
-                <span className="t-title">{task.title}</span>
-                {task.my_day_date && <span className="t-myday">{t('pages.tasks.myDay')}</span>}
-                {task.step_count ? <span className="t-step-count">{task.step_done || 0}/{task.step_count}</span> : null}
-                {dueLabel(task.due_date)}
-                <button className={`t-imp${task.is_important ? ' important' : ''}`} onClick={e => { e.stopPropagation(); toggleImportant(task) }}>
-                  {task.is_important ? '★' : '☆'}
-                </button>
-              </div>
-            ))}
+            ) : ((() => {
+              const visibleTasks = hideCompleted ? tasks.filter(t => t.status !== 'done') : tasks
+              return visibleTasks.length === 0 ? (
+                <div style={{padding:40,textAlign:'center',color:'var(--color-text-faint)',fontSize:13}}>
+                  {hideCompleted && tasks.some(t => t.status === 'done')
+                    ? t('pages.tasks.allDoneHidden')
+                    : (contactFilter ? t('pages.tasks.emptyForContact') : t('pages.tasks.addToGetStarted'))}
+                </div>
+              ) : visibleTasks.map(task => (
+                <div key={task.id}
+                  className={`todo-task-row${task.status === 'done' ? ' done' : ''}${selectedTask?.id === task.id ? ' selected' : ''}`}
+                  onClick={() => setSelectedTask(task)}>
+                  <button className={`t-check${task.status === 'done' ? ' checked' : ''}`} onClick={e => { e.stopPropagation(); toggleComplete(task) }}>
+                    {task.status === 'done' && <Check size={11} strokeWidth={3} />}
+                  </button>
+                  <span className="t-title">{task.title}</span>
+                  {task.my_day_date && <span className="t-myday">{t('pages.tasks.myDay')}</span>}
+                  {task.step_count ? <span className="t-step-count">{task.step_done || 0}/{task.step_count}</span> : null}
+                  {dueLabel(task.due_date)}
+                  <button className={`t-imp${task.is_important ? ' important' : ''}`} onClick={e => { e.stopPropagation(); toggleImportant(task) }}>
+                    {task.is_important ? '★' : '☆'}
+                  </button>
+                </div>
+              ))
+            })())}
           </div>
 
           <div className="todo-add-task at-float">
