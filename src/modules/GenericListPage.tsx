@@ -1093,7 +1093,7 @@ const [filters, setFilters] = useState<Record<string, FilterEntry>>(() => ({ ...
       )}
 
       {/* ─── Right-side Detail Drawer ─── */}
-      <SlideDrawer open={!!selectedId} onClose={() => setSelectedId(null)} title={`${t('pages.' + filterModuleKey + '.title')} Details`} width="40vw">
+      <SlideDrawer open={!!selectedId} onClose={() => setSelectedId(null)} title={`${t('pages.' + filterModuleKey + '.title')} Details`} width="96vw" closeOnLeft>
         {selectedId && (
           <DetailDrawerContent
             config={config}
