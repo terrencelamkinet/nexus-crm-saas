@@ -161,6 +161,7 @@ export default function TaskDetailPage() {
         onClose={() => navigate('/tasks')}
         title={t('pages.tasks.title', { defaultValue: 'Tasks' })}
         width="96vw"
+        closeOnLeft
       >
       <NexusDetailPageV2
         entity={entity}
