@@ -289,7 +289,13 @@ export default function TodoPage() {
       {/* Mobile scrim for left panel */}
       {showLeft && <div className="share-overlay" onClick={() => setShowLeft(false)} style={{zIndex:55}} />}
 
-      <div className={`todo-page${selectedTask ? ' detail-open' : ''}`}>
+      <div className={`todo-page${selectedTask ? ' detail-open' : ''}`}
+        onClick={e => {
+          // Click-outside: click 喺 .todo-right 外面（主體空白/header）→ 收起 drawer
+          if (selectedTask && !(e.target as Element).closest('.todo-right')) {
+            setSelectedTask(null)
+          }
+        }}>
         {/* ── LEFT PANEL ── */}
         <aside className={`todo-left${showLeft ? ' show' : ''}`}>
           <div className="todo-left-head">{t('pages.tasks.lists')}</div>
@@ -375,7 +381,7 @@ export default function TodoPage() {
               ) : visibleTasks.map(task => (
                 <div key={task.id}
                   className={`todo-task-row${task.status === 'done' ? ' done' : ''}${selectedTask?.id === task.id ? ' selected' : ''}`}
-                  onClick={() => setSelectedTask(task)}>
+                  onClick={e => { e.stopPropagation(); setSelectedTask(task) }}>
                   <button className={`t-check${task.status === 'done' ? ' checked' : ''}`} onClick={e => { e.stopPropagation(); toggleComplete(task) }}>
                     {task.status === 'done' && <Check size={11} strokeWidth={3} />}
                   </button>
