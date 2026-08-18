@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Outlet } from 'react-router-dom'
+import { Outlet, useLocation } from 'react-router-dom'
 import SidebarV2 from './SidebarV2'
 import HeaderV2 from './HeaderV2'
 import ChatboxPanel from '../ChatboxPanel'
@@ -11,6 +11,12 @@ const COLLAPSE_KEY = 'nexus-sidebar-collapsed'
 
 export default function LayoutV2() {
   const [collapsed, setCollapsed] = useState(() => localStorage.getItem(COLLAPSE_KEY) === '1')
+  const location = useLocation()
+
+  // Close the mobile drawer on every route change
+  useEffect(() => {
+    document.getElementById('appShell')?.classList.remove('mobile-open')
+  }, [location.pathname])
 
   const toggleCollapse = () => {
     setCollapsed(v => {
