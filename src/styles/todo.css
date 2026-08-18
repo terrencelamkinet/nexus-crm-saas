@@ -99,8 +99,7 @@
 .todo-right{display:flex;border-left:1px solid var(--color-divider);overflow-y:auto;background:var(--color-surface);width:380px;flex-shrink:0;flex-direction:column;transform:translateX(100%);opacity:0;pointer-events:none;transition:transform .32s cubic-bezier(.4,0,.2,1),opacity .28s ease;border-left:1px solid var(--color-divider)}
 .todo-right.open{transform:translateX(0);opacity:1;pointer-events:auto}
 .todo-page.detail-open{grid-template-columns:220px 1fr 380px}
-/* click-outside scrim (dismiss drawer) */
-.todo-right-scrim{position:fixed;inset:0;z-index:80;background:rgba(0,0,0,.35);opacity:1;pointer-events:auto}
+/* click-outside scrim — removed per Terrence: dark overlay dims whole page */
 /* drawer close button */
 .dt-close-wrap{display:flex;justify-content:flex-end;margin-bottom:-4px}
 .dt-close{width:32px;height:32px;display:flex;align-items:center;justify-content:center;border-radius:var(--radius-md);color:var(--color-text-muted);border:none;background:none;cursor:pointer}
@@ -177,8 +176,6 @@
   .todo-left.show{display:flex}
   .todo-right{position:fixed;inset:0;z-index:50;width:100%;border-left:none;transform:translateX(100%);opacity:1}
   .todo-right.open{transform:translateX(0)}
-  /* scrim sits below drawer on mobile */
-  .todo-right-scrim{z-index:45}
   .dt-close-wrap{position:sticky;top:0;background:var(--color-surface);padding-bottom:6px}
   .todo-task-row{padding:8px 14px}
   .todo-list-header{padding:12px 14px}

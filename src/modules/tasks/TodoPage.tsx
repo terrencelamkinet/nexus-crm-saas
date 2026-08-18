@@ -286,9 +286,8 @@ export default function TodoPage() {
 
   return (
     <>
-      {/* Mobile/desktop scrim for right drawer + topbar hamburger overlay reuse */}
+      {/* Mobile scrim for left panel */}
       {showLeft && <div className="share-overlay" onClick={() => setShowLeft(false)} style={{zIndex:55}} />}
-      {selectedTask && <div className="todo-right-scrim" onClick={() => setSelectedTask(null)} />}
 
       <div className={`todo-page${selectedTask ? ' detail-open' : ''}`}>
         {/* ── LEFT PANEL ── */}
