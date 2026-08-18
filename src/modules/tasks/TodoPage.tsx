@@ -286,8 +286,9 @@ export default function TodoPage() {
 
   return (
     <>
-      {/* Mobile scrim for left panel */}
+      {/* Mobile/desktop scrim for right drawer + topbar hamburger overlay reuse */}
       {showLeft && <div className="share-overlay" onClick={() => setShowLeft(false)} style={{zIndex:55}} />}
+      {selectedTask && <div className="todo-right-scrim" onClick={() => setSelectedTask(null)} />}
 
       <div className={`todo-page${selectedTask ? ' detail-open' : ''}`}>
         {/* ── LEFT PANEL ── */}
@@ -408,6 +409,12 @@ export default function TodoPage() {
         <aside className={`todo-right${selectedTask ? ' open' : ''}`}>
           {selectedTask && (
             <div className="todo-detail" ref={detailRef}>
+              {/* Drawer close button (smooth slide-out drawer) */}
+              <div className="dt-close-wrap">
+                <button className="icon-btn-small dt-close" onClick={() => setSelectedTask(null)} title={t('common.close')} aria-label={t('common.close')}>
+                  <ChevronRight size={18} style={{transform:'rotate(180deg)'}} />
+                </button>
+              </div>
               {/* Title */}
               <textarea className={`dt-title${selectedTask.status === 'done' ? ' dt-done' : ''}`}
                 value={selectedTask.title}
