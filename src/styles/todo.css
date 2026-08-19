@@ -95,7 +95,8 @@
 
 /* ── Floating Label (design04 spec) ── */
 .todo-add-task.at-float{position:relative}
-.todo-add-task.at-float .at-input{padding-top:14px;padding-bottom:4px;height:40px}
+.todo-add-task.at-float .at-input-wrap{position:relative;flex:1;min-width:0}
+.todo-add-task.at-float .at-input-wrap .at-input{width:100%;padding:14px 14px 4px;height:40px}
 .todo-add-task .at-label{position:absolute;left:14px;top:50%;transform:translateY(-50%);font-size:14px;color:var(--color-text-faint);pointer-events:none;transition:all .18s ease;background:transparent;line-height:1}
 .todo-add-task.at-float .at-input:focus + .at-label,
 .todo-add-task.at-float .at-input:not(:placeholder-shown) + .at-label{

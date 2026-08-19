@@ -537,14 +537,16 @@ export default function TodoPage() {
           </div>
 
           <div className="todo-add-task at-float at-top">
-            <textarea ref={inputRef as any} className="at-input" placeholder=" " rows={1}
-              value={newTitle}
-              onChange={e => setNewTitle(e.target.value)}
-              onKeyDown={e => {
-                if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); createTask() }
-              }}
-              aria-label={t('pages.tasks.taskPlaceholder')} />
-            <label className="at-label">{t('pages.tasks.taskPlaceholder')}</label>
+            <div className="at-input-wrap">
+              <textarea ref={inputRef as any} className="at-input" placeholder=" " rows={1}
+                value={newTitle}
+                onChange={e => setNewTitle(e.target.value)}
+                onKeyDown={e => {
+                  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); createTask() }
+                }}
+                aria-label={t('pages.tasks.taskPlaceholder')} />
+              <label className="at-label">{t('pages.tasks.taskPlaceholder')}</label>
+            </div>
             <button className="at-btn" onClick={createTask}><Plus size={16} /></button>
           </div>
         </div>
