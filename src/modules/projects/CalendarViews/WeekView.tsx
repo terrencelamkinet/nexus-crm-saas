@@ -5,6 +5,7 @@ import {
   getWeekDates,
   getHourSlots,
   isSameDay,
+  isEventOnDay,
   formatDateKey,
 } from './calendar-utils';
 import type { CalendarEventFormatted, CalendarViewType } from './types';
@@ -145,6 +146,36 @@ export default function WeekView({ events, date, onDateChange, viewType, onViewC
     return map;
   }, [allDayEvents]);
 
+  // Every day an event spans (not just its start day) — multi-day events show
+  // on each covered column.
+  const timedSpanByDay = useMemo(() => {
+    const map = new Map<string, CalendarEventFormatted[]>();
+    for (const ev of timedEvents) {
+      for (const wd of weekDates) {
+        if (isEventOnDay(ev.start, ev.end, wd)) {
+          const key = formatDateKey(wd);
+          if (!map.has(key)) map.set(key, []);
+          map.get(key)!.push(ev);
+        }
+      }
+    }
+    return map;
+  }, [timedEvents, weekDates]);
+
+  const allDaySpanByDay = useMemo(() => {
+    const map = new Map<string, CalendarEventFormatted[]>();
+    for (const ev of allDayEvents) {
+      for (const wd of weekDates) {
+        if (isEventOnDay(ev.start, ev.end, wd)) {
+          const key = formatDateKey(wd);
+          if (!map.has(key)) map.set(key, []);
+          map.get(key)!.push(ev);
+        }
+      }
+    }
+    return map;
+  }, [allDayEvents, weekDates]);
+
   // Current time line position
   const nowMinutes = useMemo(() => {
     return now.getHours() * 60 + now.getMinutes();
@@ -213,8 +244,8 @@ export default function WeekView({ events, date, onDateChange, viewType, onViewC
           {weekDates.map((wd) => {
             const colKey = formatDateKey(wd);
             const isColToday = isSameDay(wd, now);
-            const dayTimed = timedByDay.get(colKey) || [];
-            const dayAllDay = allDayByDay.get(colKey) || [];
+            const dayTimed = timedSpanByDay.get(colKey) || [];
+            const dayAllDay = allDaySpanByDay.get(colKey) || [];
 
             return (
               <div key={`col-${colKey}`} className="day-col" style={{ height: TOTAL_HEIGHT }}>

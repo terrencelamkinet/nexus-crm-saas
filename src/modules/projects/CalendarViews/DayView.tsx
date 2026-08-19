@@ -3,6 +3,7 @@ import { ChevronLeft, ChevronRight, CalendarDays } from 'lucide-react';
 import {
   getHourSlots,
   isSameDay,
+  isEventOnDay,
   formatDayHeader,
 } from './calendar-utils';
 import type { CalendarEventFormatted } from './types';
@@ -102,12 +103,14 @@ export default function DayView({ events, date, onDateChange, onEventClick, focu
     onDateChange(new Date());
   }, [onDateChange]);
 
-  // Separate all-day events from time-specific events, scoped to the selected day
+  // Separate all-day events from time-specific events, scoped to the selected day.
+  // Multi-day events render on every day they span (isEventOnDay), so cross-
+  // day events like multi-day annual leave show on each covered date.
   const { allDayEvents, timedEvents } = useMemo(() => {
     const allDay: CalendarEventFormatted[] = [];
     const timed: CalendarEventFormatted[] = [];
     for (const ev of events) {
-      if (!isSameDay(ev.start, date)) continue;
+      if (!isEventOnDay(ev.start, ev.end, date)) continue;
       if (ev.allDay) {
         allDay.push(ev);
       } else {

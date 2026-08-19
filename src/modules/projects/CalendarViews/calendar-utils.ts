@@ -105,6 +105,20 @@ export function isSameDay(d1: Date, d2: Date): boolean {
 }
 
 /**
+ * True if the event [start, end) overlaps the given date (any part of it).
+ * Used so multi-day events render on every day they span, not just the
+ * start day.
+ */
+export function isEventOnDay(start: Date, end: Date, day: Date): boolean {
+  const dStart = new Date(day.getFullYear(), day.getMonth(), day.getDate());
+  // event's own end exclusive
+  const evEnd = new Date(end);
+  const dAfter = new Date(dStart);
+  dAfter.setDate(dStart.getDate() + 1);
+  return evEnd.getTime() > dStart.getTime() && start.getTime() < dAfter.getTime();
+}
+
+/**
  * Returns true if the given date is today (local time).
  */
 export function isToday(d: Date): boolean {
