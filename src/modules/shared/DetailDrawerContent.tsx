@@ -372,7 +372,7 @@ export default function DetailDrawerContent({ config, id, onClose, extraData }: 
                         e.stopPropagation()
                         if (relatedCompanyId) { onClose(); navigate(`/companies/${relatedCompanyId}`) }
                       }}
-                      title={t('common.openrelated', { defaultValue: 'Open company' })}
+                      title={relatedCompanyName || value}
                     >
                       <User size={12} /><span className="nx-drawer-related-tag-text">{value}</span>
                     </span>
