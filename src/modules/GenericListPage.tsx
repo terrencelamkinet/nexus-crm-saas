@@ -913,7 +913,7 @@ const [filters, setFilters] = useState<Record<string, FilterEntry>>(() => ({ ...
                     return (
                       <th key={col}
                         className={(canSort ? 'th-sortable' : '') + (field?.type === 'title' || col === config.titleField ? ' glp-th-title' : '')}
-                        style={{ minWidth: width }}
+                        style={{ width, minWidth: width }}
                         draggable
                         onDragStart={e => colLayout.onDragStart(e, col)}
                         onDragOver={e => colLayout.onDragOver(e, col)}
@@ -957,7 +957,7 @@ const [filters, setFilters] = useState<Record<string, FilterEntry>>(() => ({ ...
                         checked={selectedIds.has(item.id)} onChange={() => toggleSelect(item.id)} />
                     </td>
                     {colLayout.orderedCols.map(col => (
-                      <td key={col} style={{ minWidth: colLayout.getWidth(col) }}>{renderCell(item, col)}</td>
+                      <td key={col} style={{ width: colLayout.getWidth(col), minWidth: colLayout.getWidth(col) }}>{renderCell(item, col)}</td>
                     ))}
                     <td className="col-menu" onClick={e => e.stopPropagation()}>
                       <div className="menu-wrap">
