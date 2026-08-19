@@ -49,11 +49,25 @@ export default function MarketplacePage() {
         const matchType = activeType === 'All' || i.type === activeType;
         return matchSearch && matchType;
       })
-      .map(i => ({
-        ...i,
-        isConnected: !!connections[i.id.replace('-', '_')],
-        _connection: connections[i.id.replace('-', '_')],
-      }));
+      .map(i => {
+        // Card is connected if a connection matches by provider key (e.g.
+        // outlook_calendar, google_calendar) OR any ICS subscription whose
+        // display name matches this integration. This is generic across
+        // tenants — ICS URL subscriptions serve their matching calendar card.
+        const providerKey = i.id.replace('-', '_');
+        const direct = connections[providerKey];
+        const icsMatch = !direct
+          ? Object.values(connections).find(c =>
+              c.provider === 'ics' &&
+              (c.provider_display || '').toLowerCase() === i.name.toLowerCase()
+            )
+          : undefined;
+        return {
+          ...i,
+          isConnected: !!direct || !!icsMatch,
+          _connection: icsMatch || direct,
+        };
+      });
   }, [search, activeType, connections]);
 
   const renderStars = (n: number) =>
