@@ -258,9 +258,11 @@ export default function DetailDrawerContent({ config, id, onClose, extraData }: 
               ))}
             </div>
           )}
+          {( (entity as any).status ) && (
           <div className="nx-drawer-status">
-            <span className={`select-tag ${statusTagClass}`}>{(entity as any).status || t('common.active')}</span>
+            <span className={`select-tag ${statusTagClass}`}>{(entity as any).status}</span>
           </div>
+          )}
         </div>
       </div>
 

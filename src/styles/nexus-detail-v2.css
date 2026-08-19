@@ -90,6 +90,15 @@
 .nx-sidebar-field-label { color: var(--color-text-secondary); flex-shrink: 0; }
 .nx-sidebar-field-value { color: var(--color-text-primary); font-weight: 500; text-align: left; }
 .nx-sidebar-field-value.ai-enriched { display: flex; align-items: center; gap: 4px; justify-content: flex-end; }
+/* Company clickable tag in detail drawer */
+.nx-sidebar-field-value.nx-drawer-related-tag {
+  display: inline-flex; align-items: center; gap: 4px;
+  background: rgba(37,99,235,.12); color: #60A5FA;
+  border-radius: 9999px; padding: 2px 10px;
+  cursor: pointer; font-weight: 600; line-height: 1.6;
+  transition: background .15s ease;
+}
+.nx-sidebar-field-value.nx-drawer-related-tag:hover { background: rgba(37,99,235,.22); }
 
 /* AI-enriched field marker in sidebar */
 .nx-enrich-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--ai-glow-2); flex-shrink: 0; }
