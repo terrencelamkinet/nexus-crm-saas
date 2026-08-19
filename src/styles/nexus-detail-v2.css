@@ -86,7 +86,7 @@
   text-transform: uppercase; letter-spacing: .04em; margin-bottom: var(--space-3);
   cursor: pointer;
 }
-.nx-sidebar-field { display: flex; justify-content: space-between; align-items: baseline; padding: var(--space-2) 0; font-size: 13px; gap: var(--space-2); }
+.nx-sidebar-field { display: flex; justify-content: flex-start; align-items: baseline; padding: var(--space-2) 0; font-size: 13px; gap: var(--space-3); }
 .nx-sidebar-field-label { color: var(--color-text-secondary); flex-shrink: 0; }
 .nx-sidebar-field-value { color: var(--color-text-primary); font-weight: 500; text-align: left; }
 .nx-sidebar-field-value.ai-enriched { display: flex; align-items: center; gap: 4px; justify-content: flex-end; }
