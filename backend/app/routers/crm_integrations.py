@@ -419,7 +419,7 @@ async def oauth_callback(
 
 OAUTH_URLS = {
     "google_calendar": "https://accounts.google.com/o/oauth2/v2/auth?client_id={client_id}&redirect_uri={redirect}&response_type=code&scope=https://www.googleapis.com/auth/calendar.readonly+https://www.googleapis.com/auth/calendar.events.readonly&access_type=offline&state={state}",
-    "outlook_calendar": "https://login.microsoftonline.com/191a76d9-3c7a-4160-801e-860283e5bbc3/oauth2/v2.0/authorize?client_id={client_id}&redirect_uri={redirect}&response_type=code&scope=Calendars.Read+offline_access&state={state}",
+    "outlook_calendar": "https://login.microsoftonline.com/common/oauth2/v2.0/authorize?client_id={client_id}&redirect_uri={redirect}&response_type=code&scope=Calendars.Read+offline_access&state={state}",
     "gmail": "https://accounts.google.com/o/oauth2/v2/auth?client_id={client_id}&redirect_uri={redirect}&response_type=code&scope=https://www.googleapis.com/auth/gmail.readonly+https://www.googleapis.com/auth/gmail.modify&access_type=offline&state={state}",
     "outlook_mail": "https://login.microsoftonline.com/common/oauth2/v2.0/authorize?client_id={client_id}&redirect_uri={redirect}&response_type=code&scope=Mail.Read+offline_access&state={state}",
     "slack": "https://slack.com/oauth/v2/authorize?client_id={client_id}&redirect_uri={redirect}&scope=channels:read,chat:write&state={state}",
@@ -532,7 +532,7 @@ _TOKEN_ENDPOINTS = {
     "google_calendar": "https://oauth2.googleapis.com/token",
     "gmail": "https://oauth2.googleapis.com/token",
     "google_drive": "https://oauth2.googleapis.com/token",
-    "outlook_calendar": "https://login.microsoftonline.com/191a76d9-3c7a-4160-801e-860283e5bbc3/oauth2/v2.0/token",
+    "outlook_calendar": "https://login.microsoftonline.com/common/oauth2/v2.0/token",
     "outlook_mail": "https://login.microsoftonline.com/common/oauth2/v2.0/token",
 }
 
