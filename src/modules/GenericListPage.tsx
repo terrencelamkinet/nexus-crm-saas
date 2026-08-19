@@ -75,7 +75,7 @@ const [filters, setFilters] = useState<Record<string, FilterEntry>>(() => ({ ...
   const [sortOpen, setSortOpen] = useState(false)
   const [sortField, setSortField] = useState('')
 
-  const [view, setView] = useState<'table' | 'gallery' | 'board' | 'kanban'>('table')
+  const [view, setView] = useState<'table' | 'gallery' | 'board'>('table')
   const [viewOpen, setViewOpen] = useState(false)
 
   const [propsOpen, setPropsOpen] = useState(false)
@@ -217,7 +217,7 @@ const [filters, setFilters] = useState<Record<string, FilterEntry>>(() => ({ ...
         // versions, manual edits). A non-array visibleCols used to crash GenericListPage at
         // render (visibleCols.filter) and blank the whole app (no error boundary) — which
         // surfaced as the toolbar/menu bar losing its buttons. Validate types before applying.
-        const VALID_VIEWS = ['table', 'gallery', 'board', 'kanban'] as const
+        const VALID_VIEWS = ['table', 'gallery', 'board'] as const
         if (p.filters && typeof p.filters === 'object' && !Array.isArray(p.filters))
           setFilters({ ...((config as any).defaultFilters || {}), ...p.filters })
         if (typeof p.query === 'string') setQuery(p.query)
@@ -608,13 +608,13 @@ const [filters, setFilters] = useState<Record<string, FilterEntry>>(() => ({ ...
             )}
             {viewOpen && (
               <div className="view-dropdown">
-                {(['table', 'gallery', 'board', 'kanban'] as const).map(v => (
+                {(['table', 'gallery', 'board'] as const).map(v => (
                   <button key={v} className={`view-option${view === v ? ' active' : ''}`}
                     onClick={() => { setView(v); setViewOpen(false) }}>
                     <span className="view-icon">{
-                      v === 'table' ? '▦' : v === 'gallery' ? '⊞' : v === 'board' ? '📋' : '📌'
+                      v === 'table' ? '▦' : v === 'gallery' ? '⊞' : '📋'
                     }</span>
-                    {v === 'table' ? t('pages.' + filterModuleKey + '.title') : v === 'gallery' ? 'Gallery' : v === 'board' ? 'Board' : 'Kanban'}
+                    {v === 'table' ? t('pages.' + filterModuleKey + '.title') : v === 'gallery' ? 'Gallery' : 'Board'}
                   </button>
                 ))}
               </div>
@@ -647,11 +647,11 @@ const [filters, setFilters] = useState<Record<string, FilterEntry>>(() => ({ ...
                   <div className="settings-row">
                     <span className="settings-label">{t('common.layout')}</span>
                     <div className="settings-chip-group">
-                      {(['table', 'gallery', 'board', 'kanban'] as const).map(v => (
+                      {(['table', 'gallery', 'board'] as const).map(v => (
                         <button key={v}
                           className={`settings-chip${view === v ? ' active' : ''}`}
                           onClick={() => setView(v)}>
-                          {v === 'table' ? `▦ ${t('common.viewTable')}` : v === 'gallery' ? `⊞ ${t('common.viewGallery')}` : v === 'board' ? `📋 ${t('common.viewBoard')}` : `📌 ${t('common.viewKanban')}`}
+                          {v === 'table' ? `▦ ${t('common.viewTable')}` : v === 'gallery' ? `⊞ ${t('common.viewGallery')}` : `📋 ${t('common.viewBoard')}`}
                         </button>
                       ))}
                     </div>
@@ -861,29 +861,35 @@ const [filters, setFilters] = useState<Record<string, FilterEntry>>(() => ({ ...
         ) : view === 'gallery' ? (
           <div className="contact-grid">
             {items.map(item => {
-              const initials = (item['name'] || '').split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase()
+              const title = item['title'] || item['name'] || '—'
               const statusClass = statusColors[item['status']] || 'tag-default'
               const tags = Array.isArray(item['tags']) ? item['tags'] : []
               const company = item['company']?.name || item['company'] || ''
+              const priority = item['priority']
+              const pf = config.fields.find((f: any) => f.key === 'priority')
+              const popt = pf?.options?.find((o: any) => (o.value ?? o.label) === priority)
+              const priorityColor = popt?.color ? (optionColorToClass[popt.color] || 'tag-default') : 'tag-default'
+              const due = item['due_date']
               return (
                 <div key={item.id} className="contact-card" onClick={() => setSelectedId(item.id)}>
-                  <div className="contact-card-avatar">{initials}</div>
-                  <div className="contact-card-name">{item['name'] || '—'}</div>
+                  <div className="contact-card-avatar">{title.slice(0, 2).toUpperCase()}</div>
+                  <div className="contact-card-name">{title}</div>
                   {company && <div className="contact-card-company">{company}</div>}
-                  {item['job_title'] && <div className="contact-card-title">{item['job_title']}</div>}
                   {item['email'] && <div className="contact-card-field"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="13" height="13"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg> {item['email']}</div>}
                   {item['phone'] && <div className="contact-card-field"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="13" height="13"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg> {item['phone']}</div>}
                   <div className="contact-card-footer">
-                    <span className={`select-tag ${statusClass}`}>{item['status'] || 'Active'}</span>
-                    {tags.slice(0, 2).map((t: string) => <span key={t} className="tag">{t}</span>)}
+                    {priority && <span className={`select-tag ${priorityColor || 'tag-default'}`}>{priority}</span>}
+                    <span className={`select-tag ${statusClass}`}>{item['status'] || '—'}</span>
+                    {due && <span className="tag tag-date">{String(due).slice(0, 10)}</span>}
+                    {tags.slice(0, 2).map((tt: string) => <span key={tt} className="tag">{tt}</span>)}
                     {tags.length > 2 && <span className="tag">+{tags.length - 2}</span>}
                   </div>
                 </div>
               )
             })}
           </div>
-        ) : view === 'board' || view === 'kanban' ? (
-                <BoardView items={items} onSelect={setSelectedId} groupBy={view === 'board' ? 'status' : 'contact_type'} />
+        ) : view === 'board' ? (
+                <BoardView config={config} items={items} onSelect={setSelectedId} groupBy="status" />
         ) : (
           <>
             <div className={`table-scroll${tableAtEnd ? ' at-end' : ''}`} ref={tableScrollRef}
@@ -1141,8 +1147,8 @@ const [filters, setFilters] = useState<Record<string, FilterEntry>>(() => ({ ...
 /* ═══════════════════════════════════════════
    Board / Kanban View Component
    ═══════════════════════════════════════════ */
-function BoardView({ items, onSelect, groupBy }: {
-  items: any[]; onSelect: (id: string) => void; groupBy: string
+function BoardView({ items, onSelect, groupBy, config }: {
+  items: any[]; onSelect: (id: string) => void; groupBy: string; config: any
 }) {
   const { t } = useTranslation()
   const groups: Record<string, any[]> = {}
@@ -1152,6 +1158,8 @@ function BoardView({ items, onSelect, groupBy }: {
     groups[val].push(item)
   }
   const groupKeys = Object.keys(groups)
+
+  const titleKey = config.titleField || 'title' // fallback, config uses titleField
 
   return (
     <div className="kanban-scroll">
@@ -1163,15 +1171,23 @@ function BoardView({ items, onSelect, groupBy }: {
               <span className="board-col-count">{groups[key].length}</span>
             </div>
             {groups[key].map(item => {
-              const initials = (item['name'] || '').split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase()
+              const titleRaw = item[titleKey] || item['title'] || item['name'] || '—'
+              const title = typeof titleRaw === 'string' ? titleRaw : (titleRaw?.title || titleRaw?.name || '—')
+              const priority = item['priority']
+              const due = item['due_date'] ? String(item['due_date']).slice(0, 10) : null
+              const company = item['company']?.name || item['company'] || ''
+              const contact = item['contact']?.name || item['contact'] || ''
+              const assignee = item['assignee']?.name || item['assignee']?.email || item['assignee'] || ''
               return (
                 <div key={item.id} className="board-card" onClick={() => onSelect(item.id)}>
-                  <div className="board-card-avatar">{initials}</div>
+                  <div className="board-card-avatar">{title.slice(0, 2).toUpperCase()}</div>
                   <div className="board-card-body">
-                    <div className="board-card-name">{item['name'] || '—'}</div>
-                    <div className="board-card-sub">{(item['company']?.name || item['company'] || '')}</div>
-                    {item['email'] && <div className="board-card-field">✉️ {item['email']}</div>}
-                    {item['phone'] && <div className="board-card-field">📞 {item['phone']}</div>}
+                    <div className="board-card-name">{title}</div>
+                    {company && <div className="board-card-sub">{company}</div>}
+                    {contact && contact !== company && <div className="board-card-field">👤 {contact}</div>}
+                    {assignee && <div className="board-card-field">🧑‍💼 {assignee}</div>}
+                    {priority && <div className="board-card-field board-card-priority">{priority}</div>}
+                    {due && <div className="board-card-field board-card-due">📅 {due}</div>}
                   </div>
                 </div>
               )
