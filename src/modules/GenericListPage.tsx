@@ -1174,10 +1174,15 @@ function BoardView({ items, onSelect, groupBy, config }: {
               const titleRaw = item[titleKey] || item['title'] || item['name'] || '—'
               const title = typeof titleRaw === 'string' ? titleRaw : (titleRaw?.title || titleRaw?.name || '—')
               const priority = item['priority']
+              const pf = config.fields?.find?.((f: any) => f.key === 'priority')
+              const popt = pf?.options?.find?.((o: any) => (o.value ?? o.label) === priority)
+              const priorityCls = popt?.color ? (optionColorToClass[popt.color] || 'tag-default') : 'tag-default'
               const due = item['due_date'] ? String(item['due_date']).slice(0, 10) : null
               const company = item['company']?.name || item['company'] || ''
               const contact = item['contact']?.name || item['contact'] || ''
               const assignee = item['assignee']?.name || item['assignee']?.email || item['assignee'] || ''
+              const status = item['status']
+              const statusCls = statusColors[status] || 'tag-default'
               return (
                 <div key={item.id} className="board-card" onClick={() => onSelect(item.id)}>
                   <div className="board-card-avatar">{title.slice(0, 2).toUpperCase()}</div>
@@ -1186,7 +1191,12 @@ function BoardView({ items, onSelect, groupBy, config }: {
                     {company && <div className="board-card-sub">{company}</div>}
                     {contact && contact !== company && <div className="board-card-field">👤 {contact}</div>}
                     {assignee && <div className="board-card-field">🧑‍💼 {assignee}</div>}
-                    {priority && <div className="board-card-field board-card-priority">{priority}</div>}
+                    {(priority || status) && (
+                      <div className="board-card-footer">
+                        {priority && <span className={`select-tag ${priorityCls}`}>{localizeOptionLabel(priority, priority, t)}</span>}
+                        {status && <span className={`select-tag ${statusCls}`}>{localizeOptionLabel(status, status, t)}</span>}
+                      </div>
+                    )}
                     {due && <div className="board-card-field board-card-due">📅 {due}</div>}
                   </div>
                 </div>
