@@ -35,11 +35,16 @@ export default function IntegrationDetailPage() {
     try {
       const list = await fetchIntegrations();
       const providerKey = id.replace('-', '_');
-      const found = list.find(c => c.provider === providerKey);
+      // ICS subscriptions (provider='ics') also serve calendar cards, e.g.
+      // outlook-calendar subscribed via ICS URL. Match by provider_display.
+      const found = list.find(c =>
+        c.provider === providerKey ||
+        (c.provider === 'ics' && (c.provider_display || '').toLowerCase() === integration?.name.toLowerCase())
+      );
       setConnection(found || null);
     } catch { /* no connections */ }
     setLoading(false);
-  }, [id]);
+  }, [id, integration]);
 
   useEffect(() => { loadConnection(); }, [loadConnection]);
 
