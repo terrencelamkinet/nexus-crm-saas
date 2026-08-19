@@ -27,9 +27,19 @@ function minutesSinceMidnight(d: Date): number {
 }
 
 /** Compute top offset (px) and height (px) for a time-based event */
-function computeEventPosition(start: Date, end: Date): { top: number; height: number } {
-  const startMin = minutesSinceMidnight(start);
-  const endMin = Math.max(minutesSinceMidnight(end), startMin + 15);
+function computeEventPosition(start: Date, end: Date, day?: Date): { top: number; height: number } {
+  let s = start;
+  let e = end;
+  if (day) {
+    const dayStart = new Date(day.getFullYear(), day.getMonth(), day.getDate());
+    const dayEnd = new Date(dayStart);
+    dayEnd.setDate(dayStart.getDate() + 1);
+    const d0 = dayStart.getTime();
+    if (s.getTime() < d0) s = dayStart;
+    if (e.getTime() > dayEnd.getTime()) e = dayEnd;
+  }
+  const startMin = Math.max(0, minutesSinceMidnight(s));
+  const endMin = Math.min(24 * 60, Math.max(startMin + 15, minutesSinceMidnight(e)));
   const top = (startMin / (24 * 60)) * TOTAL_HEIGHT;
   const height = ((endMin - startMin) / (24 * 60)) * TOTAL_HEIGHT;
   return { top, height };
@@ -258,7 +268,7 @@ export default function DayView({ events, date, onDateChange, onEventClick, focu
 
             {/* Positioned events */}
             {timedEvents.map((ev) => {
-              const { top, height } = computeEventPosition(ev.start, ev.end);
+              const { top, height } = computeEventPosition(ev.start, ev.end, date);
               const sevClass = getEventSeverityClass(ev);
               const status = getEventStatus(ev);
               const timeStr = `${ev.start.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} – ${ev.end.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
