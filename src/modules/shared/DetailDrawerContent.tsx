@@ -358,12 +358,28 @@ export default function DetailDrawerContent({ config, id, onClose, extraData }: 
         {generalInfo.length > 0 && (
           <div className="nx-sidebar-section">
             <div className="nx-sidebar-section-head">{t('common.generalInfo', { defaultValue: 'General Info' })}</div>
-            {generalInfo.map(([label, value], i) => (
-              <div className="nx-sidebar-field" key={i}>
-                <span className="nx-sidebar-field-label">{label}</span>
-                <span className="nx-sidebar-field-value">{value}</span>
-              </div>
-            ))}
+            {generalInfo.map(([label, value], i) => {
+              const isCompany = config.name === 'contact' && label === t('fields.company', { defaultValue: 'Company' })
+              return (
+                <div className="nx-sidebar-field" key={i}>
+                  <span className="nx-sidebar-field-label">{label}</span>
+                  {isCompany && relatedCompanyId ? (
+                    <span
+                      className="nx-sidebar-field-value nx-drawer-related-tag"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        if (relatedCompanyId) { onClose(); navigate(`/companies/${relatedCompanyId}`) }
+                      }}
+                      title={t('common.openrelated', { defaultValue: 'Open company' })}
+                    >
+                      <User size={12} /> {value}
+                    </span>
+                  ) : (
+                    <span className="nx-sidebar-field-value">{value}</span>
+                  )}
+                </div>
+              )
+            })}
           </div>
         )}
         {ownership.length > 0 && (
