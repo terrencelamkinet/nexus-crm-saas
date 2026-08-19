@@ -374,7 +374,7 @@ export default function DetailDrawerContent({ config, id, onClose, extraData }: 
                       }}
                       title={t('common.openrelated', { defaultValue: 'Open company' })}
                     >
-                      <User size={12} /> {value}
+                      <User size={12} /><span className="nx-drawer-related-tag-text">{value}</span>
                     </span>
                   ) : (
                     <span className="nx-sidebar-field-value">{value}</span>
