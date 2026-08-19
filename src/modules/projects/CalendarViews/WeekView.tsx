@@ -125,29 +125,7 @@ export default function WeekView({ events, date, onDateChange, viewType, onViewC
     return { allDayEvents: allDay, timedEvents: timed };
   }, [events]);
 
-  // Group events by day
-  const timedByDay = useMemo(() => {
-    const map = new Map<string, CalendarEventFormatted[]>();
-    for (const ev of timedEvents) {
-      const key = formatDateKey(ev.start);
-      if (!map.has(key)) map.set(key, []);
-      map.get(key)!.push(ev);
-    }
-    return map;
-  }, [timedEvents]);
-
-  const allDayByDay = useMemo(() => {
-    const map = new Map<string, CalendarEventFormatted[]>();
-    for (const ev of allDayEvents) {
-      const key = formatDateKey(ev.start);
-      if (!map.has(key)) map.set(key, []);
-      map.get(key)!.push(ev);
-    }
-    return map;
-  }, [allDayEvents]);
-
-  // Every day an event spans (not just its start day) — multi-day events show
-  // on each covered column.
+  // Group timed events by start day, then every day they span
   const timedSpanByDay = useMemo(() => {
     const map = new Map<string, CalendarEventFormatted[]>();
     for (const ev of timedEvents) {
