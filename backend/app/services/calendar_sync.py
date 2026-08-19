@@ -20,6 +20,7 @@ from __future__ import annotations
 import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Any
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 import httpx
 from sqlalchemy import select, delete
@@ -367,33 +368,71 @@ def _parse_ics(text: str) -> list[dict[str, Any]]:
 
 
 def _parse_ics_dt(raw: str) -> datetime | None:
-    """Parse iCal datetime: YYYYMMDD, YYYYMMDDTHHMMSS, with/without Z, with TZID."""
+    """Parse iCal datetime: YYYYMMDD, YYYYMMDDTHHMMSS, with/without Z, with TZID.
+
+    - `...Z` → UTC
+    - `TZID=xxx:local` → interpret in that zone, return .astimezone(UTC)
+      (so a local time like China Standard 11:00 becomes 03:00Z — the frontend,
+      which re-localizes to the viewer's browser zone, shows the correct wall clock)
+    - naive (no Z, no TZID) → treat as UTC (backwards compatible)
+    """
     raw = raw.strip()
     if not raw:
         return None
-    # strip TZID prefix
+    # capture TZID if present (e.g. "TZID=China Standard Time:20251020T110000")
+    tzid: str | None = None
     if raw.upper().startswith("TZID="):
-        raw = raw.split(":", 1)[-1]
+        head, _, rest = raw.partition(":")
+        tzid = head.split("=", 1)[-1].strip()
+        raw = rest
 
     s = raw
     has_tz = s.endswith("Z")
     if has_tz:
         s = s[:-1]
-    # basic format → ISO
+        tzid = None  # Z means UTC; TZID ignored
     s = s.replace("T", "T")  # keep as-is
     try:
         if len(s) == 8:  # date only
-            dt = datetime.strptime(s, "%Y%m%d").replace(tzinfo=_UTC)
-        elif len(s) >= 15:
-            dt = datetime.strptime(s[:15], "%Y%m%dT%H%M%S")
-            if has_tz:
-                dt = dt.replace(tzinfo=_UTC)
-            else:
-                dt = dt.replace(tzinfo=_UTC)  # no TZ info → treat as UTC
-        else:
+            return datetime.strptime(s, "%Y%m%d").replace(tzinfo=_UTC)
+        if len(s) < 15:
             return None
-        return dt
+        naive = datetime.strptime(s[:15], "%Y%m%dT%H%M%S")
+        if has_tz:
+            return naive.replace(tzinfo=_UTC)
+        if tzid:
+            zone = _resolve_tzid(tzid)
+            if zone is not None:
+                return naive.replace(tzinfo=zone).astimezone(_UTC)
+        return naive.replace(tzinfo=_UTC)  # no TZ info → treat as UTC
     except ValueError:
+        return None
+
+
+_TZID_ALIASES = {
+    "china standard time": "Asia/Shanghai",
+    "hong kong standard time": "Asia/Hong_Kong",
+    "india standard time": "Asia/Kolkata",
+    "pacific standard time": "America/Los_Angeles",
+    "eastern standard time": "America/New_York",
+    "central standard time": "America/Chicago",
+    "mountain standard time": "America/Denver",
+    "greenwich mean time": "Etc/GMT",
+    "utc": "Etc/UTC",
+}
+
+
+def _resolve_tzid(tzid: str) -> ZoneInfo | None:
+    key = tzid.strip().lower()
+    candidate = _TZID_ALIASES.get(key)
+    if candidate:
+        try:
+            return ZoneInfo(candidate)
+        except ZoneInfoNotFoundError:
+            return None
+    try:
+        return ZoneInfo(tzid)
+    except ZoneInfoNotFoundError:
         return None
 
 
