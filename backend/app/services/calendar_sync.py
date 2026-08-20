@@ -338,9 +338,13 @@ def _parse_ics(text: str) -> list[dict[str, Any]]:
             continue
 
         if ":" in line:
-            key, _, value = line.partition(":")
-            # strip iCal params (e.g. DTSTART;VALUE=DATE → DTSTART)
-            current[key.split(";")[0].strip().upper()] = value.strip()
+            head, _, value = line.partition(":")
+            parts = head.split(";")
+            base_key = parts[0].strip().upper()
+            tz_params = [p for p in parts[1:] if p.strip().upper().startswith("TZID=")]
+            if tz_params:
+                value = tz_params[0] + ":" + value
+            current[base_key] = value.strip()
 
     out: list[dict[str, Any]] = []
     for ev in events:

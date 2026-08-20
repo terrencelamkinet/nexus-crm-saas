@@ -39,6 +39,40 @@ export default function ProjectCalendarView() {
         }
       }
 
+      // Dedupe key: external_event_id (ics + google_oauth sync the same underlying
+      // events). Events without an external_event_id (manual ones) are never deduped.
+      const seenExternal = new Set<string>();
+      all.forEach((ev) => {
+        const ext = (ev as any).external_event_id;
+        if (ext) seenExternal.add(String(ext));
+      });
+
+      // Merge project_id=NULL events (e.g. Annual leave from shared ICS/Outlook)
+      // that never appear via per-project fetches. Skip any that share an
+      // external_event_id already present in the project-scoped list above.
+      try {
+        const allEvs: any = await apiClient.get('/api/v1/crm/calendar-events?limit=500');
+        (Array.isArray(allEvs) ? allEvs : (allEvs?.items || [])).forEach((ev: any) => {
+          const ext = ev?.external_event_id;
+          if (ext && seenExternal.has(String(ext))) return;
+          if (ext) seenExternal.add(String(ext));
+          all.push({
+            id: ev.id,
+            project_id: null,
+            project_name: null,
+            title: ev.title || '(untitled)',
+            description: ev.description ?? null,
+            event_type: ev.event_type ?? null,
+            start: ev.start,
+            end: ev.end || ev.start,
+            is_all_day: !!ev.is_all_day,
+            color: ev.color ?? null,
+            location: ev.location ?? null,
+            source: ev.source ?? null,
+          } as unknown as CalendarEvent);
+        });
+      } catch { /* silent */ }
+
       setEvents(all);
     } catch { /* silent */ }
     finally { setLoading(false); }
