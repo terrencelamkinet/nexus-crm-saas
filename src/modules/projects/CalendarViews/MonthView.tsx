@@ -15,12 +15,13 @@ interface MonthViewProps {
   onDateChange: (d: Date) => void;
   onEventClick?: (ev: CalendarEventFormatted) => void;
   onMoreClick?: (events: CalendarEventFormatted[], date: Date) => void;
+  onCreate?: (d: Date) => void;
 }
 
 const MAX_EVENTS_PER_CELL = 3;
 const MAX_DOTS = 6;
 
-export default function MonthView({ events, date, onDateChange, onEventClick, onMoreClick }: MonthViewProps) {
+export default function MonthView({ events, date, onDateChange, onEventClick, onMoreClick, onCreate }: MonthViewProps) {
   const year = date.getFullYear();
   const month = date.getMonth();
   const grid = useMemo(() => getMonthGrid(year, month), [year, month]);
@@ -86,6 +87,7 @@ export default function MonthView({ events, date, onDateChange, onEventClick, on
                   key={`day-${day}`}
                   className={`month-cell${isCellToday ? ' today' : ''}`}
                   onClick={() => onDateChange(cellDate)}
+                  onDoubleClick={(e) => { e.stopPropagation(); onCreate && onCreate(cellDate); }}
                 >
                   <div className="month-date">{day}</div>
 

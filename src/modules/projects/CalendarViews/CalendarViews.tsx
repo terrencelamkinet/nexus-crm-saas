@@ -9,6 +9,7 @@ import {
   List,
   RefreshCw,
   CalendarDays,
+  Plus,
   X,
 } from 'lucide-react';
 import type { CalendarViewType, CalendarEventFormatted } from './types';
@@ -73,6 +74,8 @@ export default function CalendarViews({ events, loading, onRefresh }: CalendarVi
   const [showWeekends] = useState<boolean>(getStoredShowWeekends);
   const [viewMenuOpen, setViewMenuOpen] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState<CalendarEventFormatted | null>(null);
+  // Create-mode: non-null Date = create modal open, defaulting to that date.
+  const [creating, setCreating] = useState<Date | null>(null);
   const [morePopup, setMorePopup] = useState<{ events: CalendarEventFormatted[]; date: Date } | null>(null);
   // Bumped on "Today"/"Now" so time-based views (day/week) re-scroll to the
   // real-time "now" line even when the date is already today. Real-time focus.
@@ -127,17 +130,17 @@ export default function CalendarViews({ events, loading, onRefresh }: CalendarVi
       case 'month':
         if (isMobile) return (
           <div>
-            <MonthView events={events} date={date} onDateChange={handleDateChange} onEventClick={handleEventClick} onMoreClick={handleMoreClick} />
+            <MonthView events={events} date={date} onDateChange={handleDateChange} onEventClick={handleEventClick} onMoreClick={handleMoreClick} onCreate={setCreating} />
             <MobileAgendaList events={events} date={date} onEventClick={handleEventClick} />
           </div>
         );
-        return <MonthView events={events} date={date} onDateChange={handleDateChange} onEventClick={handleEventClick} onMoreClick={handleMoreClick} />;
-      case 'week': return <WeekView events={events} date={date} onDateChange={handleDateChange} viewType={viewType} onViewChange={handleViewChange} showWeekends={showWeekends} onEventClick={handleEventClick} focusSignal={focusSignal} />;
-      case 'day': return <DayView events={events} date={date} onDateChange={handleDateChange} onEventClick={handleEventClick} focusSignal={focusSignal} />;
+        return <MonthView events={events} date={date} onDateChange={handleDateChange} onEventClick={handleEventClick} onMoreClick={handleMoreClick} onCreate={setCreating} />;
+      case 'week': return <WeekView events={events} date={date} onDateChange={handleDateChange} viewType={viewType} onViewChange={handleViewChange} showWeekends={showWeekends} onEventClick={handleEventClick} focusSignal={focusSignal} onCreate={setCreating} />;
+      case 'day': return <DayView events={events} date={date} onDateChange={handleDateChange} onEventClick={handleEventClick} focusSignal={focusSignal} onCreate={setCreating} />;
       case 'deadline': return <DeadlineView events={events} date={date} onDateChange={handleDateChange} onEventClick={handleEventClick} />;
       default:
         if (isMobile) return <MobileAgendaView events={events} date={date} onDateChange={handleDateChange} onEventClick={handleEventClick} />;
-        return <MonthView events={events} date={date} onDateChange={handleDateChange} onEventClick={handleEventClick} onMoreClick={handleMoreClick} />;
+        return <MonthView events={events} date={date} onDateChange={handleDateChange} onEventClick={handleEventClick} onMoreClick={handleMoreClick} onCreate={setCreating} />;
     }
   };
 
@@ -192,6 +195,14 @@ export default function CalendarViews({ events, loading, onRefresh }: CalendarVi
             </div>
           )}
         </div>
+
+        {/* Add event */}
+        <button onClick={() => setCreating(new Date())}
+          className="px-3 py-1.5 rounded-lg text-xs font-medium text-white bg-[var(--color-primary)] hover:opacity-90 transition-colors min-h-[36px] flex items-center gap-1"
+          title="New event">
+          <Plus className="w-3.5 h-3.5" />
+          <span className="max-sm:hidden">New Event</span>
+        </button>
 
         {/* Refresh */}
         <button onClick={onRefresh}
@@ -266,6 +277,15 @@ export default function CalendarViews({ events, loading, onRefresh }: CalendarVi
           event={selectedEvent}
           onClose={handleReviewClose}
           onSaved={() => { onRefresh(); }}
+        />
+      )}
+
+      {creating && (
+        <EventReviewModal
+          event={null}
+          initialDate={creating}
+          onClose={() => setCreating(null)}
+          onSaved={() => { setCreating(null); onRefresh(); }}
         />
       )}
     </div>

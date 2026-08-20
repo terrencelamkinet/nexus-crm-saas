@@ -16,6 +16,7 @@ interface DayViewProps {
   onEventClick?: (ev: CalendarEventFormatted) => void;
   /** Optional counter — when it changes, re-scroll to the current-time line (real-time focus). */
   focusSignal?: number;
+  onCreate?: (d: Date) => void;
 }
 
 const HOUR_HEIGHT = 74; // px per hour row — matches design03
@@ -73,7 +74,7 @@ function getEventStatus(ev: CalendarEventFormatted): string {
   return t || 'Event';
 }
 
-export default function DayView({ events, date, onDateChange, onEventClick, focusSignal }: DayViewProps) {
+export default function DayView({ events, date, onDateChange, onEventClick, focusSignal, onCreate }: DayViewProps) {
   const [now, setNow] = useState<Date>(new Date());
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -239,6 +240,7 @@ export default function DayView({ events, date, onDateChange, onEventClick, focu
                 title={ev.title}
                 onClick={onEventClick ? () => onEventClick(ev) : undefined}
                 role={onEventClick ? 'button' : undefined}
+                onDoubleClick={(e) => e.stopPropagation()}
               >
                 <div className="e-title" style={{ fontSize: '10px' }}>{ev.title}</div>
               </div>
@@ -248,7 +250,8 @@ export default function DayView({ events, date, onDateChange, onEventClick, focu
 
         {/* Time grid (scrollable) */}
         <div ref={scrollRef} className="day-grid-scroll" style={{ maxHeight: '800px' }}>
-          <div className="day-grid" style={{ minHeight: TOTAL_HEIGHT }}>
+          <div className="day-grid" style={{ minHeight: TOTAL_HEIGHT }}
+            onDoubleClick={(e) => { e.stopPropagation(); onCreate && onCreate(date); }}>
             {/* Hour rows */}
             {hourSlots.map((slot) => (
               <div key={slot} className="day-hour-row">
@@ -280,6 +283,7 @@ export default function DayView({ events, date, onDateChange, onEventClick, focu
                   title={`${ev.title}\n${timeStr}`}
                   onClick={onEventClick ? () => onEventClick(ev) : undefined}
                   role={onEventClick ? 'button' : undefined}
+                  onDoubleClick={(e) => e.stopPropagation()}
                 >
                   <div className="e-status">{status}</div>
                   <div className="e-title">{ev.title}</div>

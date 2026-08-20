@@ -556,7 +556,7 @@ class ProjectResponse(BaseModel):
 
 
 class ProjectCalendarEventCreate(BaseModel):
-    project_id: UUID
+    project_id: Optional[UUID] = None  # None = standalone event (not tied to a project)
     title: str
     description: Optional[str] = None
     event_type: Optional[str] = "milestone"

@@ -6,7 +6,8 @@ import { apiClient } from '../../../lib/api';
 import { useEscapeKey } from '../../../lib/useEscapeKey';
 
 interface EventReviewModalProps {
-  event: CalendarEventFormatted;
+  event?: CalendarEventFormatted | null;
+  initialDate?: Date;
   onClose: () => void;
   onSaved: () => void;
 }
@@ -27,31 +28,40 @@ function formatDateLong(d: Date): string {
   return d.toLocaleDateString('en-US', { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' });
 }
 
-export default function EventReviewModal({ event, onClose, onSaved }: EventReviewModalProps) {
+export default function EventReviewModal({ event, initialDate, onClose, onSaved }: EventReviewModalProps) {
   // Real calendar events come from project_calendar_events (id: `cal-<uuid>`).
   // Touchpoints (tp-*) and tasks (task-*) are read-only here.
-  const isEditable = event.id.startsWith('cal-');
-  const rawId = isEditable ? event.id.replace(/^cal-/, '') : event.id;
+  // No event = create mode (Add button / double-click).
+  const isCreate = !event;
+  const isEditable = isCreate || event!.id.startsWith('cal-');
+  const rawId = isEditable ? (isCreate ? null : event!.id.replace(/^cal-/, '')) : event!.id;
+
+  // Create-mode default date: initialDate if provided, else today, default 09:00.
+  const createDefault = initialDate || new Date();
 
   useEscapeKey(onClose);
 
-  const [editing, setEditing] = useState(false);
+  const [editing, setEditing] = useState(isCreate);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
 
-  const [title, setTitle] = useState(event.title);
-  const [eventType, setEventType] = useState(event.eventType || 'meeting');
-  const [startDate, setStartDate] = useState(toDateInput(event.start));
-  const [startTime, setStartTime] = useState(toTimeInput(event.start));
-  const [allDay, setAllDay] = useState(event.allDay);
-  const [location, setLocation] = useState(event.location || '');
-  const [description, setDescription] = useState(event.description || '');
+  const [title, setTitle] = useState(isCreate ? '' : event!.title);
+  const [eventType, setEventType] = useState(isCreate ? 'meeting' : (event!.eventType || 'meeting'));
+  const [startDate, setStartDate] = useState(isCreate ? toDateInput(createDefault) : toDateInput(event!.start));
+  const [startTime, setStartTime] = useState(isCreate ? '09:00' : toTimeInput(event!.start));
+  const [allDay, setAllDay] = useState(isCreate ? false : event!.allDay);
+  const [location, setLocation] = useState(isCreate ? '' : (event!.location || ''));
+  const [description, setDescription] = useState(isCreate ? '' : (event!.description || ''));
 
-  const sourceLabel = event.source && SOURCE_LABELS[event.source] ? SOURCE_LABELS[event.source] : null;
-  const badgeColor = event.source === 'google_oauth' ? '#4285F4'
-    : event.source === 'ics' ? '#34A853'
-    : (event.eventType && TYPE_COLORS[event.eventType]) || '#6B7280';
+  const sourceLabel = isCreate
+    ? (SOURCE_LABELS.manual || null)
+    : (event!.source && SOURCE_LABELS[event!.source] ? SOURCE_LABELS[event!.source] : null);
+  const badgeColor = isCreate
+    ? '#00693E'
+    : event!.source === 'google_oauth' ? '#4285F4'
+    : event!.source === 'ics' ? '#34A853'
+    : (event!.eventType && TYPE_COLORS[event!.eventType]) || '#6B7280';
 
   const handleSave = async () => {
     if (!title.trim()) {
@@ -63,16 +73,21 @@ export default function EventReviewModal({ event, onClose, onSaved }: EventRevie
     try {
       const start = new Date(`${startDate}T${allDay ? '00:00' : (startTime || '00:00')}`);
       const end = new Date(start.getTime() + 60 * 60 * 1000);
-      await apiClient.patch(`/api/v1/crm/calendar-events/${rawId}`, {
+      const body = {
         title: title.trim(),
         description: description.trim() || null,
         event_type: eventType,
         start: start.toISOString(),
         end: end.toISOString(),
         is_all_day: allDay,
-        color: event.color || undefined,
+        color: event?.color || undefined,
         location: location.trim() || null,
-      });
+      };
+      if (isCreate) {
+        await apiClient.post('/api/v1/crm/calendar-events', body);
+      } else {
+        await apiClient.patch(`/api/v1/crm/calendar-events/${rawId}`, body);
+      }
       setEditing(false);
       onSaved();
       onClose();
@@ -101,7 +116,7 @@ export default function EventReviewModal({ event, onClose, onSaved }: EventRevie
       <div className="er-modal" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true">
         {/* Header */}
         <div className="er-header">
-          <h3>{editing ? 'Edit Event' : 'Event Review'}</h3>
+          <h3>{editing ? (isCreate ? 'New Event' : 'Edit Event') : 'Event Review'}</h3>
           <button className="er-close" onClick={onClose} aria-label="Close">
             <X className="w-4 h-4" />
           </button>
@@ -199,9 +214,9 @@ export default function EventReviewModal({ event, onClose, onSaved }: EventRevie
           /* ── Review mode ── */
           <div className="er-body">
             <div className="er-title-row">
-              <h2 className="er-title">{event.title}</h2>
+              <h2 className="er-title">{event!.title}</h2>
               <span className="er-badge" style={{ backgroundColor: badgeColor }}>
-                {sourceLabel || event.eventType || 'Event'}
+                {sourceLabel || event!.eventType || 'Event'}
               </span>
             </div>
 
@@ -209,34 +224,34 @@ export default function EventReviewModal({ event, onClose, onSaved }: EventRevie
               <div className="er-meta-item">
                 <CalendarDays className="w-4 h-4" />
                 <span>
-                  {formatDateLong(event.start)}
-                  {!event.allDay && (
-                    <> · {event.start.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                      {event.end && ` – ${event.end.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`}</>
+                  {formatDateLong(event!.start)}
+                  {!event!.allDay && (
+                    <> · {event!.start.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      {event!.end && ` – ${event!.end.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`}</>
                   )}
                 </span>
               </div>
-              {event.location && (
+              {event!.location && (
                 <div className="er-meta-item">
                   <MapPin className="w-4 h-4" />
-                  <span>{event.location}</span>
+                  <span>{event!.location}</span>
                 </div>
               )}
-              {event.projectName && (
+              {event!.projectName && (
                 <div className="er-meta-item">
                   <Clock className="w-4 h-4" />
-                  <span>{event.projectName}</span>
+                  <span>{event!.projectName}</span>
                 </div>
               )}
             </div>
 
-            {event.description && (
-              <div className="er-desc">{event.description}</div>
+            {event!.description && (
+              <div className="er-desc">{event!.description}</div>
             )}
 
             {!isEditable && (
               <div className="er-note">
-                This event comes from a {event.id.startsWith('tp-') ? 'touchpoint' : 'task'}.
+                This event comes from a {event!.id.startsWith('tp-') ? 'touchpoint' : 'task'}.
                 Edit it in the corresponding module.
               </div>
             )}

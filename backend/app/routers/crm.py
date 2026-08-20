@@ -3293,6 +3293,41 @@ async def create_calendar_event(
     return obj
 
 
+@router.post("/calendar-events", response_model=ProjectCalendarEventResponse, status_code=201)
+async def create_calendar_event_standalone(
+    request: Request,
+    body: ProjectCalendarEventCreate,
+    db: AsyncSession = Depends(get_tenant_session),
+):
+    tenant_id = _get_tenant_id(request)
+    user_id = _get_user_id(request)
+
+    obj = ProjectCalendarEvent(
+        tenant_id=tenant_id,
+        owner_user_id=user_id,           # ← 獨立 event 屬於自己（唔係 sync 嘅）
+        project_id=body.project_id,       # 可以 None = 獨立 event
+        title=body.title,
+        description=body.description,
+        event_type=body.event_type or "milestone",
+        start=body.start,
+        end=body.end,
+        is_all_day=body.is_all_day or False,
+        color=body.color or "#00693E",
+        location=body.location,
+        source="manual",                 # ← 標記手動建立（唔會被 sync delete）
+    )
+    db.add(obj)
+    await db.flush()
+    await db.refresh(obj)
+
+    await _log_activity(
+        db, tenant_id=tenant_id, actor_id=user_id,
+        action="created", entity_type="calendar_event", entity_id=obj.id,
+        summary=f"Created calendar event '{obj.title}'",
+    )
+    return obj
+
+
 @router.patch("/calendar-events/{event_id}", response_model=ProjectCalendarEventResponse)
 async def update_calendar_event(
     request: Request,

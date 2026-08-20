@@ -21,6 +21,7 @@ interface WeekViewProps {
   onEventClick?: (ev: CalendarEventFormatted) => void;
   /** Optional counter — when it changes, re-scroll to the current-time line (real-time focus). */
   focusSignal?: number;
+  onCreate?: (d: Date) => void;
 }
 
 const HOUR_HEIGHT = 74;
@@ -87,7 +88,7 @@ function getEventStatus(ev: CalendarEventFormatted): string {
 const SHORT_DAY_NAMES = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
 const FULL_DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
-export default function WeekView({ events, date, onDateChange, viewType, onViewChange, showWeekends, onEventClick, focusSignal }: WeekViewProps) {
+export default function WeekView({ events, date, onDateChange, viewType, onViewChange, showWeekends, onEventClick, focusSignal, onCreate }: WeekViewProps) {
   const [now, setNow] = useState<Date>(new Date());
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -241,7 +242,8 @@ export default function WeekView({ events, date, onDateChange, viewType, onViewC
             const dayAllDay = allDaySpanByDay.get(colKey) || [];
 
             return (
-              <div key={`col-${colKey}`} className="day-col" style={{ height: TOTAL_HEIGHT }}>
+              <div key={`col-${colKey}`} className="day-col" style={{ height: TOTAL_HEIGHT }}
+                onDoubleClick={(e) => { e.stopPropagation(); onCreate && onCreate(wd); }}>
                 {/* Hour grid lines */}
                 {hourSlots.map((slot) => (
                   <div key={`hl-${colKey}-${slot}`} className="hour-line" />
@@ -269,6 +271,7 @@ export default function WeekView({ events, date, onDateChange, viewType, onViewC
                     title={ev.title}
                     onClick={onEventClick ? () => onEventClick(ev) : undefined}
                     role={onEventClick ? 'button' : undefined}
+                    onDoubleClick={(e) => e.stopPropagation()}
                   >
                     <div className="e-title" style={{ fontSize: '10px', color: ev.color }}>{ev.title}</div>
                   </div>
@@ -298,6 +301,7 @@ export default function WeekView({ events, date, onDateChange, viewType, onViewC
                       title={`${ev.title}\n${timeStr}`}
                       onClick={onEventClick ? () => onEventClick(ev) : undefined}
                       role={onEventClick ? 'button' : undefined}
+                      onDoubleClick={(e) => e.stopPropagation()}
                     >
                       <div className="e-status">{status}</div>
                       <div className="e-title">{ev.title}</div>
