@@ -32,7 +32,8 @@
     "notifications": "Notifications",
     "userMenu": "User menu",
     "searchNoResults": "No results found",
-    "searchWeb": "Search web for \"{{query}}\" →"
+    "searchWeb": "Search web for \"{{query}}\" →",
+    "newNotificationsAlert": "🔔 You have {{count}} new notifications"
   },
   "login": {
     "title": "Welcome back",

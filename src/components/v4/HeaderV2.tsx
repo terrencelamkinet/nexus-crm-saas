@@ -8,6 +8,7 @@ import CommandPalette from './CommandPalette'
 import { apiClient } from '../../lib/api'
 import { useModuleSettings } from '../../lib/useModules'
 import { useAuth } from '../../lib/AuthContext'
+import { useToast } from './useToast'
 import { useNavigate } from 'react-router-dom'
 
 /* ═══════════════════════════════════════════════════════════
@@ -61,6 +62,34 @@ export default function HeaderV2({ onToggleSidebar }: { onToggleSidebar: () => v
     apiClient.get<{ unread_count: number }>('/api/v1/notifications/unread-count')
       .then(d => setUnreadCount(d.unread_count || 0)).catch(() => {})
   }, [])
+
+  // ── Notification polling + alert ──
+  // Poll unread-count every 30s so new notifications surface without a reload,
+  // and pop a toast alert the moment the unread count increases.
+  const { showToast } = useToast()
+  const lastUnreadRef = useRef<number | null>(null)
+
+  useEffect(() => {
+    let alive = true
+    const poll = async () => {
+      try {
+        const { unread_count } = await apiClient.get<{ unread_count: number }>('/api/v1/notifications/unread-count')
+        if (!alive) return
+        const prev = lastUnreadRef.current
+        lastUnreadRef.current = unread_count
+        setUnreadCount(unread_count)
+        if (prev !== null && unread_count > prev) {
+          showToast(t('header.newNotificationsAlert', { defaultValue: '🔔 你有 {{count}} 則新通知', count: unread_count }))
+          // Refresh the dropdown list so it shows the newest items.
+          apiClient.get<{ items: any[]; total: number }>('/api/v1/notifications?page=1&page_size=8')
+            .then(d => setNotifications(d.items || [])).catch(() => {})
+        }
+      } catch { /* silent — transient network errors must not spam */ }
+    }
+    poll() // initial baseline (no toast on first load)
+    const timer = setInterval(poll, 30000)
+    return () => { alive = false; clearInterval(timer) }
+  }, [showToast, t])
 
   const toggleTheme = () => {
     const next = theme === 'dark' ? 'light' : 'dark'
