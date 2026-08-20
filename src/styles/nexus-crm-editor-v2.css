@@ -61,6 +61,29 @@
 .nxe-content th { background: var(--color-surface-offset); font-weight: 700; text-align: left; }
 .nxe-content mark { background: color-mix(in oklch, var(--color-warning) 35%, transparent); border-radius: 3px; padding: 0 2px; }
 
+/* ═══ RENDERED CONTENT (read-only note list display) ═══ */
+.nxe-rendered-content { font-size: 14px; line-height: 1.7; color: var(--color-text); word-break: break-word; }
+.nxe-rendered-content p { margin: 6px 0; }
+.nxe-rendered-content h1 { font-size: 20px; font-weight: 800; margin: 16px 0 8px; }
+.nxe-rendered-content h2 { font-size: 17px; font-weight: 750; margin: 14px 0 6px; }
+.nxe-rendered-content h3 { font-size: 15px; font-weight: 700; margin: 12px 0 4px; }
+.nxe-rendered-content ul, .nxe-rendered-content ol { padding-left: 22px; margin: 6px 0; }
+.nxe-rendered-content li { margin: 2px 0; }
+.nxe-rendered-content blockquote { border-left: 3px solid var(--color-primary); padding: 4px 14px; color: var(--color-text-muted); margin: 10px 0; background: var(--color-surface-offset); border-radius: 0 8px 8px 0; }
+.nxe-rendered-content code { background: var(--color-surface-offset); padding: 2px 6px; border-radius: 6px; font-size: 12.5px; font-family: 'JetBrains Mono', monospace; }
+.nxe-rendered-content pre { background: var(--color-surface-offset); border: 1px solid var(--color-border); border-radius: 10px; padding: 12px 14px; overflow-x: auto; margin: 10px 0; }
+.nxe-rendered-content pre code { background: none; padding: 0; }
+.nxe-rendered-content a { color: var(--color-primary); text-decoration: underline; text-decoration-color: color-mix(in oklch, var(--color-primary) 40%, transparent); }
+.nxe-rendered-content img { max-width: 100%; border-radius: 10px; margin: 8px 0; }
+.nxe-rendered-content hr { border: none; border-top: 1px solid var(--color-divider); margin: 16px 0; }
+.nxe-rendered-content table { border-collapse: collapse; width: 100%; margin: 10px 0; }
+.nxe-rendered-content td, .nxe-rendered-content th { border: 1px solid var(--color-border); padding: 7px 10px; font-size: 13.5px; }
+.nxe-rendered-content th { background: var(--color-surface-offset); font-weight: 700; text-align: left; }
+.nxe-rendered-content mark { background: color-mix(in oklch, var(--color-warning) 35%, transparent); border-radius: 3px; padding: 0 2px; }
+.nxe-rendered-content ul.contains-task-list { list-style: none; padding-left: 4px; }
+.nxe-rendered-content li.task-item { display: flex; align-items: flex-start; gap: 8px; margin: 3px 0; }
+.nxe-rendered-content li.task-item input[type="checkbox"] { margin-top: 4px; }
+
 /* Notion-style block handle: gutter icons revealed on hover (⋮⋮ drag + ➕ insert) */
 .nxe-block-handle { position: absolute; left: 4px; display: flex; align-items: center; gap: 1px; opacity: 0; transition: opacity .12s ease; z-index: 8; }
 .nxe-block-handle.visible { opacity: 1; }
