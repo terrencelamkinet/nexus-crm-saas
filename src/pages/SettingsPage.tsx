@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
-import { Users, CreditCard, Puzzle, Monitor, ChevronRight } from 'lucide-react'
+import { Users, CreditCard, Puzzle, Monitor, ChevronRight, Bell } from 'lucide-react'
 import { apiClient } from '../lib/api'
 import LanguageSwitcher from '../i18n/LanguageSwitcher';
 
@@ -21,6 +21,48 @@ export default function SettingsPage() {
   const [loading, setLoading] = useState(true)
   const [draft, setDraft] = useState<Record<string, boolean>>({})
   const [saveState, setSaveState] = useState<'idle' | 'saving' | 'done'>('idle')
+
+  // ── Notification preferences ──
+  const notifDefs = [
+    { key: 'task', icon: '📋', label: 'Task', desc: '被指派任務、今日到期、任務完成通知' },
+    { key: 'project', icon: '📁', label: 'Project', desc: '被指派項目、項目 deadline 提醒' },
+    { key: 'calendar', icon: '📅', label: 'Calendar', desc: '日程改期、30 分鐘前提醒' },
+    { key: 'ai', icon: '🤖', label: 'AI', desc: 'AI 執行完成、AI 洞察通知' },
+    { key: 'system', icon: '⚙️', label: 'System', desc: '系統層面通知' },
+  ]
+  const [notifMuted, setNotifMuted] = useState<Record<string, boolean>>({})
+  const [notifDraft, setNotifDraft] = useState<Record<string, boolean>>({})
+  const [notifLoading, setNotifLoading] = useState(true)
+  const [notifSaveState, setNotifSaveState] = useState<'idle' | 'saving' | 'done'>('idle')
+
+  const loadNotifPrefs = async () => {
+    try {
+      const list = await apiClient.get('/api/v1/notification-preferences')
+      const muted: Record<string, boolean> = {}
+      ;(list || []).forEach((p: any) => { muted[p.module_key] = !!p.is_muted })
+      setNotifMuted(muted)
+      setNotifDraft({})
+    } catch {}
+    finally { setNotifLoading(false) }
+  }
+
+  const saveNotifPrefs = async () => {
+    setNotifSaveState('saving')
+    try {
+      const changed = Object.keys(notifDraft)
+        .filter(key => !!notifDraft[key] !== !!notifMuted[key])
+        .map(key => ({ module_key: key, is_muted: !!notifDraft[key] }))
+      if (changed.length > 0) {
+        await apiClient.put('/api/v1/notification-preferences', changed)
+      }
+      setNotifMuted(p => ({ ...p, ...notifDraft }))
+      setNotifDraft({})
+      setNotifSaveState('done')
+      setTimeout(() => setNotifSaveState('idle'), 2000)
+    } catch {
+      setNotifSaveState('idle')
+    }
+  }
 
   const moduleDefs = [
     { key: 'projects', label: 'Projects', icon: '📊', desc: 'Project-based tracking, budgets, milestones. Links to contacts and companies.' },
@@ -45,6 +87,7 @@ export default function SettingsPage() {
   }
 
   useEffect(() => { loadModules() }, [])
+  useEffect(() => { loadNotifPrefs() }, [])
 
   const toggleDraft = (key: string) => {
     setDraft(p => ({ ...p, [key]: !p[key] }))
@@ -196,8 +239,37 @@ export default function SettingsPage() {
 
           {active === 'preferences' && (
             <div className="stg-panel">
-              <h2>Preferences</h2>
-              <p className="stg-subtitle stg-coming">Coming soon</p>
+              <h2><Bell className="w-4 h-4" style={{ verticalAlign: -3, marginRight: 6 }} />通知偏好</h2>
+              <p className="stg-subtitle">選擇每個模組嘅網內通知開關。關閉後該模組嘅通知唔會再彈出。</p>
+              {notifLoading ? (
+                <div className="stg-loading">{t('settings.loading')}</div>
+              ) : (
+                <div className="stg-module-list">
+                  {notifDefs.map(def => (
+                    <div key={def.key} className="stg-module-row"
+                      onClick={() => setNotifDraft(p => ({ ...p, [def.key]: !(p[def.key] ?? notifMuted[def.key]) }))}>
+                      <div className="stg-module-icon">{def.icon}</div>
+                      <div className="stg-module-info">
+                        <p className="stg-module-name">{def.label}</p>
+                        <p className="stg-module-desc">{def.desc}</p>
+                      </div>
+                      <div className={`stg-toggle${!(notifDraft[def.key] ?? notifMuted[def.key]) ? ' on' : ''}`}
+                        onClick={(e) => { e.stopPropagation(); setNotifDraft(p => ({ ...p, [def.key]: !(p[def.key] ?? notifMuted[def.key]) })); }}>
+                          <div className="stg-toggle-knob" />
+                        </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <div className="stg-actions">
+                <button className="btn-secondary" onClick={() => setNotifDraft({})}>Cancel</button>
+                <button className={`btn-primary${notifSaveState === 'saving' ? ' btn-saving' : ''}${notifSaveState === 'done' ? ' btn-done' : ''}`}
+                  onClick={saveNotifPrefs} disabled={notifSaveState !== 'idle'}>
+                  {notifSaveState === 'idle' && 'Save Changes'}
+                  {notifSaveState === 'saving' && <span className="btn-spinner" />}
+                  {notifSaveState === 'done' && <span className="btn-check">✓</span>}
+                </button>
+              </div>
             </div>
           )}
         </div>

@@ -1395,6 +1395,23 @@ async def create_task(
         workspace_id=workspace_id,
     )
 
+    # ── Notification: task assigned to someone else ──
+    if task.assignee_id and task.assignee_id != user_id:
+        from app.services.notification_service import notify
+        await notify(
+            db,
+            tenant_id=tenant_id,
+            user_id=task.assignee_id,
+            module="task",
+            title=f"📋 你被指派任務：{task.title}",
+            body=task.description or f"Priority: {task.priority or 'medium'} · Due: {task.due_date or '未設定'}",
+            priority="HIGH" if task.priority == "urgent" else "NORMAL",
+            action_url="/tasks",
+            group_key=f"task-assign-{task.id}",
+            source_record_type="task",
+            source_record_id=task.id,
+        )
+
     # Write custom fields if provided
     if body.custom_fields:
         await _apply_task_cf(db, tenant_id, task.id, body.custom_fields)
@@ -1466,6 +1483,23 @@ async def update_task(
         task.completed_at = datetime.now(timezone.utc)
     elif status_val and status_val != "done" and task.completed_at:
         task.completed_at = None
+
+    # ── Notification: task marked done (notify the creator, unless they did it) ──
+    if status_val == "done" and task.created_by and task.created_by != user_id:
+        from app.services.notification_service import notify
+        await notify(
+            db,
+            tenant_id=tenant_id,
+            user_id=task.created_by,
+            module="task",
+            title=f"✅ 任務已完成：{task.title}",
+            body="由同事標記為完成",
+            priority="LOW",
+            action_url="/tasks",
+            group_key=f"task-done-{task.id}",
+            source_record_type="task",
+            source_record_id=task.id,
+        )
 
     task.updated_at = datetime.now(timezone.utc)
 
@@ -3078,6 +3112,24 @@ async def create_project(
         workspace_id=workspace_id,
     )
 
+    # ── Notification: project assigned to a PM/sales owner (not the creator) ──
+    target = project.project_manager_id or project.sales_owner_id
+    if target and target != user_id:
+        from app.services.notification_service import notify
+        await notify(
+            db,
+            tenant_id=tenant_id,
+            user_id=target,
+            module="project",
+            title=f"📁 你被指派項目：{project.name}",
+            body=project.description or f"Deadline: {project.deadline or '未設定'}",
+            priority="HIGH" if project.priority == "high" else "NORMAL",
+            action_url="/projects",
+            group_key=f"project-assign-{project.id}",
+            source_record_type="project",
+            source_record_id=project.id,
+        )
+
     await db.refresh(project)
     result = await db.execute(
         select(Project).options(selectinload(Project.company)).where(Project.id == project.id)
@@ -3355,6 +3407,24 @@ async def update_calendar_event(
     obj.updated_at = datetime.now(timezone.utc)
     await db.flush()
     await db.refresh(obj)
+
+    # ── Notification: event rescheduled (notify owner if someone else changed it) ──
+    changed_time = body.start is not None or body.end is not None
+    if changed_time and obj.owner_user_id and obj.owner_user_id != user_id:
+        from app.services.notification_service import notify
+        await notify(
+            db,
+            tenant_id=tenant_id,
+            user_id=obj.owner_user_id,
+            module="calendar",
+            title=f"🔄 日程已改期：{obj.title}",
+            body=f"新時間：{obj.start.strftime('%m-%d %H:%M') if obj.start else '?'}",
+            priority="NORMAL",
+            action_url="/calendar",
+            group_key=f"cal-resched-{obj.id}",
+            source_record_type="calendar_event",
+            source_record_id=obj.id,
+        )
 
     await _log_activity(
         db, tenant_id=tenant_id, actor_id=user_id,

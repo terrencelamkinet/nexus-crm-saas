@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Bell, CheckCheck, RefreshCw } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { apiClient } from '../lib/api';
@@ -19,18 +20,21 @@ interface NotificationItem {
 
 export default function NotificationsPage() {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const [items, setItems] = useState<NotificationItem[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
   const [filter, setFilter] = useState<string>('');
+  const [moduleFilter, setModuleFilter] = useState<string>('');
   const pageSize = 20;
 
-  const fetchData = async (p: number, f: string) => {
+  const fetchData = async (p: number, f: string, m: string) => {
     setLoading(true);
     try {
       let url = `/api/v1/notifications?page=${p}&page_size=${pageSize}`;
       if (f) url += `&status=${f}`;
+      if (m) url += `&module=${m}`;
       const res = await apiClient.get<{ items: NotificationItem[]; total: number }>(url);
       setItems(res.items || []);
       setTotal(res.total || 0);
@@ -38,7 +42,7 @@ export default function NotificationsPage() {
     setLoading(false);
   };
 
-  useEffect(() => { fetchData(page, filter); }, [page, filter]);
+  useEffect(() => { fetchData(page, filter, moduleFilter); }, [page, filter, moduleFilter]);
 
   const handleMarkRead = async (id: string) => {
     try { await apiClient.patch(`/api/v1/notifications/${id}/read`, {}); setItems(prev => prev.map(i => i.id === id ? { ...i, status: 'READ' } : i)); } catch {}
@@ -46,6 +50,14 @@ export default function NotificationsPage() {
 
   const handleMarkAllRead = async () => {
     try { await apiClient.post('/api/v1/notifications/read-all'); setItems(prev => prev.map(i => ({ ...i, status: 'READ' }))); } catch {}
+  };
+
+  const handleClick = async (n: NotificationItem) => {
+    if (n.status === 'UNREAD') {
+      try { await apiClient.patch(`/api/v1/notifications/${n.id}/read`, {}); } catch {}
+      setItems(prev => prev.map(i => i.id === n.id ? { ...i, status: 'READ' } : i));
+    }
+    if (n.action_url) navigate(n.action_url);
   };
 
   const totalPages = Math.ceil(total / pageSize);
@@ -83,7 +95,7 @@ export default function NotificationsPage() {
               <CheckCheck className="w-4 h-4" /> {t('pages.notifications.markAllRead')}
             </button>
           )}
-          <button onClick={() => fetchData(page, filter)} className="btn-secondary">
+          <button onClick={() => fetchData(page, filter, moduleFilter)} className="btn-secondary">
             <RefreshCw className="w-4 h-4" />
           </button>
         </div>
@@ -95,6 +107,16 @@ export default function NotificationsPage() {
           <div key={f} className={`tab ${filter === f ? 'active' : ''}`}
             onClick={() => { setFilter(f); setPage(1); }}>
             {f === '' ? t('pages.notifications.all') : f === 'UNREAD' ? t('pages.notifications.unread') : t('pages.notifications.read')}
+          </div>
+        ))}
+      </div>
+
+      {/* Module filter */}
+      <div className="tabs" style={{ marginBottom: 16 }}>
+        {[['', t('pages.notifications.allModules')], ['task', '📋 Task'], ['project', '📁 Project'], ['calendar', '📅 Calendar'], ['ai', '🤖 AI']].map(([key, label]) => (
+          <div key={key} className={`tab ${moduleFilter === key ? 'active' : ''}`}
+            onClick={() => { setModuleFilter(key); setPage(1); }}>
+            {label}
           </div>
         ))}
       </div>
@@ -111,7 +133,8 @@ export default function NotificationsPage() {
         <div className="panel">
           {items.map((n, i) => (
             <div key={n.id} className={`notif-item${n.status === 'UNREAD' ? ' unread' : ''}`}
-              style={{ borderBottom: i < items.length - 1 ? '1px solid var(--color-divider)' : 'none' }}>
+              onClick={() => handleClick(n)}
+              style={{ borderBottom: i < items.length - 1 ? '1px solid var(--color-divider)' : 'none', cursor: n.action_url ? 'pointer' : 'default' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div className="notif-title">{n.title}</div>

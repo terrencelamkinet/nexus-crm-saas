@@ -64,6 +64,10 @@ async def register(req: RegisterRequest, request: Request, db: AsyncSession = De
     db.add(db_session)
     await db.flush()
 
+    # Create default notification preferences for all modules (per-user)
+    from app.services.notification_service import ensure_default_preferences
+    await ensure_default_preferences(db, tenant.id, user.id)
+
     return TokenResponse(
         access_token=access_token,
         mfa_required=False,

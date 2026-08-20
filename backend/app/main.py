@@ -124,6 +124,25 @@ async def lifespan(app: FastAPI):
         else:
             briefing_task = None
 
+    # Notification scan loop — every 5 min, single worker (file lock so the
+    # N gunicorn workers don't all run it). Pushes due-today / deadline /
+    # calendar-reminder notifications per user. Group-key dedup prevents repeats.
+    notif_scan_lock = "/tmp/nexus_crm_notif_scan.lock"
+    notif_scan_owner = False
+    notif_scan_stop = None
+    notif_scan_task = None
+    try:
+        fd = os.open(notif_scan_lock, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+        os.close(fd)
+        notif_scan_owner = True
+    except FileExistsError:
+        notif_scan_owner = False
+
+    if notif_scan_owner:
+        from app.services.notification_scan import run_scan_loop
+        notif_scan_stop = asyncio.Event()
+        notif_scan_task = asyncio.create_task(run_scan_loop(notif_scan_stop))
+
     yield
     # Cleanup: stop briefing loop + release scheduler lock (stale lock would
     # permanently disable the loop on next restart — O_EXCL would fail forever)
@@ -149,6 +168,17 @@ async def lifespan(app: FastAPI):
         try:
             await asyncio.wait_for(queue_task, timeout=5)
         except Exception:
+            pass
+    # Stop notification scan loop + release lock
+    if notif_scan_owner and notif_scan_stop is not None and notif_scan_task is not None:
+        notif_scan_stop.set()
+        try:
+            await asyncio.wait_for(notif_scan_task, timeout=5)
+        except Exception:
+            pass
+        try:
+            os.remove(notif_scan_lock)
+        except OSError:
             pass
     if briefing_task:
         try:

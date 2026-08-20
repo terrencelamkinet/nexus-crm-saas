@@ -709,7 +709,8 @@
     "unread": "未讀",
     "empty": "未有通知",
     "markRead": "標為已讀",
-    "markAllRead": "全部標為已讀"
+    "markAllRead": "全部標為已讀",
+    "allModules": "全部模組"
   },
   "time": {
     "today": "今日",

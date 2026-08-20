@@ -709,7 +709,8 @@
     "unread": "Unread",
     "empty": "No notifications yet",
     "markRead": "Mark as read",
-    "markAllRead": "Mark all as read"
+    "markAllRead": "Mark all as read",
+    "allModules": "All modules"
   },
   "time": {
     "today": "Today",

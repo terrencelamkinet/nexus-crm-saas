@@ -435,6 +435,28 @@ async def confirm_action(
         "action_id": str(action_id),
         "tool_key": action.tool_key,
     })
+
+    # ── Notification: AI executed an action for the user ──
+    try:
+        from app.services.notification_service import notify
+        await notify(
+            db,
+            tenant_id=ctx.tenant_id,
+            user_id=ctx.user_id,
+            module="ai",
+            title=f"🤖 AI 已執行：{action.tool_key}",
+            body=f"Action {str(action_id)[:8]} completed successfully",
+            priority="LOW",
+            action_url="/",
+            group_key=f"ai-action-{action_id}",
+            source_record_type="ai_action",
+            source_record_id=action_id,
+            is_ai_generated=True,
+            generated_by_agent_id="hermes",
+        )
+    except Exception:
+        pass  # notification must never break the action confirmation
+
     return {"status": "executed", "result": result_data}
 
 
