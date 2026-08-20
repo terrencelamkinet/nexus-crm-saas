@@ -15,14 +15,27 @@ export default function ProjectCalendarView() {
       const items: any[] = (resp as any)?.items || (resp as any) || [];
       const all: CalendarEvent[] = [];
 
+      // Dedupe layer 2: title|start-time (minute precision). ICS + google_oauth
+      // sync the same underlying event (e.g. Annual leave) with DIFFERENT
+      // external_event_id, so ext-id dedupe can't catch it. Keep the first,
+      // skip later duplicates with the same title + same start minute. Applies
+      // to all pushed events (project-scoped, milestones, and merged NULL ones).
+      const seenTitleStart = new Set<string>();
+      const pushDeduped = (ev: CalendarEvent) => {
+        const key = (ev.title || '(untitled)') + '|' + String(ev.start || '').slice(0, 16);
+        if (seenTitleStart.has(key)) return;
+        seenTitleStart.add(key);
+        all.push(ev);
+      };
+
       for (const proj of items) {
         try {
           const evs: CalendarEvent[] = await apiClient.get(`/api/v1/crm/projects/${proj.id}/calendar-events`);
-          evs.forEach((ev) => all.push({ ...ev, project_id: proj.id, project_name: proj.name }));
+          evs.forEach((ev) => pushDeduped({ ...ev, project_id: proj.id, project_name: proj.name }));
         } catch { /* skip */ }
 
         if (proj.start_date) {
-          all.push({
+          pushDeduped({
             id: `proj-start-${proj.id}`, project_id: proj.id,
             title: `${proj.name} starts`, description: null,
             event_type: 'milestone', start: proj.start_date, end: proj.start_date,
@@ -30,7 +43,7 @@ export default function ProjectCalendarView() {
           });
         }
         if (proj.deadline) {
-          all.push({
+          pushDeduped({
             id: `proj-deadline-${proj.id}`, project_id: proj.id,
             title: `${proj.name} due`, description: null,
             event_type: 'milestone', start: proj.deadline, end: proj.deadline,
@@ -56,7 +69,7 @@ export default function ProjectCalendarView() {
           const ext = ev?.external_event_id;
           if (ext && seenExternal.has(String(ext))) return;
           if (ext) seenExternal.add(String(ext));
-          all.push({
+          pushDeduped({
             id: ev.id,
             project_id: null,
             project_name: null,

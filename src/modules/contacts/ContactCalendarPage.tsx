@@ -65,7 +65,15 @@ export default function ContactCalendarPage() {
       // Fetch synced calendar events (Google OAuth / ICS + manual project events)
       const calResp = await apiClient.get<{ items?: any[] }>('/api/v1/crm/calendar-events?limit=200')
       const calEvents = Array.isArray(calResp) ? calResp : (calResp?.items || [])
+      // Dedupe by title + start-time (minute precision): ICS + google_oauth sync
+      // the same underlying event (e.g. Annual leave) with different external ids,
+      // so ext-id dedupe won't work here. Keep the first, skip later dupes with
+      // the same title + same start minute (manual events included).
+      const seenTitleStart = new Set<string>()
       calEvents.forEach((e: any) => {
+        const dKey = (e.title || '(untitled)') + '|' + String(e.start || '').slice(0, 16)
+        if (seenTitleStart.has(dKey)) return
+        seenTitleStart.add(dKey)
         all.push({
           id: `cal-${e.id}`,
           project_id: e.project_id || e.id,
