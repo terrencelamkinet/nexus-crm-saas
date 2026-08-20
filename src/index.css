@@ -2657,6 +2657,13 @@ textarea.input-field{resize:vertical;min-height:60px}
    =========================================================================== */
 
 /* View mode dropdown */
+/* Mobile: push the action group (view switcher + add + refresh) to the right edge.
+   NOTE: cannot use Tailwind max-sm:ml-auto — the unlayered `*,*::before,*::after{margin:0}`
+   reset in index.css:85 beats @layer utilities rules. Own class wins (specificity > *). */
+.cal-nav-actions{margin-left:0}
+@media (max-width: 640px){
+  .cal-nav-actions{margin-left:auto}
+}
 .cv-view-dropdown{position:relative;display:inline-flex}
 .cv-view-trigger{display:flex;align-items:center;gap:8px;min-height:36px;padding:0 12px;border-radius:var(--radius-lg);background:var(--color-surface-offset);color:var(--color-text);font-size:12.5px;font-weight:600;cursor:pointer;transition:background var(--transition-interactive)}
 .cv-view-trigger:hover{background:var(--color-surface-offset-2)}

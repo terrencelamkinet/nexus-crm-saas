@@ -164,7 +164,7 @@ export default function CalendarViews({ events, loading, onRefresh }: CalendarVi
         </span>
       </div>
 
-      <div className="flex items-center gap-2 max-sm:gap-1.5 flex-wrap max-sm:justify-end">
+      <div className="cal-nav-actions flex items-center gap-2 max-sm:gap-1.5 flex-wrap max-sm:justify-end">
         {/* View switcher — dropdown */}
         <div className="cv-view-dropdown" ref={viewMenuRef}>
           <button
