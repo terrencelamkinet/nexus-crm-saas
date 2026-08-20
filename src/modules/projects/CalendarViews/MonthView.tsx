@@ -3,6 +3,7 @@ import {
   getMonthGrid,
   DAY_NAMES,
   formatDateKey,
+  isEventOnDay,
   isSameDay,
 } from './calendar-utils';
 import type { CalendarEventFormatted } from './types';
@@ -26,13 +27,25 @@ export default function MonthView({ events, date, onDateChange, onEventClick, on
 
   const todayRef = useMemo(() => new Date(), []);
 
-  // Group events by date key
+  // Group events by date key — a multi-day event (e.g. Annual leave 8/24-26)
+  // is added to EVERY day it spans (not just its start day). Within each day,
+  // events are sorted ascending by start time (earliest start first).
   const eventsByDay = useMemo(() => {
     const map = new Map<string, CalendarEventFormatted[]>();
     for (const ev of events) {
-      const key = formatDateKey(ev.start);
-      if (!map.has(key)) map.set(key, []);
-      map.get(key)!.push(ev);
+      // add to every day the event spans
+      const dStart = new Date(ev.start.getFullYear(), ev.start.getMonth(), ev.start.getDate());
+      const dEnd = new Date(ev.end.getFullYear(), ev.end.getMonth(), ev.end.getDate());
+      for (let d = new Date(dStart); d.getTime() <= dEnd.getTime(); d.setDate(d.getDate() + 1)) {
+        if (!isEventOnDay(ev.start, ev.end, d)) continue;
+        const key = formatDateKey(d);
+        if (!map.has(key)) map.set(key, []);
+        map.get(key)!.push(ev);
+      }
+    }
+    // sort each day's events ascending by start time
+    for (const arr of map.values()) {
+      arr.sort((a, b) => a.start.getTime() - b.start.getTime());
     }
     return map;
   }, [events]);
