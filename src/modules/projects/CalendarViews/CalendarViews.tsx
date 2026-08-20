@@ -196,12 +196,11 @@ export default function CalendarViews({ events, loading, onRefresh }: CalendarVi
           )}
         </div>
 
-        {/* Add event */}
+        {/* Add event — icon only, matches Refresh button style */}
         <button onClick={() => setCreating(new Date())}
-          className="px-3 py-1.5 rounded-lg text-xs font-medium text-white bg-[var(--color-primary)] hover:opacity-90 transition-colors min-h-[36px] flex items-center gap-1"
+          className="px-3 py-1.5 rounded-lg text-xs font-medium text-[var(--color-text-muted)] hover:bg-[var(--color-surface-offset)] transition-colors min-h-[36px] min-w-[36px] flex items-center justify-center"
           title="New event">
           <Plus className="w-3.5 h-3.5" />
-          <span className="max-sm:hidden">New Event</span>
         </button>
 
         {/* Refresh */}
