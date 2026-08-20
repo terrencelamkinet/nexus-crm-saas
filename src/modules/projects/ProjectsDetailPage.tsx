@@ -8,6 +8,7 @@ import { FieldsRenderer } from '../shared/FieldsRenderer'
 import { buildPayload, apiErrorToString } from '../shared/field-utils'
 import { isModuleEnabled } from '../enabled-modules'
 import { apiClient } from '../../lib/api'
+import EntityNotesPanel from '../shared/EntityNotesPanel'
 
 function formatDate(d?: string): string {
   if (!d) return '—'
@@ -97,6 +98,9 @@ export default function ProjectsDetailPage() {
       key: tb.id,
       label: t(`common.${tb.id}`, { defaultValue: tb.label }),
       render: () => {
+        if (tb.id === 'notes') {
+          return <EntityNotesPanel entityType="project" entityId={String(entity.id)} filterKey="project_id" />
+        }
         const R = tb.render
         if (R) return <R entity={entity} moduleConfig={projectConfig} refresh={refresh} />
         return <div className="nx-empty-state">{t('common.noDataTab', { defaultValue: 'No data' })}</div>

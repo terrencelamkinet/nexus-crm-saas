@@ -13,6 +13,7 @@ import './styles/nexus-namecards-v2.css'
 import './styles/nexus-tag-management.css'
 import './styles/nexus-module-shell.css'
 import './styles/nexus-topbar-dashboard-v2.css'
+import './styles/nexus-crm-editor-v2.css'
 import './i18n/config'; // i18n init — must be before App
 import App from './App'
 

@@ -289,6 +289,8 @@ class Note(Base):
     tags = Column(ARRAY(Text), default=lambda: [])
     contact_id = Column(UUID(as_uuid=True), ForeignKey("nexus_crm.contacts.id", ondelete="SET NULL"))
     company_id = Column(UUID(as_uuid=True), ForeignKey("nexus_crm.companies.id", ondelete="SET NULL"))
+    project_id = Column(UUID(as_uuid=True), ForeignKey("nexus_crm.projects.id", ondelete="SET NULL"))
+    task_id = Column(UUID(as_uuid=True), ForeignKey("nexus_crm.tasks.id", ondelete="SET NULL"))
     created_by = Column(UUID(as_uuid=True), ForeignKey("nexus_auth.nexus_auth_users.id", ondelete="SET NULL"))
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))

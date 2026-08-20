@@ -9,6 +9,7 @@ import { FieldsRenderer } from '../shared/FieldsRenderer'
 import { buildPayload, apiErrorToString } from '../shared/field-utils'
 import { isModuleEnabled } from '../enabled-modules'
 import { apiClient } from '../../lib/api'
+import EntityNotesPanel from '../shared/EntityNotesPanel'
 
 function tomorrowISO(): string {
   const d = new Date()
@@ -150,6 +151,13 @@ export default function TaskDetailPage() {
           )}
           <div className="nx-empty-state">{t('common.noActivity', { defaultValue: '暫無活動記錄' })}</div>
         </>
+      ),
+    },
+    {
+      key: 'notes',
+      label: t('common.notes', { defaultValue: 'Notes' }),
+      render: () => (
+        <EntityNotesPanel entityType="task" entityId={String(id)} filterKey="task_id" />
       ),
     },
   ]

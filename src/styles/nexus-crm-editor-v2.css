@@ -1,0 +1,157 @@
+/* nexus-crm-editor-v2.css — Tiptap headless editor, v2.
+   Adds Notion-style block handles + drag reorder, native
+   mobile toolbar-above-keyboard (iOS/Android pattern), and
+   hardware-keyboard affordances (visible shortcut hints,
+   Mod-Shift-Arrow reorder, Esc-to-select-block). */
+
+.nxe-root { display: flex; flex-direction: column; border: 1px solid var(--color-border); border-radius: 14px; background: var(--color-surface-2); overflow: hidden; transition: border-color .15s ease, box-shadow .15s ease; position: relative; }
+.nxe-root.focused { border-color: var(--color-primary); box-shadow: 0 0 0 3px color-mix(in oklch, var(--color-primary) 16%, transparent); }
+
+/* ═══ DESKTOP TOOLBAR (hardware-keyboard oriented: shows kbd hints) ═══ */
+.nxe-toolbar { display: flex; align-items: center; gap: 2px; flex-wrap: wrap; padding: 6px 8px; border-bottom: 1px solid var(--color-divider); background: var(--color-surface-offset); position: sticky; top: 0; z-index: 5; }
+.nxe-tb-group { display: flex; align-items: center; gap: 1px; padding: 0 5px; }
+.nxe-tb-group + .nxe-tb-group { border-left: 1px solid var(--color-divider); }
+.nxe-tb-btn { width: 30px; height: 30px; border-radius: 8px; display: flex; align-items: center; justify-content: center; background: none; border: none; color: var(--color-text-muted); cursor: pointer; transition: background .13s ease, color .13s ease, transform .1s ease; position: relative; }
+.nxe-tb-btn:hover { background: var(--color-surface-offset-2); color: var(--color-text); }
+.nxe-tb-btn:hover .nxe-kbd-tip { opacity: 1; transform: translateY(0); }
+.nxe-tb-btn:active { transform: scale(.9); }
+.nxe-tb-btn.active { background: color-mix(in oklch, var(--color-primary) 14%, transparent); color: var(--color-primary); }
+.nxe-tb-btn:disabled { opacity: .35; cursor: not-allowed; }
+.nxe-tb-spacer { flex: 1; }
+.nxe-tb-wordcount { font-size: 11px; color: var(--color-text-faint); padding: 0 6px; font-weight: 600; white-space: nowrap; }
+.nxe-tb-divider { width: 1px; height: 20px; background: var(--color-divider); margin: 0 3px; }
+
+/* Keyboard shortcut tooltip — reinforces hardware-keyboard usage */
+.nxe-kbd-tip { position: absolute; top: 36px; left: 50%; transform: translateX(-50%) translateY(-4px); background: #1c1f26; color: #fff; font-size: 10.5px; font-weight: 600; padding: 4px 8px; border-radius: 6px; white-space: nowrap; opacity: 0; pointer-events: none; transition: opacity .12s ease, transform .12s ease; z-index: 20; }
+.nxe-kbd-tip kbd { background: rgba(255,255,255,.15); border-radius: 3px; padding: 1px 4px; font-family: inherit; margin-left: 3px; }
+
+.nxe-ai-btn { display: flex; align-items: center; gap: 6px; height: 30px; padding: 0 12px; border-radius: 8px; border: 1px solid transparent; background: linear-gradient(135deg, color-mix(in oklch, var(--ai-glow-1) 12%, transparent), color-mix(in oklch, var(--ai-glow-2) 10%, transparent)); color: var(--ai-glow-1); font-size: 12.5px; font-weight: 700; cursor: pointer; transition: transform .12s ease, box-shadow .15s ease; }
+.nxe-ai-btn:hover { box-shadow: 0 2px 10px -2px color-mix(in oklch, var(--ai-glow-1) 35%, transparent); }
+.nxe-ai-btn:active { transform: scale(.95); }
+.nxe-ai-menu { position: absolute; margin-top: 6px; background: var(--color-surface-2); border: 1px solid var(--color-border); border-radius: 12px; box-shadow: 0 12px 30px -8px rgba(0,0,0,.25); padding: 6px; min-width: 200px; z-index: 30; animation: nxe-pop .15s cubic-bezier(.16,1,.3,1); }
+@keyframes nxe-pop { from { opacity: 0; transform: translateY(-4px) scale(.97); } to { opacity: 1; transform: translateY(0) scale(1); } }
+.nxe-ai-menu-item { display: flex; align-items: center; justify-content: space-between; gap: 9px; width: 100%; padding: 8px 10px; border-radius: 8px; background: none; border: none; font-size: 13px; font-weight: 600; color: var(--color-text); cursor: pointer; text-align: left; transition: background .12s ease; }
+.nxe-ai-menu-item:hover { background: var(--color-surface-offset); }
+.nxe-ai-menu-item-left { display: flex; align-items: center; gap: 9px; }
+.nxe-ai-menu-kbd { font-size: 10px; color: var(--color-text-faint); background: var(--color-surface-offset); border-radius: 4px; padding: 1px 5px; }
+.nxe-ai-loading-bar { height: 2px; background: linear-gradient(90deg, var(--ai-glow-1), var(--ai-glow-2)); background-size: 200% 100%; animation: nxe-loading-shift 1s linear infinite; }
+@keyframes nxe-loading-shift { from { background-position: 0 0; } to { background-position: -200% 0; } }
+
+/* ═══ CONTENT AREA + NOTION-STYLE BLOCK GUTTER ═══ */
+.nxe-content-wrap { position: relative; display: flex; }
+.nxe-content { flex: 1; min-height: 180px; max-height: 480px; overflow-y: auto; padding: 16px 18px 16px 46px; font-size: 14.5px; line-height: 1.75; color: var(--color-text); position: relative; }
+.nxe-content .ProseMirror { outline: none; }
+.nxe-content .ProseMirror p.is-editor-empty:first-child::before { content: attr(data-placeholder); color: var(--color-text-faint); float: left; pointer-events: none; height: 0; }
+.nxe-content h1 { font-size: 22px; font-weight: 800; margin: 18px 0 8px; }
+.nxe-content h2 { font-size: 18px; font-weight: 750; margin: 16px 0 6px; }
+.nxe-content h3 { font-size: 15.5px; font-weight: 700; margin: 12px 0 4px; }
+.nxe-content p { margin: 6px 0; }
+.nxe-content ul, .nxe-content ol { padding-left: 22px; margin: 6px 0; }
+.nxe-content li { margin: 2px 0; }
+.nxe-content li[data-checked] { list-style: none; display: flex; align-items: flex-start; gap: 8px; margin-left: -22px; }
+.nxe-content blockquote { border-left: 3px solid var(--color-primary); padding: 4px 14px; color: var(--color-text-muted); margin: 10px 0; background: var(--color-surface-offset); border-radius: 0 8px 8px 0; }
+.nxe-content code { background: var(--color-surface-offset); padding: 2px 6px; border-radius: 6px; font-size: 13px; font-family: 'JetBrains Mono', monospace; }
+.nxe-content pre { background: var(--color-surface-offset); border: 1px solid var(--color-border); border-radius: 10px; padding: 12px 14px; overflow-x: auto; margin: 10px 0; }
+.nxe-content pre code { background: none; padding: 0; }
+.nxe-content a { color: var(--color-primary); text-decoration: underline; text-decoration-color: color-mix(in oklch, var(--color-primary) 40%, transparent); }
+.nxe-content img { max-width: 100%; border-radius: 10px; margin: 8px 0; }
+.nxe-content hr { border: none; border-top: 1px solid var(--color-divider); margin: 16px 0; }
+.nxe-content table { border-collapse: collapse; width: 100%; margin: 10px 0; }
+.nxe-content td, .nxe-content th { border: 1px solid var(--color-border); padding: 7px 10px; font-size: 13.5px; }
+.nxe-content th { background: var(--color-surface-offset); font-weight: 700; text-align: left; }
+.nxe-content mark { background: color-mix(in oklch, var(--color-warning) 35%, transparent); border-radius: 3px; padding: 0 2px; }
+
+/* Notion-style block handle: gutter icons revealed on hover (⋮⋮ drag + ➕ insert) */
+.nxe-block-handle { position: absolute; left: 4px; display: flex; align-items: center; gap: 1px; opacity: 0; transition: opacity .12s ease; z-index: 8; }
+.nxe-block-handle.visible { opacity: 1; }
+.nxe-handle-btn { width: 22px; height: 24px; border-radius: 6px; display: flex; align-items: center; justify-content: center; background: none; border: none; color: var(--color-text-faint); cursor: pointer; transition: background .12s ease, color .12s ease; }
+.nxe-handle-btn:hover { background: var(--color-surface-offset-2); color: var(--color-text-muted); }
+.nxe-handle-btn.grip { cursor: grab; }
+.nxe-handle-btn.grip:active { cursor: grabbing; }
+.nxe-drop-indicator { position: absolute; left: 46px; right: 18px; height: 3px; border-radius: 2px; background: var(--color-primary); z-index: 9; pointer-events: none; box-shadow: 0 0 0 3px color-mix(in oklch, var(--color-primary) 20%, transparent); }
+.nxe-block-context-menu { position: absolute; background: var(--color-surface-2); border: 1px solid var(--color-border); border-radius: 10px; box-shadow: 0 14px 34px -8px rgba(0,0,0,.3); padding: 5px; min-width: 190px; z-index: 40; animation: nxe-pop .13s ease; }
+.nxe-bcm-item { display: flex; align-items: center; gap: 9px; padding: 7px 9px; border-radius: 7px; font-size: 13px; font-weight: 600; color: var(--color-text); cursor: pointer; }
+.nxe-bcm-item:hover { background: var(--color-surface-offset); }
+.nxe-bcm-item.danger { color: var(--color-danger); }
+.nxe-bcm-sep { height: 1px; background: var(--color-divider); margin: 4px 2px; }
+.nxe-bcm-colors { display: grid; grid-template-columns: repeat(6, 1fr); gap: 4px; padding: 4px; }
+.nxe-bcm-color-swatch { width: 22px; height: 22px; border-radius: 50%; border: 2px solid transparent; cursor: pointer; }
+.nxe-bcm-color-swatch:hover { border-color: var(--color-border); }
+
+/* Block being dragged — visual lift */
+.nxe-content .ProseMirror-selectednode { outline: 2px solid var(--color-primary); border-radius: 4px; }
+.nxe-block-dragging { opacity: .4; }
+
+/* ═══ BUBBLE MENU (selection) ═══ */
+.nxe-bubble-menu { display: flex; align-items: center; gap: 2px; background: var(--color-surface-2); border: 1px solid var(--color-border); border-radius: 10px; padding: 4px; box-shadow: 0 10px 26px -6px rgba(0,0,0,.28); }
+.nxe-bubble-btn { width: 28px; height: 28px; border-radius: 7px; display: flex; align-items: center; justify-content: center; background: none; border: none; color: var(--color-text-muted); cursor: pointer; transition: background .12s ease, color .12s ease; }
+.nxe-bubble-btn:hover { background: var(--color-surface-offset); color: var(--color-text); }
+.nxe-bubble-btn.active { background: color-mix(in oklch, var(--color-primary) 15%, transparent); color: var(--color-primary); }
+.nxe-bubble-ai-btn { display: flex; align-items: center; gap: 5px; padding: 0 9px; height: 28px; border-radius: 7px; border: none; background: none; color: var(--ai-glow-1); font-size: 12px; font-weight: 700; cursor: pointer; }
+.nxe-bubble-ai-btn:hover { background: color-mix(in oklch, var(--ai-glow-1) 12%, transparent); }
+.nxe-color-swatch-mini { width: 15px; height: 15px; border-radius: 50%; }
+
+.nxe-link-popover { position: absolute; display: flex; align-items: center; gap: 6px; background: var(--color-surface-2); border: 1px solid var(--color-border); border-radius: 10px; padding: 6px; box-shadow: 0 12px 30px -8px rgba(0,0,0,.28); z-index: 30; animation: nxe-pop .15s ease; }
+.nxe-link-input { border: none; background: var(--color-surface-offset); border-radius: 7px; padding: 6px 10px; font-size: 12.5px; width: 220px; color: var(--color-text); outline: none; }
+.nxe-link-go { width: 28px; height: 28px; border-radius: 7px; background: var(--color-primary); color: #fff; display: flex; align-items: center; justify-content: center; border: none; cursor: pointer; }
+
+.nxe-footer { display: flex; align-items: center; justify-content: space-between; padding: 6px 12px; border-top: 1px solid var(--color-divider); background: var(--color-surface-offset); font-size: 11px; color: var(--color-text-faint); font-weight: 600; }
+.nxe-footer-save { display: flex; align-items: center; gap: 5px; }
+.nxe-save-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--color-success); }
+.nxe-save-dot.saving { background: var(--color-warning); animation: nxe-dot-pulse .8s ease-in-out infinite; }
+@keyframes nxe-dot-pulse { 0%,100%{opacity:1} 50%{opacity:.3} }
+.nxe-footer-hint { display: flex; align-items: center; gap: 4px; }
+.nxe-footer-hint kbd { background: var(--color-surface-offset-2); border-radius: 4px; padding: 1px 5px; font-family: inherit; }
+
+.nxe-slash-menu { background: var(--color-surface-2); border: 1px solid var(--color-border); border-radius: 12px; box-shadow: 0 14px 34px -8px rgba(0,0,0,.3); padding: 6px; min-width: 240px; max-height: 340px; overflow-y: auto; }
+.nxe-slash-group-label { font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--color-text-faint); padding: 6px 10px 3px; }
+.nxe-slash-item { display: flex; align-items: center; gap: 10px; padding: 8px 9px; border-radius: 8px; cursor: pointer; font-size: 13px; font-weight: 600; color: var(--color-text); }
+.nxe-slash-item.selected { background: var(--color-surface-offset); }
+.nxe-slash-icon { width: 30px; height: 30px; border-radius: 8px; background: var(--color-surface-offset); display: flex; align-items: center; justify-content: center; color: var(--color-text-muted); flex-shrink: 0; }
+.nxe-slash-sub { font-size: 11px; color: var(--color-text-faint); font-weight: 500; }
+
+/* ═══════════════════════════════════════════════════════════
+   MOBILE — iOS / Android native pattern:
+   toolbar docked ABOVE the on-screen keyboard (not floating
+   over content), horizontally scrollable, safe-area aware.
+   ═══════════════════════════════════════════════════════════ */
+@media (max-width: 720px) {
+  .nxe-content { padding: 14px 14px 14px 38px; font-size: 16px; }
+  .nxe-block-handle { left: 2px; }
+  .nxe-handle-btn { width: 26px; height: 30px; }
+  .nxe-toolbar.desktop-only { display: none; }
+}
+
+.nxe-mobile-toolbar {
+  display: flex; align-items: center; gap: 2px; overflow-x: auto;
+  -webkit-overflow-scrolling: touch; scrollbar-width: none;
+  padding: 8px 6px; background: var(--color-surface-2);
+  border-top: 1px solid var(--color-border);
+  position: sticky; bottom: 0; z-index: 15;
+  padding-bottom: max(8px, env(safe-area-inset-bottom));
+}
+.nxe-mobile-toolbar::-webkit-scrollbar { display: none; }
+.nxe-mtb-btn { flex-shrink: 0; width: 40px; height: 40px; border-radius: 10px; display: flex; align-items: center; justify-content: center; background: none; border: none; color: var(--color-text-muted); }
+.nxe-mtb-btn:active { background: var(--color-surface-offset); transform: scale(.92); }
+.nxe-mtb-btn.active { color: var(--color-primary); background: color-mix(in oklch, var(--color-primary) 14%, transparent); }
+.nxe-mtb-divider { width: 1px; height: 24px; background: var(--color-divider); margin: 0 4px; flex-shrink: 0; }
+.nxe-mtb-ai { flex-shrink: 0; display: flex; align-items: center; gap: 5px; height: 36px; padding: 0 12px; border-radius: 10px; background: linear-gradient(135deg, color-mix(in oklch, var(--ai-glow-1) 14%, transparent), color-mix(in oklch, var(--ai-glow-2) 12%, transparent)); color: var(--ai-glow-1); font-size: 13px; font-weight: 700; border: none; }
+.nxe-mtb-kbd-dismiss { flex-shrink: 0; width: 40px; height: 40px; border-radius: 10px; display: flex; align-items: center; justify-content: center; color: var(--color-text-faint); margin-left: auto; }
+
+/* Mobile bottom sheet for "+" full block menu (Notion mobile pattern) */
+.nxe-mobile-sheet-overlay { position: fixed; inset: 0; background: oklch(0.1 0 0 / 0.4); z-index: 200; display: flex; align-items: flex-end; justify-content: center; }
+.nxe-mobile-sheet { width: 100%; max-width: 480px; background: var(--color-surface-2); border-radius: 20px 20px 0 0; padding: 6px 8px 20px; max-height: 60vh; overflow-y: auto; animation: nxe-sheet-up .25s cubic-bezier(.16,1,.3,1); }
+@keyframes nxe-sheet-up { from { transform: translateY(100%); } to { transform: translateY(0); } }
+.nxe-mobile-sheet-handle { width: 36px; height: 4px; border-radius: 999px; background: var(--color-border); margin: 8px auto 12px; }
+.nxe-mobile-block-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; padding: 0 10px; }
+.nxe-mobile-block-item { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 12px 4px; border-radius: 12px; background: none; border: none; }
+.nxe-mobile-block-item:active { background: var(--color-surface-offset); }
+.nxe-mobile-block-icon { width: 44px; height: 44px; border-radius: 12px; background: var(--color-surface-offset); display: flex; align-items: center; justify-content: center; color: var(--color-text); }
+.nxe-mobile-block-label { font-size: 11px; font-weight: 600; color: var(--color-text-muted); text-align: center; }
+
+/* Long-press haptic-style feedback ring (mobile block move) */
+.nxe-longpress-ring { position: absolute; border-radius: 8px; border: 2px solid var(--color-primary); animation: nxe-longpress-pulse .4s ease; pointer-events: none; z-index: 12; }
+@keyframes nxe-longpress-pulse { from { opacity: 0; transform: scale(1.05); } to { opacity: 1; transform: scale(1); } }
+
+/* Hardware keyboard connected indicator (iPad w/ Magic Keyboard, Android w/ Bluetooth kb) */
+.nxe-hwkb-badge { display: flex; align-items: center; gap: 4px; font-size: 10.5px; font-weight: 700; color: var(--color-success); background: color-mix(in oklch, var(--color-success) 12%, transparent); border-radius: 999px; padding: 3px 8px; }

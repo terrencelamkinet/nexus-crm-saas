@@ -337,6 +337,8 @@ class NoteCreate(BaseModel):
     tags: list[str] = []
     contact_id: Optional[UUID] = None
     company_id: Optional[UUID] = None
+    project_id: Optional[UUID] = None
+    task_id: Optional[UUID] = None
 
 
 class NoteUpdate(BaseModel):
@@ -346,6 +348,8 @@ class NoteUpdate(BaseModel):
     tags: Optional[list[str]] = None
     contact_id: Optional[UUID] = None
     company_id: Optional[UUID] = None
+    project_id: Optional[UUID] = None
+    task_id: Optional[UUID] = None
 
 
 class NoteResponse(BaseModel):
@@ -357,6 +361,8 @@ class NoteResponse(BaseModel):
     tags: Optional[list[str]] = None
     contact_id: Optional[UUID] = None
     company_id: Optional[UUID] = None
+    project_id: Optional[UUID] = None
+    task_id: Optional[UUID] = None
     company: Any = None
     created_at: datetime
     updated_at: datetime

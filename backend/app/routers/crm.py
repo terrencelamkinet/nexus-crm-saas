@@ -2397,6 +2397,9 @@ async def list_notes(
     offset: int = 0,
     search: str | None = None,
     company_id: UUID | None = None,
+    contact_id: UUID | None = None,
+    project_id: UUID | None = None,
+    task_id: UUID | None = None,
     db: AsyncSession = Depends(get_tenant_session),
 ):
     tenant_id = _get_tenant_id(request)
@@ -2412,6 +2415,12 @@ async def list_notes(
 
     if company_id:
         base = base.where(Note.company_id == company_id)
+    if contact_id:
+        base = base.where(Note.contact_id == contact_id)
+    if project_id:
+        base = base.where(Note.project_id == project_id)
+    if task_id:
+        base = base.where(Note.task_id == task_id)
 
     count_q = select(func.count()).select_from(base.subquery())
     total = (await db.execute(count_q)).scalar() or 0

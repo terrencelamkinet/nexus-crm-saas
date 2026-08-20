@@ -5,7 +5,8 @@ import {
   Activity, Trash2, User, Clock
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { apiClient } from '../lib/api';
+import { apiClient } from '../lib/api'
+import NexusEditor from '../components/editor/NexusEditor';
 import { useModuleSettings } from '../lib/useModules';
 
 // ---------------------------------------------------------------------------
@@ -864,7 +865,12 @@ export default function ContactDetailPage() {
                         <div className="list-title">{n.title}</div>
                         {n.pinned && <span className="badge badge-p1">{t('pages.contacts.detail.pinned')}</span>}
                       </div>
-                      {n.content && <p className="list-sub mt-1 whitespace-pre-wrap">{n.content}</p>}
+                      {n.content && (
+                        <div
+                          className="list-sub mt-1 nxe-rendered-content"
+                          dangerouslySetInnerHTML={{ __html: n.content }}
+                        />
+                      )}
                       <p className="list-sub mt-1 text-xs">{timeAgo(n.created_at)}</p>
                     </div>
                   ))}
@@ -1067,11 +1073,13 @@ export default function ContactDetailPage() {
               <div className="form-row-1">
                 <div>
                   <label className="field-label">{t('common.content')}</label>
-                  <textarea value={noteForm.content}
-                    onChange={e => setNoteForm(f => ({ ...f, content: e.target.value }))}
-                    rows={4}
+                  <NexusEditor
+                    content={noteForm.content}
+                    onChange={html => setNoteForm(f => ({ ...f, content: html }))}
                     placeholder={t('pages.contacts.detail.noteContentPlaceholder')}
-                    className="input-field" />
+                    minHeight={160}
+                    entityContext={{ type: 'contact', id: contact?.id || '' }}
+                  />
                 </div>
               </div>
             </div>

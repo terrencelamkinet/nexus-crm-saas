@@ -7,6 +7,7 @@ import { useTranslation } from 'react-i18next'
 import { useMemo } from 'react'
 import { localizeFieldLabel } from './labels'
 import SelectCombobox from './SelectCombobox'
+import NexusEditor from '../../components/editor/NexusEditor'
 
 const RELATION_ROUTES: Record<string, string> = {
   contacts: '/contacts',
@@ -295,8 +296,12 @@ export function FieldsRenderer({ field, entity, form, onChange, editOpen, onNavi
   if (field.type === 'rich_text') {
     return (
       <div className="floating-field" style={field.gridColumn === 'full' ? { gridColumn: '1 / -1' } : {}}>
-        <textarea value={value ?? ''} onChange={e => onChange?.(field.key, e.target.value)}
-          className="input-field floating-input" rows={3} placeholder={field.label} />
+        <NexusEditor
+          content={String(value ?? '')}
+          onChange={html => onChange?.(field.key, html)}
+          placeholder={field.label}
+          minHeight={120}
+        />
         <label className="floating-label">{field.label}</label>
       </div>
     )

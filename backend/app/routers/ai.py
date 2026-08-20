@@ -3459,3 +3459,84 @@ def _parse_insight_json(text: str) -> dict | None:
     except Exception:
         pass
     return None
+
+
+# ====================================================================
+# Editor Assist — NexusEditor v2 AI 助手（改善/精簡/擴充/翻譯/文法/摘要）
+# ====================================================================
+
+class EditorAssistRequest(BaseModel):
+    action: str  # improve | shorten | expand | translate | fix | summarize
+    text: str
+    entity: dict[str, Any] | None = None
+
+
+_EDITOR_ACTION_PROMPTS: dict[str, str] = {
+    "improve": "改善以下內容嘅寫作質素：令佢更專業、更清晰、更有說服力。保留原意同關鍵資訊，唔好加新事實。直接輸出改善後嘅內容，唔好加任何解釋或前言。",
+    "shorten": "精簡以下內容：刪走冗餘，保留所有重要資訊，令佢更簡潔易讀。直接輸出精簡後嘅內容，唔好加任何解釋。",
+    "expand": "擴充以下內容：補充合理嘅細節、例子同說明，令佢更完整充實。唔好加入與原意矛盾嘅內容。直接輸出擴充後嘅內容。",
+    "translate": "將以下內容翻譯做英文：保持原意、語氣同格式（例如 list、bold 標記）。直接輸出翻譯結果，唔好加解釋。",
+    "fix": "修正以下內容嘅文法、錯別字同標點錯誤：保留原意同格式，唔好改寫風格。直接輸出修正後嘅內容。",
+    "summarize": "為以下內容生成簡短摘要：3-5 句，突出重點同關鍵資訊。直接輸出摘要，唔好加解釋。",
+}
+
+
+@router.post("/editor-assist")
+async def editor_assist(
+    body: EditorAssistRequest,
+    request: Request,
+    db: AsyncSession = Depends(get_tenant_session),
+):
+    """NexusEditor v2 AI 助手：按 action 對 text 做 LLM transformation。
+
+    - action 白名單（improve/shorten/expand/translate/fix/summarize）
+    - tenant-scoped via get_tenant_session（RLS）
+    - 失敗 / timeout → 靜默 fallback 返回原文（200，前端有 toast 提示）
+    """
+    action = (body.action or "").strip().lower()
+    if action not in _EDITOR_ACTION_PROMPTS:
+        raise HTTPException(400, f"Unsupported action: {body.action}")
+    text = (body.text or "").strip()
+    if not text:
+        raise HTTPException(400, "text is required")
+
+    tenant_id = getattr(request.state, "tenant_id", None)
+    if not tenant_id:
+        raise HTTPException(status_code=403, detail="Tenant not identified")
+
+    # Quota check before spending tokens
+    try:
+        quota = _get_quota()
+        await quota.check(
+            f"tenant:{tenant_id}",
+            tier=getattr(request.state, "ai_context", None) and getattr(request.state.ai_context, "tier", "pro") or "pro",
+            estimated_tokens=len(text) // 2,
+        )
+    except QuotaExceeded as e:
+        raise HTTPException(429, f"Quota exceeded for {e.window}: {e.current}/{e.limit}")
+
+    system_prompt = _EDITOR_ACTION_PROMPTS[action]
+    user_prompt = text
+
+    try:
+        adapter = await _resolve_adapter(db, tenant_id)
+        try:
+            result, _usage = await asyncio.wait_for(
+                adapter.chat(
+                    messages=[
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": user_prompt},
+                    ],
+                    model=DEFAULT_MODEL,
+                    temperature=0.3,
+                    max_tokens=2000,
+                ),
+                timeout=20,
+            )
+        finally:
+            await adapter.close()
+    except Exception:
+        # 靜默 fallback → 返回原文
+        return {"result": text}
+
+    return {"result": (result or text).strip()}
