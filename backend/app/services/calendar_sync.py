@@ -304,6 +304,20 @@ async def _fetch_ics(url: str) -> str:
         return r.text
 
 
+def _is_outlook_ics_url(url: str) -> bool:
+    """True if an ICS subscription URL is hosted by Microsoft Outlook.
+
+    Outlook ICS links (OWA "subscribe to calendar") point at
+    outlook.office365.com / outlook.live.com / outlook.com. Everything else
+    (Google Calendar, generic .ics hosts) stays tagged "ics".
+    """
+    host = url.split("://", 1)[-1].split("/", 1)[0].lower()
+    return any(
+        host == d or host.endswith("." + d)
+        for d in ("outlook.office365.com", "outlook.live.com", "outlook.com")
+    )
+
+
 def _parse_ics(text: str) -> list[dict[str, Any]]:
     """Minimal iCal parser — VEVENT components with UID, DTSTART, DTEND, SUMMARY.
 
@@ -621,8 +635,13 @@ async def sync_ics(
     hi = _now() + timedelta(days=SYNC_FUTURE_DAYS)
     parsed = [e for e in parsed if lo <= _ensure_tz(e["start"]) <= hi]
 
+    # Source tag: Outlook-hosted ICS feeds are tagged "outlook" (not "ics") so
+    # the UI badge reads Outlook. Detect by URL host — outlook.office365.com /
+    # outlook.live.com / outlook.com. Google-hosted and generic feeds stay "ics".
+    source = "outlook" if _is_outlook_ics_url(url) else "ics"
+
     stats = await _upsert_events(
-        db, integration_row.tenant_id, integration_row.user_id, "ics", parsed
+        db, integration_row.tenant_id, integration_row.user_id, source, parsed
     )
     return stats
 

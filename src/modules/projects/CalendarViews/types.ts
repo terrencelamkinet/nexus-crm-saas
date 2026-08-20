@@ -43,6 +43,7 @@ export const TYPE_COLORS: Record<string, string> = {
 export const SOURCE_LABELS: Record<string, string> = {
   google_oauth: 'Google',
   ics: 'ICS',
+  outlook: 'Outlook',
   manual: 'Manual',
 };
 

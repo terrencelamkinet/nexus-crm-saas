@@ -172,7 +172,7 @@ export default function DeadlineView({ events, onEventClick }: DeadlineViewProps
                   {ev.eventType && (
                     <span
                       className="deadline-tag"
-                      style={{ backgroundColor: ev.source && SOURCE_LABELS[ev.source] ? (ev.source === 'google_oauth' ? '#4285F4' : ev.source === 'ics' ? '#34A853' : getEventBadgeColor(ev.eventType)) : getEventBadgeColor(ev.eventType) }}
+                      style={{ backgroundColor: ev.source && SOURCE_LABELS[ev.source] ? (ev.source === 'google_oauth' ? '#4285F4' : ev.source === 'ics' ? '#34A853' : ev.source === 'outlook' ? '#0078D4' : getEventBadgeColor(ev.eventType)) : getEventBadgeColor(ev.eventType) }}
                     >
                       {ev.source && SOURCE_LABELS[ev.source] ? SOURCE_LABELS[ev.source] : ev.eventType}
                     </span>

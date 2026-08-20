@@ -61,6 +61,7 @@ export default function EventReviewModal({ event, initialDate, onClose, onSaved 
     ? '#00693E'
     : event!.source === 'google_oauth' ? '#4285F4'
     : event!.source === 'ics' ? '#34A853'
+    : event!.source === 'outlook' ? '#0078D4'
     : (event!.eventType && TYPE_COLORS[event!.eventType]) || '#6B7280';
 
   const handleSave = async () => {
