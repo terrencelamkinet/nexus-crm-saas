@@ -44,7 +44,7 @@ const VIEW_TABS: { key: CalendarViewType; label: string; Icon: React.FC<{ classN
   { key: 'month', label: 'Month', Icon: LayoutGrid },
   { key: 'week', label: 'Week', Icon: Presentation },
   { key: 'day', label: 'Day', Icon: Calendar },
-  { key: 'deadline', label: 'Deadline', Icon: List },
+  { key: 'deadline', label: 'Event', Icon: List },
 ];
 
 const SHOW_WEEKENDS_KEY = 'nexus_crm_show_weekends';
@@ -71,7 +71,7 @@ export default function CalendarViews({ events, loading, onRefresh }: CalendarVi
   const isMobile = useMediaQuery('(max-width: 768px)');
   const [viewType, setViewType] = useState<CalendarViewType>(() => (isMobile ? 'day' : 'month'));
   const [date, setDate] = useState<Date>(new Date());
-  const [showWeekends] = useState<boolean>(getStoredShowWeekends);
+  const [showWeekends, setShowWeekends] = useState<boolean>(getStoredShowWeekends);
   const [viewMenuOpen, setViewMenuOpen] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState<CalendarEventFormatted | null>(null);
   // Create-mode: non-null Date = create modal open, defaulting to that date.
@@ -135,7 +135,7 @@ export default function CalendarViews({ events, loading, onRefresh }: CalendarVi
           </div>
         );
         return <MonthView events={events} date={date} onDateChange={handleDateChange} onEventClick={handleEventClick} onMoreClick={handleMoreClick} onCreate={setCreating} />;
-      case 'week': return <WeekView events={events} date={date} onDateChange={handleDateChange} viewType={viewType} onViewChange={handleViewChange} showWeekends={showWeekends} onEventClick={handleEventClick} focusSignal={focusSignal} onCreate={setCreating} />;
+      case 'week': return <WeekView events={events} date={date} onDateChange={handleDateChange} viewType={viewType} onViewChange={handleViewChange} showWeekends={showWeekends} onToggleWeekends={() => setShowWeekends(v => !v)} onEventClick={handleEventClick} focusSignal={focusSignal} onCreate={setCreating} />;
       case 'day': return <DayView events={events} date={date} onDateChange={handleDateChange} onEventClick={handleEventClick} focusSignal={focusSignal} onCreate={setCreating} />;
       case 'deadline': return <DeadlineView events={events} date={date} onDateChange={handleDateChange} onEventClick={handleEventClick} />;
       default:

@@ -11,7 +11,7 @@ interface DeadlineViewProps {
   onEventClick?: (ev: CalendarEventFormatted) => void;
 }
 
-type DeadlineGroup = 'overdue' | 'today' | 'thisWeek' | 'thisMonth' | 'future';
+type DeadlineGroup = 'today' | 'thisWeek' | 'thisMonth' | 'future';
 
 interface GroupInfo {
   label: string;
@@ -19,10 +19,6 @@ interface GroupInfo {
 }
 
 const GROUP_CONFIG: Record<DeadlineGroup, GroupInfo> = {
-  overdue: {
-    label: 'Overdue',
-    comparator: (d: Date, today: Date) => d < new Date(today.getFullYear(), today.getMonth(), today.getDate()),
-  },
   today: {
     label: 'Today',
     comparator: (d: Date, today: Date) => isSameDay(d, today),
@@ -55,7 +51,7 @@ const GROUP_CONFIG: Record<DeadlineGroup, GroupInfo> = {
   },
 };
 
-const GROUP_ORDER: DeadlineGroup[] = ['overdue', 'today', 'thisWeek', 'thisMonth', 'future'];
+const GROUP_ORDER: DeadlineGroup[] = ['today', 'thisWeek', 'thisMonth', 'future'];
 
 /** Get event type display color — falls back to a muted gray */
 function getEventBadgeColor(eventType: string | null): string {
@@ -105,7 +101,7 @@ export default function DeadlineView({ events, onEventClick }: DeadlineViewProps
         {/* Empty state */}
         <div className="calendar-empty">
           <CalendarDays />
-          <p>No deadlines</p>
+          <p>No events</p>
         </div>
       </div>
     );
@@ -119,12 +115,11 @@ export default function DeadlineView({ events, onEventClick }: DeadlineViewProps
           if (evs.length === 0) return null;
 
           const config = GROUP_CONFIG[key];
-          const isOverdue = key === 'overdue';
 
           return (
             <div key={key}>
               {/* Group header */}
-              <div className={`deadline-header${isOverdue ? ' overdue' : ''}`}>
+              <div className="deadline-header">
                 <h3>{config.label}</h3>
                 <span className="count-chip">{evs.length}</span>
               </div>

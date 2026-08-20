@@ -22,6 +22,7 @@ interface WeekViewProps {
   /** Optional counter — when it changes, re-scroll to the current-time line (real-time focus). */
   focusSignal?: number;
   onCreate?: (d: Date) => void;
+  onToggleWeekends?: () => void;
 }
 
 const HOUR_HEIGHT = 74;
@@ -89,7 +90,7 @@ function getEventStatus(ev: CalendarEventFormatted): string {
 const SHORT_DAY_NAMES = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
 const FULL_DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
-export default function WeekView({ events, date, onDateChange, viewType, onViewChange, showWeekends, onEventClick, focusSignal, onCreate }: WeekViewProps) {
+export default function WeekView({ events, date, onDateChange, showWeekends, onEventClick, focusSignal, onCreate, onToggleWeekends }: WeekViewProps) {
   const [now, setNow] = useState<Date>(new Date());
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -200,16 +201,11 @@ export default function WeekView({ events, date, onDateChange, viewType, onViewC
           </div>
           <div className="range-toggle">
             <button
-              className={viewType === 'week' || !viewType ? 'active' : ''}
-              onClick={() => onViewChange?.('week')}
+              className={showWeekends ? 'active' : ''}
+              onClick={onToggleWeekends}
+              title="Toggle weekends"
             >
-              Week
-            </button>
-            <button
-              className={viewType === 'month' ? 'active' : ''}
-              onClick={() => onViewChange?.('month')}
-            >
-              Month
+              {showWeekends ? 'Weekends: On' : 'Weekends: Off'}
             </button>
           </div>
         </div>
