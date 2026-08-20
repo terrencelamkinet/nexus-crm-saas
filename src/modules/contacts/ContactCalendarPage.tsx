@@ -101,10 +101,8 @@ export default function ContactCalendarPage() {
     <div>
       <div className="page-header">
         <div>
-          <h1>{t('pages.contacts.title', 'Contacts')} Calendar</h1>
-          <p style={{ color: 'var(--color-text-muted)', fontSize: 13, marginTop: 3 }}>
-            Touchpoints and tasks across all contacts
-          </p>
+          <h1>{t('nav.calendar', 'Calendar')}</h1>
+          <p>Touchpoints and tasks across all contacts</p>
         </div>
       </div>
       <CalendarViews
