@@ -26,6 +26,7 @@ interface WeekViewProps {
 
 const HOUR_HEIGHT = 74;
 const TOTAL_HEIGHT = 24 * HOUR_HEIGHT;
+const ALL_DAY_EVENT_H = 22; // px per all-day event in the all-day strip row
 
 /** Convert a Date to minutes since midnight */
 function minutesSinceMidnight(d: Date): number {
@@ -170,6 +171,12 @@ export default function WeekView({ events, date, onDateChange, viewType, onViewC
     return map;
   }, [allDayEvents, weekDates]);
 
+  // All-day strip row height = tallest day's count × per-event height (min 22px).
+  const allDayRowHeight = useMemo(() => {
+    const max = Math.max(0, ...weekDates.map(wd => (allDaySpanByDay.get(formatDateKey(wd)) || []).length));
+    return Math.max(ALL_DAY_EVENT_H, max * ALL_DAY_EVENT_H + 2);
+  }, [allDaySpanByDay, weekDates]);
+
   // Current time line position
   const nowMinutes = useMemo(() => {
     return now.getHours() * 60 + now.getMinutes();
@@ -225,6 +232,46 @@ export default function WeekView({ events, date, onDateChange, viewType, onViewC
             );
           })}
 
+          {/* Row 2 (NEW): All-day strip — corner spacer + per-day all-day events (vertically stacked, no overlap) */}
+          <div className="time-gutter all-day-gutter" />
+          {weekDates.map((wd) => {
+            const colKey = formatDateKey(wd);
+            const dayAllDay = allDaySpanByDay.get(colKey) || [];
+            return (
+              <div
+                key={`allday-${colKey}`}
+                className="day-all-day"
+                style={{ height: allDayRowHeight }}
+                onDoubleClick={(e) => { e.stopPropagation(); onCreate && onCreate(wd); }}
+              >
+                {dayAllDay.map((ev, i) => (
+                  <div
+                    key={ev.id}
+                    className={`event-block all-day-event${onEventClick ? ' ev-clickable' : ''}`}
+                    style={{
+                      top: i * ALL_DAY_EVENT_H,        // vertical stacking, no overlap
+                      height: ALL_DAY_EVENT_H - 2,
+                      left: 3, right: 3,
+                      position: 'absolute',
+                      background: `${ev.color}22`,
+                      color: ev.color,
+                      borderLeft: `2.5px solid ${ev.color}`,
+                      padding: '2px 6px',
+                      fontSize: '10px',
+                      zIndex: 3,
+                    }}
+                    title={ev.title}
+                    onClick={onEventClick ? () => onEventClick(ev) : undefined}
+                    role={onEventClick ? 'button' : undefined}
+                    onDoubleClick={(e) => e.stopPropagation()}
+                  >
+                    <div className="e-title" style={{ fontSize: '10px', color: ev.color, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{ev.title}</div>
+                  </div>
+                ))}
+              </div>
+            );
+          })}
+
           {/* Time gutter — empty corner */}
           <div className="time-gutter">
             {hourSlots.map((slot) => (
@@ -239,7 +286,6 @@ export default function WeekView({ events, date, onDateChange, viewType, onViewC
             const colKey = formatDateKey(wd);
             const isColToday = isSameDay(wd, now);
             const dayTimed = timedSpanByDay.get(colKey) || [];
-            const dayAllDay = allDaySpanByDay.get(colKey) || [];
 
             return (
               <div key={`col-${colKey}`} className="day-col" style={{ height: TOTAL_HEIGHT }}
@@ -247,34 +293,6 @@ export default function WeekView({ events, date, onDateChange, viewType, onViewC
                 {/* Hour grid lines */}
                 {hourSlots.map((slot) => (
                   <div key={`hl-${colKey}-${slot}`} className="hour-line" />
-                ))}
-
-                {/* All-day events pinned to top */}
-                {dayAllDay.map((ev) => (
-                  <div
-                    key={ev.id}
-                    className={`event-block${onEventClick ? ' ev-clickable' : ''}`}
-                    style={{
-                      top: 2,
-                      zIndex: 3,
-                      height: 'auto',
-                      minHeight: 22,
-                      left: 4,
-                      right: 4,
-                      position: 'absolute',
-                      padding: '2px 6px',
-                      fontSize: '10px',
-                      background: `${ev.color}22`,
-                      color: ev.color,
-                      borderLeft: `2.5px solid ${ev.color}`,
-                    }}
-                    title={ev.title}
-                    onClick={onEventClick ? () => onEventClick(ev) : undefined}
-                    role={onEventClick ? 'button' : undefined}
-                    onDoubleClick={(e) => e.stopPropagation()}
-                  >
-                    <div className="e-title" style={{ fontSize: '10px', color: ev.color }}>{ev.title}</div>
-                  </div>
                 ))}
 
                 {/* Today's current time line */}

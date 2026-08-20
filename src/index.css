@@ -1201,6 +1201,10 @@ textarea.input-field{resize:vertical;min-height:60px}
 .time-gutter{border-bottom:1px solid var(--color-divider)}
 .time-cell{height:74px;font-size:10.5px;color:var(--color-text-faint);padding:4px 8px 0 0;text-align:right;border-top:1px solid var(--color-divider)}
 .day-col{position:relative;border-left:1px solid var(--color-divider)}
+/* All-day strip row (above the 00:00 time grid in WeekView) */
+.day-all-day{position:relative;border-left:1px solid var(--color-divider);background:color-mix(in oklch, var(--color-surface-offset) 30%, transparent)}
+.all-day-gutter{border-left:none}
+.all-day-event{border-radius:var(--radius-sm)}
 .hour-line{height:74px;border-top:1px solid var(--color-divider)}
 .event-block{position:absolute;left:5px;right:5px;border-radius:var(--radius-sm);padding:6px 8px;font-size:11px;overflow:hidden;transition:box-shadow var(--transition-interactive),transform var(--transition-interactive);cursor:pointer}
 .event-block:hover{box-shadow:var(--shadow-md);transform:translateY(-1px);z-index:5}
