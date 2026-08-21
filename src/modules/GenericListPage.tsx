@@ -31,6 +31,10 @@ export default function GenericListPage({ config, extraData }: Props) {
   const [error, setError] = useState<string | null>(null)
   const tableScrollRef = useRef<HTMLDivElement>(null)
   const [tableAtEnd, setTableAtEnd] = useState(false)
+  // One-time swipe hint (mobile horizontal table affordance, spec §6)
+  const [swipeHintDismissed, setSwipeHintDismissed] = useState(() => {
+    try { return localStorage.getItem('nexus_swipe_hint') === '1' } catch { return true }
+  })
 
   const [createOpen, setCreateOpen] = useState(false)
   const [editTarget, setEditTarget] = useState<EntityRecord | null>(null)
@@ -287,8 +291,13 @@ const [filters, setFilters] = useState<Record<string, FilterEntry>>(() => ({ ...
 
   useEffect(() => {
     const el = tableScrollRef.current
-    if (el) setTableAtEnd(el.scrollLeft + el.clientWidth >= el.scrollWidth - 4)
-  }, [data])
+    if (el) {
+      setTableAtEnd(el.scrollLeft + el.clientWidth >= el.scrollWidth - 4)
+      // Truthful edge-fade state (mobile horizontal table, spec §12)
+      el.dataset.canScrollRight = String(el.scrollLeft < el.scrollWidth - el.clientWidth - 2)
+      el.dataset.canScrollLeft = String(el.scrollLeft > 2)
+    }
+  }, [data, visibleCols])
 
   const filterableFields = config.fields.filter(f =>
     FILTERABLE_TYPES.includes(f.type) && f.key !== 'created_at' && f.key !== 'updated_at'
@@ -958,8 +967,21 @@ const [filters, setFilters] = useState<Record<string, FilterEntry>>(() => ({ ...
             <div className={`table-scroll${tableAtEnd ? ' at-end' : ''}`} ref={tableScrollRef}
               onScroll={() => {
                 const el = tableScrollRef.current
-                if (el) setTableAtEnd(el.scrollLeft + el.clientWidth >= el.scrollWidth - 4)
+                if (el) {
+                  setTableAtEnd(el.scrollLeft + el.clientWidth >= el.scrollWidth - 4)
+                  el.dataset.canScrollRight = String(el.scrollLeft < el.scrollWidth - el.clientWidth - 2)
+                  el.dataset.canScrollLeft = String(el.scrollLeft > 2)
+                }
               }}>
+              {!swipeHintDismissed && (
+                <div className="nxe-swipe-hint" role="status">
+                  <span>← 左右滑動查看更多欄位 →</span>
+                  <button onClick={() => {
+                    setSwipeHintDismissed(true)
+                    try { localStorage.setItem('nexus_swipe_hint', '1') } catch { /* noop */ }
+                  }} aria-label="Dismiss swipe hint">✕</button>
+                </div>
+              )}
               <table data-density={density}>
               <thead>
                 <tr>
@@ -1034,7 +1056,9 @@ const [filters, setFilters] = useState<Record<string, FilterEntry>>(() => ({ ...
                         aria-label={String(item[config.titleField || 'name'] || item.id)} />
                     </td>
                     {colLayout.orderedCols.map(col => (
-                      <td key={col} style={{ width: colLayout.getWidth(col), minWidth: colLayout.getWidth(col) }}>{renderCell(item, col)}</td>
+                      <td key={col}
+                        className={(col === 'name' || col === config.titleField) ? 'glp-td-title' : ''}
+                        style={{ width: colLayout.getWidth(col), minWidth: colLayout.getWidth(col) }}>{renderCell(item, col)}</td>
                     ))}
                     <td className="col-menu" onClick={e => e.stopPropagation()}>
                       <div className="menu-wrap">

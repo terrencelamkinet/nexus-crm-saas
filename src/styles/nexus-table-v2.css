@@ -144,6 +144,10 @@
   flex-direction: column;
   min-width: 0;
 }
+/* Swipe hint is mobile-only (one-time, dismissible) */
+.nxe-swipe-hint {
+  display: none;
+}
 /* Secondary/meta lines are mobile-list-only; hidden on desktop table */
 .data-table .cell-secondary.mobile-only,
 .data-table .cell-meta.mobile-only {
@@ -292,103 +296,130 @@
   border-top: 1px solid var(--table-border);
 }
 
-/* ── Mobile (<768px): flat record list — NOT cards (correction spec §8) ── */
+/* ── Mobile (<768px): real horizontal data table (mobile-horizontal-table spec §11) ──
+   Checkbox + Name sticky-left, other columns swipe horizontally.
+   NOT stacked cards / NOT 72px record list. */
 @media (max-width: 767px) {
   .data-table {
     border-radius: 0;
-    overflow: visible;
     border-left: 0;
     border-right: 0;
   }
-  .data-table table {
-    min-width: 0;
-    display: block;
+  /* Native horizontal scroll viewport; table keeps real column headers */
+  .data-table .table-scroll table {
+    min-width: 900px;
+    width: max-content;
   }
-  .data-table thead {
-    display: none;
+  /* Sticky header row inside the scroll viewport (best-effort; container is x-scroll only) */
+  .data-table thead th {
+    position: sticky;
+    top: 0;
+    z-index: 6;
+    height: 40px;
+    font-size: 11px;
+    line-height: 16px;
   }
-  .data-table tbody {
-    display: block;
-    padding: 0;
-    gap: 0;
+  .data-table tbody td {
+    height: 48px;
+    padding: 0 12px;
+    font-size: 13px;
+    line-height: 20px;
+    white-space: nowrap;
   }
-  /* Flat row: 1px divider only — no radius, no shadow, no gap */
   .data-table tbody tr {
-    display: grid;
-    grid-template-columns: 44px minmax(0, 1fr) 44px;
-    gap: 0;
-    align-items: center;
-    min-height: 72px;
-    padding: 8px 12px;
-    border: 0;
-    border-bottom: 1px solid var(--table-border);
+    min-height: 48px;
     border-radius: 0;
     background: transparent;
     box-shadow: none;
   }
-  .data-table tbody tr:last-child {
-    border-bottom: 0;
-  }
-  .data-table tbody tr:active {
-    background: var(--table-row-hover);
-  }
   .data-table tbody tr[aria-selected="true"],
   .data-table tbody tr.row-selected {
     background: var(--table-row-selected);
-    box-shadow: inset 3px 0 0 var(--color-primary);
   }
-  /* checkbox → 1st col, primary cell → 2nd, menu → 3rd; hide other tds */
-  .data-table td:not(:first-child):not(:nth-child(2)):not(:last-child) {
-    display: none;
-  }
-  .data-table td:first-child,
-  .data-table td:nth-child(2),
-  .data-table td:last-child {
+  /* ── Sticky-left: selection checkbox (44px) ── */
+  .data-table th.th-checkbox,
+  .data-table td.th-checkbox {
+    position: sticky;
+    left: 0;
+    z-index: 5;
+    width: 44px;
+    min-width: 44px;
+    max-width: 44px;
     padding: 0;
-    min-width: 0;
+    text-align: center;
+    background: var(--color-surface);
   }
-  /* Checkbox tap target 44×44 */
-  .data-table td:first-child .row-checkbox {
+  .data-table th.th-checkbox {
+    z-index: 7;
+    background: var(--color-surface-offset);
+  }
+  .data-table td.th-checkbox .row-checkbox {
     width: 44px;
     height: 44px;
     margin: 0;
     accent-color: var(--color-primary);
   }
-  /* Primary cell: avatar 40px + stacked name/secondary/meta */
-  .data-table td:nth-child(2) .row-name {
-    gap: 10px;
+  /* Task quick-complete column is hidden on mobile (status column covers it) */
+  .data-table th.th-complete,
+  .data-table td.td-complete {
+    display: none;
   }
-  .data-table td:nth-child(2) .avatar-sm {
-    width: 40px;
-    height: 40px;
+  /* ── Sticky-left: Name column (min 168px, never squeezed to "Ada …") ── */
+  .data-table th.glp-th-title {
+    position: sticky;
+    left: 44px;
+    z-index: 7;
+    min-width: 168px;
+    background: var(--color-surface-offset);
+    box-shadow: 5px 0 8px -8px rgb(0 0 0 / 0.35);
+  }
+  .data-table td.glp-td-title {
+    position: sticky;
+    left: 44px;
+    z-index: 5;
+    min-width: 168px !important;
+    background: var(--color-surface);
+    box-shadow: 5px 0 8px -8px rgb(0 0 0 / 0.35);
+  }
+  .data-table td.glp-td-title .row-name {
+    gap: 8px;
+  }
+  /* Compact 24px initials avatar inside Name cell — no big avatar blocks (spec §3) */
+  .data-table td.glp-td-title .avatar-sm {
+    width: 24px;
+    height: 24px;
     flex-shrink: 0;
-    font-size: 14px;
+    font-size: 10px;
   }
-  .data-table .row-name-text {
-    font-size: 16px;
+  .data-table td.glp-td-title .row-name-text {
+    font-size: 13px;
     font-weight: 600;
-    line-height: 22px;
+    line-height: 20px;
   }
+  /* No second metadata line in table mode (spec §4) */
   .data-table .cell-secondary.mobile-only,
   .data-table .cell-meta.mobile-only {
-    display: block;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    display: none;
   }
-  .data-table .cell-secondary.mobile-only {
-    margin-top: 2px;
-    color: var(--color-text-muted);
-    font-size: 13px;
-    line-height: 18px;
+  /* ── Sticky-right: More actions (44px) ── */
+  .data-table th.col-menu,
+  .data-table td.col-menu {
+    position: sticky;
+    right: 0;
+    z-index: 5;
+    width: 44px;
+    min-width: 44px;
+    max-width: 44px;
+    padding: 0;
+    text-align: center;
+    background: var(--color-surface);
+    box-shadow: -5px 0 8px -8px rgb(0 0 0 / 0.35);
   }
-  .data-table .cell-meta.mobile-only {
-    margin-top: 2px;
-    color: var(--color-text-faint);
-    font-size: 12px;
-    line-height: 16px;
+  .data-table th.col-menu {
+    z-index: 7;
+    background: var(--color-surface-offset);
   }
-  .data-table .col-menu .menu-dots {
+  .data-table td.col-menu .menu-dots {
     opacity: 1;
     pointer-events: auto;
     width: 44px;
@@ -396,6 +427,40 @@
     display: flex;
     align-items: center;
     justify-content: center;
+  }
+  /* ── Scroll affordance: truthful edge fade only (spec §6/§12) ── */
+  .table-scroll[data-can-scroll-right="true"]::after {
+    position: sticky;
+    right: 0;
+    display: block;
+    width: 24px;
+    min-height: 48px;
+    margin-left: auto;
+    background: linear-gradient(90deg, transparent, var(--color-surface));
+    content: "";
+    pointer-events: none;
+  }
+  /* One-time dismissible swipe hint */
+  .nxe-swipe-hint {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 8px 14px;
+    background: color-mix(in oklch, var(--color-primary) 8%, transparent);
+    color: var(--color-primary-active);
+    font-size: 12px;
+    font-weight: 500;
+    border-bottom: 1px solid var(--table-border);
+  }
+  .nxe-swipe-hint button {
+    border: 0;
+    background: none;
+    color: inherit;
+    font-size: 14px;
+    width: 32px;
+    height: 32px;
+    cursor: pointer;
   }
   /* Bulk bar: flat sticky bottom — no floating card */
   .data-table .bulk-bar {
