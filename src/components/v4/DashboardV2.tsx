@@ -331,7 +331,7 @@ export default function DashboardV2() {
       setOverdueTasks(overdue.slice(0, 5))
       setTaskTotal(d?.total || 0)
     }).catch(() => {})
-    apiClient.get<{ items: Todo[] }>('/api/v1/crm/tasks?due=today&page_size=8').then((d: any) => setTodos(d?.items || [])).catch(() => {})
+    apiClient.get<{ items: Todo[] }>('/api/v1/crm/tasks?due=today&status_not=done&page_size=8').then((d: any) => setTodos((d?.items || []).filter((x: any) => x?.status !== 'done'))).catch(() => {})
     apiClient.get<{ items: any[] }>('/api/v1/crm/calendar-events').then((d: any) => setEvents(d?.items || d || [])).catch(() => {})
     apiClient.get<{ items: any[] }>('/api/v1/crm/touchpoints?page_size=8').then((d: any) => setActivity(d?.items || [])).catch(() => {})
     // ── New widgets (all real API data — no demo fallback) ──
@@ -640,7 +640,7 @@ export default function DashboardV2() {
           </div>
           <div className="dv2-widget-body dv2-list-body">
             {todos.length === 0 ? <div className="dv2-empty-mini">{t('dashboard.noTasksYet', { defaultValue: '暫無任務' })}</div> :
-              (todosExpanded ? todos : todos.slice(0, 4)).map((td) => (
+              (todosExpanded ? todos.filter(td => !td.done) : todos.slice(0, 4).filter(td => !td.done)).map((td) => (
                 <button key={td.id} className="dv2-list-row dv2-list-row-btn" onClick={() => toggleTodo(td.id)}>
                   <span className={`dv2-checkbox ${td.done ? 'checked' : ''}`}>{td.done && <Check size={11} />}</span>
                   <span className={`dv2-list-row-title ${td.done ? 'done' : ''}`}>{td.title}</span>
