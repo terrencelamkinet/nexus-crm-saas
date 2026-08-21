@@ -438,13 +438,6 @@ export default function DashboardNew() {
   }, [])
   useEffect(() => { fetchData() }, [fetchData])
 
-  // Auto-refresh when tasks change elsewhere (e.g. ticked done in TodoPage)
-  useEffect(() => {
-    const refreshTasks = () => fetchData()
-    window.addEventListener('tasks-changed', refreshTasks)
-    return () => window.removeEventListener('tasks-changed', refreshTasks)
-  }, [fetchData])
-
   // ── Dashboard layout persistence + module settings (single API call) ──
   useEffect(() => {
     const loadAll = async () => {
