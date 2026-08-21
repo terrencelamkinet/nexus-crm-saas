@@ -39,16 +39,24 @@
 
 /* ═══ CONTENT AREA + NOTION-STYLE BLOCK GUTTER ═══ */
 .nxe-content-wrap { position: relative; display: flex; }
-.nxe-content { flex: 1; min-height: 180px; max-height: 480px; overflow-y: auto; padding: 16px 18px 16px 46px; font-size: 14.5px; line-height: 1.75; color: var(--color-text); position: relative; }
+.nxe-content { flex: 1; min-height: 180px; max-height: 480px; overflow-y: auto; overscroll-behavior: contain; padding: 16px 18px 16px 46px; font-size: 14.5px; line-height: 1.75; color: var(--color-text); position: relative; overflow-wrap: anywhere; word-break: break-word; scrollbar-gutter: stable; }
 .nxe-content .ProseMirror { outline: none; }
 .nxe-content .ProseMirror p.is-editor-empty:first-child::before { content: attr(data-placeholder); color: var(--color-text-faint); float: left; pointer-events: none; height: 0; }
+/* caret 自動 scroll — 打字時唔會隱藏喺 scroll container 底部 */
+.nxe-content .ProseMirror { scroll-margin-bottom: 60px; }
 .nxe-content h1 { font-size: 22px; font-weight: 800; margin: 18px 0 8px; }
 .nxe-content h2 { font-size: 18px; font-weight: 750; margin: 16px 0 6px; }
 .nxe-content h3 { font-size: 15.5px; font-weight: 700; margin: 12px 0 4px; }
 .nxe-content p { margin: 6px 0; }
-.nxe-content ul, .nxe-content ol { padding-left: 22px; margin: 6px 0; }
+.nxe-content ul { padding-left: 22px; margin: 6px 0; list-style: disc; }
+.nxe-content ol { padding-left: 22px; margin: 6px 0; list-style: decimal; }
 .nxe-content li { margin: 2px 0; }
+.nxe-content li::marker { color: var(--color-text-muted); }
 .nxe-content li[data-checked] { list-style: none; display: flex; align-items: flex-start; gap: 8px; margin-left: -22px; }
+.nxe-content ul[data-type="taskList"] { list-style: none; padding-left: 4px; }
+.nxe-content ul[data-type="taskList"] li { display: flex; align-items: flex-start; gap: 8px; margin: 4px 0; }
+.nxe-content ul[data-type="taskList"] li > label { margin-top: 3px; }
+.nxe-content ul[data-type="taskList"] li > div { flex: 1; }
 .nxe-content blockquote { border-left: 3px solid var(--color-primary); padding: 4px 14px; color: var(--color-text-muted); margin: 10px 0; background: var(--color-surface-offset); border-radius: 0 8px 8px 0; }
 .nxe-content code { background: var(--color-surface-offset); padding: 2px 6px; border-radius: 6px; font-size: 13px; font-family: 'JetBrains Mono', monospace; }
 .nxe-content pre { background: var(--color-surface-offset); border: 1px solid var(--color-border); border-radius: 10px; padding: 12px 14px; overflow-x: auto; margin: 10px 0; }
@@ -114,6 +122,14 @@
 .nxe-bubble-ai-btn:hover { background: color-mix(in oklch, var(--ai-glow-1) 12%, transparent); }
 .nxe-color-swatch-mini { width: 15px; height: 15px; border-radius: 50%; }
 
+/* Highlight 色盤 — 7 色 swatches + 清除 */
+.nxe-bubble-hl { display: flex; align-items: center; gap: 2px; padding: 0 4px; }
+.nxe-hl-swatch { width: 18px; height: 18px; border-radius: 5px; border: 1.5px solid transparent; cursor: pointer; padding: 0; transition: transform .1s ease, border-color .12s ease; }
+.nxe-hl-swatch:hover { transform: scale(1.15); border-color: var(--color-border-strong, #888); }
+.nxe-hl-swatch.active { border-color: var(--color-primary); box-shadow: 0 0 0 2px color-mix(in oklch, var(--color-primary) 25%, transparent); }
+.nxe-hl-clear { width: 18px; height: 18px; border-radius: 5px; border: 1px solid var(--color-divider); background: none; color: var(--color-text-muted); font-size: 13px; line-height: 1; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+.nxe-hl-clear:hover { background: var(--color-surface-offset); color: var(--color-text); }
+
 .nxe-link-popover { position: absolute; display: flex; align-items: center; gap: 6px; background: var(--color-surface-2); border: 1px solid var(--color-border); border-radius: 10px; padding: 6px; box-shadow: 0 12px 30px -8px rgba(0,0,0,.28); z-index: 30; animation: nxe-pop .15s ease; }
 .nxe-link-input { border: none; background: var(--color-surface-offset); border-radius: 7px; padding: 6px 10px; font-size: 12.5px; width: 220px; color: var(--color-text); outline: none; }
 .nxe-link-go { width: 28px; height: 28px; border-radius: 7px; background: var(--color-primary); color: #fff; display: flex; align-items: center; justify-content: center; border: none; cursor: pointer; }
@@ -171,6 +187,13 @@
 .nxe-mobile-block-item:active { background: var(--color-surface-offset); }
 .nxe-mobile-block-icon { width: 44px; height: 44px; border-radius: 12px; background: var(--color-surface-offset); display: flex; align-items: center; justify-content: center; color: var(--color-text); }
 .nxe-mobile-block-label { font-size: 11px; font-weight: 600; color: var(--color-text-muted); text-align: center; }
+
+/* Mobile highlight 色盤 sheet */
+.nxe-mobile-hl-title { font-size: 14px; font-weight: 700; padding: 6px 16px 12px; color: var(--color-text); }
+.nxe-mobile-hl-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; padding: 0 16px 16px; }
+.nxe-mobile-hl-item { height: 44px; border-radius: 12px; border: 1.5px solid var(--color-divider); display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 12.5px; font-weight: 700; color: #1c1f26; }
+.nxe-mobile-hl-item:active { transform: scale(.96); }
+.nxe-mobile-hl-clear { background: var(--color-surface-offset); border-style: dashed; color: var(--color-text-muted); }
 
 /* Long-press haptic-style feedback ring (mobile block move) */
 .nxe-longpress-ring { position: absolute; border-radius: 8px; border: 2px solid var(--color-primary); animation: nxe-longpress-pulse .4s ease; pointer-events: none; z-index: 12; }

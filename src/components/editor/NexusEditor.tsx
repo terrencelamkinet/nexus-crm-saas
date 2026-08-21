@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
-import { useEditor, EditorContent, BubbleMenu } from '@tiptap/react'
+import { useEditor, EditorContent } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import Placeholder from '@tiptap/extension-placeholder'
 import Link from '@tiptap/extension-link'
@@ -25,7 +25,8 @@ import {
 } from 'lucide-react'
 import { apiClient } from '../../lib/api'
 import { useToast } from '../v4/useToast'
-import { SlashCommand } from './SlashCommand'
+import { SlashCommand, executeSlashCommand, SLASH_ITEMS } from './SlashCommand'
+import type { SlashItem } from './SlashMenu'
 import { useMobile } from './useMobile'
 import { useHardwareKeyboard } from './useHardwareKeyboard'
 
@@ -84,6 +85,17 @@ const AI_ACTIONS = [
 
 const BLOCK_COLORS = ['#EF4444', '#F59E0B', '#22C55E', '#3B82F6', '#7C5CFC', '#EC4899', '#6B7280', '#000000']
 
+/* Highlight marker 色盤 — 7 個 default + 可以再揀 */
+const HIGHLIGHT_COLORS = [
+  { name: '黃', value: '#FEF08A' },
+  { name: '橙', value: '#FED7AA' },
+  { name: '綠', value: '#BBF7D0' },
+  { name: '藍', value: '#BFDBFE' },
+  { name: '粉紅', value: '#FBCFE8' },
+  { name: '紫', value: '#E9D5FF' },
+  { name: '青', value: '#A5F3FC' },
+]
+
 export default function NexusEditor({
   content = '', onChange, onSave, placeholder = '輸入內容，或按 "/" 開啟快速選單，"⌘+J" 呼叫 AI…',
   autosaveMs = 1500, minHeight = 180, entityContext,
@@ -105,12 +117,18 @@ export default function NexusEditor({
   const [blockMenuOpen, setBlockMenuOpen] = useState<{ x: number; y: number; pos: number } | null>(null)
   const [colorSubmenuOpen, setColorSubmenuOpen] = useState(false)
   const [mobileSheetOpen, setMobileSheetOpen] = useState(false)
+  const [mobileHlOpen, setMobileHlOpen] = useState(false)
+  const [selectionBubble, setSelectionBubble] = useState<{ x: number; y: number } | null>(null)
+  const [slashMenu, setSlashMenu] = useState<{ x: number; y: number; items: SlashItem[]; selected: number; range?: any } | null>(null)
+  const bubbleRef = useRef<HTMLDivElement>(null)
+  const slashRef = useRef<HTMLDivElement>(null)
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const aiMenuRef = useRef<HTMLDivElement>(null)
   const blockMenuRef = useRef<HTMLDivElement>(null)
   const contentAreaRef = useRef<HTMLDivElement>(null)
 
   const editor = useEditor({
+    shouldRerenderOnTransaction: false,
     extensions: [
       StarterKit.configure({ heading: { levels: [1, 2, 3] } }),
       Placeholder.configure({ placeholder }),
@@ -130,6 +148,8 @@ export default function NexusEditor({
     onUpdate: ({ editor }) => {
       const html = editor.getHTML()
       onChange?.(html)
+      // caret 自動 scroll — 打字時字唔會隱藏喺 scroll container 底部
+      editor.commands.scrollIntoView()
       if (!onSave) return
       setSaveState('saving')
       if (saveTimer.current) clearTimeout(saveTimer.current)
@@ -140,7 +160,29 @@ export default function NexusEditor({
     },
     onFocus: () => setFocused(true),
     onBlur: () => setFocused(false),
+    onSelectionUpdate: ({ editor: ed }) => {
+      const { from, to } = ed.state.selection
+      if (from === to) { setSelectionBubble(null); return }
+      const coords = ed.view.coordsAtPos(from)
+      setSelectionBubble({ x: coords.left, y: coords.top - 8 })
+    },
   })
+
+  const hideBubbleAfterAction = () => {
+    setSelectionBubble(null)
+    setAiBubbleOpen(false)
+  }
+
+  /* click outside bubble → hide */
+  useEffect(() => {
+    const onDown = (e: MouseEvent) => {
+      if (bubbleRef.current && !bubbleRef.current.contains(e.target as Node)) {
+        setSelectionBubble(null); setAiBubbleOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', onDown)
+    return () => document.removeEventListener('mousedown', onDown)
+  }, [])
 
   /* ── Notion-style hover gutter: track which block the pointer is over ── */
   const handleContentMouseMove = useCallback((e: React.MouseEvent) => {
@@ -252,16 +294,84 @@ export default function NexusEditor({
     const selectedText = editor.state.doc.textBetween(from, to, ' ')
     const scope = selectedText.trim() ? selectedText : editor.getText()
     try {
-      const data = await apiClient.post<{ result: string }>('/api/v1/crm/ai/editor-assist', {
+      const data = await apiClient.post<{ result: string }>('/api/v1/ai/editor-assist', {
         action: actionId, text: scope, entity: entityContext,
       })
       if (!data?.result) throw new Error('empty')
-      if (selectedText.trim()) editor.chain().focus().deleteSelection().insertContent(data.result).run()
-      else editor.chain().focus().insertContentAt(editor.state.doc.content.size, `<p>${data.result}</p>`).run()
+      const apply = () => {
+        if (selectedText.trim()) {
+          editor.chain().focus().deleteSelection().insertContent(data.result).run()
+        } else {
+          // append 做新 paragraph。⚠️ 唔好喺 AI await 之後即刻 dispatch —
+          // dispatch 觸發 onUpdate → onChange → parent setState → NexusEditor
+          // re-render，會撞 ProseMirror DOM update 而 insertBefore crash。
+          // setTimeout(0) 等 React render cycle 完成先改 editor state。
+          editor.chain().focus().insertContentAt(editor.state.doc.content.size, { type: 'paragraph' }).run()
+          editor.chain().focus().insertContent(data.result).run()
+        }
+      }
+      setTimeout(apply, 0)
       showToast('AI 已完成編輯')
     } catch { showToast('AI 請求失敗，請重試') }
     finally { setAiRunning(false) }
   }, [editor, entityContext, showToast])
+
+  /* ── Slash menu AI items (SlashCommand.ts dispatches nexus-editor:ai-slash) ── */
+  useEffect(() => {
+    const onAiSlash = (e: Event) => {
+      const detail = (e as CustomEvent).detail as { id?: string } | undefined
+      if (!detail?.id || !editor) return
+      if (detail.id === 'ai') runAiAction('improve')
+      else if (detail.id === 'ai-summarize') runAiAction('summarize')
+    }
+    window.addEventListener('nexus-editor:ai-slash', onAiSlash)
+    return () => window.removeEventListener('nexus-editor:ai-slash', onAiSlash)
+  }, [editor, runAiAction])
+
+  /* ── Slash menu (NexusEditor 自己 render — 唔用 tippy，避 React 19 crash) ── */
+  useEffect(() => {
+    const onOpen = (e: Event) => {
+      const d = (e as CustomEvent).detail as { x: number; y: number; range?: any }
+      setSlashMenu({ x: d.x, y: d.y, items: SLASH_ITEMS, selected: 0, range: d.range })
+    }
+    const onUpdate = (e: Event) => {
+      const d = (e as CustomEvent).detail as { x: number; y: number; items?: SlashItem[]; range?: any }
+      setSlashMenu(prev => ({ x: d.x, y: d.y, items: d.items ?? prev?.items ?? SLASH_ITEMS, selected: 0, range: d.range ?? prev?.range }))
+    }
+    const onKeydown = (e: Event) => {
+      const d = (e as CustomEvent).detail as { key: string }
+      setSlashMenu(prev => {
+        if (!prev || !prev.items.length) return prev
+        const n = prev.items.length
+        if (d.key === 'ArrowUp') return { ...prev, selected: (prev.selected + n - 1) % n }
+        if (d.key === 'ArrowDown') return { ...prev, selected: (prev.selected + 1) % n }
+        return prev
+      })
+    }
+    const onEnter = () => {
+      setSlashMenu(prev => {
+        if (prev && prev.items[prev.selected] && editor) {
+          const item = prev.items[prev.selected]
+          const range = prev.range
+          setTimeout(() => executeSlashCommand(editor, item.id, range), 0)
+        }
+        return null
+      })
+    }
+    const onClose = () => setSlashMenu(null)
+    window.addEventListener('nexus-editor:slash-open', onOpen)
+    window.addEventListener('nexus-editor:slash-update', onUpdate)
+    window.addEventListener('nexus-editor:slash-keydown', onKeydown)
+    window.addEventListener('nexus-editor:slash-enter', onEnter)
+    window.addEventListener('nexus-editor:slash-close', onClose)
+    return () => {
+      window.removeEventListener('nexus-editor:slash-open', onOpen)
+      window.removeEventListener('nexus-editor:slash-update', onUpdate)
+      window.removeEventListener('nexus-editor:slash-keydown', onKeydown)
+      window.removeEventListener('nexus-editor:slash-enter', onEnter)
+      window.removeEventListener('nexus-editor:slash-close', onClose)
+    }
+  }, [editor])
 
   const openLinkPopover = useCallback(() => {
     if (!editor) return
@@ -383,27 +493,60 @@ export default function NexusEditor({
         </div>
       )}
 
-      {aiRunning && <div className="nxe-ai-loading-bar" />}
+      {aiRunning && <div className="nxe-ai-loading-bar" data-testid="ai-loading" />}
 
-      {editor && (
-        <BubbleMenu editor={editor} tippyOptions={{ duration: 120 }}>
-          <div className="nxe-bubble-menu">
-            <button className={`nxe-bubble-btn ${editor.isActive('bold') ? 'active' : ''}`} onClick={() => editor.chain().focus().toggleBold().run()}><Bold size={13} /></button>
-            <button className={`nxe-bubble-btn ${editor.isActive('italic') ? 'active' : ''}`} onClick={() => editor.chain().focus().toggleItalic().run()}><Italic size={13} /></button>
-            <button className={`nxe-bubble-btn ${editor.isActive('highlight') ? 'active' : ''}`} onClick={() => editor.chain().focus().toggleHighlight().run()}>H</button>
-            <button className="nxe-bubble-btn" onClick={openLinkPopover}><LinkIcon size={13} /></button>
-            <div className="nxe-tb-divider" />
-            <button className="nxe-bubble-ai-btn" onClick={() => setAiBubbleOpen(v => !v)}><Sparkles size={12} /> AI</button>
-            {aiBubbleOpen && (
-              <div className="nxe-ai-menu" style={{ top: '110%', left: 0 }}>
-                {AI_ACTIONS.slice(0, 4).map(a => {
-                  const Icon = a.icon
-                  return <button key={a.id} className="nxe-ai-menu-item" onClick={() => runAiAction(a.id)}><span className="nxe-ai-menu-item-left"><Icon size={15} /> {a.label}</span></button>
+      {/* ═══ SELECTION BUBBLE (self-made — 唔用 tippy BubbleMenu，避免 React 19 DOM commit crash) ═══ */}
+      {editor && selectionBubble && (
+        <div className="nxe-bubble-menu" style={{ position: 'fixed', left: selectionBubble.x, top: selectionBubble.y, zIndex: 50 }} ref={bubbleRef}>
+          <button className={`nxe-bubble-btn ${editor.isActive('bold') ? 'active' : ''}`} onClick={() => { editor.chain().focus().toggleBold().run(); hideBubbleAfterAction() }}><Bold size={13} /></button>
+          <button className={`nxe-bubble-btn ${editor.isActive('italic') ? 'active' : ''}`} onClick={() => { editor.chain().focus().toggleItalic().run(); hideBubbleAfterAction() }}><Italic size={13} /></button>
+          <div className="nxe-bubble-hl">
+            {HIGHLIGHT_COLORS.map(c => (
+              <button key={c.value} title={`Highlight ${c.name}`}
+                className={`nxe-hl-swatch ${editor.isActive('highlight', { color: c.value }) ? 'active' : ''}`}
+                style={{ background: c.value }}
+                onClick={() => { editor.chain().focus().setHighlight({ color: c.value }).run(); hideBubbleAfterAction() }} />
+            ))}
+            <button className="nxe-hl-clear" title="移除 Highlight"
+              onClick={() => { editor.chain().focus().unsetHighlight().run(); hideBubbleAfterAction() }}>×</button>
+          </div>
+          <button className="nxe-bubble-btn" onClick={openLinkPopover}><LinkIcon size={13} /></button>
+          <div className="nxe-tb-divider" />
+          <button className="nxe-bubble-ai-btn" onClick={() => setAiBubbleOpen(v => !v)}><Sparkles size={12} /> AI</button>
+          {aiBubbleOpen && (
+            <div className="nxe-ai-menu" style={{ top: '110%', left: 0 }}>
+              {AI_ACTIONS.slice(0, 4).map(a => {
+                const Icon = a.icon
+                return <button key={a.id} className="nxe-ai-menu-item" onClick={() => runAiAction(a.id)}><span className="nxe-ai-menu-item-left"><Icon size={15} /> {a.label}</span></button>
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ═══ SLASH MENU (self-rendered — 唔用 tippy) ═══ */}
+      {slashMenu && (
+        <div ref={slashRef} className="nxe-slash-menu" style={{ position: 'fixed', left: slashMenu.x, top: slashMenu.y, zIndex: 50 }}>
+          {(() => {
+            const groups = Array.from(new Set(slashMenu.items.map(i => i.group)))
+            return groups.map(group => (
+              <div key={group}>
+                <div className="nxe-slash-group-label">{group}</div>
+                {slashMenu.items.filter(i => i.group === group).map((item) => {
+                  const idx = slashMenu.items.indexOf(item)
+                  return (
+                    <div key={item.id} className={`nxe-slash-item ${idx === slashMenu.selected ? 'selected' : ''}`}
+                      onMouseEnter={() => setSlashMenu(prev => prev ? { ...prev, selected: idx } : prev)}
+                      onClick={() => { const it = slashMenu.items[slashMenu.selected]; const range = slashMenu.range; setSlashMenu(null); setTimeout(() => it && executeSlashCommand(editor, it.id, range), 0) }}>
+                      <div className="nxe-slash-item-label">{item.label}</div>
+                      <div className="nxe-slash-sub">{item.sub}</div>
+                    </div>
+                  )
                 })}
               </div>
-            )}
-          </div>
-        </BubbleMenu>
+            ))
+          })()}
+        </div>
       )}
 
       <div className="nxe-content-wrap">
@@ -453,7 +596,7 @@ export default function NexusEditor({
           <div className="nxe-mtb-divider" />
           <button className={`nxe-mtb-btn ${editor.isActive('bold') ? 'active' : ''}`} onClick={() => editor.chain().focus().toggleBold().run()}><Bold size={18} /></button>
           <button className={`nxe-mtb-btn ${editor.isActive('italic') ? 'active' : ''}`} onClick={() => editor.chain().focus().toggleItalic().run()}><Italic size={18} /></button>
-          <button className={`nxe-mtb-btn ${editor.isActive('highlight') ? 'active' : ''}`} onClick={() => editor.chain().focus().toggleHighlight().run()}><Palette size={18} /></button>
+          <button className={`nxe-mtb-btn ${editor.isActive('highlight') ? 'active' : ''}`} onClick={() => setMobileHlOpen(true)}><Palette size={18} /></button>
           <button className={`nxe-mtb-btn ${editor.isActive('link') ? 'active' : ''}`} onClick={openLinkPopover}><LinkIcon size={18} /></button>
           <button className={`nxe-mtb-btn ${editor.isActive('bulletList') ? 'active' : ''}`} onClick={() => editor.chain().focus().toggleBulletList().run()}><List size={18} /></button>
           <button className={`nxe-mtb-btn ${editor.isActive('taskList') ? 'active' : ''}`} onClick={() => editor.chain().focus().toggleTaskList().run()}><ListChecks size={18} /></button>
@@ -477,6 +620,27 @@ export default function NexusEditor({
                   </button>
                 )
               })}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {mobileHlOpen && (
+        <div className="nxe-mobile-sheet-overlay" onMouseDown={(e) => { if (e.target === e.currentTarget) setMobileHlOpen(false) }}>
+          <div className="nxe-mobile-sheet">
+            <div className="nxe-mobile-sheet-handle" />
+            <div className="nxe-mobile-hl-title">Highlight 顏色</div>
+            <div className="nxe-mobile-hl-grid">
+              {HIGHLIGHT_COLORS.map(c => (
+                <button key={c.value} className="nxe-mobile-hl-item" style={{ background: c.value }}
+                  onClick={() => { editor.chain().focus().setHighlight({ color: c.value }).run(); setMobileHlOpen(false) }}>
+                  <span>{c.name}</span>
+                </button>
+              ))}
+              <button className="nxe-mobile-hl-item nxe-mobile-hl-clear"
+                onClick={() => { editor.chain().focus().unsetHighlight().run(); setMobileHlOpen(false) }}>
+                <span>清除</span>
+              </button>
             </div>
           </div>
         </div>
