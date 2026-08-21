@@ -27,13 +27,15 @@
   --table-row-focus: color-mix(in oklch, var(--color-primary) 16%, transparent);
 }
 
-/* ── Wrap: rounded, bordered, scroll container ── */
+/* ── Wrap: flat data surface — border top/bottom only, no card radius/shadow (correction spec §8) ── */
 .data-table {
   position: relative;
   overflow: auto;
-  border: 1px solid var(--table-border);
-  border-radius: 12px;
-  background: var(--color-surface-2);
+  border-top: 1px solid var(--table-border);
+  border-bottom: 1px solid var(--table-border);
+  border-radius: 0;
+  box-shadow: none;
+  background: var(--color-surface);
 }
 
 .data-table table {
@@ -416,8 +418,13 @@
   .data-table .db-toolbar .toolbar-actions .pos-relative {
     display: none;
   }
-  /* App header: keep hamburger + search + profile; hide theme/notifications */
-  .topbar .topbar-actions .icon-btn {
+  /* App header (HeaderV2): keep ☰ + search + ＋ + profile; hide AI pill/theme/notif */
+  .hdr2-bar {
+    height: 56px;
+  }
+  .hdr2-bar .hdr2-ai-pill,
+  .hdr2-bar .hdr2-right > .hdr2-icon-btn,
+  .hdr2-bar .hdr2-notif-wrap {
     display: none;
   }
 }
