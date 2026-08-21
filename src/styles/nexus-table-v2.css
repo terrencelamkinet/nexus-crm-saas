@@ -1,0 +1,350 @@
+/* ═══════════════════════════════════════════════════════════
+   NEXUS Table View v2 — per nexus-crm-table-view-ui-ux-spec.md
+   Standard density default: 44px row / 13px font / 20px lh / 12px pad
+   Density: data-density="compact|standard|comfortable" on <table>
+   ═══════════════════════════════════════════════════════════ */
+
+:root {
+  --table-font-family: Inter, "PingFang HK", "Noto Sans TC", "Microsoft JhengHei", sans-serif;
+  --table-header-font-size: 12px;
+  --table-header-line-height: 16px;
+  --table-header-font-weight: 600;
+  --table-cell-font-size: 13px;
+  --table-cell-line-height: 20px;
+  --table-cell-font-weight: 400;
+  --table-primary-font-size: 13px;
+  --table-primary-font-weight: 600;
+  --table-secondary-font-size: 12px;
+  --table-secondary-line-height: 16px;
+  --table-row-height: 44px;
+  --table-header-height: 44px;
+  --table-cell-padding-x: 12px;
+  --table-cell-padding-y: 6px;
+  --table-header-bg: var(--color-surface-offset);
+  --table-border: var(--color-divider);
+  --table-row-hover: color-mix(in oklch, var(--color-primary) 6%, transparent);
+  --table-row-selected: color-mix(in oklch, var(--color-primary) 11%, transparent);
+  --table-row-focus: color-mix(in oklch, var(--color-primary) 16%, transparent);
+}
+
+/* ── Wrap: rounded, bordered, scroll container ── */
+.data-table {
+  position: relative;
+  overflow: auto;
+  border: 1px solid var(--table-border);
+  border-radius: 12px;
+  background: var(--color-surface-2);
+}
+
+.data-table table {
+  width: 100%;
+  min-width: 760px;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-family: var(--table-font-family);
+  font-size: var(--table-cell-font-size);
+  line-height: var(--table-cell-line-height);
+  color: var(--color-text);
+}
+
+/* ── Sticky header ── */
+.data-table thead {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--table-header-bg);
+}
+
+.data-table th {
+  height: var(--table-header-height);
+  padding: 0 var(--table-cell-padding-x);
+  border-bottom: 1px solid var(--table-border);
+  color: var(--color-text-muted);
+  font-size: var(--table-header-font-size);
+  line-height: var(--table-header-line-height);
+  font-weight: var(--table-header-font-weight);
+  text-align: left;
+  vertical-align: middle;
+  white-space: nowrap;
+  user-select: none;
+}
+
+/* sortable header */
+.data-table th[aria-sort] {
+  cursor: pointer;
+}
+.data-table th[aria-sort]::after {
+  content: '';
+  display: inline-block;
+  margin-left: 6px;
+  width: 0;
+  height: 0;
+  border-left: 4px solid transparent;
+  border-right: 4px solid transparent;
+  vertical-align: middle;
+}
+.data-table th[aria-sort="ascending"]::after {
+  border-bottom: 5px solid var(--color-primary);
+}
+.data-table th[aria-sort="descending"]::after {
+  border-top: 5px solid var(--color-primary);
+}
+
+.data-table td {
+  height: var(--table-row-height);
+  padding: var(--table-cell-padding-y) var(--table-cell-padding-x);
+  border-bottom: 1px solid var(--table-border);
+  vertical-align: middle;
+}
+
+/* ── Row states ── */
+.data-table tbody tr {
+  cursor: pointer;
+  transition: background-color 140ms ease;
+}
+.data-table tbody tr:hover {
+  background: var(--table-row-hover);
+}
+.data-table tbody tr:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: -2px;
+}
+.data-table tbody tr[aria-selected="true"],
+.data-table tbody tr.row-selected {
+  background: var(--table-row-selected);
+  box-shadow: inset 3px 0 0 var(--color-primary);
+}
+
+/* ── Primary record cell ── */
+.data-table .row-name {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  background: none;
+  border: none;
+  padding: 0;
+  text-align: left;
+  cursor: pointer;
+}
+.data-table .row-name-text {
+  display: block;
+  overflow: hidden;
+  color: var(--color-text);
+  font-size: var(--table-primary-font-size);
+  font-weight: var(--table-primary-font-weight);
+  line-height: var(--table-cell-line-height);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.data-table .cell-secondary {
+  display: block;
+  overflow: hidden;
+  color: var(--color-text-muted);
+  font-size: var(--table-secondary-font-size);
+  font-weight: 400;
+  line-height: var(--table-secondary-line-height);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ── Numeric / date alignment ── */
+.data-table .cell-number {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.data-table .row-email,
+.data-table .last-touch {
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Row actions: reveal on hover, reserve width ── */
+.data-table .col-menu {
+  width: 48px;
+  text-align: right;
+}
+.data-table .col-menu .menu-dots {
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 140ms ease;
+}
+.data-table tbody tr:hover .menu-dots,
+.data-table tbody tr:focus-within .menu-dots,
+.data-table .menu-wrap:hover .menu-dots {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* ── Density: compact ── */
+.data-table table[data-density="compact"] {
+  --table-row-height: 36px;
+  --table-header-height: 40px;
+  --table-cell-font-size: 12px;
+  --table-cell-line-height: 18px;
+  --table-cell-padding-x: 8px;
+  --table-cell-padding-y: 4px;
+}
+.data-table table[data-density="compact"] .avatar-sm {
+  width: 24px;
+  height: 24px;
+  font-size: 10px;
+}
+.data-table table[data-density="compact"] .row-name {
+  gap: 8px;
+}
+
+/* ── Density: comfortable ── */
+.data-table table[data-density="comfortable"] {
+  --table-row-height: 52px;
+  --table-header-height: 52px;
+  --table-cell-font-size: 14px;
+  --table-cell-line-height: 22px;
+  --table-cell-padding-x: 16px;
+  --table-cell-padding-y: 8px;
+}
+.data-table table[data-density="comfortable"] .avatar-sm {
+  width: 34px;
+  height: 34px;
+  font-size: 12px;
+}
+
+/* ── Density selector (toolbar) ── */
+.nxe-density-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 30px;
+  padding: 0 9px;
+  border-radius: 8px;
+  border: 1px solid var(--color-divider);
+  background: var(--color-surface-2);
+  color: var(--color-text-muted);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all .12s ease;
+}
+.nxe-density-btn:hover,
+.nxe-density-btn.active {
+  color: var(--color-primary);
+  border-color: var(--color-primary);
+  background: color-mix(in oklch, var(--color-primary) 8%, transparent);
+}
+.nxe-density-menu {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 6px);
+  min-width: 150px;
+  background: var(--color-surface-2);
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  box-shadow: 0 10px 26px -6px rgba(0, 0, 0, .22);
+  padding: 5px;
+  z-index: 40;
+  animation: nxe-pop .14s cubic-bezier(.16, 1, .3, 1);
+}
+.nxe-density-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 7px 9px;
+  border: none;
+  border-radius: 7px;
+  background: none;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--color-text);
+  cursor: pointer;
+  text-align: left;
+}
+.nxe-density-option:hover {
+  background: var(--color-surface-offset);
+}
+.nxe-density-option.active {
+  color: var(--color-primary);
+}
+.nxe-density-option small {
+  margin-left: auto;
+  font-size: 10.5px;
+  font-weight: 500;
+  color: var(--color-text-faint);
+}
+
+/* ── Bulk action bar: sticky bottom ── */
+.data-table .bulk-bar {
+  position: sticky;
+  bottom: 0;
+  z-index: 3;
+  background: var(--color-surface-2);
+  border-top: 1px solid var(--table-border);
+}
+
+/* ── Mobile (<768px): record card rows ── */
+@media (max-width: 767px) {
+  .data-table {
+    border-radius: 10px;
+    overflow: visible;
+  }
+  .data-table table {
+    min-width: 0;
+    display: block;
+  }
+  .data-table thead {
+    display: none;
+  }
+  .data-table tbody {
+    display: grid;
+    gap: 8px;
+    padding: 10px;
+  }
+  .data-table tbody tr {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    gap: 10px;
+    align-items: center;
+    min-height: 68px;
+    padding: 12px 14px;
+    border: 1px solid var(--table-border);
+    border-radius: 12px;
+    background: var(--color-surface-2);
+    box-shadow: none;
+  }
+  .data-table tbody tr[aria-selected="true"],
+  .data-table tbody tr.row-selected {
+    background: var(--table-row-selected);
+    box-shadow: inset 3px 0 0 var(--color-primary);
+  }
+  /* checkbox → 1st col, primary cell → 2nd, menu → 3rd; hide other tds */
+  .data-table td:not(:first-child):not(:nth-child(2)):not(:last-child) {
+    display: none;
+  }
+  .data-table td:first-child {
+    padding: 0;
+  }
+  .data-table td:nth-child(2) {
+    padding: 0;
+    min-width: 0;
+  }
+  .data-table td:last-child {
+    padding: 0;
+  }
+  .data-table .col-menu .menu-dots {
+    opacity: 1;
+    pointer-events: auto;
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  /* hide bulk bar → 浮動 bottom action 由頁面層處理 */
+  .data-table .bulk-bar {
+    position: fixed;
+    left: 12px;
+    right: 12px;
+    bottom: 12px;
+    border-radius: 12px;
+    box-shadow: 0 8px 30px rgba(0, 0, 0, .25);
+  }
+}

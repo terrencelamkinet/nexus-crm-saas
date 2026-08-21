@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Plus, Search, X, Trash2, Edit3, ChevronRight, MoreHorizontal, Download, ArrowUpDown, Upload } from 'lucide-react'
+import { Plus, Search, X, Trash2, Edit3, ChevronRight, MoreHorizontal, Download, ArrowUpDown, Upload, Rows3, Check } from 'lucide-react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { apiClient } from '../lib/api'
 import { CellRenderer, FieldsRenderer } from './shared/FieldsRenderer'
@@ -50,6 +50,28 @@ export default function GenericListPage({ config, extraData }: Props) {
   }, [searchParams])
 
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const [lastSelectedIdx, setLastSelectedIdx] = useState<number | null>(null)
+
+  // ── Density (per-module persisted) ──
+  type Density = 'compact' | 'standard' | 'comfortable'
+  const densityKey = `nexus_table_density_${config.name || 'module'}`
+  const [density, setDensity] = useState<Density>(() => {
+    try { return (localStorage.getItem(densityKey) as Density) || 'standard' } catch { return 'standard' }
+  })
+  const [densityOpen, setDensityOpen] = useState(false)
+  const densityRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    const onDown = (e: MouseEvent) => {
+      if (densityRef.current && !densityRef.current.contains(e.target as Node)) setDensityOpen(false)
+    }
+    document.addEventListener('mousedown', onDown)
+    return () => document.removeEventListener('mousedown', onDown)
+  }, [])
+  const setDensityAndPersist = (d: Density) => {
+    setDensity(d)
+    try { localStorage.setItem(densityKey, d) } catch {}
+    setDensityOpen(false)
+  }
   const [bulkOpen, setBulkOpen] = useState(false)
   const [bulkForm, setBulkForm] = useState<Record<string, any>>({})
   const [bulkSaving, setBulkSaving] = useState(false)
@@ -301,12 +323,23 @@ const [filters, setFilters] = useState<Record<string, FilterEntry>>(() => ({ ...
     setPage(1)
   }
 
-  const toggleSelect = (id: string) => {
-    setSelectedIds(prev => {
-      const next = new Set(prev)
-      if (next.has(id)) next.delete(id); else next.add(id)
-      return next
-    })
+  const toggleSelect = (id: string, shift = false, idx?: number) => {
+    if (shift && lastSelectedIdx !== null && idx !== undefined) {
+      // Range select: last anchor → current row
+      const [start, end] = [Math.min(lastSelectedIdx, idx), Math.max(lastSelectedIdx, idx)]
+      setSelectedIds(prev => {
+        const next = new Set(prev)
+        for (let i = start; i <= end; i++) next.add(items[i]?.id)
+        return next
+      })
+    } else {
+      setSelectedIds(prev => {
+        const next = new Set(prev)
+        if (next.has(id)) next.delete(id); else next.add(id)
+        return next
+      })
+    }
+    if (idx !== undefined) setLastSelectedIdx(idx)
   }
   const toggleSelectAll = () => {
     if (selectedIds.size === items.length && items.length > 0) {
@@ -556,6 +589,24 @@ const [filters, setFilters] = useState<Record<string, FilterEntry>>(() => ({ ...
               <ArrowUpDown className="w-4 h-4" />{sortBy ? ` ${sortOrder === 'asc' ? '↑' : '↓'}` : ''}
             </button>
             <div className="toolbar-sep" />
+            <div className="pos-relative" ref={densityRef}>
+              <button className={`toolbar-btn nxe-density-btn ${densityOpen ? 'active' : ''}`} title={t('common.density', { defaultValue: '密度' })}
+                onClick={() => setDensityOpen(!densityOpen)}>
+                <Rows3 className="w-4 h-4" />
+              </button>
+              {densityOpen && (
+                <div className="nxe-density-menu">
+                  {(['compact', 'standard', 'comfortable'] as Density[]).map(d => (
+                    <button key={d} className={`nxe-density-option ${density === d ? 'active' : ''}`}
+                      onClick={() => setDensityAndPersist(d)}>
+                      <span>{d === 'compact' ? '緊湊' : d === 'standard' ? '標準' : '寬鬆'}</span>
+                      {density === d && <Check size={13} />}
+                      <small>{d === 'compact' ? '36px' : d === 'standard' ? '44px' : '52px'}</small>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
             <div className="pos-relative">
               <button className={`toolbar-btn ${view !== 'table' ? 'active' : ''}`} title={t('common.seeMore')}
                 onClick={() => setViewOpen(!viewOpen)}>
@@ -897,14 +948,15 @@ const [filters, setFilters] = useState<Record<string, FilterEntry>>(() => ({ ...
                 const el = tableScrollRef.current
                 if (el) setTableAtEnd(el.scrollLeft + el.clientWidth >= el.scrollWidth - 4)
               }}>
-              <table>
+              <table data-density={density}>
               <thead>
                 <tr>
                   {config.name === 'task' && <th className="th-complete"></th>}
                   <th className="th-checkbox">
                     <input type="checkbox" className="row-checkbox"
                       checked={items.length > 0 && selectedIds.size === items.length}
-                      onChange={toggleSelectAll} />
+                      onChange={toggleSelectAll}
+                      aria-label={t('common.selectAll', { defaultValue: 'Select all' })} />
                   </th>
                   {colLayout.orderedCols.map(col => {
                     const field = config.fields.find(f => f.key === col)
@@ -914,6 +966,7 @@ const [filters, setFilters] = useState<Record<string, FilterEntry>>(() => ({ ...
                       <th key={col}
                         className={(canSort ? 'th-sortable' : '') + (field?.type === 'title' || col === config.titleField ? ' glp-th-title' : '')}
                         style={{ width, minWidth: width }}
+                        aria-sort={sortBy === col ? (sortOrder === 'asc' ? 'ascending' : 'descending') : undefined}
                         draggable
                         onDragStart={e => colLayout.onDragStart(e, col)}
                         onDragOver={e => colLayout.onDragOver(e, col)}
@@ -937,11 +990,20 @@ const [filters, setFilters] = useState<Record<string, FilterEntry>>(() => ({ ...
                 </tr>
               </thead>
               <tbody>
-                {items.map(item => (
+                {items.map((item, idx) => (
                   <tr
                     key={item.id}
                     className={selectedIds.has(item.id) ? 'row-selected' : ''}
+                    aria-selected={selectedIds.has(item.id)}
+                    tabIndex={0}
                     onClick={() => setSelectedId(item.id)}
+                    onKeyDown={(e) => {
+                      if (e.key === ' ' || e.key === 'Enter') {
+                        e.preventDefault()
+                        if (e.key === ' ') toggleSelect(item.id, e.shiftKey, idx)
+                        else setSelectedId(item.id)
+                      }
+                    }}
                     style={{ cursor: 'pointer' }}
                   >
                     {config.name === 'task' && (
@@ -954,14 +1016,18 @@ const [filters, setFilters] = useState<Record<string, FilterEntry>>(() => ({ ...
                     )}
                     <td className="th-checkbox" onClick={e => e.stopPropagation()}>
                       <input type="checkbox" className="row-checkbox"
-                        checked={selectedIds.has(item.id)} onChange={() => toggleSelect(item.id)} />
+                        checked={selectedIds.has(item.id)}
+                        readOnly
+                        onClick={(e) => { e.stopPropagation(); toggleSelect(item.id, e.shiftKey, idx) }}
+                        aria-label={String(item[config.titleField || 'name'] || item.id)} />
                     </td>
                     {colLayout.orderedCols.map(col => (
                       <td key={col} style={{ width: colLayout.getWidth(col), minWidth: colLayout.getWidth(col) }}>{renderCell(item, col)}</td>
                     ))}
                     <td className="col-menu" onClick={e => e.stopPropagation()}>
                       <div className="menu-wrap">
-                        <button className="menu-dots" title={t('common.seeMore')}>
+                        <button className="menu-dots" title={t('common.seeMore')}
+                          aria-label={`${t('common.seeMore')} ${String(item[config.titleField || 'name'] || '')}`}>
                           <MoreHorizontal className="w-4 h-4" />
                         </button>
                         <div className="menu-dropdown">
@@ -981,7 +1047,7 @@ const [filters, setFilters] = useState<Record<string, FilterEntry>>(() => ({ ...
             </div>
 
             {selectedIds.size > 0 && (
-              <div className="bulk-bar">
+              <div className="bulk-bar" role="status" aria-live="polite">
                 <span className="count">{selectedIds.size} selected</span>
                 <button className="btn-secondary" onClick={openBulkUpdate}>{t('common.bulkUpdate')}</button>
                 <button className="btn-secondary">{t('common.addTag')}</button>
