@@ -21,7 +21,7 @@ import {
   Image as ImageIcon, Table as TableIcon, Undo2, Redo2, Sparkles,
   ChevronDown, Wand2, ListPlus, ScissorsLineDashed, Languages,
   SpellCheck2, X, GripVertical, Plus, Trash2, Copy, Palette,
-  ArrowRightLeft, Link2, Keyboard,
+  ArrowRightLeft, Link2, Keyboard, Highlighter, Check,
 } from 'lucide-react'
 import { apiClient } from '../../lib/api'
 import { useToast } from '../v4/useToast'
@@ -96,6 +96,20 @@ const HIGHLIGHT_COLORS = [
   { name: '青', value: '#A5F3FC' },
 ]
 
+/* Radial 8 格佈局 — 7 色 + 1 edit（最後一格） */
+const HL_RADIAL_SLOTS = 8
+const HL_RADIAL_R = 52 // px 半徑
+const HL_CUSTOM_KEY = 'nexus_editor_hl_custom'
+const HL_CUSTOM_MAX = 7
+
+/* 自訂 highlight 色（localStorage persist，最多 7 個，超出 FIFO 輪替） */
+function loadCustomHl(): string[] {
+  try {
+    const raw = JSON.parse(localStorage.getItem(HL_CUSTOM_KEY) || '[]')
+    return Array.isArray(raw) ? raw.filter((c): c is string => typeof c === 'string' && /^#[0-9a-fA-F]{3,8}$/.test(c)).slice(0, HL_CUSTOM_MAX) : []
+  } catch { return [] }
+}
+
 export default function NexusEditor({
   content = '', onChange, onSave, placeholder = '輸入內容，或按 "/" 開啟快速選單，"⌘+J" 呼叫 AI…',
   autosaveMs = 1500, minHeight = 180, entityContext,
@@ -117,15 +131,22 @@ export default function NexusEditor({
   const [blockMenuOpen, setBlockMenuOpen] = useState<{ x: number; y: number; pos: number } | null>(null)
   const [colorSubmenuOpen, setColorSubmenuOpen] = useState(false)
   const [mobileSheetOpen, setMobileSheetOpen] = useState(false)
-  const [mobileHlOpen, setMobileHlOpen] = useState(false)
   const [selectionBubble, setSelectionBubble] = useState<{ x: number; y: number } | null>(null)
   const [slashMenu, setSlashMenu] = useState<{ x: number; y: number; items: SlashItem[]; selected: number; range?: any } | null>(null)
   const bubbleRef = useRef<HTMLDivElement>(null)
   const slashRef = useRef<HTMLDivElement>(null)
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const aiMenuRef = useRef<HTMLDivElement>(null)
   const blockMenuRef = useRef<HTMLDivElement>(null)
   const contentAreaRef = useRef<HTMLDivElement>(null)
+
+  /* ── Highlight radial menu ── */
+  const [hlRadial, setHlRadial] = useState<{ x: number; y: number } | null>(null)
+  const [hlEditOpen, setHlEditOpen] = useState(false)
+  const [hlCustom, setHlCustom] = useState<string[]>(loadCustomHl)
+  const [hlNewColor, setHlNewColor] = useState('#FDE047')
+  const hlRadialRef = useRef<HTMLDivElement>(null)
+
+  const aiMenuRef = useRef<HTMLDivElement>(null)
 
   const editor = useEditor({
     shouldRerenderOnTransaction: false,
@@ -170,14 +191,68 @@ export default function NexusEditor({
 
   const hideBubbleAfterAction = () => {
     setSelectionBubble(null)
-    setAiBubbleOpen(false)
   }
+
+  /* ── Highlight Radial 選單 ── */
+  const openHlRadial = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation()
+    e.preventDefault()
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
+    setHlRadial({ x: rect.left + rect.width / 2, y: rect.top - 6 })
+    setHlEditOpen(false)
+  }, [])
+
+  const applyHlColor = useCallback((color: string) => {
+    if (!editor) return
+    editor.chain().focus().setHighlight({ color }).run()
+    setHlRadial(null); setHlEditOpen(false)
+  }, [editor])
+
+  const clearHl = useCallback(() => {
+    if (!editor) return
+    editor.chain().focus().unsetHighlight().run()
+    setHlRadial(null); setHlEditOpen(false)
+  }, [editor])
+
+  /* 自訂色加入 — 放第一格，最多 7 個，超出最舊輪替走。
+     加完保留 radial 打開，令用戶即時見到新色喺第二行 */
+  const addCustomHlColor = useCallback(() => {
+    const color = hlNewColor.trim().toLowerCase()
+    if (!/^#[0-9a-f]{3,8}$/.test(color)) return
+    setHlCustom(prev => {
+      const next = [color, ...prev.filter(c => c !== color)].slice(0, HL_CUSTOM_MAX)
+      try { localStorage.setItem(HL_CUSTOM_KEY, JSON.stringify(next)) } catch {}
+      return next
+    })
+    if (editor) editor.chain().focus().setHighlight({ color }).run()
+    setHlEditOpen(false)
+  }, [hlNewColor, editor])
+
+  /* radial click outside → 關 */
+  useEffect(() => {
+    const onDown = (e: MouseEvent) => {
+      if (hlRadialRef.current && !hlRadialRef.current.contains(e.target as Node)) {
+        setHlRadial(null); setHlEditOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', onDown)
+    return () => document.removeEventListener('mousedown', onDown)
+  }, [])
+
+  /* Esc → 關 popup / radial */
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') { setAiMenuOpen(false); setAiBubbleOpen(false); setHlRadial(null); setHlEditOpen(false) }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [])
 
   /* click outside bubble → hide */
   useEffect(() => {
     const onDown = (e: MouseEvent) => {
       if (bubbleRef.current && !bubbleRef.current.contains(e.target as Node)) {
-        setSelectionBubble(null); setAiBubbleOpen(false)
+        setSelectionBubble(null)
       }
     }
     document.addEventListener('mousedown', onDown)
@@ -213,7 +288,6 @@ export default function NexusEditor({
 
   useEffect(() => {
     const onClickOutside = (e: MouseEvent) => {
-      if (aiMenuRef.current && !aiMenuRef.current.contains(e.target as Node)) setAiMenuOpen(false)
       if (blockMenuRef.current && !blockMenuRef.current.contains(e.target as Node)) { setBlockMenuOpen(null); setColorSubmenuOpen(false) }
     }
     document.addEventListener('mousedown', onClickOutside)
@@ -500,16 +574,7 @@ export default function NexusEditor({
         <div className="nxe-bubble-menu" style={{ position: 'fixed', left: selectionBubble.x, top: selectionBubble.y, zIndex: 50 }} ref={bubbleRef}>
           <button className={`nxe-bubble-btn ${editor.isActive('bold') ? 'active' : ''}`} onClick={() => { editor.chain().focus().toggleBold().run(); hideBubbleAfterAction() }}><Bold size={13} /></button>
           <button className={`nxe-bubble-btn ${editor.isActive('italic') ? 'active' : ''}`} onClick={() => { editor.chain().focus().toggleItalic().run(); hideBubbleAfterAction() }}><Italic size={13} /></button>
-          <div className="nxe-bubble-hl">
-            {HIGHLIGHT_COLORS.map(c => (
-              <button key={c.value} title={`Highlight ${c.name}`}
-                className={`nxe-hl-swatch ${editor.isActive('highlight', { color: c.value }) ? 'active' : ''}`}
-                style={{ background: c.value }}
-                onClick={() => { editor.chain().focus().setHighlight({ color: c.value }).run(); hideBubbleAfterAction() }} />
-            ))}
-            <button className="nxe-hl-clear" title="移除 Highlight"
-              onClick={() => { editor.chain().focus().unsetHighlight().run(); hideBubbleAfterAction() }}>×</button>
-          </div>
+          <button className={`nxe-bubble-btn ${editor.isActive('highlight') ? 'active' : ''}`} title="Highlight 顏色" onClick={openHlRadial}><Highlighter size={13} /></button>
           <button className="nxe-bubble-btn" onClick={openLinkPopover}><LinkIcon size={13} /></button>
           <div className="nxe-tb-divider" />
           <button className="nxe-bubble-ai-btn" onClick={() => setAiBubbleOpen(v => !v)}><Sparkles size={12} /> AI</button>
@@ -596,7 +661,7 @@ export default function NexusEditor({
           <div className="nxe-mtb-divider" />
           <button className={`nxe-mtb-btn ${editor.isActive('bold') ? 'active' : ''}`} onClick={() => editor.chain().focus().toggleBold().run()}><Bold size={18} /></button>
           <button className={`nxe-mtb-btn ${editor.isActive('italic') ? 'active' : ''}`} onClick={() => editor.chain().focus().toggleItalic().run()}><Italic size={18} /></button>
-          <button className={`nxe-mtb-btn ${editor.isActive('highlight') ? 'active' : ''}`} onClick={() => setMobileHlOpen(true)}><Palette size={18} /></button>
+          <button className={`nxe-mtb-btn ${editor.isActive('highlight') ? 'active' : ''}`} onClick={openHlRadial}><Highlighter size={18} /></button>
           <button className={`nxe-mtb-btn ${editor.isActive('link') ? 'active' : ''}`} onClick={openLinkPopover}><LinkIcon size={18} /></button>
           <button className={`nxe-mtb-btn ${editor.isActive('bulletList') ? 'active' : ''}`} onClick={() => editor.chain().focus().toggleBulletList().run()}><List size={18} /></button>
           <button className={`nxe-mtb-btn ${editor.isActive('taskList') ? 'active' : ''}`} onClick={() => editor.chain().focus().toggleTaskList().run()}><ListChecks size={18} /></button>
@@ -625,27 +690,64 @@ export default function NexusEditor({
         </div>
       )}
 
-      {mobileHlOpen && (
-        <div className="nxe-mobile-sheet-overlay" onMouseDown={(e) => { if (e.target === e.currentTarget) setMobileHlOpen(false) }}>
-          <div className="nxe-mobile-sheet">
-            <div className="nxe-mobile-sheet-handle" />
-            <div className="nxe-mobile-hl-title">Highlight 顏色</div>
-            <div className="nxe-mobile-hl-grid">
-              {HIGHLIGHT_COLORS.map(c => (
-                <button key={c.value} className="nxe-mobile-hl-item" style={{ background: c.value }}
-                  onClick={() => { editor.chain().focus().setHighlight({ color: c.value }).run(); setMobileHlOpen(false) }}>
-                  <span>{c.name}</span>
-                </button>
-              ))}
-              <button className="nxe-mobile-hl-item nxe-mobile-hl-clear"
-                onClick={() => { editor.chain().focus().unsetHighlight().run(); setMobileHlOpen(false) }}>
-                <span>清除</span>
-              </button>
+      {/* ═══ HIGHLIGHT RADIAL MENU（8 格環 + 自訂色第二行） ═══ */}
+      {hlRadial && (
+        (() => {
+          const cx = Math.min(Math.max(hlRadial.x, 78), window.innerWidth - 78)
+          const cy = Math.min(Math.max(hlRadial.y, 84), window.innerHeight - 120)
+          return (
+            <div ref={hlRadialRef} className="nxe-hl-radial-wrap"
+              style={{ position: 'fixed', left: cx, top: cy, zIndex: 60 }}
+              onMouseDown={(e) => e.stopPropagation()}>
+              {/* 中心：移除 highlight */}
+              <button className="nxe-hl-center" title="移除 Highlight" onClick={clearHl}><X size={13} /></button>
+              {/* 8 格環：7 色 + edit */}
+              {Array.from({ length: HL_RADIAL_SLOTS }).map((_, i) => {
+                const angle = -Math.PI / 2 + (i * 2 * Math.PI) / HL_RADIAL_SLOTS
+                const left = Math.round(HL_RADIAL_R * Math.cos(angle))
+                const top = Math.round(HL_RADIAL_R * Math.sin(angle))
+                if (i < HIGHLIGHT_COLORS.length) {
+                  const c = HIGHLIGHT_COLORS[i]
+                  return (
+                    <button key={c.value} title={`Highlight ${c.name}`}
+                      className={`nxe-hl-radial-slot ${editor.isActive('highlight', { color: c.value }) ? 'active' : ''}`}
+                      style={{ left, top, background: c.value }}
+                      onClick={() => applyHlColor(c.value)} />
+                  )
+                }
+                return (
+                  <button key="edit" title="自訂顏色"
+                    className="nxe-hl-radial-slot nxe-hl-radial-edit"
+                    style={{ left, top }}
+                    onClick={(e) => { e.stopPropagation(); setHlEditOpen(v => !v) }}>
+                    <Palette size={12} />
+                  </button>
+                )
+              })}
+              {/* 第二行：自訂色（最多 7 個） */}
+              {hlCustom.length > 0 && (
+                <div className="nxe-hl-custom-row">
+                  {hlCustom.map(c => (
+                    <button key={c} title={`自訂 ${c}`}
+                      className={`nxe-hl-custom-swatch ${editor.isActive('highlight', { color: c }) ? 'active' : ''}`}
+                      style={{ background: c }}
+                      onClick={() => applyHlColor(c)} />
+                  ))}
+                </div>
+              )}
+              {/* Edit：native 色盤 */}
+              {hlEditOpen && (
+                <div className="nxe-hl-edit-pop" onClick={(e) => e.stopPropagation()}>
+                  <input type="color" value={hlNewColor} onChange={(e) => setHlNewColor(e.target.value)} />
+                  <button className="nxe-hl-edit-add" onClick={addCustomHlColor}><Check size={12} /> 加入</button>
+                </div>
+              )}
             </div>
-          </div>
-        </div>
+          )
+        })()
       )}
 
+      {/* ═══ MOBILE AI SHEET（fallback 版 — AI action 直接寫入 note） ═══ */}
       {aiMenuOpen && useMobileUI && (
         <div className="nxe-mobile-sheet-overlay" onMouseDown={(e) => { if (e.target === e.currentTarget) setAiMenuOpen(false) }}>
           <div className="nxe-mobile-sheet">
