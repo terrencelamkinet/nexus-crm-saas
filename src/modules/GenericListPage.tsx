@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Plus, Search, X, Trash2, Edit3, ChevronRight, MoreHorizontal, Download, ArrowUpDown, Upload, Rows3, Check } from 'lucide-react'
+import { Plus, Search, X, Trash2, Edit3, ChevronRight, MoreHorizontal, Download, ArrowUpDown, Upload } from 'lucide-react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { apiClient } from '../lib/api'
 import { CellRenderer, FieldsRenderer } from './shared/FieldsRenderer'
@@ -31,10 +31,6 @@ export default function GenericListPage({ config, extraData }: Props) {
   const [error, setError] = useState<string | null>(null)
   const tableScrollRef = useRef<HTMLDivElement>(null)
   const [tableAtEnd, setTableAtEnd] = useState(false)
-  // One-time swipe hint (mobile horizontal table affordance, spec §6)
-  const [swipeHintDismissed, setSwipeHintDismissed] = useState(() => {
-    try { return localStorage.getItem('nexus_swipe_hint') === '1' } catch { return true }
-  })
 
   const [createOpen, setCreateOpen] = useState(false)
   const [editTarget, setEditTarget] = useState<EntityRecord | null>(null)
@@ -54,28 +50,6 @@ export default function GenericListPage({ config, extraData }: Props) {
   }, [searchParams])
 
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
-  const [lastSelectedIdx, setLastSelectedIdx] = useState<number | null>(null)
-
-  // ── Density (per-module persisted) ──
-  type Density = 'compact' | 'standard' | 'comfortable'
-  const densityKey = `nexus_table_density_${config.name || 'module'}`
-  const [density, setDensity] = useState<Density>(() => {
-    try { return (localStorage.getItem(densityKey) as Density) || 'standard' } catch { return 'standard' }
-  })
-  const [densityOpen, setDensityOpen] = useState(false)
-  const densityRef = useRef<HTMLDivElement>(null)
-  useEffect(() => {
-    const onDown = (e: MouseEvent) => {
-      if (densityRef.current && !densityRef.current.contains(e.target as Node)) setDensityOpen(false)
-    }
-    document.addEventListener('mousedown', onDown)
-    return () => document.removeEventListener('mousedown', onDown)
-  }, [])
-  const setDensityAndPersist = (d: Density) => {
-    setDensity(d)
-    try { localStorage.setItem(densityKey, d) } catch {}
-    setDensityOpen(false)
-  }
   const [bulkOpen, setBulkOpen] = useState(false)
   const [bulkForm, setBulkForm] = useState<Record<string, any>>({})
   const [bulkSaving, setBulkSaving] = useState(false)
@@ -291,13 +265,8 @@ const [filters, setFilters] = useState<Record<string, FilterEntry>>(() => ({ ...
 
   useEffect(() => {
     const el = tableScrollRef.current
-    if (el) {
-      setTableAtEnd(el.scrollLeft + el.clientWidth >= el.scrollWidth - 4)
-      // Truthful edge-fade state (mobile horizontal table, spec §12)
-      el.dataset.canScrollRight = String(el.scrollLeft < el.scrollWidth - el.clientWidth - 2)
-      el.dataset.canScrollLeft = String(el.scrollLeft > 2)
-    }
-  }, [data, visibleCols])
+    if (el) setTableAtEnd(el.scrollLeft + el.clientWidth >= el.scrollWidth - 4)
+  }, [data])
 
   const filterableFields = config.fields.filter(f =>
     FILTERABLE_TYPES.includes(f.type) && f.key !== 'created_at' && f.key !== 'updated_at'
@@ -332,23 +301,12 @@ const [filters, setFilters] = useState<Record<string, FilterEntry>>(() => ({ ...
     setPage(1)
   }
 
-  const toggleSelect = (id: string, shift = false, idx?: number) => {
-    if (shift && lastSelectedIdx !== null && idx !== undefined) {
-      // Range select: last anchor → current row
-      const [start, end] = [Math.min(lastSelectedIdx, idx), Math.max(lastSelectedIdx, idx)]
-      setSelectedIds(prev => {
-        const next = new Set(prev)
-        for (let i = start; i <= end; i++) next.add(items[i]?.id)
-        return next
-      })
-    } else {
-      setSelectedIds(prev => {
-        const next = new Set(prev)
-        if (next.has(id)) next.delete(id); else next.add(id)
-        return next
-      })
-    }
-    if (idx !== undefined) setLastSelectedIdx(idx)
+  const toggleSelect = (id: string) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id); else next.add(id)
+      return next
+    })
   }
   const toggleSelectAll = () => {
     if (selectedIds.size === items.length && items.length > 0) {
@@ -450,25 +408,13 @@ const [filters, setFilters] = useState<Record<string, FilterEntry>>(() => ({ ...
     const isTitleCol = fieldKey === 'name' || fieldKey === config.titleField || (!config.titleField && fieldKey === config.fields[0]?.key)
     if (isTitleCol) {
       const val = item[fieldKey] || item['name'] || ''
-      // Flat mobile list secondary/meta lines (correction spec §4): derive from config
-      const relF = config.fields.find(f => f.type === 'relation' && item[f.key] && (item[f.key]?.name || item[f.key]?.title))
-      const relV = relF ? (item[relF.key]?.name || item[relF.key]?.title || '') : ''
-      const txtF = config.fields.find(f => (f.type === 'text' || f.type === 'email') && f.key !== fieldKey && !['chinese_name', 'nick_name', 'notes'].includes(f.key) && item[f.key])
-      const secondary = [relV, txtF ? String(item[txtF.key]) : ''].filter(Boolean).join(' · ')
-      const statusF = config.fields.find(f => f.type === 'status' && item[f.key])
-      const dateF = config.fields.find(f => f.key === 'created_at' && item[f.key])
-      const meta = statusF ? String(item[statusF.key]) : (dateF ? `Created ${String(item[dateF.key]).slice(0, 10)}` : '')
       return (
         <button onClick={e => { e.stopPropagation(); setSelectedId(item.id) }}
           className="row-name row-name-btn">
           <div className="avatar-sm">
             {String(val).split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase()}
           </div>
-          <span className="row-name-body">
-            <span className="row-name-text">{val}</span>
-            {secondary && <span className="cell-secondary mobile-only">{secondary}</span>}
-            {meta && <span className="cell-meta mobile-only">{meta}</span>}
-          </span>
+          <span className="row-name-text">{val}</span>
         </button>
       )
     }
@@ -610,24 +556,6 @@ const [filters, setFilters] = useState<Record<string, FilterEntry>>(() => ({ ...
               <ArrowUpDown className="w-4 h-4" />{sortBy ? ` ${sortOrder === 'asc' ? '↑' : '↓'}` : ''}
             </button>
             <div className="toolbar-sep" />
-            <div className="pos-relative" ref={densityRef}>
-              <button className={`toolbar-btn nxe-density-btn ${densityOpen ? 'active' : ''}`} title={t('common.density', { defaultValue: '密度' })}
-                onClick={() => setDensityOpen(!densityOpen)}>
-                <Rows3 className="w-4 h-4" />
-              </button>
-              {densityOpen && (
-                <div className="nxe-density-menu">
-                  {(['compact', 'standard', 'comfortable'] as Density[]).map(d => (
-                    <button key={d} className={`nxe-density-option ${density === d ? 'active' : ''}`}
-                      onClick={() => setDensityAndPersist(d)}>
-                      <span>{d === 'compact' ? '緊湊' : d === 'standard' ? '標準' : '寬鬆'}</span>
-                      {density === d && <Check size={13} />}
-                      <small>{d === 'compact' ? '36px' : d === 'standard' ? '44px' : '52px'}</small>
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
             <div className="pos-relative">
               <button className={`toolbar-btn ${view !== 'table' ? 'active' : ''}`} title={t('common.seeMore')}
                 onClick={() => setViewOpen(!viewOpen)}>
@@ -967,30 +895,16 @@ const [filters, setFilters] = useState<Record<string, FilterEntry>>(() => ({ ...
             <div className={`table-scroll${tableAtEnd ? ' at-end' : ''}`} ref={tableScrollRef}
               onScroll={() => {
                 const el = tableScrollRef.current
-                if (el) {
-                  setTableAtEnd(el.scrollLeft + el.clientWidth >= el.scrollWidth - 4)
-                  el.dataset.canScrollRight = String(el.scrollLeft < el.scrollWidth - el.clientWidth - 2)
-                  el.dataset.canScrollLeft = String(el.scrollLeft > 2)
-                }
+                if (el) setTableAtEnd(el.scrollLeft + el.clientWidth >= el.scrollWidth - 4)
               }}>
-              {!swipeHintDismissed && (
-                <div className="nxe-swipe-hint" role="status">
-                  <span>← 左右滑動查看更多欄位 →</span>
-                  <button onClick={() => {
-                    setSwipeHintDismissed(true)
-                    try { localStorage.setItem('nexus_swipe_hint', '1') } catch { /* noop */ }
-                  }} aria-label="Dismiss swipe hint">✕</button>
-                </div>
-              )}
-              <table data-density={density}>
+              <table>
               <thead>
                 <tr>
                   {config.name === 'task' && <th className="th-complete"></th>}
                   <th className="th-checkbox">
                     <input type="checkbox" className="row-checkbox"
                       checked={items.length > 0 && selectedIds.size === items.length}
-                      onChange={toggleSelectAll}
-                      aria-label={t('common.selectAll', { defaultValue: 'Select all' })} />
+                      onChange={toggleSelectAll} />
                   </th>
                   {colLayout.orderedCols.map(col => {
                     const field = config.fields.find(f => f.key === col)
@@ -1000,7 +914,6 @@ const [filters, setFilters] = useState<Record<string, FilterEntry>>(() => ({ ...
                       <th key={col}
                         className={(canSort ? 'th-sortable' : '') + (field?.type === 'title' || col === config.titleField ? ' glp-th-title' : '')}
                         style={{ width, minWidth: width }}
-                        aria-sort={sortBy === col ? (sortOrder === 'asc' ? 'ascending' : 'descending') : undefined}
                         draggable
                         onDragStart={e => colLayout.onDragStart(e, col)}
                         onDragOver={e => colLayout.onDragOver(e, col)}
@@ -1024,20 +937,11 @@ const [filters, setFilters] = useState<Record<string, FilterEntry>>(() => ({ ...
                 </tr>
               </thead>
               <tbody>
-                {items.map((item, idx) => (
+                {items.map(item => (
                   <tr
                     key={item.id}
                     className={selectedIds.has(item.id) ? 'row-selected' : ''}
-                    aria-selected={selectedIds.has(item.id)}
-                    tabIndex={0}
                     onClick={() => setSelectedId(item.id)}
-                    onKeyDown={(e) => {
-                      if (e.key === ' ' || e.key === 'Enter') {
-                        e.preventDefault()
-                        if (e.key === ' ') toggleSelect(item.id, e.shiftKey, idx)
-                        else setSelectedId(item.id)
-                      }
-                    }}
                     style={{ cursor: 'pointer' }}
                   >
                     {config.name === 'task' && (
@@ -1050,20 +954,14 @@ const [filters, setFilters] = useState<Record<string, FilterEntry>>(() => ({ ...
                     )}
                     <td className="th-checkbox" onClick={e => e.stopPropagation()}>
                       <input type="checkbox" className="row-checkbox"
-                        checked={selectedIds.has(item.id)}
-                        readOnly
-                        onClick={(e) => { e.stopPropagation(); toggleSelect(item.id, e.shiftKey, idx) }}
-                        aria-label={String(item[config.titleField || 'name'] || item.id)} />
+                        checked={selectedIds.has(item.id)} onChange={() => toggleSelect(item.id)} />
                     </td>
                     {colLayout.orderedCols.map(col => (
-                      <td key={col}
-                        className={(col === 'name' || col === config.titleField) ? 'glp-td-title' : ''}
-                        style={{ width: colLayout.getWidth(col), minWidth: colLayout.getWidth(col) }}>{renderCell(item, col)}</td>
+                      <td key={col} style={{ width: colLayout.getWidth(col), minWidth: colLayout.getWidth(col) }}>{renderCell(item, col)}</td>
                     ))}
                     <td className="col-menu" onClick={e => e.stopPropagation()}>
                       <div className="menu-wrap">
-                        <button className="menu-dots" title={t('common.seeMore')}
-                          aria-label={`${t('common.seeMore')} ${String(item[config.titleField || 'name'] || '')}`}>
+                        <button className="menu-dots" title={t('common.seeMore')}>
                           <MoreHorizontal className="w-4 h-4" />
                         </button>
                         <div className="menu-dropdown">
@@ -1083,7 +981,7 @@ const [filters, setFilters] = useState<Record<string, FilterEntry>>(() => ({ ...
             </div>
 
             {selectedIds.size > 0 && (
-              <div className="bulk-bar" role="status" aria-live="polite">
+              <div className="bulk-bar">
                 <span className="count">{selectedIds.size} selected</span>
                 <button className="btn-secondary" onClick={openBulkUpdate}>{t('common.bulkUpdate')}</button>
                 <button className="btn-secondary">{t('common.addTag')}</button>
