@@ -224,6 +224,7 @@ export default function TodoPage() {
       setTasks(prev => [task, ...prev])
       setNewTitle('')
       inputRef.current?.focus()
+      window.dispatchEvent(new CustomEvent('tasks-changed'))
     } catch {}
   }
 
@@ -234,6 +235,7 @@ export default function TodoPage() {
       await apiClient.patch(`/api/v1/crm/todo/tasks/${task.id}`, { status: done })
       setTasks(prev => prev.map(t => t.id === task.id ? { ...t, status: done, completed_at: done === 'done' ? new Date().toISOString() : null } : t))
       if (selectedTask?.id === task.id) setSelectedTask(prev => prev ? { ...prev, status: done } : null)
+      window.dispatchEvent(new CustomEvent('tasks-changed'))
     } catch {}
   }
 
@@ -244,6 +246,7 @@ export default function TodoPage() {
       await apiClient.patch(`/api/v1/crm/todo/tasks/${task.id}`, { is_important: v })
       setTasks(prev => prev.map(t => t.id === task.id ? { ...t, is_important: v } : t))
       if (selectedTask?.id === task.id) setSelectedTask(prev => prev ? { ...prev, is_important: v } : null)
+      window.dispatchEvent(new CustomEvent('tasks-changed'))
     } catch {}
   }
 
@@ -253,6 +256,7 @@ export default function TodoPage() {
       await apiClient.delete(`/api/v1/crm/todo/tasks/${id}`)
       setTasks(prev => prev.filter(t => t.id !== id))
       if (selectedTask?.id === id) setSelectedTask(null)
+      window.dispatchEvent(new CustomEvent('tasks-changed'))
     } catch {}
   }
 
@@ -285,6 +289,7 @@ export default function TodoPage() {
       await apiClient.patch(`/api/v1/crm/todo/tasks/${id}`, updates)
       setTasks(prev => prev.map(t => t.id === id ? { ...t, ...updates } : t))
       setSelectedTask(prev => prev?.id === id ? { ...prev, ...updates } : prev)
+      window.dispatchEvent(new CustomEvent('tasks-changed'))
     } catch {}
   }
 
@@ -347,6 +352,7 @@ export default function TodoPage() {
       const today = hasMyDay ? new Date().toISOString().split('T')[0] : null
       setTasks(prev => prev.map(t => t.id === task.id ? { ...t, my_day_date: today } : t))
       setSelectedTask(prev => prev?.id === task.id ? { ...prev, my_day_date: today } : prev)
+      window.dispatchEvent(new CustomEvent('tasks-changed'))
     } catch {}
   }
 
