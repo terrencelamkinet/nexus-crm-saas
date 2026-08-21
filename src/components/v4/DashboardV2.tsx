@@ -379,7 +379,8 @@ export default function DashboardV2() {
   const toggleTodo = (id: string) => {
     const td = todos.find(t => t.id === id)
     const nextDone = !td?.done
-    setTodos(prev => prev.map(t => t.id === id ? { ...t, done: nextDone } : t))
+    // 完成後即時清除（唔再顯示已完成 item）；重新標記待辦就保留
+    setTodos(prev => nextDone ? prev.filter(t => t.id !== id) : prev.map(t => t.id === id ? { ...t, done: false } : t))
     // Persist via existing task update endpoint (status done/pending)
     apiClient.patch(`/api/v1/crm/tasks/${id}`, { status: nextDone ? 'done' : 'pending' }).catch(() => {})
     showToast(nextDone ? '任務已完成 ✓' : '已重新標記為待辦')
