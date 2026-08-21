@@ -137,6 +137,16 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+.row-name-body {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+/* Secondary/meta lines are mobile-list-only; hidden on desktop table */
+.data-table .cell-secondary.mobile-only,
+.data-table .cell-meta.mobile-only {
+  display: none;
+}
 .data-table .cell-secondary {
   display: block;
   overflow: hidden;
@@ -280,11 +290,13 @@
   border-top: 1px solid var(--table-border);
 }
 
-/* ── Mobile (<768px): record card rows ── */
+/* ── Mobile (<768px): flat record list — NOT cards (correction spec §8) ── */
 @media (max-width: 767px) {
   .data-table {
-    border-radius: 10px;
+    border-radius: 0;
     overflow: visible;
+    border-left: 0;
+    border-right: 0;
   }
   .data-table table {
     min-width: 0;
@@ -294,21 +306,29 @@
     display: none;
   }
   .data-table tbody {
-    display: grid;
-    gap: 8px;
-    padding: 10px;
+    display: block;
+    padding: 0;
+    gap: 0;
   }
+  /* Flat row: 1px divider only — no radius, no shadow, no gap */
   .data-table tbody tr {
     display: grid;
-    grid-template-columns: auto minmax(0, 1fr) auto;
-    gap: 10px;
+    grid-template-columns: 44px minmax(0, 1fr) 44px;
+    gap: 0;
     align-items: center;
-    min-height: 68px;
-    padding: 12px 14px;
-    border: 1px solid var(--table-border);
-    border-radius: 12px;
-    background: var(--color-surface-2);
+    min-height: 72px;
+    padding: 8px 12px;
+    border: 0;
+    border-bottom: 1px solid var(--table-border);
+    border-radius: 0;
+    background: transparent;
     box-shadow: none;
+  }
+  .data-table tbody tr:last-child {
+    border-bottom: 0;
+  }
+  .data-table tbody tr:active {
+    background: var(--table-row-hover);
   }
   .data-table tbody tr[aria-selected="true"],
   .data-table tbody tr.row-selected {
@@ -319,32 +339,85 @@
   .data-table td:not(:first-child):not(:nth-child(2)):not(:last-child) {
     display: none;
   }
-  .data-table td:first-child {
-    padding: 0;
-  }
-  .data-table td:nth-child(2) {
+  .data-table td:first-child,
+  .data-table td:nth-child(2),
+  .data-table td:last-child {
     padding: 0;
     min-width: 0;
   }
-  .data-table td:last-child {
-    padding: 0;
+  /* Checkbox tap target 44×44 */
+  .data-table td:first-child .row-checkbox {
+    width: 44px;
+    height: 44px;
+    margin: 0;
+    accent-color: var(--color-primary);
+  }
+  /* Primary cell: avatar 40px + stacked name/secondary/meta */
+  .data-table td:nth-child(2) .row-name {
+    gap: 10px;
+  }
+  .data-table td:nth-child(2) .avatar-sm {
+    width: 40px;
+    height: 40px;
+    flex-shrink: 0;
+    font-size: 14px;
+  }
+  .data-table .row-name-text {
+    font-size: 16px;
+    font-weight: 600;
+    line-height: 22px;
+  }
+  .data-table .cell-secondary.mobile-only,
+  .data-table .cell-meta.mobile-only {
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .data-table .cell-secondary.mobile-only {
+    margin-top: 2px;
+    color: var(--color-text-muted);
+    font-size: 13px;
+    line-height: 18px;
+  }
+  .data-table .cell-meta.mobile-only {
+    margin-top: 2px;
+    color: var(--color-text-faint);
+    font-size: 12px;
+    line-height: 16px;
   }
   .data-table .col-menu .menu-dots {
     opacity: 1;
     pointer-events: auto;
-    width: 40px;
-    height: 40px;
+    width: 44px;
+    height: 44px;
     display: flex;
     align-items: center;
     justify-content: center;
   }
-  /* hide bulk bar → 浮動 bottom action 由頁面層處理 */
+  /* Bulk bar: flat sticky bottom — no floating card */
   .data-table .bulk-bar {
-    position: fixed;
-    left: 12px;
-    right: 12px;
-    bottom: 12px;
-    border-radius: 12px;
-    box-shadow: 0 8px 30px rgba(0, 0, 0, .25);
+    position: sticky;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    border-radius: 0;
+    box-shadow: none;
+    padding: 8px 12px;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  /* Page header: keep title + single Add; hide low-frequency export/upload */
+  .glp-root .page-header .header-actions .glp-header-icon:not(.glp-header-icon-primary) {
+    display: none;
+  }
+  /* Toolbar: keep search + filter + sort; hide density/view/history/settings */
+  .data-table .db-toolbar .toolbar-actions .toolbar-sep,
+  .data-table .db-toolbar .toolbar-actions .pos-relative {
+    display: none;
+  }
+  /* App header: keep hamburger + search + profile; hide theme/notifications */
+  .topbar .topbar-actions .icon-btn {
+    display: none;
   }
 }

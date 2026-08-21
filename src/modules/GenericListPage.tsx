@@ -441,13 +441,25 @@ const [filters, setFilters] = useState<Record<string, FilterEntry>>(() => ({ ...
     const isTitleCol = fieldKey === 'name' || fieldKey === config.titleField || (!config.titleField && fieldKey === config.fields[0]?.key)
     if (isTitleCol) {
       const val = item[fieldKey] || item['name'] || ''
+      // Flat mobile list secondary/meta lines (correction spec §4): derive from config
+      const relF = config.fields.find(f => f.type === 'relation' && item[f.key] && (item[f.key]?.name || item[f.key]?.title))
+      const relV = relF ? (item[relF.key]?.name || item[relF.key]?.title || '') : ''
+      const txtF = config.fields.find(f => (f.type === 'text' || f.type === 'email') && f.key !== fieldKey && !['chinese_name', 'nick_name', 'notes'].includes(f.key) && item[f.key])
+      const secondary = [relV, txtF ? String(item[txtF.key]) : ''].filter(Boolean).join(' · ')
+      const statusF = config.fields.find(f => f.type === 'status' && item[f.key])
+      const dateF = config.fields.find(f => f.key === 'created_at' && item[f.key])
+      const meta = statusF ? String(item[statusF.key]) : (dateF ? `Created ${String(item[dateF.key]).slice(0, 10)}` : '')
       return (
         <button onClick={e => { e.stopPropagation(); setSelectedId(item.id) }}
           className="row-name row-name-btn">
           <div className="avatar-sm">
             {String(val).split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase()}
           </div>
-          <span className="row-name-text">{val}</span>
+          <span className="row-name-body">
+            <span className="row-name-text">{val}</span>
+            {secondary && <span className="cell-secondary mobile-only">{secondary}</span>}
+            {meta && <span className="cell-meta mobile-only">{meta}</span>}
+          </span>
         </button>
       )
     }
