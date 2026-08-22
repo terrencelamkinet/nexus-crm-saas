@@ -6,6 +6,71 @@ from sqlalchemy.dialects.postgresql import UUID, JSONB
 from app.db import Base
 
 DEFAULT_MODULES = ["weather", "today_tasks", "meetings", "project_status", "hot_leads", "stale_deals"]
+
+# 每個 module 嘅深層選項預設值（spec: BRIEFING-MODULES-DEEP-OPTIONS.md）
+# 冇設定嘅用戶（modules 係 string[] 舊格式）→ 全部用呢度嘅 default
+DEFAULT_MODULE_OPTIONS: dict[str, dict] = {
+    "weather": {"region": ["all_hk"], "unit": "celsius"},
+    "today_tasks": {"scope": "both", "sort": "priority"},
+    "meetings": {"range": "today_tomorrow", "type": "all"},
+    "project_status": {"ownership": "mine", "count": "8"},
+    "hot_leads": {"threshold": "70", "sort": "amount"},
+    "stale_deals": {"days": "14", "sort": "staleness"},
+    "overdue_followup": {"days": "7", "contact_type": "all"},
+    "unread_messages": {"sources": ["gmail", "outlook"], "count": "8"},
+    "birthday_reminders": {"range": "week", "type": "all"},
+    "quote_tracking": {"statuses": ["draft", "sent", "expiring"], "sort": "valid_until"},
+    "invoice_reminders": {"statuses": ["pending", "sent", "overdue"]},
+    "team_updates": {"scope": "my_teams", "task_status": "all"},
+    "calendar_conflicts": {"range": "today"},
+    "news_industry": {"topics": ["tech", "finance", "logistics", "retail"], "lang": "both"},
+    "traffic_commute": {"route": "home_to_office", "mode": "public"},
+    "email_draft_review": {"status": "pending_review"},
+    "sales_kpi": {"period": "month"},
+    "customer_sentiment": {"days": "30", "show": "all"},
+    "expense_reminders": {"status": "pending"},
+    "personal_reminders": {"range": "today"},
+    "bible_reading": {
+        "book_selection": "ot_nt_mixed", "plan": "one_year",
+        "chapters_per_push": "1", "time_of_day": "morning",
+        "translation": "cuvmp", "reminder": "enabled",
+    },
+}
+
+
+def normalize_modules(value) -> dict[str, dict]:
+    """向後兼容：modules 欄位可能係舊 string[] 或者新 dict 格式。
+
+    - string[]（舊）: ["weather", "today_tasks"] → {"weather": {defaults}, ...}
+    - dict（新）:     {"weather": {"region": [...]}} → 原樣（缺嘅 key 補 default）
+    - None:          → {}
+    """
+    if value is None:
+        return {}
+    if isinstance(value, list):
+        out: dict[str, dict] = {}
+        for m in value:
+            if isinstance(m, str):
+                out[m] = dict(DEFAULT_MODULE_OPTIONS.get(m, {}))
+        return out
+    if isinstance(value, dict):
+        out = {}
+        for key, opts in value.items():
+            if opts is None:
+                opts = {}
+            merged = dict(DEFAULT_MODULE_OPTIONS.get(key, {}))
+            if isinstance(opts, dict):
+                merged.update(opts)
+            out[key] = merged
+        return out
+    return {}
+
+
+def module_keys(value) -> list[str]:
+    """Extract enabled module keys regardless of storage format."""
+    return list(normalize_modules(value).keys())
+
+
 DEFAULT_WORKDAYS = ["mon", "tue", "wed", "thu", "fri"]
 DEFAULT_CHANNELS = {
     "whatsapp": {"connected": False, "enabled": False},

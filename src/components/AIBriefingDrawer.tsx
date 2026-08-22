@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { apiClient } from '../lib/api'
 import { useAuth } from '../lib/AuthContext'
-import { useSecretarySettings, isInWorkingHours } from '../hooks/useSecretarySettings'
+import { useSecretarySettings, isInWorkingHours, enabledModuleKeys } from '../hooks/useSecretarySettings'
 import { Sparkles, X, ChevronDown, Send, RefreshCw, AlertTriangle, CheckSquare, Calendar, History } from 'lucide-react'
 
 // ─────────────────────────────────────────────────────────────
@@ -188,7 +188,7 @@ export default function AIBriefingDrawer() {
   const { user } = useAuth()
   const secretary = useSecretarySettings()
   const settings = secretary.settings
-  const mods = settings.modules
+  const mods = new Set(enabledModuleKeys(settings.modules))
 
   // Current greeting slot (from backend greeting_slots) — re-evaluated every minute
   const [greeting, setGreeting] = useState(() => currentGreetingSlot(settings.greeting_slots))
@@ -278,7 +278,7 @@ export default function AIBriefingDrawer() {
       })
 
       const risks: RiskInsight[] = []
-      if (inWorkingHours && (mods.includes('stale_deals') || mods.includes('quote_tracking'))) {
+      if (inWorkingHours && (mods.has('stale_deals') || mods.has('quote_tracking'))) {
         deals.forEach(d => {
           const dealQuotes = (quoteByDeal.get(d.id) || []).filter(q => q.status === 'sent' || q.status === 'pending')
           const idle = daysSince(d.updated_at || d.created_at)
@@ -299,12 +299,12 @@ export default function AIBriefingDrawer() {
       risks.sort((a, b) => b.daysIdle - a.daysIdle)
 
       // Overdue tasks — task/project items are confined to working hours
-      const tasks = inWorkingHours && mods.includes('today_tasks')
+      const tasks = inWorkingHours && mods.has('today_tasks')
         ? (brief?.tasks || []).filter(t => t.status !== 'done' && isOverdue(t.due_date)).slice(0, 5)
         : []
 
       // Today's events
-      const events = mods.includes('meetings')
+      const events = mods.has('meetings')
         ? (brief?.schedule || []).filter(e => isToday(e.time)).slice(0, 5)
         : []
 

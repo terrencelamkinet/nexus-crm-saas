@@ -5,7 +5,7 @@ import { ChevronRight, Check, RotateCcw, Save, X } from 'lucide-react';
 import { apiClient } from '../lib/api';
 import { useEscapeKey } from '../lib/useEscapeKey';
 import {
-  MODULES, useSecretarySettings, CONNECTED_FALLBACK,
+  MODULES, useSecretarySettings, CONNECTED_FALLBACK, normalizeModules, moduleOptions,
   type ToneId, type LangPref, type DetailLevel, type ChannelId,
 } from '../hooks/useSecretarySettings';
 
@@ -138,10 +138,27 @@ export default function AIAppsPage() {
   );
   const toggleModule = (id: string) => {
     if (!connectedSet.has(id)) return; // greyed out — not connected yet
-    const has = settings.modules.includes(id);
-    const next = has ? settings.modules.filter(m => m !== id) : [...settings.modules, id];
+    const cur = normalizeModules(settings.modules);
+    const has = id in cur;
+    const next: Record<string, Record<string, string | string[]>> = { ...cur };
+    if (has) delete next[id];
+    else next[id] = {};
     update({ modules: next });
     flashSaved();
+  };
+
+  // ── Module deep options (single/multi select) ──
+  const updateModuleOption = (moduleId: string, optionKey: string, value: string | string[]) => {
+    const cur = normalizeModules(settings.modules);
+    const mod = { ...(cur[moduleId] ?? {}) } as Record<string, string | string[]>;
+    mod[optionKey] = value;
+    update({ modules: { ...cur, [moduleId]: mod } });
+    flashSaved();
+  };
+  const toggleMultiOption = (moduleId: string, optionKey: string, choice: string, current: string[]) => {
+    const has = current.includes(choice);
+    const next = has ? current.filter(c => c !== choice) : [...current, choice];
+    updateModuleOption(moduleId, optionKey, next);
   };
 
   // ── Workdays ──
@@ -315,27 +332,64 @@ export default function AIAppsPage() {
                 <p className="asec-card-hint">{t('settings.aiApps.modulesHint')}</p>
                 <div className="asec-module-grid">
                   {MODULES.map(m => {
-                    const selected = settings.modules.includes(m.id);
+                    const selected = (m.id in normalizeModules(settings.modules));
                     const connected = connectedSet.has(m.id);
+                    const modVals = moduleOptions(normalizeModules(settings.modules), m.id);
+                    const opts = m.options ?? [];
                     return (
-                      <div
-                        key={m.id}
-                        className={`asec-module-card${selected ? ' selected' : ''}${connected ? '' : ' disabled'}`}
-                        onClick={() => connected && toggleModule(m.id)}
-                        role="button"
-                        tabIndex={connected ? 0 : -1}
-                        aria-disabled={!connected}
-                        onKeyDown={e => { if (connected && (e.key === 'Enter' || e.key === ' ')) toggleModule(m.id) }}
-                      >
-                        <span className="asec-module-icon">{m.icon}</span>
-                        <div className="asec-module-info">
-                          <strong>{t(m.nameKey)}</strong>
-                          <p>{t(m.descKey)}</p>
+                      <div key={m.id} className={`asec-module-card${selected ? ' selected' : ''}${connected ? '' : ' disabled'}`}>
+                        <div
+                          className="asec-module-head"
+                          onClick={() => connected && toggleModule(m.id)}
+                          role="button"
+                          tabIndex={connected ? 0 : -1}
+                          aria-disabled={!connected}
+                          onKeyDown={e => { if (connected && (e.key === 'Enter' || e.key === ' ')) toggleModule(m.id) }}
+                        >
+                          <span className="asec-module-icon">{m.icon}</span>
+                          <div className="asec-module-info">
+                            <strong>{t(m.nameKey)}</strong>
+                            <p>{t(m.descKey)}</p>
+                          </div>
+                          {!connected && <span className="asec-module-tag">{t('settings.aiApps.soon')}</span>}
+                          <span className={`asec-module-check${selected ? ' checked' : ''}`}>
+                            {selected && <Check size={11} />}
+                          </span>
                         </div>
-                        {!connected && <span className="asec-module-tag">{t('settings.aiApps.soon')}</span>}
-                        <span className={`asec-module-check${selected ? ' checked' : ''}`}>
-                          {selected && <Check size={11} />}
-                        </span>
+                        {selected && opts.length > 0 && (
+                          <div className="asec-module-options" onClick={e => e.stopPropagation()}>
+                            {opts.map(o => {
+                              const cur = (o.key in modVals) ? modVals[o.key] : o.default;
+                              const curArr = Array.isArray(cur) ? cur : [cur];
+                              return (
+                                <div key={o.key} className="asec-module-option">
+                                  <span className="asec-module-option-label">{t(o.labelKey)}</span>
+                                  <div className="asec-module-option-choices">
+                                    {o.choices.map(c => {
+                                      const active = o.type === 'multi_select'
+                                        ? curArr.includes(c.value)
+                                        : (cur === c.value || curArr[0] === c.value);
+                                      const onClick = () => o.type === 'multi_select'
+                                        ? toggleMultiOption(m.id, o.key, c.value, curArr)
+                                        : updateModuleOption(m.id, o.key, c.value);
+                                      return (
+                                        <button
+                                          key={c.value}
+                                          type="button"
+                                          className={`asec-opt-chip${active ? ' active' : ''}`}
+                                          onClick={onClick}
+                                        >
+                                          {c.icon && <span>{c.icon}</span>}
+                                          {t(c.labelKey)}
+                                        </button>
+                                      );
+                                    })}
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
                       </div>
                     );
                   })}

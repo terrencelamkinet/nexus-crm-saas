@@ -30,6 +30,8 @@ from app.models.ai.secretary_settings import (
     VALID_TONES,
     VALID_LANGS,
     VALID_CHANNELS,
+    normalize_modules,
+    module_keys,
 )
 from app.models.whatsapp import WhatsAppMapping
 from app.models.telegram_bot import TelegramBotMapping
@@ -42,6 +44,7 @@ KNOWN_MODULES = {
     "quote_tracking", "invoice_reminders", "team_updates", "calendar_conflicts",
     "news_industry", "traffic_commute", "email_draft_review", "sales_kpi",
     "customer_sentiment", "expense_reminders", "personal_reminders",
+    "bible_reading",
 }
 VALID_WORKDAYS = {"mon", "tue", "wed", "thu", "fri", "sat", "sun"}
 
@@ -69,12 +72,13 @@ MODULE_CONNECTED: dict[str, bool] = {
     "customer_sentiment": True, # ✅ ai_messages 分析 (briefing_sources)
     "expense_reminders": True,  # ✅ expenses 表 (briefing_sources)
     "personal_reminders": True, # ✅ personal_notes 表 (briefing_sources)
+    "bible_reading": True,      # ✅ bible_reading_progress + bible_verses (briefing_sources)
 }
 
 
 # ── Schemas ─────────────────────────────────────────────────────
 class SettingsOut(BaseModel):
-    modules: list[str]
+    modules: dict[str, dict]  # {module_key: {option_key: value}} — 深層選項
     workdays: list[str]
     weekend_mute: bool
     strict_silence: bool
@@ -91,7 +95,7 @@ class SettingsOut(BaseModel):
 
 
 class SettingsPatch(BaseModel):
-    modules: list[str] | None = None
+    modules: dict[str, dict] | None = None
     workdays: list[str] | None = None
     weekend_mute: bool | None = None
     strict_silence: bool | None = None
@@ -109,6 +113,14 @@ class SettingsPatch(BaseModel):
     def _check_modules(cls, v):
         if v is None:
             return v
+        if isinstance(v, list):
+            # 向後兼容：舊前端可能仲 send string[] — normalize 做 dict
+            bad = set(v) - KNOWN_MODULES
+            if bad:
+                raise ValueError(f"unknown modules: {sorted(bad)}")
+            return {m: {} for m in v}
+        if not isinstance(v, dict):
+            raise ValueError("modules must be a dict of {module: options} or list")
         bad = set(v) - KNOWN_MODULES
         if bad:
             raise ValueError(f"unknown modules: {sorted(bad)}")
@@ -181,7 +193,7 @@ def _to_out(row: SecretarySettings) -> SettingsOut:
         return v.strftime("%H:%M") if isinstance(v, time) else str(v)
 
     return SettingsOut(
-        modules=[m for m in (row.modules or DEFAULT_MODULES) if MODULE_CONNECTED.get(m, False)],
+        modules=normalize_modules(row.modules or DEFAULT_MODULES),
         workdays=list(row.workdays or DEFAULT_WORKDAYS),
         weekend_mute=row.weekend_mute,
         strict_silence=row.strict_silence,
@@ -286,7 +298,8 @@ async def patch_settings(
     row = await _get_or_create(db, user_id, tenant_id)
 
     data = patch.model_dump(exclude_unset=True)
-    # Modules must be connected — reject unknown / not-yet-connected ids
+    # Modules must be connected — reject unknown / not-yet-connected ids.
+    # modules 而家係 dict {module: options}（SettingsPatch validator 已 normalize）
     if "modules" in data:
         unknown = [m for m in data["modules"] if m not in MODULE_CONNECTED]
         if unknown:
@@ -295,6 +308,13 @@ async def patch_settings(
         if unconnected:
             raise HTTPException(422, f"modules not yet connected: {unconnected}")
     for k, v in data.items():
+        if k == "modules":
+            # Merge — PATCH 語意：只更新傳入嘅 module/options，保留其他
+            cur: dict = normalize_modules(row.modules or DEFAULT_MODULES)
+            for mod_id, opts in (v or {}).items():
+                cur[mod_id] = {**(cur.get(mod_id) or {}), **(opts or {})}
+            setattr(row, "modules", cur)
+            continue
         if k in ("work_start", "work_end") and isinstance(v, str):
             v = time.fromisoformat(v)
         setattr(row, k, v)
@@ -313,7 +333,7 @@ async def reset_settings(
     user_id, tenant_id = _ctx_ids(request)
     row = await _get_or_create(db, user_id, tenant_id)
 
-    row.modules = list(DEFAULT_MODULES)
+    row.modules = {m: {} for m in DEFAULT_MODULES}
     row.workdays = list(DEFAULT_WORKDAYS)
     row.weekend_mute = True
     row.strict_silence = True
@@ -355,7 +375,8 @@ async def get_briefing(
 
     from zoneinfo import ZoneInfo
     now_local = datetime.now(ZoneInfo("Asia/Hong_Kong"))
-    mods = set(row.modules or [])
+    mods = set(module_keys(row.modules or DEFAULT_MODULES))
+    mod_options: dict[str, dict] = normalize_modules(row.modules or DEFAULT_MODULES)
 
     # Working-hours gate (HKT) — task/project items only inside window
     cur = now_local.time()
@@ -375,26 +396,28 @@ async def get_briefing(
     show_events = "meetings" in mods
 
     # ── Module data sources (only for enabled + connected modules) ──
+    # 深層選項：每個 module 嘅 options 由 mod_options dict 傳入（冇設定 → 預設）
     from app.ai import briefing_sources as bs
 
-    projects = await bs.project_status(ctx, db) if "project_status" in mods else []
-    stale = await bs.stale_deals(ctx, db) if "stale_deals" in mods else []
-    quotes = await bs.quote_tracking(ctx, db) if "quote_tracking" in mods else []
-    followups = await bs.overdue_followup(ctx, db) if "overdue_followup" in mods else []
-    birthdays = await bs.birthday_reminders(ctx, db) if "birthday_reminders" in mods else []
-    leads = await bs.hot_leads(ctx, db) if "hot_leads" in mods else []
-    kpis = await bs.sales_kpi(ctx, db) if "sales_kpi" in mods else []
-    team = await bs.team_updates(ctx, db) if "team_updates" in mods else []
-    invoices = await bs.invoice_reminders(ctx, db) if "invoice_reminders" in mods else []
-    weather = await bs.weather(ctx, db) if "weather" in mods else []
-    unread = await bs.unread_messages(ctx, db) if "unread_messages" in mods else []
-    conflicts = await bs.calendar_conflicts(ctx, db) if "calendar_conflicts" in mods else []
-    news = await bs.news_industry(ctx, db) if "news_industry" in mods else []
-    traffic = await bs.traffic_commute(ctx, db, lang_pref=lang_pref) if "traffic_commute" in mods else []
-    drafts = await bs.email_draft_review(ctx, db) if "email_draft_review" in mods else []
-    sentiment = await bs.customer_sentiment(ctx, db) if "customer_sentiment" in mods else []
-    expenses = await bs.expense_reminders(ctx, db) if "expense_reminders" in mods else []
-    personal = await bs.personal_reminders(ctx, db) if "personal_reminders" in mods else []
+    projects = await bs.project_status(ctx, db, options=mod_options.get("project_status", {})) if "project_status" in mods else []
+    stale = await bs.stale_deals(ctx, db, options=mod_options.get("stale_deals", {})) if "stale_deals" in mods else []
+    quotes = await bs.quote_tracking(ctx, db, options=mod_options.get("quote_tracking", {})) if "quote_tracking" in mods else []
+    followups = await bs.overdue_followup(ctx, db, options=mod_options.get("overdue_followup", {})) if "overdue_followup" in mods else []
+    birthdays = await bs.birthday_reminders(ctx, db, options=mod_options.get("birthday_reminders", {})) if "birthday_reminders" in mods else []
+    leads = await bs.hot_leads(ctx, db, options=mod_options.get("hot_leads", {})) if "hot_leads" in mods else []
+    kpis = await bs.sales_kpi(ctx, db, options=mod_options.get("sales_kpi", {})) if "sales_kpi" in mods else []
+    team = await bs.team_updates(ctx, db, options=mod_options.get("team_updates", {})) if "team_updates" in mods else []
+    invoices = await bs.invoice_reminders(ctx, db, options=mod_options.get("invoice_reminders", {})) if "invoice_reminders" in mods else []
+    weather = await bs.weather(ctx, db, options=mod_options.get("weather", {})) if "weather" in mods else []
+    unread = await bs.unread_messages(ctx, db, options=mod_options.get("unread_messages", {})) if "unread_messages" in mods else []
+    conflicts = await bs.calendar_conflicts(ctx, db, options=mod_options.get("calendar_conflicts", {})) if "calendar_conflicts" in mods else []
+    news = await bs.news_industry(ctx, db, options=mod_options.get("news_industry", {})) if "news_industry" in mods else []
+    traffic = await bs.traffic_commute(ctx, db, lang_pref=lang_pref, options=mod_options.get("traffic_commute", {})) if "traffic_commute" in mods else []
+    drafts = await bs.email_draft_review(ctx, db, options=mod_options.get("email_draft_review", {})) if "email_draft_review" in mods else []
+    sentiment = await bs.customer_sentiment(ctx, db, options=mod_options.get("customer_sentiment", {})) if "customer_sentiment" in mods else []
+    expenses = await bs.expense_reminders(ctx, db, options=mod_options.get("expense_reminders", {})) if "expense_reminders" in mods else []
+    personal = await bs.personal_reminders(ctx, db, options=mod_options.get("personal_reminders", {})) if "personal_reminders" in mods else []
+    bible = await bs.bible_reading(ctx, db, options=mod_options.get("bible_reading", {})) if "bible_reading" in mods else []
 
     return {
         "modules": sorted(mods),
@@ -420,6 +443,7 @@ async def get_briefing(
         "customer_sentiment": sentiment if (bool(in_hours) and "customer_sentiment" in mods) else [],
         "expense_reminders": expenses if (bool(in_hours) and "expense_reminders" in mods) else [],
         "personal_reminders": personal if (bool(in_hours) and "personal_reminders" in mods) else [],
+        "bible_reading": bible if "bible_reading" in mods else [],
         "ai_tip": brief["ai_tip"],
         "greeting_slots": row.greeting_slots or DEFAULT_GREETING_SLOTS,
         "work_start": row.work_start.strftime("%H:%M"),

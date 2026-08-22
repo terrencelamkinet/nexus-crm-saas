@@ -22,7 +22,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.ai.session.context import AISessionContext
 from app.ai.providers import get_provider
-from app.models.ai.secretary_settings import SecretarySettings
+from app.models.ai.secretary_settings import (
+    SecretarySettings,
+    DEFAULT_MODULES,
+    DEFAULT_MODULE_OPTIONS,
+    normalize_modules,
+)
 from app.models.im_push import IMDeliveryPref, PushLog
 from app.models.whatsapp import WhatsAppMapping
 
@@ -83,8 +88,22 @@ async def _load_settings(db: AsyncSession, user_id: uuid.UUID) -> SecretarySetti
     return row
 
 
-async def _collect_modules(ctx: AISessionContext, db: AsyncSession, modules: list[str]) -> dict[str, Any]:
-    """Collect data for the user's enabled modules — all G08's own sources."""
+def _enabled_modules(settings: SecretarySettings | None) -> dict[str, dict]:
+    """Return {module_key: options_dict} for the user's enabled modules.
+
+    Handles both legacy string[] storage and new dict-with-options format.
+    """
+    if settings is None:
+        return {m: dict(DEFAULT_MODULE_OPTIONS.get(m, {})) for m in DEFAULT_MODULES}
+    return normalize_modules(settings.modules or DEFAULT_MODULES)
+
+
+async def _collect_modules(ctx: AISessionContext, db: AsyncSession, modules: dict[str, dict]) -> dict[str, Any]:
+    """Collect data for the user's enabled modules — all G08's own sources.
+
+    `modules` = {module_key: options_dict}（深層選項 per module）。每個
+    source function 接收 options 做篩選；冇 options 嘅 module 用預設。
+    """
     from app.ai import briefing_sources as bs
     from app.routers.ai import _build_crm_briefing
 
@@ -101,6 +120,42 @@ async def _collect_modules(ctx: AISessionContext, db: AsyncSession, modules: lis
     out["schedule"] = brief.get("schedule", [])
     out["tasks"] = brief.get("tasks", [])
     out["weather"] = brief.get("weather", {})
+
+    # ── today_tasks 深層選項：scope（personal/work/both）+ sort ──
+    task_opts = modules.get("today_tasks") or {}
+    scope = task_opts.get("scope", "both")
+    sort = task_opts.get("sort", "priority")
+    tasks = out["tasks"]
+    if scope in ("personal", "work"):
+        tasks = [
+            t for t in tasks
+            if (t.get("area") or "").lower() == scope
+            or (scope == "personal" and t.get("assignee_id") == str(ctx.user_id))
+            or (scope == "work" and t.get("assignee_id") is not None and t.get("assignee_id") != str(ctx.user_id))
+        ]
+    sort_key = {"priority": lambda t: {"urgent": 0, "high": 1, "medium": 2, "low": 3}.get((t.get("priority") or "medium").lower(), 2),
+                "deadline": lambda t: t.get("due_date") or "9999-12-31",
+                "created_at": lambda t: t.get("created_at") or ""}.get(sort, lambda t: 0)
+    out["tasks"] = sorted(tasks, key=sort_key)
+
+    # ── meetings 深層選項：range（today/today_tomorrow/week）— schedule 已係 7 日，
+    #    過濾今日/聽日；type 嘅 CRM 客戶 vs 內部暫以 title 關鍵字粗略分 ──
+    meet_opts = modules.get("meetings") or {}
+    mrange = meet_opts.get("range", "today_tomorrow")
+    mtype = meet_opts.get("type", "all")
+    today_hkt = datetime.now(HKT).strftime("%Y-%m-%d")
+    tomorrow_hkt = (datetime.now(HKT) + timedelta(days=1)).strftime("%Y-%m-%d")
+    if mrange == "today":
+        out["schedule"] = [e for e in out["schedule"] if str(e.get("time", "")).startswith(today_hkt)]
+    elif mrange == "today_tomorrow":
+        out["schedule"] = [e for e in out["schedule"]
+                           if str(e.get("time", "")).startswith(today_hkt)
+                           or str(e.get("time", "")).startswith(tomorrow_hkt)]
+    # mrange == 'week' → 保留全部（7 日內）
+    if mtype == "customer":
+        out["schedule"] = [e for e in out["schedule"] if any(k in str(e.get("title", "")) for k in ("客戶", "client", "customer", "會議", "meeting"))]
+    elif mtype == "internal":
+        out["schedule"] = [e for e in out["schedule"] if not any(k in str(e.get("title", "")) for k in ("客戶", "client", "customer"))]
 
     fn_map = {
         "project_status": bs.project_status,
@@ -120,15 +175,16 @@ async def _collect_modules(ctx: AISessionContext, db: AsyncSession, modules: lis
         "customer_sentiment": bs.customer_sentiment,
         "expense_reminders": bs.expense_reminders,
         "personal_reminders": bs.personal_reminders,
+        "bible_reading": bs.bible_reading,
     }
-    for m in modules:
-        fn = fn_map.get(m)
+    for key, opts in modules.items():
+        fn = fn_map.get(key)
         if fn is None:
             continue
         try:
-            out[m] = await fn(ctx, db)
+            out[key] = await fn(ctx, db, opts or {})
         except Exception:
-            out[m] = []
+            out[key] = []
 
     # 日期 label 輔助：schedule item 帶 calendar label（如有）
     return out
@@ -256,9 +312,9 @@ async def generate_briefing(
 ) -> dict[str, Any]:
     """Full pipeline for one user: settings → collect → LLM → store → IM push."""
     settings = await _load_settings(db, user_id)
-    modules = list(settings.modules or []) if settings else []
+    modules = _enabled_modules(settings)  # {module_key: options_dict} — 深層選項
     if not modules:
-        modules = ["weather", "today_tasks", "meetings", "project_status", "hot_leads", "stale_deals"]
+        modules = {m: dict(DEFAULT_MODULE_OPTIONS.get(m, {})) for m in DEFAULT_MODULES}
 
     from app.ai.session.context import AISessionContext
     ctx = AISessionContext(
