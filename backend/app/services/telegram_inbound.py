@@ -268,20 +268,104 @@ async def _download_photo(token: str, photo_sizes: list[dict]) -> str | None:
         return None
 
 
+async def _analyze_plain_image(path: str, mapping: TelegramBotMapping) -> str:
+    """Non-namecard photo → Qwen3-VL (SiliconFlow) describes image + reads text.
+
+    Route for plain photos in the Telegram AI flow: namecards go to the
+    namecard pipeline; everything else lands here (user request: 卡片行卡片
+    flow, 其他行 normal request). Reply uses formal written Chinese per G08
+    output standard. Falls back to local Tesseract OCR on any API failure.
+    """
+    import base64
+
+    key = os.environ.get("SILICONFLOW_API_KEY", "")
+    try:
+        with open(path, "rb") as f:
+            b64 = base64.b64encode(f.read()).decode()
+    except OSError:
+        b64 = None
+
+    if key and b64:
+        prompt = (
+            "這是一張用戶透過 Telegram 傳送的圖片。請以繁體中文正式書面語回覆：\n"
+            "1. 第一句簡短描述圖片內容\n"
+            "2. 接著列出圖片中偵測到的所有文字\n"
+            "3. 若圖片包含文件或資訊，重點說明；若為一般照片，描述場景即可\n"
+            "請直接輸出內容，無需任何前綴。"
+        )
+        payload = {
+            "model": "Qwen/Qwen3-VL-8B-Instruct",
+            "messages": [{"role": "user", "content": [
+                {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{b64}"}},
+                {"type": "text", "text": prompt},
+            ]}],
+            "max_tokens": 800,
+        }
+        try:
+            async with httpx.AsyncClient(timeout=60) as client:
+                resp = await client.post(
+                    "https://api.siliconflow.cn/v1/chat/completions",
+                    headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json"},
+                    json=payload,
+                )
+            if resp.status_code == 200:
+                result = resp.json()
+                text = (result["choices"][0]["message"]["content"] or "").strip()
+                if text:
+                    # Core rule G08: central usage tracking (best-effort)
+                    try:
+                        u = result.get("usage") or {}
+                        from app.models.ai.usage import UsageEvent
+                        async with async_session() as db:
+                            db.add(UsageEvent(
+                                session_id=None,
+                                user_id=mapping.user_id,
+                                tenant_id=mapping.tenant_id,
+                                provider="siliconflow",
+                                model="Qwen/Qwen3-VL-8B-Instruct",
+                                input_tokens=int(u.get("prompt_tokens") or 0),
+                                output_tokens=int(u.get("completion_tokens") or 0),
+                                cost_estimate=None,
+                                result_status="success",
+                                module="telegram_image",
+                                currency="USD",
+                            ))
+                            await db.commit()
+                    except Exception:
+                        pass  # usage recording is best-effort
+                    return text
+        except Exception:
+            pass  # fall through to local OCR
+
+    # Fallback: local Tesseract OCR
+    try:
+        from app.services.namecard_ocr import ocr_image
+        txt = ocr_image(path) or ""
+        if txt.strip():
+            return f"（AI 圖片分析暫時無法使用，以下為本地 OCR 結果）\n\n{txt[:600]}"
+    except Exception:
+        pass
+    return "收到圖片，但暫時無法分析內容。"
+
+
 async def _handle_photo(mapping: TelegramBotMapping, token: str, photo_sizes: list[dict]) -> str | None:
-    """Photo message → detect namecard → store pending → ask user."""
+    """Photo message → detect namecard → namecard flow OR plain-image AI analysis."""
     path = await _download_photo(token, photo_sizes)
     if not path:
         return "⚠️ 圖片下載失敗，請再試一次。"
 
     det = namecard_im.run_script(["--detect", path])
     if not det.get("is_namecard"):
-        # Clean up non-namecard image
+        # Non-namecard photo → route to AI image analysis (normal request flow)
+        try:
+            reply = await _analyze_plain_image(path, mapping)
+        except Exception:
+            reply = "收到圖片，但暫時無法分析內容。"
         try:
             os.remove(path)
         except OSError:
             pass
-        return None  # Not a namecard — no reply (plain photo)
+        return reply
 
     # Store pending upload path in mapping config for the "係/是" follow-up
     # Preview: use parsed name + company when available (friendlier than raw OCR)
