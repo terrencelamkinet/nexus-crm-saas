@@ -25,7 +25,10 @@ _KEY_FIELDS = ["name", "title", "company", "email", "phone", "website", "address
 
 def _sf_vision(img_bgr: Any, prompt: str, max_tokens: int = 400, timeout: int = 90,
                usage_out: list | None = None) -> str:
-    key = os.environ.get("SILICONFLOW_API_KEY", "")
+    # G08 獨立 key 儲存：provider_credentials cache → env fallback
+    from app.services.provider_keys import cached_provider_key
+
+    key = cached_provider_key("siliconflow") or os.environ.get("SILICONFLOW_API_KEY", "")
     if not key:
         return ""
     ok, buf = cv2.imencode(".jpg", img_bgr, [cv2.IMWRITE_JPEG_QUALITY, 90])

@@ -17,6 +17,8 @@ import subprocess
 from pathlib import Path
 from typing import Any
 
+from app.services.provider_keys import cached_provider_key  # noqa: E402  (G08 independent key store)
+
 import numpy as np
 
 
@@ -88,7 +90,7 @@ def _detect_card_region_vision(image_path: str | Path,
     import os
     import urllib.request
 
-    key = os.environ.get("SILICONFLOW_API_KEY", "")
+    key = cached_provider_key("siliconflow") or os.environ.get("SILICONFLOW_API_KEY", "")
     if not key:
         return None
     try:

@@ -283,7 +283,10 @@ async def _analyze_plain_image(
     """
     import base64
 
-    key = os.environ.get("SILICONFLOW_API_KEY", "")
+    # G08 獨立 key 儲存：provider_credentials（AES-256-GCM at rest）→ env fallback
+    from app.services.provider_keys import load_provider_key
+
+    key = await load_provider_key("siliconflow", tenant_id)
     try:
         with open(path, "rb") as f:
             b64 = base64.b64encode(f.read()).decode()
@@ -456,7 +459,10 @@ async def _transcribe_voice(path: str) -> str:
 
     Returns transcript text, or "" on any failure (never raises).
     """
-    key = os.environ.get("SILICONFLOW_API_KEY", "")
+    # G08 獨立 key 儲存：provider_credentials → env fallback
+    from app.services.provider_keys import load_provider_key
+
+    key = await load_provider_key("siliconflow")
     if not key:
         return ""
     try:
