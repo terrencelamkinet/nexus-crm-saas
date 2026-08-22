@@ -378,7 +378,7 @@ async def generate_briefing(
             "content": content,
             "snapshot": json.dumps({k: v for k, v in data.items() if k in ("weather", "schedule", "tasks")},
                                    ensure_ascii=False, default=str),
-            "modules": modules,
+            "modules": list(modules.keys()),  # text[] column — module keys
         },
     )
 
