@@ -2000,6 +2000,14 @@ async def chat_stream_completion(
         )
         db.add(user_msg)
         await db.flush()
+        # Persist NOW — SSE teardown may not commit reliably (known pattern,
+        # see draft/execute endpoints). Without this the user message survives
+        # only if some later code happens to commit; the assistant message
+        # added inside the generator would otherwise be the only pending row.
+        try:
+            await db.commit()
+        except Exception:
+            pass
 
     # ── Search CRM data ────────────────────────────────────────────────────
     crm_context: dict[str, Any] = {}
@@ -2142,6 +2150,8 @@ async def chat_stream_completion(
     async def event_generator() -> AsyncGenerator[dict[str, str], None]:
         adapter = _default_adapter()
         final_report: UsageReport | None = None
+        full_text_parts: list[str] = []
+        assistant_saved = False
         try:
             # ── Yield citation events before streaming ──
             for cit in citations:
@@ -2203,6 +2213,17 @@ async def chat_stream_completion(
                     token_count=final_report.output_tokens if final_report else 0,
                 )
                 db.add(assistant_msg)
+                await db.flush()
+                # Persist NOW — SSE teardown may not commit reliably. Without
+                # this explicit commit the assistant message stays pending and
+                # gets rolled back when the streaming request ends (observed:
+                # user message saved, assistant INSERT issued but no COMMIT →
+                # chat history shows only the user's side).
+                try:
+                    await db.commit()
+                except Exception:
+                    pass
+                assistant_saved = True
 
                 # ── Embedded write-tool call (allow_edit flow) ────────────
                 action: dict[str, Any] | None = None
@@ -2310,6 +2331,24 @@ async def chat_stream_completion(
             }
         finally:
             await adapter.close()
+            # ── Save partial assistant reply if streaming was interrupted ──
+            # Client disconnect / abort while tokens were already streamed:
+            # without this the chat history shows only the user's side and the
+            # AI reply is lost (user closes the panel mid-stream, waits too
+            # long, or the connection drops).
+            if not assistant_saved and full_text_parts:
+                try:
+                    partial = _strip_tool_call("".join(full_text_parts)).strip()
+                    if partial:
+                        db.add(Message(
+                            session_id=sess.id,
+                            role="assistant",
+                            content=partial,
+                            token_count=0,
+                        ))
+                        await db.commit()
+                except Exception:
+                    pass
             # ── Record quota counters after streaming ─────────────────
             if final_report:
                 try:
