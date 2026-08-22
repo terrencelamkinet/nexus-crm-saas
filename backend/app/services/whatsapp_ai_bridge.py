@@ -104,8 +104,12 @@ def _make_internal_token(user_id: uuid.UUID, tenant_id: uuid.UUID) -> str:
 # we surface the preview here in WhatsApp and let the user confirm/reject in-band.
 # The confirm/reject endpoints live under /api/v1/ai (same internal token works).
 
-_CONFIRM_WORDS = re.compile(r"^(確認|確定|執行|好|好的|ok|yes|y|sure|同意|approved?|accept\b)[!。. ]*$", re.IGNORECASE)
-_CANCEL_WORDS = re.compile(r"^(取消|拒絕|唔要|不要|唔好|no|n|cancel|reject|decline|stop|abort)[!。. ]*$", re.IGNORECASE)
+_CONFIRM_WORDS = re.compile(
+    r"^(?:確認|確定|執行|可以|好的|好|同意|ok|okay|yes|y|sure|go|go\s*ahead|do\s*it|proceed|confirmed|approved?|accept\b)"
+    r"(?:執行|實施|做|create|建立)?[!。. ]*$",
+    re.IGNORECASE,
+)
+_CANCEL_WORDS = re.compile(r"^(取消|拒絕|唔要|不要|唔好|唔使|算啦|no|n|cancel|reject|decline|stop|abort)[!。. ]*$", re.IGNORECASE)
 
 _ACTION_LABELS = {
     "create_task": "新增任務",

@@ -1473,9 +1473,9 @@ async def _run_embedded_tool_call(
 
 _TASK_CREATE_INTENT_RE = re.compile(
     r"(?:"
-    r"(開個|開返個|建個|建立|新增|加入|加個|幫我開|寫入|加提醒|整返個|整個)"
-    r"[\s\S]{0,12}?(task|任務|待辦|提醒|行事曆|calendar|schedule)"
-    r")|(?:記低|記下|幫我記|記住|mark低)",
+    r"(開個|開返個|建個|建立|新增|加入|加個|幫我開|寫入|加提醒|整返個|整個|記錄|記入|記喺|記在|記埋|記返)"
+    r"[\s\S]{0,12}?(task|任務|待辦|提醒|行事曆|calendar|schedule|日程)"
+    r")|(?:記低|記下|幫我記|記住|mark低|記錄低)",
     re.IGNORECASE,
 )
 _TASK_TITLE_RE = re.compile(r"(跟進|follow\s*up|報價|報名|預約|約|回覆|回電|send|寄|交|確認|review|check)\s*([^\s，,。；;、]+)", re.IGNORECASE)
@@ -1484,6 +1484,104 @@ _DUE_DATE_RE = re.compile(
     r"(\d{4}[-/]\d{1,2}[-/]\d{1,2}|\d{1,2}[-/]\d{1,2}[-/]\d{4})",
     re.IGNORECASE,
 )
+
+# ── AI draft-summary parser ─────────────────────────────────────────────
+# DeepSeek 等 model 慣性喺 reply text 出「**草稿摘要：**」而唔出 JSON tool
+# call。呢啲摘要結構穩定（任務標題/優先級/到期日/描述），直接 parse 成
+# create_task params，保證 confirm flow 永遠有 pending action 可以確認。
+_DRAFT_SUMMARY_RE = re.compile(r"(草稿摘要|任務草稿|草稿如下|以下係任務草稿|以下為任務草稿)", re.IGNORECASE)
+_DRAFT_TITLE_RE = re.compile(r"(?:任務標題|任務名稱|標題|title)\s*[：:]\s*([^\n*]+)", re.IGNORECASE)
+_DRAFT_PRIORITY_RE = re.compile(r"優先(?:級|序)?\s*[：:]\s*([^\n*]+)", re.IGNORECASE)
+_DRAFT_DUE_RE = re.compile(r"到期日|due\s*date|deadline", re.IGNORECASE)
+_DRAFT_DESC_RE = re.compile(r"(?:任務描述|描述|description)\s*[：:]\s*([^\n*]+)", re.IGNORECASE)
+_DRAFT_DATE_VALUE_RE = re.compile(r"(\d{4}[-/]\d{1,2}[-/]\d{1,2}|\d{1,2}[-/]\d{1,2}[-/]\d{4})")
+_PRIORITY_MAP = {"高": "high", "high": "high", "urgent": "urgent", "急": "urgent",
+                 "中": "medium", "medium": "medium", "正常": "medium",
+                 "低": "low", "low": "low"}
+
+
+def _parse_draft_summary_params(text: str) -> dict[str, Any] | None:
+    """Parse the AI's markdown draft summary (「**草稿摘要：**」block) into
+    create_task params. Returns None when the text has no recognizable
+    draft summary with a title."""
+    if not _DRAFT_SUMMARY_RE.search(text):
+        return None
+    tm = _DRAFT_TITLE_RE.search(text)
+    if not tm:
+        return None
+    title = tm.group(1).strip().strip("*").strip()
+    if not title or title.lower() in ("未指定", "無", "none"):
+        return None
+    params: dict[str, Any] = {"title": title[:200], "priority": "medium"}
+    pm = _DRAFT_PRIORITY_RE.search(text)
+    if pm:
+        raw_p = pm.group(1).strip().strip("*").strip()
+        # 可能係「高（待確認）」/「高，待確認」— 只取第一個詞
+        raw_p = re.split(r"[（(，,\s]", raw_p)[0]
+        if raw_p in _PRIORITY_MAP:
+            params["priority"] = _PRIORITY_MAP[raw_p]
+    dm = _DRAFT_DUE_RE.search(text)
+    if dm:
+        dval = _DRAFT_DATE_VALUE_RE.search(text[dm.end():dm.end() + 60])
+        if dval:
+            raw_date = dval.group(1).replace("/", "-")
+            parts = raw_date.split("-")
+            try:
+                if len(parts) == 3:
+                    if len(parts[0]) == 4:      # YYYY-M-D
+                        y, m, d = parts
+                    else:                        # D-M-YYYY (HK convention)
+                        d, m, y = parts
+                    params["due_date"] = f"{int(y):04d}-{int(m):02d}-{int(d):02d}"
+            except Exception:
+                pass
+    dem = _DRAFT_DESC_RE.search(text)
+    if dem:
+        desc = dem.group(1).strip().strip("*").strip()
+        if desc and desc.lower() not in ("未指定", "無", "none"):
+            params["description"] = desc[:500]
+    return params
+
+
+async def _draft_task_action(
+    ctx: Any,
+    db: AsyncSession,
+    params: dict[str, Any],
+    session_id: UUID | None,
+) -> dict[str, Any] | None:
+    """Draft a create_task ActionRequest from validated params (shared by the
+    intent-based fallback and the AI draft-summary parser)."""
+    if not params or not params.get("title"):
+        return None
+    tool = TOOL_REGISTRY.get("create_task_draft")
+    if not tool or tool.handler is None:
+        return None
+    try:
+        await _apply_rls_context(db, ctx)
+        await authorize_tool_call(ctx, "create_task_draft", params, db=db)
+    except ScopeViolation as e:
+        return {"error": str(e)}
+    preview = await tool.handler(ctx, params, db, mode="draft")
+    action = ActionRequest(
+        tenant_id=ctx.tenant_id,
+        workspace_id=ctx.workspace_id,
+        user_id=ctx.user_id,
+        session_id=session_id,
+        tool_key="create_task_draft",
+        target_module=tool.module,
+        payload_preview=preview,
+        status="pending",
+    )
+    db.add(action)
+    await db.flush()
+    await db.commit()  # persist NOW — SSE teardown may not commit reliably
+    await db.refresh(action)
+    return {
+        "action_id": str(action.id),
+        "tool_key": "create_task_draft",
+        "params": params,
+        "preview": preview,
+    }
 
 
 def _extract_task_draft_params(last_query: str) -> dict[str, Any] | None:
@@ -1528,37 +1626,9 @@ async def _fallback_draft_task(
     """When the user asked to create a task but no tool call was emitted,
     draft create_task directly (still gated behind user confirmation)."""
     params = _extract_task_draft_params(last_query)
-    if not params or not params.get("title"):
+    if not params:
         return None
-    tool = TOOL_REGISTRY.get("create_task_draft")
-    if not tool or tool.handler is None:
-        return None
-    try:
-        await _apply_rls_context(db, ctx)
-        await authorize_tool_call(ctx, "create_task_draft", params, db=db)
-    except ScopeViolation as e:
-        return {"error": str(e)}
-    preview = await tool.handler(ctx, params, db, mode="draft")
-    action = ActionRequest(
-        tenant_id=ctx.tenant_id,
-        workspace_id=ctx.workspace_id,
-        user_id=ctx.user_id,
-        session_id=session_id,
-        tool_key="create_task_draft",
-        target_module=tool.module,
-        payload_preview=preview,
-        status="pending",
-    )
-    db.add(action)
-    await db.flush()
-    await db.commit()  # persist NOW — SSE teardown may not commit reliably
-    await db.refresh(action)
-    return {
-        "action_id": str(action.id),
-        "tool_key": "create_task_draft",
-        "params": params,
-        "preview": preview,
-    }
+    return await _draft_task_action(ctx, db, params, session_id)
 
 
 # ====================================================================
@@ -1783,6 +1853,16 @@ async def chat_completion(
             # explicit task-create requests (still confirm-gated).
             try:
                 action = await _fallback_draft_task(ctx, db, last_query, UUID(str(sess.id)))
+            except Exception:
+                action = None
+        if action is None and text:
+            # Last resort: the model wrote a markdown draft summary
+            # (「**草稿摘要：**」) instead of a JSON tool call — parse it so the
+            # user's 確認 reply still executes a real action.
+            try:
+                params = _parse_draft_summary_params(display_text)
+                if params:
+                    action = await _draft_task_action(ctx, db, params, UUID(str(sess.id)))
             except Exception:
                 action = None
         if action and "error" in action:
