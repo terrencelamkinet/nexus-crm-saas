@@ -1031,11 +1031,37 @@ async def _build_user_tenant_context(ctx: Any, db: AsyncSession) -> str:
     return "📌 用戶與租戶背景（幫你適應呢位用戶嘅習慣）：\n- " + "\n- ".join(parts)
 
 
+# Channel-aware output format rules — appended to the system prompt so the
+# model renders replies in a format suited to each surface. Portal keeps
+# rich markdown (chatbox renders it); Telegram/WhatsApp get plain-text rules.
+_CHANNEL_STYLE_RULES: dict[str, str] = {
+    "telegram": (
+        "\n\n---\n"
+        "CHANNEL FORMAT RULES (Telegram — 最高優先，凌駕上面所有格式指示)：\n"
+        "1. 禁止任何 markdown symbols：唔可以用 **、*、`、```、# headers、> quotes\n"
+        "2. 用 emoji headers + 純文字分 section（📇 🏢 📋 📅 🚀 💼）\n"
+        "3. 列表用 dash prefix：- 項目\n"
+        "4. 總長度最多 15 行，精簡直接，唔好長篇大論\n"
+        "5. 提到 CRM 資料（contacts/companies/deals）時結尾附：https://nexus-crm.kinet-poc.com\n"
+    ),
+    "whatsapp": (
+        "\n\n---\n"
+        "CHANNEL FORMAT RULES (WhatsApp — 最高優先，凌駕上面所有格式指示)：\n"
+        "1. 禁止任何 markdown symbols：唔可以用 **、*、`、```、# headers、> quotes\n"
+        "2. 用 emoji headers + 純文字分 section（📇 🏢 📋 📅 🚀 💼）\n"
+        "3. 列表用 dash prefix：- 項目\n"
+        "4. 總長度最多 12 行，精簡直接\n"
+        "5. 提到 CRM 資料時結尾附：https://nexus-crm.kinet-poc.com\n"
+    ),
+}
+
+
 async def _build_system_prompt(
     ctx: Any,
     db: AsyncSession,
     context_str: str,
     memory_str: str,
+    channel: str = "portal",
 ) -> str:
     """Build system prompt — prefer active template from PG, fall back to hardcoded.
 
@@ -1094,6 +1120,11 @@ async def _build_system_prompt(
             "7. If the user asks to create/update something, guide them to the appropriate CRM section.",
             _WRITE_TOOL_GUIDE,
         )
+
+    # ── Channel-aware output format ─────────────────────────────────
+    style = _CHANNEL_STYLE_RULES.get((channel or "portal").lower())
+    if style:
+        prompt += style
     return prompt
 
 
@@ -1658,7 +1689,7 @@ async def chat_completion(
 
     memory_lines = await _inject_memory_context(ctx, db, session_id)
     memory_str = "\n".join(memory_lines) if memory_lines else "(No cross-session memory found — prior turns of THIS session, if any, are replayed as messages below.)"
-    system_prompt = await _build_system_prompt(ctx, db, context_str, memory_str)
+    system_prompt = await _build_system_prompt(ctx, db, context_str, memory_str, channel=channel)
 
     # ── Build message list ──────────────────────────────────────────────
     # Client-supplied system messages (e.g. WhatsApp hidden instructions)
@@ -1912,7 +1943,7 @@ async def chat_stream_completion(
 
     memory_lines = await _inject_memory_context(ctx, db, sess.id)
     memory_str = "\n".join(memory_lines) if memory_lines else "No past conversation data available."
-    system_prompt = await _build_system_prompt(ctx, db, context_str, memory_str)
+    system_prompt = await _build_system_prompt(ctx, db, context_str, memory_str, channel="portal")
 
     # ── Build message list ────────────────────────────────────────────────
     # Client system messages are merged (hidden) into the system prompt —
