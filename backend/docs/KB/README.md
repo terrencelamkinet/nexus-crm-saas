@@ -27,6 +27,8 @@
 | 打字時背景 page scroll / panel 開住照 scroll | ChatboxPanel 冇 body scroll lock | [KB-002](./KB-002-ai-chat-panel-send-key-scroll.md) |
 | Widget save 咗 reload 唔見 / 每次 load 重複寫入 | loadAll setOrder 觸發 save effect (stale revert race) | [KB-003](./KB-003-dashboard-widget-save-race.md) |
 | Widget resize 後 reload width/height fallback | resize-grip 只改 DOM 冇 commit state/save | [KB-004](./KB-004-dashboard-widget-resize-fallback.md) |
+| IM AI 回「確認」冇反應、無限重複草稿 | tenant 冇 ai allow_edit / 冇 workspace | [KB-005](./KB-005-tenant-ai-write-flow-infra.md) |
+| AI 草稿 confirm 時 500 tasks_workspace_id_fkey | tenant 冇 workspace → sentinel 全零 | [KB-005](./KB-005-tenant-ai-write-flow-infra.md) |
 
 ---
 
@@ -38,6 +40,7 @@
 | [KB-002](./KB-002-ai-chat-panel-send-key-scroll.md) | 2026-08-07 | AI chat panel: send 鍵走位 + 打字時背景 scroll | 🟠 High | frontend |
 | [KB-003](./KB-003-dashboard-widget-save-race.md) | 2026-08-07 | Dashboard widget save: load 重複寫入 + stale GET 靜默 revert | 🟠 High | frontend |
 | [KB-004](./KB-004-dashboard-widget-resize-fallback.md) | 2026-08-07 | Dashboard widget resize: width/height 只改 DOM 唔 save, reload fallback | 🟠 High | frontend |
+| [KB-005](./KB-005-tenant-ai-write-flow-infra.md) | 2026-08-22 | 新 tenant AI write flow 壞：AI 只出草稿、回「確認」無限循環 | 🔴 Critical | backend |
 
 ---
 
