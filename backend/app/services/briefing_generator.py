@@ -222,8 +222,34 @@ def _build_prompt(slot: str, settings: SecretarySettings, data: dict[str, Any]) 
         f"今日指示：{slot_meta['instructions']}\n\n"
         f"以下係已收集嘅數據（用戶喺 AI 應用揀咗 modules：{', '.join(list(modules_summary.keys()) + ['schedule', 'tasks', 'weather']) if modules_summary else 'default'}）：\n"
         f"```json\n{json.dumps(payload, ensure_ascii=False, default=str, indent=1)}\n```\n\n"
-        "輸出：只有簡報內容（以 emoji title 開頭），唔好加任何 metadata 或解釋。"
     )
+    # Bible 專屬格式規則（有 bible_reading data 時）
+    bible_data = data.get("bible_reading") or []
+    if bible_data:
+        b0 = bible_data[0]
+        season = b0.get("liturgical_season", "常年期")
+        sday = b0.get("liturgical_day", "第1日")
+        links = b0.get("links") or {}
+        bc = links.get("bible_com", "")
+        wd = links.get("we_devote", "")
+        bible_rule = (
+            "📖 靈修 section 必須用以下格式（唔好加減）：\n"
+            f"🙏 靈修 · {_now_hkt().strftime('%Y-%m-%d')}\n"
+            f"⛪ {season} · {sday}\n"
+            "📖 {reference}（{translation_label}）\n"
+            "💡 用 2-3 句總結今日經文嘅核心教導（要具體、基於經文內容）\n"
+            "⏳ 📖 未讀\n"
+            "─── 讀經 ───\n"
+            f"📖 打開和合本修訂版（{bc}）\n"
+            f"📱 用微讀細讀經文（{wd}）\n"
+            "經文內文逐字呈現（text 欄位，唔可以改寫或節錄）\n"
+            "─── Jesus Soaking Worship ───\n"
+            "🎵 平靜安穩親近神 1hr（https://www.youtube.com/results?search_query=jesus+soaking+worship+1+hour）\n"
+            "🎵 敬拜讚美浸泡 1hr（https://www.youtube.com/results?search_query=worship+music+1+hour）\n"
+            "願神的話語成為你今日的力量 ❤️\n"
+        )
+        user += bible_rule + "\n"
+    user += "輸出：只有簡報內容（以 emoji title 開頭），唔好加任何 metadata 或解釋。"
     return [
         {"role": "system", "content": system},
         {"role": "user", "content": user},

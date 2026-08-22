@@ -19,11 +19,11 @@ export interface ModuleOptionChoice {
 
 export interface ModuleOptionDef {
   key: string;                          // e.g. 'region', 'scope', 'time_of_day'
-  type: 'single_select' | 'multi_select' | 'text' | 'book_range';
+  type: 'single_select' | 'multi_select' | 'text' | 'number' | 'book_range';
   labelKey: string;
   choices?: ModuleOptionChoice[];       // single/multi select 用（2–10 個）
   placeholderKey?: string;              // text 用
-  default: string | string[] | Record<string, string>;
+  default: string | string[] | number | Record<string, string>;
 }
 
 /** 聖經 66 卷（canonical order）— 中文名同 backend _resolve_passages_for_day 對齊 */
@@ -42,6 +42,24 @@ export const BIBLE_BOOKS: string[] = [
   '腓利門書', '希伯來書', '雅各書', '彼得前書', '彼得後書', '約翰一書',
   '約翰二書', '約翰三書', '猶大書', '啟示錄',
 ];
+
+/** 66 卷書章數（同 backend BIBLE_BOOKS 一致）— 用嚟自動填 book_selection 範圍 */
+export const BIBLE_CHAPTERS: Record<string, number> = {
+  '創世記': 50, '出埃及記': 40, '利未記': 27, '民數記': 36, '申命記': 34,
+  '約書亞記': 24, '士師記': 21, '路得記': 4, '撒母耳記上': 31, '撒母耳記下': 24,
+  '列王紀上': 22, '列王紀下': 25, '歷代志上': 29, '歷代志下': 36, '以斯拉記': 10,
+  '尼希米記': 13, '以斯帖記': 10, '約伯記': 42, '詩篇': 150, '箴言': 31,
+  '傳道書': 12, '雅歌': 8, '以賽亞書': 66, '耶利米書': 52, '耶利米哀歌': 5,
+  '以西結書': 48, '但以理書': 12, '何西阿書': 14, '約珥書': 3, '阿摩司書': 9,
+  '俄巴底亞書': 1, '約拿書': 4, '彌迦書': 7, '那鴻書': 3, '哈巴谷書': 3,
+  '西番雅書': 3, '哈該書': 2, '撒迦利亞書': 14, '瑪拉基書': 4,
+  '馬太福音': 28, '馬可福音': 16, '路加福音': 24, '約翰福音': 21, '使徒行傳': 28,
+  '羅馬書': 16, '哥林多前書': 16, '哥林多後書': 13, '加拉太書': 6, '以弗所書': 6,
+  '腓立比書': 4, '歌羅西書': 4, '帖撒羅尼迦前書': 5, '帖撒羅尼迦後書': 3,
+  '提摩太前書': 6, '提摩太後書': 4, '提多書': 3, '腓利門書': 1, '希伯來書': 13,
+  '雅各書': 5, '彼得前書': 5, '彼得後書': 3, '約翰一書': 5, '約翰二書': 1,
+  '約翰三書': 1, '猶大書': 1, '啟示錄': 22,
+};
 
 export interface SecretaryModule {
   id: string;
@@ -479,8 +497,16 @@ export const MODULES: SecretaryModule[] = [
         default: '創世記',
       },
       {
+        key: 'start_chapter', type: 'number', labelKey: 'settings.aiApps.bibleStartChapter',
+        default: 1,
+      },
+      {
         key: 'end_book', type: 'book_range', labelKey: 'settings.aiApps.bibleEndBook',
         default: '啟示錄',
+      },
+      {
+        key: 'end_chapter', type: 'number', labelKey: 'settings.aiApps.bibleEndChapter',
+        default: 200,
       },
       {
         key: 'plan', type: 'single_select', labelKey: 'settings.aiApps.biblePlan',
@@ -516,13 +542,10 @@ export const MODULES: SecretaryModule[] = [
       {
         key: 'translation', type: 'single_select', labelKey: 'settings.aiApps.bibleTranslation',
         choices: [
-          { value: 'cuvmp', labelKey: 'settings.aiApps.bibleCuvmp' },
-          { value: 'cnvs', labelKey: 'settings.aiApps.bibleCnvs' },
-          { value: 'esv', labelKey: 'settings.aiApps.bibleEsv' },
-          { value: 'niv', labelKey: 'settings.aiApps.bibleNiv' },
+          { value: 'cuv', labelKey: 'settings.aiApps.bibleCuv' },
           { value: 'kjv', labelKey: 'settings.aiApps.bibleKjv' },
         ],
-        default: 'cuvmp',
+        default: 'cuv',
       },
       {
         key: 'reminder', type: 'single_select', labelKey: 'settings.aiApps.bibleReminder',
@@ -539,7 +562,7 @@ export const MODULES: SecretaryModule[] = [
 export const DEFAULT_MODULES = MODULES.filter(m => m.default).map(m => m.id);
 
 // 每個 module 嘅 options 預設值（同後端 DEFAULT_MODULE_OPTIONS 一致）
-export type ModuleOptionValue = string | string[] | Record<string, string>;
+export type ModuleOptionValue = string | string[] | number | Record<string, string>;
 export function defaultModuleOptions(): Record<string, Record<string, ModuleOptionValue>> {
   const out: Record<string, Record<string, ModuleOptionValue>> = {};
   for (const m of MODULES) {

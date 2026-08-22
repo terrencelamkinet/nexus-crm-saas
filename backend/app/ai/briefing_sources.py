@@ -27,6 +27,55 @@ _UTC = timezone.utc
 HKT = timezone(timedelta(hours=8))
 
 
+def _now_hkt() -> datetime:
+    return datetime.now(HKT)
+
+
+def _liturgical_season(now: datetime) -> dict[str, str]:
+    """簡單教會年曆計算：復活節（Gregorian computus）+ 節期判斷。
+
+    返回 {"season": "聖靈降臨期" 等, "day": "第90日" 等}
+    """
+    y = now.year
+    # 復活節（Anonymous Gregorian algorithm）
+    a, b, c = y % 19, y // 100, y % 100
+    d = (19 * a + b - b // 4 - (b - (b + 8) // 25 + 1) // 3 + 15) % 30
+    e = (2 * (b % 4) + 2 * (c // 4) - d - (c % 4) + 32) % 7
+    month = (d + e - 7 * ((a + 11 * d + 22 * e) // 451) + 114) // 31
+    day = ((d + e - 7 * ((a + 11 * d + 22 * e) // 451) + 114) % 31) + 1
+    easter = datetime(y, month, day, tzinfo=HKT)
+    date = now.replace(hour=0, minute=0, second=0, microsecond=0)
+
+    def days_since(ref: datetime) -> int:
+        return (date - ref.replace(tzinfo=HKT)).days
+
+    seasons = [
+        (easter - timedelta(days=46), "大齋期", 40),          # Ash Wed
+        (easter - timedelta(days=7), "聖週", 7),              # Palm Sunday
+        (easter, "復活節期", 50),
+        (easter + timedelta(days=50), "聖靈降臨期", 9999),    # Pentecost
+    ]
+    # Advent（將臨期）— 聖誕前第4個星期日開始
+    christmas = datetime(y, 12, 25, tzinfo=HKT)
+    advent = christmas - timedelta(days=christmas.weekday() + 21)  # 4th Sunday before
+    if date >= advent:
+        seasons.append((advent, "將臨期", 24))
+    elif date < datetime(y, 1, 6, tzinfo=HKT):  # 1月6日前仍屬聖誕節期
+        seasons.append((datetime(y, 12, 25, tzinfo=HKT), "聖誕節期", 12))
+
+    best = ("常年期", "第1日")
+    for start, name, length in seasons:
+        if date >= start:
+            d = days_since(start) + 1
+            if name == "聖靈降臨期":
+                best = ("聖靈降臨期", f"第{d}日")
+            elif name in ("復活節期", "大齋期", "將臨期"):
+                best = (name, f"第{d}日")
+            else:
+                best = (name, f"第{d}日")
+    return {"season": best[0], "day": best[1]}
+
+
 def _hkt_iso(dt: Any) -> str:
     """Serialize a datetime as HKT wall-clock ISO ('YYYY-MM-DDTHH:MM:SS')."""
     if dt.tzinfo:
@@ -945,7 +994,7 @@ async def personal_reminders(ctx: AISessionContext, db: AsyncSession, options: d
 
 
 # ═══════════════════════════════════════════════════════════════
-# Bible Reading — 讀經進度 module（2026-08-22 spec）
+# Bible Reading — 讀經進度 module（2026-08-22 spec v2 — 真實章數 + 起點章節）
 # ═══════════════════════════════════════════════════════════════
 
 BIBLE_PLAN_TOTAL_DAYS = {
@@ -958,78 +1007,134 @@ BIBLE_PLAN_TOTAL_DAYS = {
 
 # 譯本 → 中文名（display 用）
 BIBLE_TRANSLATION_LABELS = {
-    "cuvmp": "和合本", "cnvs": "新譯本", "esv": "ESV", "niv": "NIV", "kjv": "KJV",
+    "cuvmp": "和合本修訂版", "cuv": "和合本", "cnvs": "新譯本",
+    "esv": "ESV", "niv": "NIV", "kjv": "KJV",
 }
+
+# 66 卷 canonical order + 真實章數（KJV/CUV/CUVMP 一致）
+BIBLE_BOOKS = [
+    ("創世記", 50), ("出埃及記", 40), ("利未記", 27), ("民數記", 36), ("申命記", 34),
+    ("約書亞記", 24), ("士師記", 21), ("路得記", 4), ("撒母耳記上", 31), ("撒母耳記下", 24),
+    ("列王紀上", 22), ("列王紀下", 25), ("歷代志上", 29), ("歷代志下", 36), ("以斯拉記", 10),
+    ("尼希米記", 13), ("以斯帖記", 10), ("約伯記", 42), ("詩篇", 150), ("箴言", 31),
+    ("傳道書", 12), ("雅歌", 8), ("以賽亞書", 66), ("耶利米書", 52), ("耶利米哀歌", 5),
+    ("以西結書", 48), ("但以理書", 12), ("何西阿書", 14), ("約珥書", 3), ("阿摩司書", 9),
+    ("俄巴底亞書", 1), ("約拿書", 4), ("彌迦書", 7), ("那鴻書", 3), ("哈巴谷書", 3),
+    ("西番雅書", 3), ("哈該書", 2), ("撒迦利亞書", 14), ("瑪拉基書", 4),
+    ("馬太福音", 28), ("馬可福音", 16), ("路加福音", 24), ("約翰福音", 21), ("使徒行傳", 28),
+    ("羅馬書", 16), ("哥林多前書", 16), ("哥林多後書", 13), ("加拉太書", 6), ("以弗所書", 6),
+    ("腓立比書", 4), ("歌羅西書", 4), ("帖撒羅尼迦前書", 5), ("帖撒羅尼迦後書", 3),
+    ("提摩太前書", 6), ("提摩太後書", 4), ("提多書", 3), ("腓利門書", 1), ("希伯來書", 13),
+    ("雅各書", 5), ("彼得前書", 5), ("彼得後書", 3), ("約翰一書", 5), ("約翰二書", 1),
+    ("約翰三書", 1), ("猶大書", 1), ("啟示錄", 22),
+]
+BIBLE_BOOK_NAMES = [b[0] for b in BIBLE_BOOKS]
+
+# 短書卷（≤2 章）— full_passage 模式一次過讀完整卷
+SHORT_BOOKS = {"俄巴底亞書", "腓利門書", "約翰二書", "約翰三書", "猶大書", "該亞書" if False else "哈該書"}
+
+
+def _book_range(
+    book_selection: str, start_book: str | None, end_book: str | None,
+) -> list[tuple[str, int]]:
+    """Resolve book_selection / custom range → ordered [(book, chapters), ...]."""
+    if book_selection == "ot_full":
+        return BIBLE_BOOKS[:39]
+    if book_selection == "nt_full":
+        return BIBLE_BOOKS[39:]
+    if book_selection == "psalms_proverbs":
+        return [("詩篇", 150), ("箴言", 31)]
+    if book_selection == "gospels":
+        return BIBLE_BOOKS[39:43]
+    if book_selection == "pentateuch":
+        return BIBLE_BOOKS[:5]
+    if book_selection == "pauline_epistles":
+        return BIBLE_BOOKS[45:58]
+    if book_selection == "custom_range":
+        try:
+            s = BIBLE_BOOK_NAMES.index(start_book) if start_book else 0
+            e = BIBLE_BOOK_NAMES.index(end_book) if end_book else len(BIBLE_BOOKS) - 1
+        except ValueError:
+            s, e = 0, len(BIBLE_BOOKS) - 1
+        if s > e:
+            s, e = e, s
+        return BIBLE_BOOKS[s:e + 1]
+    return BIBLE_BOOKS  # ot_nt_mixed / default
 
 
 def _resolve_passages_for_day(
     plan: str, book_selection: str, day_index: int, chapters_per_push: str,
     start_book: str | None = None, end_book: str | None = None,
+    start_chapter: int | None = None, end_chapter: int | None = None,
 ) -> list[str]:
-    """Map (plan, day_index) → list of scripture references.
+    """Map (plan, day_index) → list of scripture references (真實章數順序).
 
-    Static deterministic mapping — 唔 call 3rd-party API。以 365 日一年計劃
-    為基準，簡單線性分配；90/30 日計劃壓縮比例。實際 verse 內容由
-    bible_verses 表提供（seed 匯入），呢度只出 reference 範圍。
-    book_selection='custom_range' 時用 start_book/end_book 界定範圍。
+    - 用 BIBLE_BOOKS 真實章數，由 start (book, chapter) 順序推進
+    - chapters_per_push: '1'|'2'|'3' = 每日幾章；'full_passage' = 整卷（短卷適用）
+    - day_index 推進：每日 chapters_per_push 章，行完範圍自動 wrap
+    - start_chapter / end_chapter：容許由任何一章開始／喺任何一章停止
     """
-    # 舊約 39 卷（粗略 929 章）／新約 27 卷（260 章）— 用簡化比例
-    ot_chapters = 929
-    nt_chapters = 260
-    total_chapters = ot_chapters + nt_chapters
-
-    ratio = {"one_year": 1.0, "ninety_days": 365 / 90, "thirty_days_topical": 365 / 30,
-             "chronological": 1.0, "custom_pace": 1.0}.get(plan, 1.0)
-    per_day = int(chapters_per_push) if chapters_per_push not in ("full_passage", None) else 1
-
-    # 書卷順序（簡化 — 舊約 + 新約 canonical order，用 common book names）
-    ot_books = ["創世記", "出埃及記", "利未記", "民數記", "申命記", "約書亞記", "士師記",
-                "路得記", "撒母耳記上", "撒母耳記下", "列王紀上", "列王紀下", "歷代志上",
-                "歷代志下", "以斯拉記", "尼希米記", "以斯帖記", "約伯記", "詩篇", "箴言",
-                "傳道書", "雅歌", "以賽亞書", "耶利米書", "耶利米哀歌", "以西結書", "但以理書",
-                "何西阿書", "約珥書", "阿摩司書", "俄巴底亞書", "約拿書", "彌迦書", "那鴻書",
-                "哈巴谷書", "西番雅書", "哈該書", "撒迦利亞書", "瑪拉基書"]
-    nt_books = ["馬太福音", "馬可福音", "路加福音", "約翰福音", "使徒行傳", "羅馬書",
-                "哥林多前書", "哥林多後書", "加拉太書", "以弗所書", "腓立比書", "歌羅西書",
-                "帖撒羅尼迦前書", "帖撒羅尼迦後書", "提摩太前書", "提摩太後書", "提多書",
-                "腓利門書", "希伯來書", "雅各書", "彼得前書", "彼得後書", "約翰一書",
-                "約翰二書", "約翰三書", "猶大書", "啟示錄"]
-
-    # book_selection → 用邊啲書卷
-    if book_selection == "ot_full":
-        books = ot_books
-    elif book_selection == "nt_full":
-        books = nt_books
-    elif book_selection == "psalms_proverbs":
-        books = ["詩篇", "箴言"]
-    elif book_selection == "gospels":
-        books = ["馬太福音", "馬可福音", "路加福音", "約翰福音"]
-    elif book_selection == "pentateuch":
-        books = ot_books[:5]
-    elif book_selection == "pauline_epistles":
-        books = ["羅馬書", "哥林多前書", "哥林多後書", "加拉太書", "以弗所書",
-                 "腓立比書", "歌羅西書", "帖撒羅尼迦前書", "帖撒羅尼迦後書",
-                 "提摩太前書", "提摩太後書", "提多書", "腓利門書"]
-    elif book_selection == "custom_range":
-        # start_book / end_book（66 卷 canonical order）之間嘅書卷
-        all_books = ot_books + nt_books
-        try:
-            s = all_books.index(start_book) if start_book else 0
-            e = all_books.index(end_book) if end_book else len(all_books) - 1
-        except ValueError:
-            s, e = 0, len(all_books) - 1
-        if s > e:
-            s, e = e, s
-        books = all_books[s:e + 1]
-    else:  # ot_nt_mixed / custom
-        books = ot_books + nt_books
-
-    # 簡化：每本書當 1 章/day 比例 — 用 day_index 對應書卷（循環）
+    books = _book_range(book_selection, start_book, end_book)
     if not books:
         return []
-    book = books[day_index % len(books)]
-    ch = (day_index // len(books)) % 5 + 1  # 粗略 chapter 循環 1-5
-    return [f"{book} {ch}"]
+
+    per_day = int(chapters_per_push) if chapters_per_push not in ("full_passage", None) else 1
+
+    # 起點：start_book/start_chapter（default 範圍第一本書第1章）
+    if book_selection == "custom_range" and start_book and start_chapter:
+        try:
+            s_book_idx = BIBLE_BOOK_NAMES.index(start_book)
+        except ValueError:
+            s_book_idx = 0
+        # 起點書卷喺範圍內先計
+        start_offset = 0
+        for b_name, b_ch in books:
+            if b_name == start_book:
+                break
+            start_offset += b_ch
+        start_ch = max(1, min(start_chapter, dict(books).get(start_book, 1)))
+        # start_chapter 用 chapter-1 偏移（第1章 = offset 0）
+        start_offset += (start_ch - 1)
+    else:
+        start_offset = 0
+
+    # 全範圍章數（由 start offset 計到 range 尾）
+    total_chapters_all = sum(ch for _, ch in books)
+    # end_chapter 終點：如果指定咗，範圍尾 = end_book 嘅 end_chapter（0 = 讀到書卷尾）
+    if book_selection == "custom_range" and end_book and end_chapter:
+        try:
+            e_book_idx = BIBLE_BOOK_NAMES.index(end_book)
+        except ValueError:
+            e_book_idx = len(books) - 1
+        # 計算 end_book 之前所有章數（由範圍起計）
+        end_offset = 0
+        for b_name, b_ch in books:
+            if b_name == end_book:
+                break
+            end_offset += b_ch
+        e_ch = end_chapter if end_chapter > 0 else dict(books).get(end_book, 1)
+        e_ch = max(1, min(e_ch, dict(books).get(end_book, 1)))
+        end_offset += e_ch  # 讀到 end_book 嘅 end_chapter（含）
+        range_end = end_offset
+    else:
+        range_end = total_chapters_all
+    total_in_range = range_end - start_offset
+    if total_in_range <= 0:
+        return []
+
+    # day_index → 線性 offset（wrap）
+    pos = (start_offset + day_index * per_day) % total_chapters_all
+    if pos < start_offset or pos >= range_end:
+        pos = start_offset + ((pos - start_offset) % total_in_range)
+
+    # 由 pos 開始攞 per_day 章（逐章行，跨書卷）
+    refs: list[str] = []
+    chapters = [(name, ch_n) for name, ch_cnt in books for ch_n in range(1, ch_cnt + 1)]
+    # 過濾 start offset 之前嘅 chapters（除非 wrap）
+    effective = chapters[start_offset:range_end] + chapters[start_offset:start_offset + (range_end - start_offset)]
+    for i in range(per_day):
+        refs.append(f"{effective[(pos - start_offset + i) % len(effective)][0]} {effective[(pos - start_offset + i) % len(effective)][1]}")
+    return refs
 
 
 async def bible_reading(ctx: AISessionContext, db: AsyncSession, options: dict | None = None) -> list[dict[str, Any]]:
@@ -1055,6 +1160,13 @@ async def bible_reading(ctx: AISessionContext, db: AsyncSession, options: dict |
     reminder = opts.get("reminder", "enabled")
     start_book = opts.get("start_book") or None
     end_book = opts.get("end_book") or None
+    start_chapter = opts.get("start_chapter") or None
+    end_chapter = opts.get("end_chapter") or None
+    try:
+        start_chapter = int(start_chapter) if start_chapter else None
+        end_chapter = int(end_chapter) if end_chapter else None
+    except (TypeError, ValueError):
+        start_chapter, end_chapter = None, None
 
     from app.models.bible_reading import BibleReadingProgress, BibleVerse
 
@@ -1085,6 +1197,7 @@ async def bible_reading(ctx: AISessionContext, db: AsyncSession, options: dict |
             plan=plan, book_selection=book_selection,
             day_index=progress.day_index, chapters_per_push=chapters,
             start_book=start_book, end_book=end_book,
+            start_chapter=start_chapter, end_chapter=end_chapter,
         )
         if not passages:
             return []
@@ -1124,6 +1237,47 @@ async def bible_reading(ctx: AISessionContext, db: AsyncSession, options: dict |
     except Exception:
         return []
 
+    # ── Bible app 連結（redirect）──
+    # bible.com (YouVersion) 深連結：https://www.bible.com/bible/<ver>/<book>.<ch>
+    # 微讀聖經 (WeDevote) 深連結：https://wd.bible/<book>.<ch>  (fallback 主站)
+    # 教會年曆：簡單計算節期（跟 Gregorian 固定日 + 復活節推算）
+    def _bible_links(ref: str) -> dict[str, str]:
+        # ref: 「以西結書 47:1」→ book + chapter
+        try:
+            book_cn, ch_part = ref.rsplit(" ", 1)
+            ch = ch_part.split(":")[0]
+        except ValueError:
+            return {}
+        # 英文書名 map（bible.com 用英文縮寫）
+        en_abbr = {
+            "創世記": "GEN", "出埃及記": "EXO", "利未記": "LEV", "民數記": "NUM",
+            "申命記": "DEU", "約書亞記": "JOS", "士師記": "JDG", "路得記": "RUT",
+            "撒母耳記上": "1SA", "撒母耳記下": "2SA", "列王紀上": "1KI", "列王紀下": "2KI",
+            "歷代志上": "1CH", "歷代志下": "2CH", "以斯拉記": "EZR", "尼希米記": "NEH",
+            "以斯帖記": "EST", "約伯記": "JOB", "詩篇": "PSA", "箴言": "PRO",
+            "傳道書": "ECC", "雅歌": "SNG", "以賽亞書": "ISA", "耶利米書": "JER",
+            "耶利米哀歌": "LAM", "以西結書": "EZK", "但以理書": "DAN", "何西阿書": "HOS",
+            "約珥書": "JOL", "阿摩司書": "AMO", "俄巴底亞書": "OBA", "約拿書": "JON",
+            "彌迦書": "MIC", "那鴻書": "NAM", "哈巴谷書": "HAB", "西番雅書": "ZEP",
+            "哈該書": "HAG", "撒迦利亞書": "ZEC", "瑪拉基書": "MAL",
+            "馬太福音": "MAT", "馬可福音": "MRK", "路加福音": "LUK", "約翰福音": "JHN",
+            "使徒行傳": "ACT", "羅馬書": "ROM", "哥林多前書": "1CO", "哥林多後書": "2CO",
+            "加拉太書": "GAL", "以弗所書": "EPH", "腓立比書": "PHP", "歌羅西書": "COL",
+            "帖撒羅尼迦前書": "1TH", "帖撒羅尼迦後書": "2TH", "提摩太前書": "1TI",
+            "提摩太後書": "2TI", "提多書": "TIT", "腓利門書": "PHM", "希伯來書": "HEB",
+            "雅各書": "JAS", "彼得前書": "1PE", "彼得後書": "2PE", "約翰一書": "1JN",
+            "約翰二書": "2JN", "約翰三書": "3JN", "猶大書": "JUD", "啟示錄": "REV",
+        }
+        abbr = en_abbr.get(book_cn, "")
+        if not abbr:
+            return {}
+        bible_com = f"https://www.bible.com/bible/1/{abbr}.{ch}"
+        we_devote = f"https://wd.bible/{book_cn}.{ch}" if False else f"https://www.we-devote.com/bible?q={book_cn}%20{ch}"
+        return {"bible_com": bible_com, "we_devote": we_devote}
+
+    now_hkt = _now_hkt()
+    liturgical = _liturgical_season(now_hkt)
+
     return [
         {
             "reference": v.reference, "text": v.text, "translation": translation,
@@ -1131,6 +1285,9 @@ async def bible_reading(ctx: AISessionContext, db: AsyncSession, options: dict |
             "day_index": progress.day_index,
             "total_days": BIBLE_PLAN_TOTAL_DAYS.get(plan),
             "reminder": reminder,
+            "links": _bible_links(str(v.reference)),
+            "liturgical_season": liturgical["season"],
+            "liturgical_day": liturgical["day"],
         }
         for v in verses
     ]

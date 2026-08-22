@@ -584,7 +584,10 @@
       "trafficDest": "Destination address",
       "trafficDestPh": "e.g. Kwun Tong MTR",
       "bibleStartBook": "Start book",
-      "bibleEndBook": "End book"
+      "bibleStartChapter": "Start chapter (from chapter)",
+      "bibleEndBook": "End book",
+      "bibleEndChapter": "End chapter (0 = to end of book)",
+      "bibleCuv": "CUV (Chinese)"
     }
   },
   "common": {

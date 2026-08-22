@@ -584,7 +584,10 @@
       "trafficDest": "目的地地址",
       "trafficDestPh": "例如：觀塘港鐵站",
       "bibleStartBook": "開始書卷",
-      "bibleEndBook": "結束書卷"
+      "bibleStartChapter": "開始章節（第幾章起）",
+      "bibleEndBook": "結束書卷",
+      "bibleEndChapter": "結束章節（讀到第幾章止，0 = 讀到書卷尾）",
+      "bibleCuv": "和合本（CUV）"
     }
   },
   "common": {

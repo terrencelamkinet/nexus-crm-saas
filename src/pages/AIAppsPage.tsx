@@ -6,7 +6,7 @@ import { apiClient } from '../lib/api';
 import { useEscapeKey } from '../lib/useEscapeKey';
 import {
   MODULES, useSecretarySettings, CONNECTED_FALLBACK, normalizeModules,
-  BIBLE_BOOKS,
+  BIBLE_BOOKS, BIBLE_CHAPTERS,
   type ModuleOptionValue, type SecretaryModule,
   type ToneId, type LangPref, type DetailLevel, type ChannelId,
 } from '../hooks/useSecretarySettings';
@@ -25,6 +25,17 @@ const clampMins = (mins: number): number => Math.max(0, Math.min(1439, mins));
 
 const WORKDAYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
 const TONES: ToneId[] = ['professional', 'friendly', 'direct', 'encouraging', 'formal'];
+
+// bible_reading book_selection 預設組合 → BIBLE_BOOKS index 範圍（同 backend _book_range 一致）
+const BIBLE_PRESET_RANGES: Record<string, [number, number]> = {
+  ot_full: [0, 38],            // 創世記 → 瑪拉基書
+  nt_full: [39, 65],           // 馬太福音 → 啟示錄
+  ot_nt_mixed: [0, 65],        // 創世記 → 啟示錄
+  psalms_proverbs: [18, 19],   // 詩篇 → 箴言
+  gospels: [39, 42],           // 馬太福音 → 約翰福音
+  pentateuch: [0, 4],          // 創世記 → 申命記
+  pauline_epistles: [45, 57],  // 哥林多前書 → 希伯來書（同 backend BIBLE_BOOKS[45:58]）
+};
 const CHANNELS: { id: ChannelId; icon: string; nameKey: string; hintKey: string; comingSoon?: boolean }[] = [
   { id: 'whatsapp', icon: '💬', nameKey: 'settings.aiApps.chWhatsapp', hintKey: 'settings.aiApps.chWhatsappHint' },
   { id: 'telegram', icon: '✈️', nameKey: 'settings.aiApps.chTelegram', hintKey: 'settings.aiApps.chTelegramHint' },
@@ -162,6 +173,19 @@ export default function AIAppsPage() {
     for (const o of (m.options ?? [])) {
       draft[o.key] = (o.key in existing) ? existing[o.key] : o.default;
     }
+    // bible_reading：book_selection 係預設組合 → 自動同步範圍顯示（custom_range 保留用家值）
+    if (m.id === 'bible_reading') {
+      const sel = String(draft.book_selection ?? '');
+      const r = BIBLE_PRESET_RANGES[sel];
+      if (r) {
+        const startBook = BIBLE_BOOKS[r[0]];
+        const endBook = BIBLE_BOOKS[r[1]];
+        draft.start_book = startBook;
+        draft.start_chapter = 1;
+        draft.end_book = endBook;
+        draft.end_chapter = BIBLE_CHAPTERS[endBook] ?? 1;
+      }
+    }
     setDraftOpts(draft);
     setEditingModule(m);
   };
@@ -178,6 +202,17 @@ export default function AIAppsPage() {
   };
   const setDraft = (key: string, value: ModuleOptionValue) => {
     setDraftOpts(prev => ({ ...prev, [key]: value }));
+  };
+  // bible_reading book_selection 預設組合 → 自動填開始/結束書卷+章節（custom_range 唔郁）
+  const applyBiblePreset = (sel: string) => {
+    const r = BIBLE_PRESET_RANGES[sel];
+    if (!r) return;
+    const startBook = BIBLE_BOOKS[r[0]];
+    const endBook = BIBLE_BOOKS[r[1]];
+    setDraft('start_book', startBook);
+    setDraft('start_chapter', 1);
+    setDraft('end_book', endBook);
+    setDraft('end_chapter', BIBLE_CHAPTERS[endBook] ?? 1);
   };
 
   useEscapeKey(closeModuleEditor, !!editingModule);
@@ -436,6 +471,24 @@ export default function AIAppsPage() {
                         </div>
                       );
                     }
+                    if (o.type === 'number') {
+                      return (
+                        <div key={o.key} className="asec-editor-field">
+                          <span className="asec-module-option-label">{t(o.labelKey)}</span>
+                          <input
+                            type="number"
+                            min={1}
+                            max={200}
+                            className="asec-editor-input"
+                            value={String(cur ?? '1')}
+                            onChange={e => {
+                              const v = e.target.value;
+                              setDraft(o.key, v === '' ? '' : Number(v));
+                            }}
+                          />
+                        </div>
+                      );
+                    }
                     if (o.type === 'book_range') {
                       const bookVal = String(cur ?? BIBLE_BOOKS[0]);
                       return (
@@ -467,6 +520,10 @@ export default function AIAppsPage() {
                                 setDraft(o.key, has ? curArr.filter(x => x !== c.value) : [...curArr, c.value]);
                               } else {
                                 setDraft(o.key, c.value);
+                                // bible_reading book_selection：揀預設組合 → 自動填範圍
+                                if (editingModule.id === 'bible_reading' && o.key === 'book_selection') {
+                                  applyBiblePreset(c.value);
+                                }
                               }
                             };
                             return (
