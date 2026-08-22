@@ -3,6 +3,7 @@ import { Outlet, useLocation } from 'react-router-dom'
 import SidebarV2 from './SidebarV2'
 import HeaderV2 from './HeaderV2'
 import ChatboxPanel from '../ChatboxPanel'
+import MobileNavHost from '../mobile/MobileNavHost'
 
 const COLLAPSE_KEY = 'nexus-sidebar-collapsed'
 
@@ -51,6 +52,7 @@ export default function LayoutV2() {
         </main>
       </div>
       <ChatboxPanel />
+      <MobileNavHost />
     </div>
   )
 }
