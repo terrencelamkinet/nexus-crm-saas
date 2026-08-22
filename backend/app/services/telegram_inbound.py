@@ -309,6 +309,12 @@ async def handle_telegram_message(mapping: TelegramBotMapping, text: str) -> str
     # in-band and remember the pending action_id so the user's next
     # 確認/取消 reply executes or rejects it.
     action = data.get("action")
+    import logging as _log
+    _log.getLogger("telegram_inbound.confirm").info(
+        "chat resp action=%s session_id=%s",
+        bool(action and action.get("action_id")),
+        new_session_id,
+    )
     if action and action.get("action_id"):
         action_id = str(action["action_id"])
         preview_text = _format_action_preview(action)
@@ -323,8 +329,12 @@ async def handle_telegram_message(mapping: TelegramBotMapping, text: str) -> str
             if m:
                 mc: dict[str, Any] = dict(cast(dict[str, Any], m.config or {}))
                 mc["pending_action_id"] = action_id
-                m.config = mc
+                m.config = cast(Any, mc)
                 await db.commit()
+    else:
+        _log.getLogger("telegram_inbound.confirm").info(
+            "chat resp 冇 action envelope — 用戶確認將被當普通訊息"
+        )
 
     return reply
 
@@ -934,20 +944,24 @@ async def handle_webhook_update(data: dict) -> None:
                 return  # test ping — ignore entirely, keep watermark
             await process_update(mapping, data)
             if upd_id is not None:
-                # ⚠️ 唔好用上面 capture 嘅 stale cfg 覆寫 mapping.config —
-                # process_update → handle_telegram_message 可能已存入
-                # ai_session_id / pending_action_id（confirm flow 依賴佢）。
-                # 必須 re-load fresh row，merge 之後先寫 watermark。
-                fresh = (
-                    await db.execute(
-                        select(TelegramBotMapping).where(TelegramBotMapping.id == mapping.id)
-                    )
-                ).scalar_one_or_none()
-                if fresh:
-                    fresh_cfg: dict[str, Any] = dict(cast(dict[str, Any], fresh.config or {}))
-                    fresh_cfg["tg_last_webhook_update_id"] = upd_id
-                    fresh.config = cast(Any, fresh_cfg)
-                    await db.commit()
+                # ⚠️ 更新 watermark 必須用「獨立 session」— 唔可以用而家呢個
+                # session：佢嘅 transaction snapshot 喺開頭 load mapping 時已固定
+                # （MVCC），process_update → handle_telegram_message 用另一個
+                # session 存入 pending_action_id / ai_session_id 之後，
+                # 喺呢個舊 transaction 度 fresh re-load 都睇唔到（舊 snapshot）→
+                # 照樣覆寫沖走 pending_action_id。
+                # 新 session 嘅 SELECT 一定睇到 process_update 嘅 commit。
+                async with async_session() as wm_db:
+                    fresh = (
+                        await wm_db.execute(
+                            select(TelegramBotMapping).where(TelegramBotMapping.id == mapping.id)
+                        )
+                    ).scalar_one_or_none()
+                    if fresh:
+                        fresh_cfg: dict[str, Any] = dict(cast(dict[str, Any], fresh.config or {}))
+                        fresh_cfg["tg_last_webhook_update_id"] = upd_id
+                        fresh.config = cast(Any, fresh_cfg)
+                        await wm_db.commit()
     except Exception:  # noqa: BLE001 — one bad update must not kill the webhook path
         _log.getLogger("telegram_inbound").exception(
             "webhook update processing failed: %s", str(data)[:200]
