@@ -35,6 +35,7 @@ export default function MobileBottomNav({ onOpenAiSearch, onScanCard, onQuickAdd
   const { user, logout } = useAuth();
   const mods = useModuleSettings();
   const salesOn = mods['sales'] !== false;
+  const addTiles = ADD_TILES_BASE.filter(t => t.id !== 'deal' || salesOn);
   const [sheet, setSheet] = useState<'workspace' | 'record' | 'add' | 'settings' | null>(null);
   const [dark, setDark] = useState(() => document.documentElement.getAttribute('data-theme') === 'dark');
   const [notifications, setNotifications] = useState<{ id: string; title: string; body?: string; status?: string }[]>([]);
@@ -153,7 +154,7 @@ export default function MobileBottomNav({ onOpenAiSearch, onScanCard, onQuickAdd
           </button>
           <div className="mnav-section-label">Quick Create</div>
           <div className="mnav-add-grid">
-            {ADD_TILES.map(tile => (
+            {addTiles.map(tile => (
               <button key={tile.id} type="button" className="mnav-add-tile" onClick={() => { setSheet(null); onQuickAdd(tile.id); }}>
                 <span className="mnav-add-tile-icon" style={{ background: tile.color }}><tile.icon /></span>
                 <span>{tile.label}</span>
@@ -220,10 +221,11 @@ export default function MobileBottomNav({ onOpenAiSearch, onScanCard, onQuickAdd
   );
 }
 
-const ADD_TILES = [
+const ADD_TILES_BASE = [
   { id: 'project', label: 'Project', icon: FolderKanban, color: 'var(--color-primary)' },
   { id: 'contact', label: 'Contact', icon: Users,        color: 'var(--color-blue)' },
   { id: 'company', label: 'Company', icon: Building2,    color: 'var(--color-warning)' },
+  { id: 'deal',    label: 'Deal',    icon: TrendingUp,   color: 'var(--color-gold, #b8901a)' },
   { id: 'task',    label: 'Task',    icon: CheckSquare,  color: 'var(--color-purple)' },
   { id: 'event',   label: 'Event',   icon: Calendar,     color: 'var(--color-success)' },
 ];

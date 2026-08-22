@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { apiClient, getStoredAuth } from '../../lib/api';
 import FollowUpChips from '../ai/chat/core/FollowUpChips';
+import MarkdownMessage from '../MarkdownRenderer';
 import {
   Search, Plus, PencilLine, Trash2, CalendarClock, Camera, Mic, ArrowUp, X, Sparkles,
 } from 'lucide-react';
@@ -313,12 +314,10 @@ export default function AiSearchPanel({ open, onClose, onScanCard }: Props) {
                   </div>
                 </>
               )}
-              {messages.map((m, i) => {
-                const prev = messages[i - 1];
-                const prevSameRole = prev && prev.role === m.role;
+              {messages.map((m) => {
                 if (m.role === 'user') {
                   return (
-                    <div key={m.id} className="cb-msg-user" style={{ marginTop: prevSameRole ? -12 : 0 }}>
+                    <div key={m.id} className="cb-msg-user">
                       <div className="cb-msg-user-bubble">{m.content}</div>
                     </div>
                   );
@@ -326,7 +325,9 @@ export default function AiSearchPanel({ open, onClose, onScanCard }: Props) {
                 return (
                   <div key={m.id} className="cb-msg-ai-row">
                     <div className="cb-msg-ai-body ai-card">
-                      <div className="msg-ai-content cb-msg-ai-content">{m.content}</div>
+                      <div className="msg-ai-content cb-msg-ai-content">
+                        <MarkdownMessage content={m.content} />
+                      </div>
                       {m.citations && m.citations.length > 0 && (
                         <div className="cb-citation-wrap">
                           <div className="cb-citation-chip">
@@ -348,7 +349,9 @@ export default function AiSearchPanel({ open, onClose, onScanCard }: Props) {
               {isStreaming && streamingContent && (
                 <div className="cb-msg-ai-row">
                   <div className="cb-msg-ai-body ai-card is-thinking">
-                    <div className="msg-ai-content cb-msg-ai-content">{streamingContent}</div>
+                    <div className="msg-ai-content cb-msg-ai-content">
+                      <MarkdownMessage content={streamingContent} streaming />
+                    </div>
                   </div>
                 </div>
               )}

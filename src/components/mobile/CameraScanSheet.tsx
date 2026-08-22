@@ -114,7 +114,7 @@ export default function CameraScanSheet({ open, onClose, onSaved }: Props) {
               </div>
               {error && <div className="aisp-error">{error}</div>}
               <button type="button" className="cam-shutter" onClick={capture} disabled={busy}>
-                {busy ? '識別中…' : '📸 拍攝名片'}
+                {busy ? '識別中…（約 15 秒）' : '📸 拍攝名片'}
               </button>
             </>
           ) : (

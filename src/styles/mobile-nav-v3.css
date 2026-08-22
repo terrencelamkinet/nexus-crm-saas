@@ -253,7 +253,7 @@
 }
 
 /* ═══════════ AI & Search panel ═══════════ */
-.aisp-panel { min-height: 46vh; }
+.aisp-panel { min-height: 46vh; overflow: hidden; }
 /* v6.71: AI tab = real chat — session bar + message area + bottom composer */
 .aisp-chat { display: flex; flex-direction: column; flex: 1; min-height: 0; }
 .aisp-session-bar {
