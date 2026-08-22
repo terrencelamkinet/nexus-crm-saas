@@ -263,7 +263,7 @@ async def handle_telegram_message(mapping: TelegramBotMapping, text: str) -> str
         resp = await client.post(
             AI_INTERNAL_URL + "/chat",
             json=messages,
-            params={"session_id": session_id} if session_id else None,
+            params={"session_id": session_id, "channel": "telegram"} if session_id else {"channel": "telegram"},
             headers={"Authorization": f"Bearer {token}"},
         )
 
@@ -274,6 +274,7 @@ async def handle_telegram_message(mapping: TelegramBotMapping, text: str) -> str
             resp = await client.post(
                 AI_INTERNAL_URL + "/chat",
                 json=messages,
+                params={"channel": "telegram"},
                 headers={"Authorization": f"Bearer {token}"},
             )
 
@@ -932,9 +933,20 @@ async def handle_webhook_update(data: dict) -> None:
                 return  # test ping — ignore entirely, keep watermark
             await process_update(mapping, data)
             if upd_id is not None:
-                cfg["tg_last_webhook_update_id"] = upd_id
-                mapping.config = cfg
-                await db.commit()
+                # ⚠️ 唔好用上面 capture 嘅 stale cfg 覆寫 mapping.config —
+                # process_update → handle_telegram_message 可能已存入
+                # ai_session_id / pending_action_id（confirm flow 依賴佢）。
+                # 必須 re-load fresh row，merge 之後先寫 watermark。
+                fresh = (
+                    await db.execute(
+                        select(TelegramBotMapping).where(TelegramBotMapping.id == mapping.id)
+                    )
+                ).scalar_one_or_none()
+                if fresh:
+                    fresh_cfg: dict[str, Any] = dict(cast(dict[str, Any], fresh.config or {}))
+                    fresh_cfg["tg_last_webhook_update_id"] = upd_id
+                    fresh.config = cast(Any, fresh_cfg)
+                    await db.commit()
     except Exception:  # noqa: BLE001 — one bad update must not kill the webhook path
         _log.getLogger("telegram_inbound").exception(
             "webhook update processing failed: %s", str(data)[:200]
