@@ -1,18 +1,23 @@
-import { useState, type ReactNode } from 'react';
+import { useState, useEffect, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import {
-  LayoutGrid, FileText, Sparkles, Plus, Building2,
-  FolderKanban, Users, CheckSquare, Calendar,
-  ScanLine, ChevronRight, Check, Search, X, LogOut, Moon,
+  LayoutDashboard, Users, Calendar, Building2, FolderKanban, CheckSquare,
+  TrendingUp, Activity, ScanLine, BarChart3, UsersRound, Sparkles, Bell,
+  Store, Settings, Plus, ChevronRight, X, LogOut, Moon, FileText,
 } from 'lucide-react';
 import { useAuth } from '../../lib/AuthContext';
-import { useToast } from '../v4/useToast';
+import { useModuleSettings } from '../../lib/useModules';
+import { apiClient } from '../../lib/api';
 
 /**
- * NEXUS CRM — Mobile Bottom Navigation v3 (AI 管家秘書 theme)
- * 5 tabs: Workspace / Record / ●AI&Search● / Add / Org — ≤768px only (CSS-gated).
- * Sheets are portal-rendered, design-consistent with nexus-mobile-nav.html.
+ * NEXUS CRM — Mobile Bottom Navigation v3 (AI 管家秘書 theme) — v6.70
+ * Mobile view 吸收 sidebar + top bar：
+ *   工作區 tab ← sidebar 工作區選項
+ *   紀錄   tab ← sidebar 記錄選項
+ *   設定   tab ← sidebar 組織選項 + top bar（黑白轉 / 個人頁面 / 通知）
+ * ≤768px 時 sidebar + top bar 完全 hidden（CSS），bottom nav 係唯一導航。
  */
 
 export interface Props {
@@ -20,27 +25,6 @@ export interface Props {
   onScanCard: () => void;
   onQuickAdd: (recordType: string) => void;
 }
-
-const RECORD_TYPES = [
-  { id: 'project',    label: 'Projects',  icon: FolderKanban, color: 'var(--color-primary)' },
-  { id: 'contact',    label: 'Contacts',  icon: Users,        color: 'var(--color-blue)' },
-  { id: 'company',    label: 'Companies', icon: Building2,    color: 'var(--color-warning)' },
-  { id: 'task',       label: 'Tasks',     icon: CheckSquare,  color: 'var(--color-purple)' },
-  { id: 'event',      label: 'Schedule / Events', icon: Calendar, color: 'var(--color-success)' },
-] as const;
-
-const RECORD_ROUTES: Record<string, string> = {
-  project: '/projects', contact: '/contacts', company: '/companies',
-  task: '/tasks', event: '/calendar',
-};
-
-const ADD_TILES = [
-  { id: 'project', label: 'Project', icon: FolderKanban, color: 'var(--color-primary)' },
-  { id: 'contact', label: 'Contact', icon: Users,        color: 'var(--color-blue)' },
-  { id: 'company', label: 'Company', icon: Building2,    color: 'var(--color-warning)' },
-  { id: 'task',    label: 'Task',    icon: CheckSquare,  color: 'var(--color-purple)' },
-  { id: 'event',   label: 'Event',   icon: Calendar,     color: 'var(--color-success)' },
-];
 
 const AI_TOGGLE_KEYS = [
   { key: 'ai_crud',      label: 'AI 可自動新增/修改資料' },
@@ -53,22 +37,57 @@ const TOGGLE_STORAGE = 'nexus-ai-butler-toggles';
 const THEME_STORAGE = 'nexus-theme';
 
 export default function MobileBottomNav({ onOpenAiSearch, onScanCard, onQuickAdd }: Props) {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const location = useLocation();
   const { user, logout } = useAuth();
-  const toast = useToast();
-  const [sheet, setSheet] = useState<'workspace' | 'record' | 'add' | 'org' | null>(null);
+  const mods = useModuleSettings();
+  const salesOn = mods['sales'] !== false;
+  const [sheet, setSheet] = useState<'workspace' | 'record' | 'add' | 'settings' | null>(null);
   const [dark, setDark] = useState(() => document.documentElement.getAttribute('data-theme') === 'dark');
   const [toggles, setToggles] = useState<Record<string, boolean>>(() => {
-    try {
-      return JSON.parse(localStorage.getItem(TOGGLE_STORAGE) || '{}');
-    } catch { return {}; }
+    try { return JSON.parse(localStorage.getItem(TOGGLE_STORAGE) || '{}'); } catch { return {}; }
   });
+  const [notifications, setNotifications] = useState<{ id: string; title: string; body?: string; status?: string }[]>([]);
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  /* ── Sidebar mirror（同 SidebarV2 一致）── */
+  const workspaceItems = [
+    { to: '/dashboard',  label: t('nav.dashboard', { defaultValue: 'Dashboard' }), icon: LayoutDashboard },
+    { to: '/contacts',   label: t('nav.contacts', { defaultValue: '聯絡人' }), icon: Users },
+    { to: '/calendar',   label: t('nav.calendar', { defaultValue: '日曆' }), icon: Calendar },
+    { to: '/companies',  label: t('nav.companies', { defaultValue: '公司' }), icon: Building2 },
+    { to: '/projects',   label: t('nav.projects', { defaultValue: '項目' }), icon: FolderKanban },
+    ...(salesOn ? [{ to: '/deals', label: t('nav.deals', { defaultValue: '商機' }), icon: TrendingUp }] : []),
+    { to: '/tasks',      label: t('nav.tasks', { defaultValue: '任務' }), icon: CheckSquare },
+  ];
+  const recordItems = [
+    { to: '/touchpoints', label: t('nav.touchpoints', { defaultValue: '聯繫記錄' }), icon: Activity },
+    { to: '/namecards',   label: t('nav.namecards', { defaultValue: '名片庫' }), icon: ScanLine },
+    { to: '/reports',     label: t('nav.reports', { defaultValue: '報表' }), icon: BarChart3 },
+  ];
+  const settingsItems = [
+    { to: '/team',         label: t('nav.team', { defaultValue: '團隊' }), icon: UsersRound },
+    { to: '/ai-apps',      label: t('nav.aiApps', { defaultValue: 'AI Apps' }), icon: Sparkles },
+    { to: '/marketplace',  label: t('nav.marketplace', { defaultValue: 'Marketplace' }), icon: Store },
+    { to: '/settings',     label: t('nav.settings', { defaultValue: '設定' }), icon: Settings },
+  ];
+
+  /* ── Notifications（吸收 top bar bell）── */
+  const fetchNotifs = () => {
+    apiClient.get<{ items: { id: string; title: string; body?: string; status?: string }[] }>('/api/v1/notifications?page=1&page_size=5')
+      .then(d => setNotifications(d?.items || [])).catch(() => {});
+    apiClient.get<{ unread_count: number }>('/api/v1/notifications/unread-count')
+      .then(d => setUnreadCount(d?.unread_count || 0)).catch(() => {});
+  };
+  useEffect(() => { fetchNotifs(); }, []);
+  useEffect(() => { if (sheet === 'settings') fetchNotifs(); }, [sheet]);
 
   const path = location.pathname;
-  const activeTab: 'records' | 'org' | 'none' =
-    path.startsWith('/settings') ? 'org'
-    : ['/contacts', '/companies', '/projects', '/tasks', '/calendar', '/deals', '/touchpoints', '/namecards'].some(p => path.startsWith(p)) ? 'records'
+  const activeTab: 'workspace' | 'records' | 'settings' | 'none' =
+    path.startsWith('/settings') || path.startsWith('/team') || path.startsWith('/ai-apps') || path.startsWith('/marketplace') || path.startsWith('/notifications') ? 'settings'
+    : ['/touchpoints', '/namecards', '/reports'].some(p => path.startsWith(p)) ? 'records'
+    : ['/dashboard', '/contacts', '/calendar', '/companies', '/projects', '/deals', '/tasks'].some(p => path.startsWith(p)) ? 'workspace'
     : 'none';
 
   const setToggle = (key: string, val: boolean) => {
@@ -86,12 +105,13 @@ export default function MobileBottomNav({ onOpenAiSearch, onScanCard, onQuickAdd
   };
 
   const go = (route: string) => { setSheet(null); navigate(route); };
+  const isActive = (to: string) => path.startsWith(to);
 
   return (
     <>
       <nav className="mnav-bar" role="navigation" aria-label="Primary">
-        <button type="button" className="mnav-item" onClick={() => setSheet('workspace')}>
-          <LayoutGrid /><span>工作區</span>
+        <button type="button" className={`mnav-item ${activeTab === 'workspace' ? 'active' : ''}`} onClick={() => setSheet('workspace')}>
+          <LayoutDashboard /><span>工作區</span>
         </button>
         <button type="button" className={`mnav-item ${activeTab === 'records' ? 'active' : ''}`} onClick={() => setSheet('record')}>
           <FileText /><span>紀錄</span>
@@ -105,52 +125,42 @@ export default function MobileBottomNav({ onOpenAiSearch, onScanCard, onQuickAdd
         <button type="button" className="mnav-item" onClick={() => setSheet('add')}>
           <Plus /><span>新增</span>
         </button>
-        <button type="button" className={`mnav-item ${activeTab === 'org' ? 'active' : ''}`} onClick={() => setSheet('org')}>
-          <Building2 /><span>組織</span>
+        <button type="button" className={`mnav-item ${activeTab === 'settings' ? 'active' : ''}`} onClick={() => setSheet('settings')}>
+          <Settings />
+          <span>設定</span>
+          {unreadCount > 0 && <span className="mnav-badge">{unreadCount > 9 ? '9+' : unreadCount}</span>}
         </button>
       </nav>
 
-      {/* ── Workspace sheet ── */}
+      {/* ── 工作區 sheet（= sidebar 工作區選項）── */}
       {sheet === 'workspace' && (
-        <Sheet title="切換 Workspace" onClose={() => setSheet(null)}>
-          <div className="mnav-sheet-search"><Search /><input placeholder="搜尋 workspace…" /></div>
-          <div className="mnav-section-label">Active</div>
-          <button type="button" className="mnav-row">
-            <span className="mnav-row-icon" style={{ background: 'var(--color-primary)' }}>TC</span>
-            <span className="txt">
-              <strong>我的 CRM</strong>
-              <span>{user?.email ?? ''}</span>
-            </span>
-            <Check className="mnav-row-check" />
-          </button>
-          <div className="mnav-section-label">All Workspaces</div>
-          <button
-            type="button"
-            className="mnav-row"
-            onClick={() => toast.showToast('多 Workspace 支援即將推出 — 而家每個 tenant 一個 CRM')}
-          >
-            <span className="mnav-row-icon" style={{ background: 'var(--color-success)' }}><Plus /></span>
-            <span className="txt"><strong>Create workspace</strong><span>New tenant / team</span></span>
-          </button>
-        </Sheet>
-      )}
-
-      {/* ── Record sheet ── */}
-      {sheet === 'record' && (
-        <Sheet title="Records" onClose={() => setSheet(null)}>
-          <div className="mnav-sheet-search"><Search /><input placeholder="搜尋紀錄…" /></div>
-          <div className="mnav-section-label">Modules</div>
-          {RECORD_TYPES.map(r => (
-            <button key={r.id} type="button" className="mnav-row" onClick={() => go(RECORD_ROUTES[r.id])}>
-              <span className="mnav-row-icon" style={{ background: r.color }}><r.icon /></span>
-              <span className="txt"><strong>{r.label}</strong></span>
+        <Sheet title="工作區" onClose={() => setSheet(null)}>
+          <div className="mnav-section-label">Workspace</div>
+          {workspaceItems.map(item => (
+            <button key={item.to} type="button" className={`mnav-row ${isActive(item.to) ? 'active' : ''}`} onClick={() => go(item.to)}>
+              <span className="mnav-row-icon mnav-row-icon-neutral"><item.icon /></span>
+              <span className="txt"><strong>{item.label}</strong></span>
               <ChevronRight className="mnav-row-chev" />
             </button>
           ))}
         </Sheet>
       )}
 
-      {/* ── Add sheet ── */}
+      {/* ── 紀錄 sheet（= sidebar 記錄選項）── */}
+      {sheet === 'record' && (
+        <Sheet title="紀錄" onClose={() => setSheet(null)}>
+          <div className="mnav-section-label">Records</div>
+          {recordItems.map(item => (
+            <button key={item.to} type="button" className={`mnav-row ${isActive(item.to) ? 'active' : ''}`} onClick={() => go(item.to)}>
+              <span className="mnav-row-icon mnav-row-icon-neutral"><item.icon /></span>
+              <span className="txt"><strong>{item.label}</strong></span>
+              <ChevronRight className="mnav-row-chev" />
+            </button>
+          ))}
+        </Sheet>
+      )}
+
+      {/* ── 新增 sheet ── */}
       {sheet === 'add' && (
         <Sheet title="Add New" onClose={() => setSheet(null)}>
           <button type="button" className="mnav-scan-banner" onClick={() => { setSheet(null); onScanCard(); }}>
@@ -170,23 +180,46 @@ export default function MobileBottomNav({ onOpenAiSearch, onScanCard, onQuickAdd
         </Sheet>
       )}
 
-      {/* ── Org sheet ── */}
-      {sheet === 'org' && (
-        <Sheet title="Organization" onClose={() => setSheet(null)} tall>
-          <div className="mnav-org-profile">
-            <span className="mnav-org-avatar">{(user?.email?.[0] ?? 'U').toUpperCase()}</span>
-            <div>
-              <strong>{user?.email ?? ''}</strong>
-              <span>NEXUS CRM · 目前 Workspace</span>
+      {/* ── 設定 sheet（= sidebar 組織 + top bar：黑白轉/個人/通知）── */}
+      {sheet === 'settings' && (
+        <Sheet title="設定" onClose={() => setSheet(null)} tall>
+          {/* 個人頁面（top bar user menu → profile） */}
+          <button type="button" className="mnav-org-profile" onClick={() => go('/settings')} style={{ width: '100%', textAlign: 'left', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit' }}>
+            <span className="mnav-org-avatar">{(user?.displayName || user?.email || 'U')[0].toUpperCase()}</span>
+            <span style={{ flex: 1 }}>
+              <strong>{user?.displayName || user?.email || ''}</strong>
+              <span style={{ display: 'block' }}>{user?.email || ''}</span>
+            </span>
+            <ChevronRight className="mnav-row-chev" />
+          </button>
+
+          {/* 通知（top bar bell） */}
+          <div className="mnav-section-label">通知</div>
+          <button type="button" className="mnav-org-row" onClick={() => go('/notifications')}>
+            <Bell /><span>通知</span>
+            {unreadCount > 0 && <span className="mnav-notif-count">{unreadCount} 則新</span>}
+            <ChevronRight className="chev" />
+          </button>
+          {notifications.length > 0 && (
+            <div className="mnav-notif-list">
+              {notifications.slice(0, 3).map(n => (
+                <div key={n.id} className={`mnav-notif-item ${n.status === 'UNREAD' ? 'unread' : ''}`}>
+                  <div className="mnav-notif-item-title">{n.title}</div>
+                  {n.body && <div className="mnav-notif-item-body">{n.body}</div>}
+                </div>
+              ))}
             </div>
-          </div>
+          )}
+
+          {/* 組織（sidebar organization） */}
           <div className="mnav-section-label">Organization</div>
-          <button type="button" className="mnav-org-row" onClick={() => go('/settings')}>
-            <Users /><span>Members &amp; Roles</span><ChevronRight className="chev" />
-          </button>
-          <button type="button" className="mnav-org-row" onClick={() => go('/settings')}>
-            <LayoutGrid /><span>Module Settings</span><ChevronRight className="chev" />
-          </button>
+          {settingsItems.map(item => (
+            <button key={item.to} type="button" className="mnav-org-row" onClick={() => go(item.to)}>
+              <item.icon /><span>{item.label}</span><ChevronRight className="chev" />
+            </button>
+          ))}
+
+          {/* AI 管家設定 */}
           <div className="mnav-section-label">AI 管家設定</div>
           {AI_TOGGLE_KEYS.map(k => (
             <button key={k.key} type="button" className="mnav-org-row" onClick={() => setToggle(k.key, !(toggles[k.key] ?? true))}>
@@ -194,20 +227,32 @@ export default function MobileBottomNav({ onOpenAiSearch, onScanCard, onQuickAdd
               <span className={`mnav-switch ${toggles[k.key] ?? true ? 'on' : ''}`} onClick={e => e.stopPropagation()} />
             </button>
           ))}
+
+          {/* 外觀（top bar 黑白轉） */}
           <div className="mnav-section-label">外觀</div>
           <button type="button" className="mnav-org-row" onClick={toggleTheme}>
             <Moon /><span>Dark Mode</span>
             <span className={`mnav-switch ${dark ? 'on' : ''}`} onClick={e => e.stopPropagation()} />
           </button>
+
+          {/* 帳戶 */}
           <div className="mnav-section-label">帳戶</div>
           <button type="button" className="mnav-org-row" onClick={() => { setSheet(null); logout(); }}>
-            <LogOut /><span style={{ color: 'var(--color-error)' }}>Sign Out</span>
+            <LogOut /><span style={{ color: 'var(--color-error)' }}>登出</span>
           </button>
         </Sheet>
       )}
     </>
   );
 }
+
+const ADD_TILES = [
+  { id: 'project', label: 'Project', icon: FolderKanban, color: 'var(--color-primary)' },
+  { id: 'contact', label: 'Contact', icon: Users,        color: 'var(--color-blue)' },
+  { id: 'company', label: 'Company', icon: Building2,    color: 'var(--color-warning)' },
+  { id: 'task',    label: 'Task',    icon: CheckSquare,  color: 'var(--color-purple)' },
+  { id: 'event',   label: 'Event',   icon: Calendar,     color: 'var(--color-success)' },
+];
 
 function Sheet({ title, onClose, children, tall = false }: { title: string; onClose: () => void; children: ReactNode; tall?: boolean }) {
   const [closing, setClosing] = useState(false);

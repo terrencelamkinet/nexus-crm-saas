@@ -43,6 +43,15 @@
 .mnav-item span { font-size: 10.5px; font-weight: 600; letter-spacing: .01em; }
 .mnav-item.active { color: var(--color-primary); }
 .mnav-item:active { transform: scale(0.92); }
+/* Unread badge on the Settings tab (absorbs top-bar bell) */
+.mnav-badge {
+  position: absolute; top: 2px; right: 14px;
+  min-width: 16px; height: 16px; padding: 0 4px;
+  border-radius: 999px; background: var(--color-notification, #c23b4a);
+  color: #fff; font-size: 9.5px; font-weight: 700;
+  display: flex; align-items: center; justify-content: center;
+  line-height: 1;
+}
 
 /* Center raised AI/Search button */
 .mnav-center-wrap {
@@ -149,6 +158,8 @@
 .mnav-row .txt span { font-size: 12px; color: var(--color-text-muted); }
 .mnav-row-check { width: 20px; height: 20px; color: var(--color-primary); flex-shrink: 0; }
 .mnav-row-chev { color: var(--color-text-faint); flex-shrink: 0; }
+.mnav-row.active { background: var(--color-primary-highlight); }
+.mnav-row-icon-neutral { background: var(--color-surface-offset); color: var(--color-primary); }
 
 /* Quick-add grid */
 .mnav-add-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 4px; }
@@ -219,6 +230,26 @@
 }
 .mnav-switch.on { background: var(--color-primary); }
 .mnav-switch.on::after { transform: translateX(16px); }
+
+/* Notifications in Settings sheet (absorbs top-bar bell panel) */
+.mnav-notif-count {
+  font-size: 11px; font-weight: 700; color: var(--color-notification, #c23b4a);
+  flex-shrink: 0;
+}
+.mnav-notif-list {
+  background: var(--color-surface); border: 1px solid var(--color-divider);
+  border-radius: var(--radius-lg); padding: 6px 14px; margin: 0 4px 4px;
+}
+.mnav-notif-item { padding: 9px 0; border-bottom: 1px solid var(--color-divider); }
+.mnav-notif-item:last-child { border-bottom: none; }
+.mnav-notif-item-title { font-size: 13px; font-weight: 600; color: var(--color-text); }
+.mnav-notif-item-body {
+  font-size: 11.5px; color: var(--color-text-muted); margin-top: 2px;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+.mnav-notif-item.unread .mnav-notif-item-title::before {
+  content: '● '; color: var(--color-notification, #c23b4a); font-size: 10px; vertical-align: 1px;
+}
 
 /* ═══════════ AI & Search panel ═══════════ */
 .aisp-panel { min-height: 46vh; }
@@ -345,6 +376,9 @@
   /* AI entry on mobile = center nav button; hide the floating FAB so it
      never overlaps the bottom nav (v6.69 Playwright probe 實證 intercepts) */
   #ai-fab, .cb-fab { display: none !important; }
+  /* v6.70: mobile = 純 bottom nav 介面 — sidebar + top bar 完全隱藏，
+     功能已吸收落 工作區/紀錄/設定 sheets（flex layout 令 main 自動 full width）*/
+  .sbv2-sidebar, .hdr2-bar { display: none !important; }
 }
 @media (hover: none) {
   .mnav-item:hover { color: var(--color-text-faint); }
