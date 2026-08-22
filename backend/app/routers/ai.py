@@ -1125,6 +1125,17 @@ async def _build_system_prompt(
     style = _CHANNEL_STYLE_RULES.get((channel or "portal").lower())
     if style:
         prompt += style
+
+    # ── Current date hint (AI 常錯年份 — 「9月15日」被當 2025) ──────
+    try:
+        from datetime import datetime as _dt
+        hkt_now = _dt.now(timezone(timedelta(hours=8)))
+        prompt += (
+            f"\n\n現在日期：{hkt_now.year}年{hkt_now.month}月{hkt_now.day}日（HKT）。"
+            f"用戶提到日期但冇寫年份時，一律用今年 {hkt_now.year} 年，唔好用其他年份。"
+        )
+    except Exception:
+        pass
     return prompt
 
 
@@ -1490,11 +1501,14 @@ _DUE_DATE_RE = re.compile(
 # call。呢啲摘要結構穩定（任務標題/優先級/到期日/描述），直接 parse 成
 # create_task params，保證 confirm flow 永遠有 pending action 可以確認。
 _DRAFT_SUMMARY_RE = re.compile(r"(草稿摘要|任務草稿|草稿如下|以下係任務草稿|以下為任務草稿)", re.IGNORECASE)
-_DRAFT_TITLE_RE = re.compile(r"(?:任務標題|任務名稱|標題|title)\s*[：:]\s*([^\n*]+)", re.IGNORECASE)
-_DRAFT_PRIORITY_RE = re.compile(r"優先(?:級|序)?\s*[：:]\s*([^\n*]+)", re.IGNORECASE)
+# AI 慣性出「- **任務標題**：xxx」— 標籤同冒號之間可以有 markdown bold (**)
+_DRAFT_TITLE_RE = re.compile(r"(?:任務標題|任務名稱|標題|title)\s*\**\s*[：:]\s*([^\n*]+)", re.IGNORECASE)
+_DRAFT_PRIORITY_RE = re.compile(r"優先(?:級|序)?\s*\**\s*[：:]\s*([^\n*]+)", re.IGNORECASE)
 _DRAFT_DUE_RE = re.compile(r"到期日|due\s*date|deadline", re.IGNORECASE)
-_DRAFT_DESC_RE = re.compile(r"(?:任務描述|描述|description)\s*[：:]\s*([^\n*]+)", re.IGNORECASE)
-_DRAFT_DATE_VALUE_RE = re.compile(r"(\d{4}[-/]\d{1,2}[-/]\d{1,2}|\d{1,2}[-/]\d{1,2}[-/]\d{4})")
+_DRAFT_DESC_RE = re.compile(r"(?:任務描述|描述|description)\s*\**\s*[：:]\s*([^\n*]+)", re.IGNORECASE)
+_DRAFT_DATE_VALUE_RE = re.compile(
+    r"(\d{4}[-/]\d{1,2}[-/]\d{1,2}|\d{1,2}[-/]\d{1,2}[-/]\d{4}|\d{4}年\d{1,2}月\d{1,2}日)"
+)
 _PRIORITY_MAP = {"高": "high", "high": "high", "urgent": "urgent", "急": "urgent",
                  "中": "medium", "medium": "medium", "正常": "medium",
                  "低": "low", "low": "low"}
@@ -1524,17 +1538,23 @@ def _parse_draft_summary_params(text: str) -> dict[str, Any] | None:
     if dm:
         dval = _DRAFT_DATE_VALUE_RE.search(text[dm.end():dm.end() + 60])
         if dval:
-            raw_date = dval.group(1).replace("/", "-")
-            parts = raw_date.split("-")
-            try:
-                if len(parts) == 3:
-                    if len(parts[0]) == 4:      # YYYY-M-D
-                        y, m, d = parts
-                    else:                        # D-M-YYYY (HK convention)
-                        d, m, y = parts
-                    params["due_date"] = f"{int(y):04d}-{int(m):02d}-{int(d):02d}"
-            except Exception:
-                pass
+            raw_date = dval.group(1).strip()
+            if "年" in raw_date:  # 2025年9月15日
+                m2 = re.match(r"(\d{4})年(\d{1,2})月(\d{1,2})日", raw_date)
+                if m2:
+                    params["due_date"] = f"{int(m2.group(1)):04d}-{int(m2.group(2)):02d}-{int(m2.group(3)):02d}"
+            else:
+                raw_date = raw_date.replace("/", "-")
+                parts = raw_date.split("-")
+                try:
+                    if len(parts) == 3:
+                        if len(parts[0]) == 4:      # YYYY-M-D
+                            y, m, d = parts
+                        else:                        # D-M-YYYY (HK convention)
+                            d, m, y = parts
+                        params["due_date"] = f"{int(y):04d}-{int(m):02d}-{int(d):02d}"
+                except Exception:
+                    pass
     dem = _DRAFT_DESC_RE.search(text)
     if dem:
         desc = dem.group(1).strip().strip("*").strip()

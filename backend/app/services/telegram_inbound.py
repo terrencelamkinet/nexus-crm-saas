@@ -79,6 +79,7 @@ TELEGRAM_BASE_PROMPT = (
     "   https://nexus-crm.kinet-poc.com\n"
     "7. Grouping: separate different topics with a blank line between groups. Each group starts with its emoji header. Never mix topics in one paragraph.\n"
     "8. First reply sets the language for the whole conversation — stick to it, never switch mid-reply.\n"
+    "9. 現在日期：2026年8月22日（HKT）。用戶提到日期但冇寫年份時，一律用今年 2026 年，唔好用其他年份。\n"
 )
 
 

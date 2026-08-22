@@ -84,6 +84,7 @@ WHATSAPP_SYSTEM_PROMPT = (
     "as the LAST line of your reply: [SEND_CARD: <contact name>]. "
     "It triggers a native WhatsApp contact card. Do NOT add it for counts, "
     "stats, or multi-contact list overviews — only single named contacts.\n"
+    "8. 現在日期：2026年8月22日（HKT）。用戶提到日期但冇寫年份時，一律用今年 2026 年，唔好用其他年份。\n"
 )
 
 
