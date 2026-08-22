@@ -13,6 +13,16 @@ import type { StreamError } from './ErrorBanner'
 import SlashMentionMenu from './SlashMentionMenu'
 import type { SlashItem } from './SlashMentionMenu'
 import ActionPreviewModal from '../../ActionPreviewModal'
+import FollowUpChips from './core/FollowUpChips'
+import {
+  useAiAgents,
+  useSecretarySettings,
+  useQuota,
+  useProviderHealth,
+  getGreeting,
+  isWithinWorkHours,
+} from './core/AICoreHooks'
+import './core/ai-core-v1.css'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -24,6 +34,7 @@ interface ChatMessage {
   content: string
   timestamp: number
   citations?: CitationSource[]
+  followups?: string[]
 }
 
 interface CitationSource {
@@ -135,7 +146,7 @@ function UserMessageBubble({ msg, prevMsg }: { msg: ChatMessage; prevMsg?: ChatM
   )
 }
 
-function AiMessageBubble({ msg, prevMsg, hovered, onHover, onCopy, onRetry, onFeedback, feedback, isStreaming }: {
+function AiMessageBubble({ msg, prevMsg, hovered, onHover, onCopy, onRetry, onFeedback, feedback, isStreaming, onFollowUpSelect }: {
   msg: ChatMessage
   prevMsg?: ChatMessage
   hovered: boolean
@@ -145,6 +156,7 @@ function AiMessageBubble({ msg, prevMsg, hovered, onHover, onCopy, onRetry, onFe
   onFeedback: (rating: 'up' | 'down') => void
   feedback?: 'up' | 'down'
   isStreaming?: boolean
+  onFollowUpSelect?: (q: string) => void
 }) {
   const prevSameRole = prevMsg && prevMsg.role === 'assistant' && (msg.timestamp - prevMsg.timestamp) < 180000
 
@@ -178,6 +190,11 @@ function AiMessageBubble({ msg, prevMsg, hovered, onHover, onCopy, onRetry, onFe
           {/* Citations */}
           {msg.citations && msg.citations.length > 0 && (
             <CitationChip citations={msg.citations} />
+          )}
+
+          {/* Follow-up suggestions */}
+          {!isStreaming && msg.followups && msg.followups.length > 0 && onFollowUpSelect && (
+            <FollowUpChips suggestions={msg.followups} onSelect={onFollowUpSelect} />
           )}
 
           {/* Bottom toolbar */}
@@ -349,6 +366,14 @@ export default function ChatboxPanel() {
   const [animPhase, setAnimPhase] = useState<'closed' | 'opening' | 'open' | 'closing'>('closed')
   const [kbHeight, setKbHeight] = useState(0)
   const [actionPreview, setActionPreview] = useState<{ tool_key: string; params: Record<string, unknown>; action_id?: string } | null>(null)
+
+  // ── Tenant AI admin surfaces (AICore) ──
+  const { agents } = useAiAgents()
+  const secretary = useSecretarySettings()
+  const quota = useQuota()
+  const providers = useProviderHealth()
+  const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null)
+  const [showBanner, setShowBanner] = useState(true)
 
   // ── Slash / mention state ──
   const [menuType, setMenuType] = useState<'slash' | 'mention' | null>(null)
@@ -615,6 +640,7 @@ export default function ChatboxPanel() {
             ? [{ role: 'system', content: `使用者正在查看 ${activeContext.name}（${activeContext.type}）。請以 CRM 助理身份，基於此客戶/實體背景回答問題。` }, { role: 'user', content: text }]
             : [{ role: 'user', content: text }],
           session_id: sessionId || null,
+          agent_id: selectedAgentId || null,
         }),
         signal: controller.signal,
       })
@@ -632,6 +658,7 @@ export default function ChatboxPanel() {
       let fullReply = ''
       let newSessionId: string | null = null
       const msgCitations: CitationSource[] = []
+      let msgFollowups: string[] = []
 
       while (true) {
         const { done, value } = await reader.read()
@@ -652,6 +679,9 @@ export default function ChatboxPanel() {
                   if (!existingIds.has(cit.id)) { msgCitations.push(cit as CitationSource); existingIds.add(cit.id) }
                 }
               }
+              if (data.followups && Array.isArray(data.followups)) {
+                msgFollowups = data.followups.map(String).slice(0, 3)
+              }
               if (data.message) { setError({ type: 'streaming', message: data.message, retryable: true }) }
               if (data.action_id && data.tool_key) {
                 setActionPreview({
@@ -669,6 +699,7 @@ export default function ChatboxPanel() {
         const reply: ChatMessage = {
           ...assistantMessage(fullReply),
           citations: msgCitations.length > 0 ? msgCitations : undefined,
+          followups: msgFollowups.length > 0 ? msgFollowups : undefined,
         }
         setMessages(prev => [...prev, reply])
       }
@@ -828,9 +859,26 @@ export default function ChatboxPanel() {
                 NEXUS AI
               </div>
               <div className="cb-header-subtitle">
-                CRM Assistant
+                {selectedAgentId && agents.find(a => a.id === selectedAgentId)
+                  ? agents.find(a => a.id === selectedAgentId)!.name
+                  : 'CRM Assistant'}
               </div>
             </div>
+            {agents.length > 0 && (
+              <div className="nxc-agent-switcher">
+                <select
+                  value={selectedAgentId ?? ''}
+                  onChange={(e) => setSelectedAgentId(e.target.value || null)}
+                  title={t('chat.agentSwitcher')}
+                  aria-label={t('chat.agentSwitcher')}
+                >
+                  <option value="">預設助手</option>
+                  {agents.map(a => (
+                    <option key={a.id} value={a.id}>{a.name}</option>
+                  ))}
+                </select>
+              </div>
+            )}
             <button onClick={createNewSession} aria-label={t('chat.newChat')} title={t('chat.newChat')}
               className="cb-header-btn"
               onMouseEnter={e => { e.currentTarget.style.background = 'var(--color-surface-offset)' }}
@@ -867,6 +915,19 @@ export default function ChatboxPanel() {
               onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}
             >
               <X size={16} />
+            </button>
+          </div>
+        )}
+
+        {/* ── Secretary banner（個性化問候 + 工作時間提示） ── */}
+        {isOpen && showBanner && !showSidebar && (
+          <div className="nxc-secretary-banner">
+            <span className="nxc-secretary-greeting">{getGreeting(secretary)} 👋</span>
+            {!isWithinWorkHours(secretary) && (
+              <span className="nxc-secretary-note">目前非工作時間，AI 仍會即時回覆，但同事可能稍後跟進。</span>
+            )}
+            <button className="nxc-banner-close" onClick={() => setShowBanner(false)} aria-label={t('common.close')}>
+              <X size={12} />
             </button>
           </div>
         )}
@@ -940,6 +1001,13 @@ export default function ChatboxPanel() {
                           onFeedback={(rating) => sendFeedback(msg.id, rating)}
                           feedback={feedbackMap[msg.id]}
                           isStreaming={isStreaming && idx === messages.length - 1}
+                          onFollowUpSelect={(q) => {
+                            setInput(q)
+                            setTimeout(() => {
+                              const ta = document.querySelector<HTMLTextAreaElement>('.composer__input-row textarea')
+                              ta?.focus()
+                            }, 50)
+                          }}
                         />
                       )}
                     </div>
@@ -1055,6 +1123,30 @@ export default function ChatboxPanel() {
                 isLoading={isLoading}
                 loadingSession={loadingSession}
               />
+              {quota && quota.limit > 0 && (
+                <div className="nxc-quota">
+                  <div className="nxc-quota-row">
+                    <span>{quota.periodLabel} AI 使用量</span>
+                    <span className={`nxc-quota-value ${(quota.used / quota.limit) >= 0.8 ? 'warn' : ''}`}>
+                      {quota.used.toLocaleString()} / {quota.limit.toLocaleString()}
+                    </span>
+                  </div>
+                  <div className="nxc-quota-track">
+                    <div className={`nxc-quota-fill ${(quota.used / quota.limit) >= 0.8 ? 'warn' : ''}`}
+                      style={{ width: `${Math.min(100, Math.round((quota.used / quota.limit) * 100))}%` }} />
+                  </div>
+                </div>
+              )}
+              {providers.length > 0 && (
+                <div style={{ padding: '0 14px 6px', display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                  {providers.map(p => (
+                    <span key={p.provider} className={`nxc-provider-chip ${p.status}`}>
+                      {p.provider} · {p.status === 'connected' ? '已連接' : p.status}
+                      {p.expires_in_days !== undefined && p.expires_in_days !== null && ` · Key ${p.expires_in_days} 日後到期`}
+                    </span>
+                  ))}
+                </div>
+              )}
             </div>
           </>
         )}

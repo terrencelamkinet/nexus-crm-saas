@@ -68,6 +68,7 @@ class ChatStreamRequest(BaseModel):
     session_id: UUID | None = None
     temperature: float = 0.7
     max_tokens: int = 4096
+    agent_id: UUID | None = None
 
 
 def _default_adapter() -> ProviderAdapter:
@@ -1700,6 +1701,29 @@ async def chat_stream_completion(
         if m.get("role") != "system":
             enhanced.append(m)
 
+    # ── Agent persona (optional agent_id → persona prefix) ──────────────────
+    if body.agent_id:
+        try:
+            arow = (
+                await db.execute(
+                    text(
+                        "SELECT display_name, description FROM nexus_ai.ai_agents "
+                        "WHERE id = :aid AND tenant_id = :tid AND is_enabled = TRUE"
+                    ),
+                    {"aid": str(body.agent_id), "tid": str(ctx.tenant_id)},
+                )
+            ).first()
+            if arow:
+                persona = f"你係 NEXUS CRM 嘅「{arow[0]}」"
+                if arow[1]:
+                    persona += f"。{arow[1]}"
+                enhanced[0] = {
+                    "role": "system",
+                    "content": persona + "\n\n" + enhanced[0]["content"],
+                }
+        except Exception:
+            pass  # persona is best-effort
+
     # ── Build citations from CRM context ──────────────────────────────────
     citations: list[dict[str, Any]] = []
     for tool_key, data in crm_context.items():
@@ -1834,12 +1858,54 @@ async def chat_stream_completion(
                 if any(w in text_lower for w in words):
                     matched_citations.append(cit)
 
+            # ── Generate follow-up suggestions (only when CRM records cited) ─
+            followups: list[str] = []
+            if matched_citations and full_text:
+                try:
+                    fu_raw, _ = await adapter.chat(
+                        messages=[
+                            {
+                                "role": "system",
+                                "content": (
+                                    "你係 NEXUS CRM AI 助理。根據用戶問題同 AI 答案，"
+                                    "生成 3 條用戶可能想繼續追問嘅問題。"
+                                    '只輸出純 JSON：{"followups": ["問題1", "問題2", "問題3"]}，用繁體中文。'
+                                ),
+                            },
+                            {
+                                "role": "user",
+                                "content": f"問題：{last_query}\n\n答案：{full_text[:2000]}",
+                            },
+                        ],
+                        model=DEFAULT_MODEL,
+                        temperature=0.3,
+                        max_tokens=150,
+                    )
+                    try:
+                        parsed = json.loads(fu_raw.strip())
+                        if isinstance(parsed, dict):
+                            followups = [str(f) for f in (parsed.get("followups") or [])][:3]
+                    except json.JSONDecodeError:
+                        # strip ```json fence if present
+                        m = re.search(r"\{.*\}", fu_raw, re.S)
+                        if m:
+                            parsed = json.loads(m.group(0))
+                            followups = [str(f) for f in (parsed.get("followups") or [])][:3]
+                except Exception:
+                    pass
+                if followups:
+                    yield {
+                        "event": "followups",
+                        "data": json.dumps({"followups": followups}),
+                    }
+
             # ── Yield done event ───────────────────────────────────────────
             yield {
                 "event": "done",
                 "data": json.dumps({
                     "session_id": str(sess.id),
                     "citations": matched_citations,
+                    "followups": followups,
                 }),
             }
         except Exception as e:

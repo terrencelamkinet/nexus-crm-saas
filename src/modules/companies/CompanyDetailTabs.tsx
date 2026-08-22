@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
 import { Activity, X, ChevronRight } from 'lucide-react'
 import { apiClient } from '../../lib/api'
+import AutofillButton from '../../components/ai/chat/core/AutofillButton'
 import i18n from '../../i18n/config'
 import type { EntityRecord, ModuleConfig } from '../module-types'
 
@@ -395,7 +396,18 @@ export function NotesTab({ entity: company, refresh }: { entity: EntityRecord; m
       <div className="panel">
         <div className="panel-head">
           <h3>{t('pages.companies.detail.notes')} ({notes.length})</h3>
-          <button onClick={() => setOpen(true)} className="btn-ghost">{t('pages.companies.detail.addNote')}</button>
+          <div className="flex items-center gap-2">
+            <AutofillButton mode="summary" onRun={async () => {
+              try {
+                const res = await apiClient.post<{ value: string }>('/api/v1/crm/ai/autofill', {
+                  record_type: 'company', record_id: company.id, field: 'summary', mode: 'summary',
+                })
+                setForm({ title: 'AI 摘要', content: res.value || '' })
+                setOpen(true)
+              } catch (e: any) { alert(e.detail || e.message) }
+            }} />
+            <button onClick={() => setOpen(true)} className="btn-ghost">{t('pages.companies.detail.addNote')}</button>
+          </div>
         </div>
         {notes.length === 0 ? (
           <div className="empty-state">{t('pages.companies.detail.noNotes')}</div>
