@@ -931,6 +931,106 @@ async def _record_usage_event(
     db.add(ev)
 
 
+async def _build_user_tenant_context(ctx: Any, db: AsyncSession) -> str:
+    """Collect tenant + user context so the AI can adapt to each user's habits.
+
+    Pulls: tenant name, user display name/role, ai_secretary_settings
+    (tone / lang_pref / detail_level / modules / instructions), enabled
+    CRM modules for the tenant, and enabled AI agents. Returns an empty
+    string when nothing is available — never raises.
+    """
+    parts: list[str] = []
+    try:
+        row = (
+            await db.execute(
+                text(
+                    "SELECT name, subdomain FROM nexus_auth.nexus_auth_tenants "
+                    "WHERE id = :tid"
+                ),
+                {"tid": str(ctx.tenant_id)},
+            )
+        ).first()
+        if row and row[0]:
+            parts.append(f"租戶：{row[0]}" + (f" ({row[1]})" if row[1] else ""))
+    except Exception:
+        pass
+    try:
+        row = (
+            await db.execute(
+                text(
+                    "SELECT display_name, role FROM nexus_auth.nexus_auth_users "
+                    "WHERE id = :uid"
+                ),
+                {"uid": str(ctx.user_id)},
+            )
+        ).first()
+        if row and row[0]:
+            parts.append(f"用戶：{row[0]}" + (f"（角色：{row[1]}）" if row[1] else ""))
+    except Exception:
+        pass
+    try:
+        row = (
+            await db.execute(
+                text(
+                    "SELECT tone, lang_pref, detail_level, modules, instructions "
+                    "FROM nexus_ai.ai_secretary_settings "
+                    "WHERE tenant_id = :tid AND user_id = :uid"
+                ),
+                {"tid": str(ctx.tenant_id), "uid": str(ctx.user_id)},
+            )
+        ).first()
+        if row:
+            tone, lang, detail, modules, instr = row
+            prefs: list[str] = []
+            if lang:
+                prefs.append(f"語言偏好：{lang}")
+            if tone:
+                prefs.append(f"語氣：{tone}")
+            if detail:
+                prefs.append(f"詳細程度：{detail}/3")
+            if modules:
+                prefs.append(f"常用功能：{', '.join(str(m) for m in modules)}")
+            if prefs:
+                parts.append("用戶偏好：" + "；".join(prefs))
+            if instr:
+                parts.append(f"用戶特別指示：{instr}")
+    except Exception:
+        pass
+    try:
+        rows = (
+            await db.execute(
+                text(
+                    "SELECT module_key FROM nexus_crm.module_settings "
+                    "WHERE tenant_id = :tid AND enabled = true"
+                ),
+                {"tid": str(ctx.tenant_id)},
+            )
+        ).all()
+        mods = sorted({r[0] for r in rows if r[0] != "ai"})
+        if mods:
+            parts.append(f"此租戶已啟用功能：{', '.join(mods)}")
+    except Exception:
+        pass
+    try:
+        rows = (
+            await db.execute(
+                text(
+                    "SELECT display_name FROM nexus_ai.ai_agents "
+                    "WHERE tenant_id = :tid AND is_enabled = true"
+                ),
+                {"tid": str(ctx.tenant_id)},
+            )
+        ).all()
+        agents = [r[0] for r in rows if r[0]]
+        if agents:
+            parts.append(f"可用 AI 助理：{', '.join(agents)}")
+    except Exception:
+        pass
+    if not parts:
+        return ""
+    return "📌 用戶與租戶背景（幫你適應呢位用戶嘅習慣）：\n- " + "\n- ".join(parts)
+
+
 async def _build_system_prompt(
     ctx: Any,
     db: AsyncSession,
@@ -943,6 +1043,16 @@ async def _build_system_prompt(
     replaces the old "guide them to the CRM section" instruction so the model
     knows it can draft CRM changes for user confirmation.
     """
+    # ── Tenant/user context (personalization) ────────────────────────
+    # Prepend the user's habits + tenant capabilities so the model can
+    # adapt tone/language/features per user. Best-effort, never raises.
+    try:
+        user_ctx = await _build_user_tenant_context(ctx, db)
+        if user_ctx:
+            context_str = user_ctx + "\n\n" + context_str
+    except Exception:
+        pass
+
     prompt: str | None = None
     try:
         result = await db.execute(
@@ -1024,6 +1134,15 @@ _SYSTEM_PROMPT_TPL = """\
 - 問候使用「早安」「您好」等正式用語，避免「早晨」「你哋」「搞掂」等口語表達
 - 句式完整、用詞精準，以企業級 CRM 助理的專業態度輸出
 - 此規則適用於所有 AI 生成內容：對話回覆、摘要、草擬電郵、建議、通知
+
+適應用戶（每個租戶／每個用戶都唔同 — 唔好用一套風格走天涯）：
+- 留意「📌 用戶與租戶背景」段落：嗰度有呢位用戶嘅語言偏好、語氣、詳細程度、常用功能、角色，以及佢所屬租戶已啟用嘅功能
+- 用戶用廣東話／中文 → 你用返相同語言回應；用戶用英文 → 你用英文；用戶中英混雜 → 跟住混雜
+- 用戶偏好簡短 → 你簡短直接；用戶偏好詳細 → 你俾完整分析；未知道之前用預設（簡潔專業）
+- 用戶角色係銷售／管理／客服 → 用返對應嘅業務用語同關注點（銷售睇 deal stage、管理睇報表、客服睇 case）
+- 用戶所屬租戶啟用咗咩功能，就主動用咩功能（例如有 tasks 模組 → 主動提議開 follow-up task；有 calendar → 提議排期）
+- 唔好假設所有用戶都一樣：新用戶未見偏好紀錄 → 用專業預設，觀察佢嘅風格後自然調整
+- 呢啲適應唔改變安全邊界：任何租戶隔離、寫入確認、權限規則仍然最高優先
 
 限制：
 - 不可代替用戶做出重大商業決策，只能提供參考意見
