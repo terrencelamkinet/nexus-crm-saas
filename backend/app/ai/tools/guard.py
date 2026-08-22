@@ -248,6 +248,20 @@ async def authorize_tool_call(
             context=ctx,
         )
 
+    # 1.5. System-boundary check ---------------------------------------------
+    # Principle: tenants may CRUD their own content (CRM data); the system
+    # framework/content (config, settings, credentials, platform tables) must
+    # never be modified by AI. AI tools may only target the tenant content
+    # layer (app.services.crm.*) — anything outside it is out of bounds, even
+    # if a future tool lands in TOOL_REGISTRY by mistake.
+    if not tool_def.module.startswith("app.services.crm"):
+        raise ScopeViolation(
+            f"Tool '{tool_key}' targets system module '{tool_def.module}' — out of bounds",
+            tool_key=tool_key,
+            reason="system_module_out_of_bounds",
+            context=ctx,
+        )
+
     # 2. Agent permission ----------------------------------------------------
     # Agent-scoped check: when the session is bound to an agent (ai_agents),
     # the call must match a grant row in nexus_ai.ai_agent_permissions:
