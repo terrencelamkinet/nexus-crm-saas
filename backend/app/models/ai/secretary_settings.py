@@ -32,7 +32,7 @@ DEFAULT_MODULE_OPTIONS: dict[str, dict] = {
     "personal_reminders": {"range": "today"},
     "bible_reading": {
         "book_selection": "ot_nt_mixed", "plan": "one_year",
-        "chapters_per_push": "1", "time_of_day": "morning",
+        "chapters_per_push": "1", "push_time_mode": "greeting", "time_of_day": "morning",
         "translation": "cuv", "reminder": "enabled",
         "start_book": "創世記", "start_chapter": 1,
         "end_book": "啟示錄", "end_chapter": 0,

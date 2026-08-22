@@ -335,12 +335,22 @@ async def generate_briefing(
     tenant_id: uuid.UUID,
     user_id: uuid.UUID,
     slot: str,
+    only_modules: list[str] | None = None,
+    skip_im_push: bool = False,
 ) -> dict[str, Any]:
-    """Full pipeline for one user: settings → collect → LLM → store → IM push."""
+    """Full pipeline for one user: settings → collect → LLM → store → IM push.
+
+    only_modules: 指定只生成呢啲 module（例：bible custom push time 只推 bible_reading）。
+    skip_im_push: True 時唔做 IM push（scheduler 自己控制 channel 推送，避免 double push）。
+    """
     settings = await _load_settings(db, user_id)
     modules = _enabled_modules(settings)  # {module_key: options_dict} — 深層選項
     if not modules:
         modules = {m: dict(DEFAULT_MODULE_OPTIONS.get(m, {})) for m in DEFAULT_MODULES}
+    if only_modules:
+        modules = {k: v for k, v in modules.items() if k in only_modules}
+        if not modules:
+            return {"user_id": str(user_id), "slot": slot, "status": "empty_content", "im": "disabled"}
 
     from app.ai.session.context import AISessionContext
     ctx = AISessionContext(
@@ -408,8 +418,10 @@ async def generate_briefing(
         },
     )
 
-    # IM push (gated)
-    im = await _im_push_if_enabled(db, tenant_id, user_id, slot, content)
+    # IM push (gated) — scheduler 自訂 bible push 用 skip_im_push 避免 double push
+    im = "disabled"
+    if not skip_im_push:
+        im = await _im_push_if_enabled(db, tenant_id, user_id, slot, content)
     await db.commit()
 
     return {"user_id": str(user_id), "slot": slot, "status": "published", "im": im, "content": content, "content_len": len(content)}

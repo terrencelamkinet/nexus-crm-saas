@@ -457,6 +457,12 @@ export default function AIAppsPage() {
                 <div className="asec-editor-body">
                   {(editingModule.options ?? []).map(o => {
                     const cur = (o.key in draftOpts) ? draftOpts[o.key] : o.default;
+                    // showWhen 條件渲染 — 另一 option 等於指定值先顯示
+                    if (o.showWhen) {
+                      const parent = (editingModule.options ?? []).find(x => x.key === o.showWhen!.key);
+                      const parentVal = (o.showWhen.key in draftOpts) ? draftOpts[o.showWhen.key] : parent?.default;
+                      if (String(parentVal) !== o.showWhen.equals) return null;
+                    }
                     if (o.type === 'text') {
                       return (
                         <div key={o.key} className="asec-editor-field">

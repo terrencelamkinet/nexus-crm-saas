@@ -30,7 +30,7 @@ if str(BACKEND) not in sys.path:
     sys.path.insert(0, str(BACKEND))
 
 from app.db import async_session  # noqa: E402
-from app.models.ai.secretary_settings import SecretarySettings, ChannelCredential  # noqa: E402
+from app.models.ai.secretary_settings import SecretarySettings, ChannelCredential, normalize_modules  # noqa: E402
 from app.models.telegram_bot import TelegramBotMapping  # noqa: E402
 from app.models.im_push import PushLog, IMDeliveryPref  # noqa: E402
 from app.services.secret_crypto import decrypt_secret  # noqa: E402
@@ -59,6 +59,15 @@ SLOT_MAP = {
     "afternoon": "noon",
     "evening": "evening",
     "lateNight": "night",
+}
+
+# bible_reading custom push time（push_time_mode=custom）— time_of_day → 指定時間
+# 固定時間點：早晨 07:00 / 午間 12:00 / 傍晚 18:00 / 夜晚 22:00
+BIBLE_SLOT_TIMES = {
+    "morning": "07:00",
+    "noon": "12:00",
+    "evening": "18:00",
+    "night": "22:00",
 }
 
 
@@ -257,7 +266,7 @@ async def run_scheduler(dry_run: bool = False) -> dict:
             rows = (
                 await db.execute(
                     text(
-                        "SELECT user_id, tenant_id, greeting_slots FROM nexus_ai.ai_secretary_settings"
+                        "SELECT user_id, tenant_id, greeting_slots, modules FROM nexus_ai.ai_secretary_settings"
                     )
                 )
             ).fetchall()
@@ -266,6 +275,7 @@ async def run_scheduler(dry_run: bool = False) -> dict:
             for r in rows:
                 user_id, tenant_id = r[0], r[1]
                 slots = r[2] or []
+                modules_raw = r[3] if len(r) > 3 else None
                 # Lightweight user shim for push helpers
                 user = type("U", (), {"user_id": user_id, "tenant_id": tenant_id})()
                 for slot_cfg in slots:
@@ -300,6 +310,45 @@ async def run_scheduler(dry_run: bool = False) -> dict:
                     ))
                     stats[status] += 1
                     stats["details"].append(f"{str(user_id)[:8]} {key}@{start}: {status}")
+
+                # bible_reading custom push time（唔跟 greeting schedule）→ 指定時間推 bible-only
+                try:
+                    modules = normalize_modules(modules_raw)
+                    bopts = modules.get("bible_reading") or {}
+                except Exception:
+                    bopts = {}
+                if bopts.get("push_time_mode") == "custom":
+                    tod = bopts.get("time_of_day", "morning")
+                    b_start = BIBLE_SLOT_TIMES.get(tod)
+                    if b_start and _is_due(now, b_start):
+                        b_slot = f"bible_{tod}"
+                        if await _already_sent(db, user_id, "telegram", b_slot, now):
+                            stats["skipped"] += 1
+                            stats["details"].append(f"{str(user_id)[:8]} {b_slot}: already sent")
+                        elif dry_run:
+                            stats["details"].append(f"{str(user_id)[:8]} {b_slot}@{b_start}: BIBLE DUE (dry)")
+                        else:
+                            from app.services.briefing_generator import generate_briefing
+                            bres = await generate_briefing(db, tenant_id, user_id, tod, only_modules=["bible_reading"], skip_im_push=True)
+                            if bres.get("status") in ("published", "empty_content"):
+                                if bres["status"] == "empty_content":
+                                    stats["skipped"] += 1
+                                    stats["details"].append(f"{str(user_id)[:8]} {b_slot}: empty content")
+                                    continue
+                                bstatus = await _push_telegram(db, user, b_slot, bres["content"])
+                                if bstatus == "skipped":
+                                    bstatus = await _push_whatsapp(db, user, b_slot, bres["content"])
+                                db.add(PushLog(
+                                    tenant_id=tenant_id, user_id=user_id,
+                                    channel="telegram" if bstatus != "skipped" else "whatsapp",
+                                    slot=b_slot, status=bstatus,
+                                    error="" if bstatus == "sent" else (bstatus if bstatus == "failed" else "no_channel"),
+                                ))
+                                stats[bstatus] += 1
+                                stats["details"].append(f"{str(user_id)[:8]} {b_slot}@{b_start}: {bstatus}")
+                            else:
+                                stats["skipped"] += 1
+                                stats["details"].append(f"{str(user_id)[:8]} {b_slot}: {bres.get('status', 'failed')}")
         await db.commit()
     return stats
 

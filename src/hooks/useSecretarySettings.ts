@@ -24,6 +24,7 @@ export interface ModuleOptionDef {
   choices?: ModuleOptionChoice[];       // single/multi select 用（2–10 個）
   placeholderKey?: string;              // text 用
   default: string | string[] | number | Record<string, string>;
+  showWhen?: { key: string; equals: string };  // 條件顯示 — 另一 option 等於某值先 render
 }
 
 /** 聖經 66 卷（canonical order）— 中文名同 backend _resolve_passages_for_day 對齊 */
@@ -530,14 +531,23 @@ export const MODULES: SecretaryModule[] = [
         default: '1',
       },
       {
+        key: 'push_time_mode', type: 'single_select', labelKey: 'settings.aiApps.biblePushTime',
+        choices: [
+          { value: 'greeting', labelKey: 'settings.aiApps.biblePushTimeGreeting' },
+          { value: 'custom', labelKey: 'settings.aiApps.biblePushTimeCustom' },
+        ],
+        default: 'greeting',
+      },
+      {
         key: 'time_of_day', type: 'single_select', labelKey: 'settings.aiApps.bibleTime',
         choices: [
-          { value: 'morning', labelKey: 'settings.aiApps.slotMorning' },
-          { value: 'noon', labelKey: 'settings.aiApps.slotNoon' },
-          { value: 'evening', labelKey: 'settings.aiApps.slotEvening' },
-          { value: 'night', labelKey: 'settings.aiApps.slotNight' },
+          { value: 'morning', labelKey: 'settings.aiApps.bibleTimeMorning' },
+          { value: 'noon', labelKey: 'settings.aiApps.bibleTimeNoon' },
+          { value: 'evening', labelKey: 'settings.aiApps.bibleTimeEvening' },
+          { value: 'night', labelKey: 'settings.aiApps.bibleTimeNight' },
         ],
         default: 'morning',
+        showWhen: { key: 'push_time_mode', equals: 'custom' },
       },
       {
         key: 'translation', type: 'single_select', labelKey: 'settings.aiApps.bibleTranslation',
