@@ -95,7 +95,7 @@ class SettingsOut(BaseModel):
 
 
 class SettingsPatch(BaseModel):
-    modules: dict[str, dict] | None = None
+    modules: dict[str, dict | None] | None = None
     workdays: list[str] | None = None
     weekend_mute: bool | None = None
     strict_silence: bool | None = None
@@ -124,7 +124,8 @@ class SettingsPatch(BaseModel):
         bad = set(v) - KNOWN_MODULES
         if bad:
             raise ValueError(f"unknown modules: {sorted(bad)}")
-        return v
+        # value = None 表示刪除該 module（PATCH merge 語意）
+        return {k: (opts if opts is not None else None) for k, opts in v.items()}
 
     @field_validator("workdays")
     @classmethod
@@ -309,10 +310,14 @@ async def patch_settings(
             raise HTTPException(422, f"modules not yet connected: {unconnected}")
     for k, v in data.items():
         if k == "modules":
-            # Merge — PATCH 語意：只更新傳入嘅 module/options，保留其他
+            # Merge — PATCH 語意：只更新傳入嘅 module/options，保留其他；
+            # opts = null 表示刪除該 module
             cur: dict = normalize_modules(row.modules or DEFAULT_MODULES)
             for mod_id, opts in (v or {}).items():
-                cur[mod_id] = {**(cur.get(mod_id) or {}), **(opts or {})}
+                if opts is None:
+                    cur.pop(mod_id, None)
+                else:
+                    cur[mod_id] = {**(cur.get(mod_id) or {}), **(opts or {})}
             setattr(row, "modules", cur)
             continue
         if k in ("work_start", "work_end") and isinstance(v, str):
