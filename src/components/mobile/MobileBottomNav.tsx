@@ -26,14 +26,6 @@ export interface Props {
   onQuickAdd: (recordType: string) => void;
 }
 
-const AI_TOGGLE_KEYS = [
-  { key: 'ai_crud',      label: 'AI 可自動新增/修改資料' },
-  { key: 'ai_scan',      label: '鏡頭拍卡片自動識別' },
-  { key: 'ai_calendar',  label: 'AI 主動行事曆提問' },
-  { key: 'ai_delete_confirm', label: 'AI 刪除操作需二次確認' },
-] as const;
-
-const TOGGLE_STORAGE = 'nexus-ai-butler-toggles';
 const THEME_STORAGE = 'nexus-theme';
 
 export default function MobileBottomNav({ onOpenAiSearch, onScanCard, onQuickAdd }: Props) {
@@ -45,9 +37,6 @@ export default function MobileBottomNav({ onOpenAiSearch, onScanCard, onQuickAdd
   const salesOn = mods['sales'] !== false;
   const [sheet, setSheet] = useState<'workspace' | 'record' | 'add' | 'settings' | null>(null);
   const [dark, setDark] = useState(() => document.documentElement.getAttribute('data-theme') === 'dark');
-  const [toggles, setToggles] = useState<Record<string, boolean>>(() => {
-    try { return JSON.parse(localStorage.getItem(TOGGLE_STORAGE) || '{}'); } catch { return {}; }
-  });
   const [notifications, setNotifications] = useState<{ id: string; title: string; body?: string; status?: string }[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
 
@@ -89,12 +78,6 @@ export default function MobileBottomNav({ onOpenAiSearch, onScanCard, onQuickAdd
     : ['/touchpoints', '/namecards', '/reports'].some(p => path.startsWith(p)) ? 'records'
     : ['/dashboard', '/contacts', '/calendar', '/companies', '/projects', '/deals', '/tasks'].some(p => path.startsWith(p)) ? 'workspace'
     : 'none';
-
-  const setToggle = (key: string, val: boolean) => {
-    const next = { ...toggles, [key]: val };
-    setToggles(next);
-    try { localStorage.setItem(TOGGLE_STORAGE, JSON.stringify(next)); } catch { /* ignore */ }
-  };
 
   const toggleTheme = () => {
     const el = document.documentElement;
@@ -216,15 +199,6 @@ export default function MobileBottomNav({ onOpenAiSearch, onScanCard, onQuickAdd
           {settingsItems.map(item => (
             <button key={item.to} type="button" className="mnav-org-row" onClick={() => go(item.to)}>
               <item.icon /><span>{item.label}</span><ChevronRight className="chev" />
-            </button>
-          ))}
-
-          {/* AI 管家設定 */}
-          <div className="mnav-section-label">AI 管家設定</div>
-          {AI_TOGGLE_KEYS.map(k => (
-            <button key={k.key} type="button" className="mnav-org-row" onClick={() => setToggle(k.key, !(toggles[k.key] ?? true))}>
-              <Sparkles /><span>{k.label}</span>
-              <span className={`mnav-switch ${toggles[k.key] ?? true ? 'on' : ''}`} onClick={e => e.stopPropagation()} />
             </button>
           ))}
 

@@ -1,16 +1,17 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { apiClient, getStoredAuth } from '../../lib/api';
+import FollowUpChips from '../ai/chat/core/FollowUpChips';
 import {
-  Search, Plus, PencilLine, Trash2, CalendarClock, Camera, Mic, ArrowUp, X, History, Sparkles,
+  Search, Plus, PencilLine, Trash2, CalendarClock, Camera, Mic, ArrowUp, X, Sparkles,
 } from 'lucide-react';
 
 /**
- * AI & Search dual panel — center nav button.
- * Tab 1: 問 AI（streaming reply via /api/v1/ai/chat/stream）
- * Tab 2: 搜尋（debounced global search via /api/v1/crm/search）
- * Capability list + 相機/咪高風 entry points per nexus-mobile-nav.html.
+ * AI & Search dual panel — center nav button（v6.71）
+ * Tab 1 問 AI：真 chat — sessions / streaming / citations / follow-ups
+ *   （邏輯同 ChatboxPanel 一致，重用 /api/v1/ai/chat/stream + cb-* 樣式）
+ * Tab 2 搜尋：真 global search（debounce /api/v1/crm/search → 導航）
  */
 
 export interface SearchResult { id: string; type: string; title: string; subtitle?: string; icon: string; }
@@ -26,48 +27,196 @@ const TYPE_EMOJI: Record<string, string> = {
   project: '📁', touchpoint: '🔄', note: '📝', event: '📅',
 };
 
+/* ── Chat types（同 ChatboxPanel 一致）── */
+interface ChatMessage {
+  id: string;
+  role: 'user' | 'assistant';
+  content: string;
+  timestamp: number;
+  citations?: CitationSource[];
+  followups?: string[];
+}
+interface CitationSource { id: string; type: string; title: string; snippet: string; updated_at?: string }
+interface SessionItem { session_id: string; title: string; status?: string; is_pinned?: boolean; created_at?: string }
+
+let msgCounter = 0;
+function nextId() { msgCounter += 1; return `msg_${Date.now()}_${msgCounter}`; }
+function userMessage(content: string): ChatMessage { return { id: nextId(), role: 'user', content, timestamp: Date.now() }; }
+function assistantMessage(content: string): ChatMessage { return { id: nextId(), role: 'assistant', content, timestamp: Date.now() }; }
+
+const GREETING = "Hi! I'm NEXUS AI. How can I help you today?";
 const CAPABILITIES = [
   { icon: Plus,        title: '新增資料', desc: '「幫我新增一個聯絡人…」— AI 直接寫入你嘅 tenant 資料庫' },
   { icon: PencilLine,  title: '修改資料', desc: '「將 Kong API 專案到期日改成 9月20日」— AI 直接更新現有記錄' },
   { icon: Trash2,      title: '刪除資料', desc: '「刪除 XXX 呢個聯絡人」— AI 會先確認再執行刪除' },
   { icon: CalendarClock, title: '行事曆主動提問', desc: 'AI 自動掃描你嘅日程，細節不足嘅活動會主動問你補充' },
 ];
-
 const QUICK_CHIPS = ['總結今日待辦', '幫我起草跟進 email', '分析專案風險'];
 
 export default function AiSearchPanel({ open, onClose, onScanCard }: Props) {
   const navigate = useNavigate();
   const [mode, setMode] = useState<'ai' | 'search'>('ai');
-  const [query, setQuery] = useState('');
-  const [thinking, setThinking] = useState(false);
-  const [aiReply, setAiReply] = useState<string | null>(null);
-  const [aiError, setAiError] = useState<string | null>(null);
-  const [results, setResults] = useState<SearchResult[]>([]);
-  const [searching, setSearching] = useState(false);
-  const [recent, setRecent] = useState<string[]>([]);
-  const inputRef = useRef<HTMLInputElement>(null);
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [closing, setClosing] = useState(false);
 
-  // Reset on open / close
+  // ── Chat state ──
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [input, setInput] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [isStreaming, setIsStreaming] = useState(false);
+  const [streamingContent, setStreamingContent] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const [sessionId, setSessionId] = useState<string | null>(null);
+  const [sessionList, setSessionList] = useState<SessionItem[]>([]);
+  const [loadingSession, setLoadingSession] = useState(false);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const abortRef = useRef<AbortController | null>(null);
+
+  // ── Search state ──
+  const [query, setQuery] = useState('');
+  const [results, setResults] = useState<SearchResult[]>([]);
+  const [searching, setSearching] = useState(false);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  /* ── Sessions ── */
+  const switchSession = useCallback(async (sid: string) => {
+    setSessionId(sid);
+    setLoadingSession(true);
+    setMessages([]);
+    try {
+      const resp = await apiClient.get<{ messages: any[] }>(`/api/v1/ai/sessions/${sid}/messages`);
+      const msgs = resp?.messages || [];
+      setMessages(msgs.length
+        ? msgs.map((m: any) => ({ id: m.id, role: m.role, content: m.content, timestamp: new Date(m.created_at || Date.now()).getTime() }))
+        : [assistantMessage(GREETING)]);
+    } catch {
+      setMessages([assistantMessage(GREETING)]);
+    } finally {
+      setLoadingSession(false);
+    }
+  }, []);
+
+  const loadSessions = useCallback(async () => {
+    setLoadingSession(true);
+    try {
+      const resp = await apiClient.get<{ sessions: SessionItem[] }>('/api/v1/ai/sessions');
+      const list = resp?.sessions || [];
+      setSessionList(list);
+      const active = list.find(s => s.status === 'active') || list[0];
+      if (active) await switchSession(active.session_id);
+      else { setSessionId(null); setMessages([]); }
+    } catch {
+      setMessages([assistantMessage(GREETING)]);
+    } finally {
+      setLoadingSession(false);
+    }
+  }, [switchSession]);
+
+  const createNewSession = () => {
+    abortRef.current?.abort();
+    setSessionId(null);
+    setMessages([]);
+    setError(null);
+  };
+
+  /* ── Streaming（同 ChatboxPanel doStream 一致）── */
+  const doStream = useCallback(async (text: string) => {
+    const controller = new AbortController();
+    abortRef.current = controller;
+    setIsLoading(true);
+    setIsStreaming(true);
+    setError(null);
+    try {
+      const resp = await fetch('/api/v1/ai/chat/stream', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getStoredAuth()?.access_token || ''}` },
+        body: JSON.stringify({ messages: [{ role: 'user', content: text }], session_id: sessionId || null, agent_id: null }),
+        signal: controller.signal,
+      });
+      if (!resp.ok) {
+        const errBody = await resp.json().catch(() => ({ detail: `HTTP ${resp.status}` }));
+        throw new Error(errBody.detail || `Request failed with status ${resp.status}`);
+      }
+      const reader = resp.body?.getReader();
+      if (!reader) throw new Error('No response body');
+      const decoder = new TextDecoder();
+      let buffer = '';
+      let fullReply = '';
+      let newSessionId: string | null = null;
+      const msgCitations: CitationSource[] = [];
+      let msgFollowups: string[] = [];
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n').map(l => l.replace('\r', ''));
+        buffer = lines.pop() || '';
+        for (const line of lines) {
+          if (!line.startsWith('data: ')) continue;
+          try {
+            const data = JSON.parse(line.slice(6));
+            if (data.text !== undefined) { fullReply += data.text; setStreamingContent(fullReply); }
+            if (data.session_id) newSessionId = data.session_id;
+            if (data.citations && Array.isArray(data.citations)) {
+              const existingIds = new Set(msgCitations.map(c => c.id));
+              for (const cit of data.citations) {
+                if (!existingIds.has(cit.id)) { msgCitations.push(cit as CitationSource); existingIds.add(cit.id); }
+              }
+            }
+            if (data.followups && Array.isArray(data.followups)) msgFollowups = data.followups.map(String).slice(0, 3);
+            if (data.message) setError(data.message);
+          } catch { /* skip */ }
+        }
+      }
+      if (fullReply) {
+        const reply: ChatMessage = {
+          ...assistantMessage(fullReply),
+          citations: msgCitations.length ? msgCitations : undefined,
+          followups: msgFollowups.length ? msgFollowups : undefined,
+        };
+        setMessages(prev => [...prev, reply]);
+      }
+      if (newSessionId && newSessionId !== sessionId) setSessionId(newSessionId);
+      setStreamingContent('');
+      const resp2 = await apiClient.get<{ sessions: SessionItem[] }>('/api/v1/ai/sessions').catch(() => null);
+      if (resp2?.sessions) setSessionList(resp2.sessions);
+    } catch (e: any) {
+      if (e.name !== 'AbortError') setError(e?.message || '請求失敗，請再試');
+    } finally {
+      setIsStreaming(false);
+      setIsLoading(false);
+      setStreamingContent('');
+      abortRef.current = null;
+    }
+  }, [sessionId]);
+
+  const sendMessage = useCallback(async (text?: string) => {
+    const content = (text ?? input).trim();
+    if (!content || isLoading || isStreaming) return;
+    setMessages(prev => [...prev, userMessage(content)]);
+    setInput('');
+    await doStream(content);
+  }, [input, isLoading, isStreaming, doStream]);
+
+  /* ── Open/close reset ── */
   useEffect(() => {
     if (open) {
       setClosing(false);
-      setTimeout(() => inputRef.current?.focus(), 260);
+      setMode('ai');
+      loadSessions();
+      setTimeout(() => document.querySelector<HTMLInputElement>('.aisp-input')?.focus(), 300);
     } else {
-      setQuery(''); setAiReply(null); setAiError(null); setResults([]); setMode('ai');
+      abortRef.current?.abort();
+      setQuery(''); setResults([]);
     }
-  }, [open]);
+  }, [open, loadSessions]);
 
-  // Load recent AI sessions (top 3 titles)
+  // Auto-scroll to bottom on new content
   useEffect(() => {
-    if (!open) return;
-    apiClient.get<{ sessions: { title?: string }[] }>('/api/v1/ai/sessions')
-      .then(d => setRecent((d?.sessions || []).slice(0, 3).map(s => s.title || '未命名對話')))
-      .catch(() => setRecent([]));
-  }, [open]);
+    const el = scrollRef.current;
+    if (el) requestAnimationFrame(() => { el.scrollTop = el.scrollHeight; });
+  }, [messages, isStreaming, streamingContent, isLoading]);
 
-  // Debounced search
+  /* ── Debounced search ── */
   useEffect(() => {
     if (mode !== 'search' || !open) return;
     if (debounceRef.current) clearTimeout(debounceRef.current);
@@ -90,54 +239,19 @@ export default function AiSearchPanel({ open, onClose, onScanCard }: Props) {
   const handleClose = () => {
     if (closing) return;
     setClosing(true);
+    abortRef.current?.abort();
     setTimeout(onClose, 200);
   };
 
-  async function submitAi() {
-    const q = query.trim();
-    if (!q || thinking) return;
-    setThinking(true); setAiReply(null); setAiError(null);
-    try {
-      const token = getStoredAuth()?.access_token || '';
-      const resp = await fetch('/api/v1/ai/chat/stream', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ messages: [{ role: 'user', content: q }], session_id: null, agent_id: null }),
-      });
-      if (!resp.ok) {
-        const err = await resp.json().catch(() => ({ detail: `HTTP ${resp.status}` }));
-        throw new Error(err.detail || `Request failed with status ${resp.status}`);
-      }
-      const reader = resp.body?.getReader();
-      if (!reader) throw new Error('No response body');
-      const decoder = new TextDecoder();
-      let buffer = '';
-      let full = '';
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split('\n').map(l => l.replace('\r', ''));
-        buffer = lines.pop() || '';
-        for (const line of lines) {
-          if (!line.startsWith('data: ')) continue;
-          try {
-            const data = JSON.parse(line.slice(6));
-            if (data.text !== undefined) full += data.text;
-            if (data.message) setAiError(data.message);
-          } catch { /* skip */ }
-        }
-      }
-      if (full) setAiReply(full);
-      else if (!aiError) setAiError('AI 冇回覆，再試一次？');
-    } catch (e: any) {
-      setAiError(e.message || '請求失敗');
-    } finally {
-      setThinking(false);
-    }
-  }
-
   if (!open) return null;
+
+  const goResult = (r: SearchResult) => {
+    const map: Record<string, string> = { contact: 'contacts', company: 'companies', deal: 'deals', task: 'tasks', project: 'projects', touchpoint: 'touchpoints' };
+    handleClose();
+    navigate(`/${map[r.type] || 'dashboard'}/${r.id}`);
+  };
+
+  const emptyChat = messages.length === 0 && !loadingSession && !isStreaming;
 
   return createPortal(
     <div className={`aisp-overlay ${closing ? 'closing' : ''}`} onClick={handleClose}>
@@ -157,91 +271,140 @@ export default function AiSearchPanel({ open, onClose, onScanCard }: Props) {
           </button>
         </div>
 
-        <div className="aisp-input-row">
-          <Search />
-          <input
-            ref={inputRef}
-            className="aisp-input"
-            placeholder={mode === 'ai' ? '問 AI 秘書任何事…' : '搜尋聯絡人、公司、專案、任務…'}
-            value={query}
-            onChange={e => setQuery(e.target.value)}
-            onKeyDown={e => { if (e.key === 'Enter' && mode === 'ai') submitAi(); }}
-          />
-          <button type="button" className="aisp-icon-btn cam" onClick={() => { handleClose(); onScanCard(); }} aria-label="拍卡片">
-            <Camera />
-          </button>
-          {mode === 'ai' && (
-            <button type="button" className="aisp-icon-btn mic" onClick={() => alert('語音輸入即將推出')} aria-label="語音輸入">
-              <Mic />
-            </button>
-          )}
-          {mode === 'ai' && (
-            <button type="button" className="aisp-icon-btn send" onClick={submitAi} disabled={thinking || !query.trim()} aria-label="送出">
-              <ArrowUp />
-            </button>
-          )}
-        </div>
-
         {mode === 'ai' && (
-          <div className="aisp-body">
-            {!aiReply && !thinking && !aiError && (
-              <>
-                <div className="aisp-label">AI 可以幫你</div>
-                {CAPABILITIES.map(c => (
-                  <div key={c.title} className="aisp-capability">
-                    <span className="icn"><c.icon /></span>
-                    <div><strong>{c.title}</strong><span>{c.desc}</span></div>
-                  </div>
-                ))}
-                <div className="aisp-label" style={{ marginTop: 16 }}>快速指令</div>
-                <div className="aisp-chip-row">
-                  {QUICK_CHIPS.map(chip => (
-                    <button key={chip} type="button" className="aisp-chip" onClick={() => setQuery(chip)}>
-                      <Sparkles />{chip}
-                    </button>
+          <div className="aisp-chat">
+            {/* Session bar */}
+            <div className="aisp-session-bar">
+              <button type="button" className={`aisp-session-chip ${!sessionId ? 'active' : ''}`} onClick={createNewSession}>
+                <Plus /> 新對話
+              </button>
+              {sessionList.slice(0, 8).map(s => (
+                <button
+                  key={s.session_id}
+                  type="button"
+                  className={`aisp-session-chip ${sessionId === s.session_id ? 'active' : ''}`}
+                  onClick={() => switchSession(s.session_id)}
+                  title={s.title}
+                >
+                  {s.title || '未命名對話'}
+                </button>
+              ))}
+            </div>
+
+            {/* Messages */}
+            <div className="aisp-msg-area" ref={scrollRef}>
+              {loadingSession && <div className="aisp-empty">載入對話…</div>}
+              {emptyChat && (
+                <>
+                  <div className="aisp-label">AI 可以幫你</div>
+                  {CAPABILITIES.map(c => (
+                    <div key={c.title} className="aisp-capability">
+                      <span className="icn"><c.icon /></span>
+                      <div><strong>{c.title}</strong><span>{c.desc}</span></div>
+                    </div>
                   ))}
-                </div>
-                {recent.length > 0 && (
-                  <>
-                    <div className="aisp-label">最近</div>
-                    {recent.map((title, i) => (
-                      <div key={i} className="aisp-recent-item">
-                        <History /><span>{title}</span>
-                      </div>
+                  <div className="aisp-label" style={{ marginTop: 16 }}>快速指令</div>
+                  <div className="aisp-chip-row">
+                    {QUICK_CHIPS.map(chip => (
+                      <button key={chip} type="button" className="aisp-chip" onClick={() => setInput(chip)}>
+                        <Sparkles />{chip}
+                      </button>
                     ))}
-                  </>
-                )}
-              </>
-            )}
-            {thinking && (
-              <div className="aisp-thinking"><span className="aisp-dot" /><span className="aisp-dot" /><span className="aisp-dot" /></div>
-            )}
-            {aiReply && <div className="aisp-reply">{aiReply}</div>}
-            {aiError && <div className="aisp-error">{aiError}</div>}
+                  </div>
+                </>
+              )}
+              {messages.map((m, i) => {
+                const prev = messages[i - 1];
+                const prevSameRole = prev && prev.role === m.role;
+                if (m.role === 'user') {
+                  return (
+                    <div key={m.id} className="cb-msg-user" style={{ marginTop: prevSameRole ? -12 : 0 }}>
+                      <div className="cb-msg-user-bubble">{m.content}</div>
+                    </div>
+                  );
+                }
+                return (
+                  <div key={m.id} className="cb-msg-ai-row">
+                    <div className="cb-msg-ai-body ai-card">
+                      <div className="msg-ai-content cb-msg-ai-content">{m.content}</div>
+                      {m.citations && m.citations.length > 0 && (
+                        <div className="cb-citation-wrap">
+                          <div className="cb-citation-chip">
+                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                              <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
+                              <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
+                            </svg>
+                            Source: {m.citations.length} record{m.citations.length > 1 ? 's' : ''}
+                          </div>
+                        </div>
+                      )}
+                      {m.followups && m.followups.length > 0 && (
+                        <FollowUpChips suggestions={m.followups} onSelect={q => sendMessage(q)} />
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+              {isStreaming && streamingContent && (
+                <div className="cb-msg-ai-row">
+                  <div className="cb-msg-ai-body ai-card is-thinking">
+                    <div className="msg-ai-content cb-msg-ai-content">{streamingContent}</div>
+                  </div>
+                </div>
+              )}
+              {isLoading && !streamingContent && (
+                <div className="aisp-thinking"><span className="aisp-dot" /><span className="aisp-dot" /><span className="aisp-dot" /></div>
+              )}
+              {error && <div className="aisp-error">{error}</div>}
+            </div>
+
+            {/* Composer（design 嘅 input row，置底） */}
+            <div className="aisp-input-row">
+              <input
+                className="aisp-input"
+                placeholder="問 AI 秘書任何事…"
+                value={input}
+                onChange={e => setInput(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter') sendMessage(); }}
+              />
+              <button type="button" className="aisp-icon-btn cam" onClick={() => { handleClose(); onScanCard(); }} aria-label="拍卡片">
+                <Camera />
+              </button>
+              <button type="button" className="aisp-icon-btn mic" onClick={() => setInput(prev => prev + '（語音輸入即將推出）')} aria-label="語音輸入">
+                <Mic />
+              </button>
+              <button type="button" className="aisp-icon-btn send" onClick={() => sendMessage()} disabled={isLoading || isStreaming || !input.trim()} aria-label="送出">
+                <ArrowUp />
+              </button>
+            </div>
           </div>
         )}
 
         {mode === 'search' && (
-          <div className="aisp-body">
-            {searching && results.length === 0 && <div className="aisp-empty">搜尋中…</div>}
-            {!searching && query.trim().length >= 2 && results.length === 0 && (
-              <div className="aisp-empty">冇搜尋到相關結果</div>
-            )}
-            {results.map(r => (
-              <button
-                key={r.type + r.id}
-                type="button"
-                className="aisp-result-row"
-                onClick={() => { handleClose(); navigate(`/${r.type === 'contact' ? 'contacts' : r.type === 'company' ? 'companies' : r.type === 'deal' ? 'deals' : r.type === 'task' ? 'tasks' : r.type === 'project' ? 'projects' : r.type === 'touchpoint' ? 'touchpoints' : 'dashboard'}/${r.id}`); }}
-              >
-                <span className="aisp-result-icon">{r.icon}</span>
-                <span className="aisp-result-text">
-                  <strong>{r.title}</strong>
-                  {r.subtitle && <small>{r.subtitle}</small>}
-                </span>
-                <span className="aisp-result-type">{r.type}</span>
-              </button>
-            ))}
+          <div className="aisp-search-col">
+            <div className="aisp-input-row">
+              <Search />
+              <input
+                className="aisp-input"
+                placeholder="搜尋聯絡人、公司、專案、任務…"
+                value={query}
+                onChange={e => setQuery(e.target.value)}
+              />
+            </div>
+            <div className="aisp-body">
+              {searching && results.length === 0 && <div className="aisp-empty">搜尋中…</div>}
+              {!searching && query.trim().length >= 2 && results.length === 0 && <div className="aisp-empty">冇搜尋到相關結果</div>}
+              {results.map(r => (
+                <button key={r.type + r.id} type="button" className="aisp-result-row" onClick={() => goResult(r)}>
+                  <span className="aisp-result-icon">{r.icon}</span>
+                  <span className="aisp-result-text">
+                    <strong>{r.title}</strong>
+                    {r.subtitle && <small>{r.subtitle}</small>}
+                  </span>
+                  <span className="aisp-result-type">{r.type}</span>
+                </button>
+              ))}
+            </div>
           </div>
         )}
       </div>

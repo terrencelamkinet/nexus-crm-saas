@@ -214,7 +214,8 @@
 }
 .mnav-org-row:last-child { border-bottom: none; }
 .mnav-org-row svg:first-child { width: 18px; height: 18px; color: var(--color-text-muted); flex-shrink: 0; }
-.mnav-org-row > span { flex: 1; font-size: 14px; font-weight: 500; color: var(--color-text); }
+/* v6.71 fix: exclude .mnav-switch — 之前 `> span` 連 switch 都食埋 flex:1 → Dark mode button 走位 */
+.mnav-org-row > span:not(.mnav-switch) { flex: 1; font-size: 14px; font-weight: 500; color: var(--color-text); }
 .mnav-org-row .chev { width: 16px; height: 16px; color: var(--color-text-faint); flex-shrink: 0; }
 
 /* Toggle switch */
@@ -253,6 +254,35 @@
 
 /* ═══════════ AI & Search panel ═══════════ */
 .aisp-panel { min-height: 46vh; }
+/* v6.71: AI tab = real chat — session bar + message area + bottom composer */
+.aisp-chat { display: flex; flex-direction: column; flex: 1; min-height: 0; }
+.aisp-session-bar {
+  display: flex; gap: 6px; overflow-x: auto; padding: 0 20px 10px; flex-shrink: 0;
+  -webkit-overflow-scrolling: touch;
+}
+.aisp-session-chip {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 6px 12px; border-radius: 999px; white-space: nowrap;
+  background: var(--color-surface-offset); border: 1px solid var(--color-divider);
+  font-size: 12px; font-weight: 600; color: var(--color-text-muted);
+  cursor: pointer; font-family: inherit; flex-shrink: 0;
+  max-width: 140px; overflow: hidden; text-overflow: ellipsis;
+}
+.aisp-session-chip.active { background: var(--color-primary-highlight); border-color: var(--color-primary); color: var(--color-primary); }
+.aisp-msg-area {
+  flex: 1; overflow-y: auto; padding: 0 20px 12px; min-height: 0;
+  display: flex; flex-direction: column; gap: 10px;
+}
+.aisp-msg-area .cb-msg-user, .aisp-msg-area .cb-msg-ai-row { margin: 0; }
+.aisp-msg-area .cb-msg-user { align-self: flex-end; max-width: 85%; }
+.aisp-msg-area .cb-msg-ai-row { align-self: flex-start; max-width: 92%; }
+.aisp-msg-area .aisp-input-row { display: none; }
+.aisp-chat > .aisp-input-row {
+  margin: 0 20px calc(10px + env(safe-area-inset-bottom));
+  flex-shrink: 0;
+}
+.aisp-search-col { display: flex; flex-direction: column; flex: 1; min-height: 0; }
+.aisp-search-col .aisp-input-row { flex-shrink: 0; }
 .aisp-tabs { display: flex; gap: 8px; margin: 0 20px 12px; flex-shrink: 0; }
 .aisp-tab {
   flex: 1; display: flex; align-items: center; justify-content: center; gap: 6px;
