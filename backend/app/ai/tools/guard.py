@@ -54,6 +54,56 @@ async def _ai_edit_allowed(tenant_id: uuid.UUID, db: AsyncSession | None) -> boo
         return False
 
 
+async def _agent_tool_allowed(
+    agent_id: uuid.UUID,
+    tool_key: str,
+    tool_def: Any,
+    db: AsyncSession | None,
+) -> bool:
+    """Return True when *agent_id* has a grant covering *tool_key* in ai_agent_permissions.
+
+    A grant row matches when:
+      - allowed_tool_key == tool_key (exact tool grant) OR '*' (module-level), AND
+      - allowed_module == tool.module (exact) OR is a parent prefix of it
+        (e.g. 'app.services.crm' covers 'app.services.crm.companies'), AND
+      - can_read=True for read tools / can_write=True for write tools.
+    Falls back to the shared async session when no session is passed in;
+    DB errors return False-safe (caller falls through to remaining checks).
+    """
+    from sqlalchemy import text
+
+    q = text(
+        """
+        SELECT can_read, can_write FROM nexus_ai.ai_agent_permissions
+        WHERE agent_id = :aid
+          AND (allowed_tool_key = :tk OR allowed_tool_key = '*')
+          AND (:mod = allowed_module OR :mod LIKE allowed_module || '.%')
+        """
+    )
+
+    async def _check(session: AsyncSession) -> bool:
+        res = await session.execute(
+            q, {"aid": str(agent_id), "tk": tool_key, "mod": tool_def.module}
+        )
+        for can_read, can_write in res.all():
+            if tool_def.type == "read" and can_read:
+                return True
+            if tool_def.type == "write" and can_write:
+                return True
+        return False
+
+    if db is not None:
+        return await _check(db)
+
+    from app.db import async_session
+
+    try:
+        async with async_session() as s:
+            return await _check(s)
+    except Exception:
+        return False
+
+
 # ---------------------------------------------------------------------------
 # Exceptions
 # ---------------------------------------------------------------------------
@@ -199,8 +249,21 @@ async def authorize_tool_call(
         )
 
     # 2. Agent permission ----------------------------------------------------
-    # Disabled for now — permission_set is empty until agent profile is wired.
-    pass
+    # Agent-scoped check: when the session is bound to an agent (ai_agents),
+    # the call must match a grant row in nexus_ai.ai_agent_permissions:
+    #   - allowed_tool_key == tool_key (exact) OR '*' (module-level grant)
+    #   - module match: allowed_module == tool.module OR is a parent prefix
+    #   - read tools require can_read=True; write tools require can_write=True
+    # No agent_id → user-direct session: rely on the tenant / workspace /
+    # allow_edit / data-ID checks below (agent binding not yet wired).
+    if ctx.agent_id is not None:
+        if not await _agent_tool_allowed(ctx.agent_id, tool_key, tool_def, db):
+            raise ScopeViolation(
+                f"Agent {ctx.agent_id} is not allowed to call '{tool_key}'",
+                tool_key=tool_key,
+                reason="agent_permission_denied",
+                context=ctx,
+            )
 
     # 2.5. Write-tool gate — tenant must enable AI editing -------------------
     if tool_def.type == "write":
@@ -256,16 +319,20 @@ async def log_audit(
 ) -> None:
     """Write an audit event to the database.  Silently skips if table missing."""
     try:
+        import json
+
         from app.db import async_session
         from sqlalchemy import text
+
+        det = detail if isinstance(detail, str) else json.dumps(detail, ensure_ascii=False)
 
         async with async_session() as db:
             await db.execute(
                 text(
                     """
-                    INSERT INTO nexus_ai.audit_log
+                    INSERT INTO nexus_ai.ai_audit_log
                         (tenant_id, user_id, session_id, event_type, detail)
-                    VALUES (:tid, :uid, :sid, :evt, :det::jsonb)
+                    VALUES (:tid, :uid, :sid, :evt, CAST(:det AS jsonb))
                     """
                 ),
                 {
@@ -273,7 +340,7 @@ async def log_audit(
                     "uid": str(ctx.user_id),
                     "sid": str(ctx.session_id),
                     "evt": event_type,
-                    "det": detail if isinstance(detail, str) else str(detail),
+                    "det": det,
                 },
             )
             await db.commit()
