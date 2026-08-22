@@ -241,7 +241,9 @@ app.include_router(ai_rag.router)
 from app.routers import ai_secretary
 app.include_router(ai_secretary.router)
 from app.routers import ai_core
+from app.routers import geo
 app.include_router(ai_core.router)
+app.include_router(geo.router)
 
 @app.get("/health")
 async def health():

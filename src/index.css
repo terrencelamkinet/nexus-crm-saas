@@ -1605,6 +1605,16 @@ textarea.input-field{resize:vertical;min-height:60px}
 .asec-cascade-row select{flex:1;min-width:0}
 .asec-cascade-row select:first-child{flex:1.4}
 .asec-cascade-hint{font-size:10.5px;color:var(--color-text-faint);margin-top:2px}
+/* ── v6.67 UX: address autocomplete ── */
+.asec-addr{position:relative}
+.asec-addr-list{position:absolute;top:calc(100% + 4px);left:0;right:0;z-index:60;margin:0;padding:5px;list-style:none;background:var(--color-surface);border:1px solid var(--color-border);border-radius:12px;box-shadow:0 12px 32px rgba(0,0,0,.18);max-height:260px;overflow-y:auto}
+.asec-addr-item{display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:8px;cursor:pointer;font-size:12.5px;color:var(--color-text);transition:background 120ms}
+.asec-addr-item:hover{background:var(--color-surface-offset)}
+.asec-addr-pin{font-size:13px;flex-shrink:0}
+.asec-addr-label{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.asec-addr-loading{position:absolute;right:10px;top:50%;transform:translateY(-50%);width:13px;height:13px;border:2px solid var(--color-divider);border-top-color:var(--color-primary);border-radius:50%;animation:asec-spin .7s linear infinite;pointer-events:none}
+@keyframes asec-spin{to{transform:translateY(-50%) rotate(360deg)}}
+.asec-addr-err{font-size:10.5px;color:var(--color-error,#ab4b59);margin:3px 0 0}
 
 .quick-field{margin-bottom:12px}
 .quick-field label{display:block;font-size:12px;font-weight:600;color:var(--color-text-muted);margin-bottom:4px}

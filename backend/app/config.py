@@ -41,6 +41,10 @@ class Settings(BaseSettings):
     deepseek_api_key: str = ""
     gemini_api_key: str = ""
 
+    # Geo — address autocomplete / reverse geocoding（server-side proxy）
+    geo_provider: str = "auto"   # auto（有 key 用 geoapify，冇用 photon）| photon | geoapify
+    geoapify_api_key: str = ""   # GEOAPIFY_API_KEY — free 3000 req/day
+
     # WhatsApp Cloud API
     whatsapp_access_token: str = ""
     whatsapp_phone_number_id: str = ""

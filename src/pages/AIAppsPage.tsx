@@ -11,6 +11,7 @@ import {
   type ToneId, type LangPref, type DetailLevel, type ChannelId,
 } from '../hooks/useSecretarySettings';
 import BookChapterSelect from '../components/BookChapterSelect';
+import AddressAutocomplete from '../components/AddressAutocomplete';
 
 // ── Working-hours slider helpers ──
 const toMins = (hhmm: string): number => {
@@ -499,6 +500,20 @@ export default function AIAppsPage() {
                       if (String(parentVal) !== o.showWhen.equals) return null;
                     }
                     if (o.type === 'text') {
+                      // v6.67: traffic origin/destination → address autocomplete
+                      const isAddr = editingModule.id === 'traffic_commute' && (o.key === 'origin' || o.key === 'destination');
+                      if (isAddr) {
+                        return (
+                          <div key={o.key} className="asec-editor-field">
+                            <span className="asec-module-option-label">{t(o.labelKey)}</span>
+                            <AddressAutocomplete
+                              value={String(cur ?? '')}
+                              onChange={v => setDraft(o.key, v)}
+                              placeholder={o.placeholderKey ? t(o.placeholderKey) : ''}
+                            />
+                          </div>
+                        );
+                      }
                       return (
                         <div key={o.key} className="asec-editor-field">
                           <span className="asec-module-option-label">{t(o.labelKey)}</span>
