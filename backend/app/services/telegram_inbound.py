@@ -268,13 +268,18 @@ async def _download_photo(token: str, photo_sizes: list[dict]) -> str | None:
         return None
 
 
-async def _analyze_plain_image(path: str, mapping: TelegramBotMapping) -> str:
+async def _analyze_plain_image(
+    path: str,
+    user_id: uuid.UUID | None = None,
+    tenant_id: uuid.UUID | None = None,
+) -> str:
     """Non-namecard photo → Qwen3-VL (SiliconFlow) describes image + reads text.
 
-    Route for plain photos in the Telegram AI flow: namecards go to the
-    namecard pipeline; everything else lands here (user request: 卡片行卡片
-    flow, 其他行 normal request). Reply uses formal written Chinese per G08
-    output standard. Falls back to local Tesseract OCR on any API failure.
+    Route for plain photos in the IM AI flow: namecards go to the namecard
+    pipeline; everything else lands here (卡片行卡片 flow, 其他行 normal
+    request). Reply uses formal written Chinese per G08 output standard.
+    Falls back to local Tesseract OCR on any API failure. user_id/tenant_id
+    are used for central usage tracking (best-effort).
     """
     import base64
 
@@ -319,8 +324,8 @@ async def _analyze_plain_image(path: str, mapping: TelegramBotMapping) -> str:
                         async with async_session() as db:
                             db.add(UsageEvent(
                                 session_id=None,
-                                user_id=mapping.user_id,
-                                tenant_id=mapping.tenant_id,
+                                user_id=user_id,
+                                tenant_id=tenant_id,
                                 provider="siliconflow",
                                 model="Qwen/Qwen3-VL-8B-Instruct",
                                 input_tokens=int(u.get("prompt_tokens") or 0),
@@ -358,7 +363,7 @@ async def _handle_photo(mapping: TelegramBotMapping, token: str, photo_sizes: li
     if not det.get("is_namecard"):
         # Non-namecard photo → route to AI image analysis (normal request flow)
         try:
-            reply = await _analyze_plain_image(path, mapping)
+            reply = await _analyze_plain_image(path, mapping.user_id, mapping.tenant_id)
         except Exception:
             reply = "收到圖片，但暫時無法分析內容。"
         try:

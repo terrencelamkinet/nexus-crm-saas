@@ -502,11 +502,31 @@ async def _handle_wa_namecard_image(wa_id: str, content: bytes, mime: str) -> st
 
     det = namecard_im.run_script(["--detect", str(path)])
     if not det.get("is_namecard"):
+        # Non-namecard photo → route to AI image analysis (normal request flow,
+        # same as Telegram). Query mapping for usage tracking context.
+        try:
+            from app.services.telegram_inbound import _analyze_plain_image
+            from sqlalchemy import select as _sa_select
+            wa_map = None
+            async with async_session() as _db:
+                wa_map = (
+                    await _db.execute(
+                        _sa_select(WhatsAppMapping).where(
+                            WhatsAppMapping.wa_id == wa_id,
+                            WhatsAppMapping.status == "active",
+                        ).limit(1)
+                    )
+                ).scalar_one_or_none()
+            uid = getattr(wa_map, "user_id", None) if wa_map else None
+            tid = getattr(wa_map, "tenant_id", None) if wa_map else None
+            reply = await _analyze_plain_image(str(path), uid, tid)
+        except Exception:
+            reply = "收到圖片，但暫時無法分析內容。"
         try:
             path.unlink(missing_ok=True)
         except OSError:
             pass
-        return None  # not a namecard — silent
+        return reply
 
     # Friendlier preview: parse name + company
     preview = (det.get("ocr_preview") or "")[:80]

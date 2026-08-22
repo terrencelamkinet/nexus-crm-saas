@@ -101,6 +101,19 @@ _KNOWN_ID_KEYS: set[str] = {
     "credential_id",
 }
 
+# Data IDs that must resolve to a record inside the caller's tenant.
+# Verified via RLS-scoped SELECT (rows outside the tenant are invisible),
+# so a mismatch means the ID does not belong to this tenant.
+_DATA_ID_TABLE_MAP: dict[str, str] = {
+    "contact_id": "nexus_crm.contacts",
+    "company_id": "nexus_crm.companies",
+    "project_id": "nexus_crm.projects",
+    "task_id": "nexus_crm.tasks",
+    "deal_id": "nexus_crm.deals",
+    "touchpoint_id": "nexus_crm.touchpoints",
+    "namecard_id": "nexus_crm.name_cards",
+}
+
 
 def _extract_ids(params: dict[str, Any]) -> list[str]:
     """Extract all UUID-looking string values from *params* that match known ID keys."""
@@ -115,6 +128,47 @@ def _extract_ids(params: dict[str, Any]) -> list[str]:
         elif key in _KNOWN_ID_KEYS and isinstance(value, uuid.UUID):
             ids.append(str(value))
     return ids
+
+
+async def _verify_data_ids_in_tenant(
+    ctx: AISessionContext,
+    tool_key: str,
+    params: dict[str, Any],
+    db: AsyncSession,
+) -> None:
+    """Write-tool data-ID verification (network security).
+
+    Every data ID in *params* (contact_id / company_id / project_id / …) must
+    resolve to a record inside the caller's tenant. The SELECT runs under the
+    request's RLS session (app.tenant_id set), so rows from other tenants are
+    invisible — a miss means the ID does not belong to this tenant. Rejects
+    cross-tenant writes before any draft/execute work happens.
+    """
+    from sqlalchemy import text
+
+    for key, table in _DATA_ID_TABLE_MAP.items():
+        raw = params.get(key)
+        if raw is None:
+            continue
+        try:
+            uuid.UUID(str(raw))
+        except (ValueError, TypeError):
+            continue  # non-UUID garbage → tool handler validation will catch
+        try:
+            result = await db.execute(
+                text(f"SELECT 1 FROM {table} WHERE id = :rid"), {"rid": str(raw)}
+            )
+            if result.first() is None:
+                raise ScopeViolation(
+                    f"{key} {raw} does not exist in this tenant",
+                    tool_key=tool_key,
+                    reason="cross_tenant_data",
+                    context=ctx,
+                )
+        except ScopeViolation:
+            raise
+        except Exception:
+            pass  # table/query error → let RLS + tool handler decide
 
 
 async def authorize_tool_call(
@@ -182,6 +236,12 @@ async def authorize_tool_call(
                 reason="cross_workspace",
                 context=ctx,
             )
+
+    # 5. Data-ID tenant verification (write tools only — network security)
+    #    contact_id / company_id / project_id / … must resolve inside the
+    #    caller's tenant; cross-tenant writes are rejected before execution.
+    if tool_def.type == "write" and db is not None:
+        await _verify_data_ids_in_tenant(ctx, tool_key, params, db)
 
 
 # ---------------------------------------------------------------------------
