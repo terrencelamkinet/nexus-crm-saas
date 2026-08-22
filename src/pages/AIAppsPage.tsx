@@ -1,11 +1,13 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
-import { ChevronRight, Check, RotateCcw, Save, X } from 'lucide-react';
+import { ChevronRight, Check, RotateCcw, Save, Settings2, X } from 'lucide-react';
 import { apiClient } from '../lib/api';
 import { useEscapeKey } from '../lib/useEscapeKey';
 import {
-  MODULES, useSecretarySettings, CONNECTED_FALLBACK, normalizeModules, moduleOptions,
+  MODULES, useSecretarySettings, CONNECTED_FALLBACK, normalizeModules,
+  BIBLE_BOOKS,
+  type ModuleOptionValue, type SecretaryModule,
   type ToneId, type LangPref, type DetailLevel, type ChannelId,
 } from '../hooks/useSecretarySettings';
 
@@ -136,30 +138,49 @@ export default function AIAppsPage() {
     () => new Set(settings.connected_modules ?? CONNECTED_FALLBACK),
     [settings.connected_modules],
   );
+  // 取消 module：傳 null 俾 backend merge（顯式刪除，唔係「冇傳 = 保留」）
   const toggleModule = (id: string) => {
     if (!connectedSet.has(id)) return; // greyed out — not connected yet
     const cur = normalizeModules(settings.modules);
     const has = id in cur;
-    const next: Record<string, Record<string, string | string[]>> = { ...cur };
-    if (has) delete next[id];
+    const next: Record<string, Record<string, ModuleOptionValue> | null> = { ...cur };
+    if (has) next[id] = null;
     else next[id] = {};
-    update({ modules: next });
+    update({ modules: next as any });
     flashSaved();
   };
 
-  // ── Module deep options (single/multi select) ──
-  const updateModuleOption = (moduleId: string, optionKey: string, value: string | string[]) => {
+  // ── Module deep options popup ──
+  const [editingModule, setEditingModule] = useState<SecretaryModule | null>(null);
+  const [draftOpts, setDraftOpts] = useState<Record<string, ModuleOptionValue>>({});
+
+  const openModuleEditor = (m: SecretaryModule) => {
+    if (!connectedSet.has(m.id)) return;
     const cur = normalizeModules(settings.modules);
-    const mod = { ...(cur[moduleId] ?? {}) } as Record<string, string | string[]>;
-    mod[optionKey] = value;
-    update({ modules: { ...cur, [moduleId]: mod } });
+    const existing = cur[m.id] ?? {};
+    const draft: Record<string, ModuleOptionValue> = {};
+    for (const o of (m.options ?? [])) {
+      draft[o.key] = (o.key in existing) ? existing[o.key] : o.default;
+    }
+    setDraftOpts(draft);
+    setEditingModule(m);
+  };
+  const closeModuleEditor = () => {
+    setEditingModule(null);
+    setDraftOpts({});
+  };
+  const saveModuleOptions = () => {
+    if (!editingModule) return;
+    const cur = normalizeModules(settings.modules);
+    update({ modules: { ...cur, [editingModule.id]: draftOpts } as any });
     flashSaved();
+    closeModuleEditor();
   };
-  const toggleMultiOption = (moduleId: string, optionKey: string, choice: string, current: string[]) => {
-    const has = current.includes(choice);
-    const next = has ? current.filter(c => c !== choice) : [...current, choice];
-    updateModuleOption(moduleId, optionKey, next);
+  const setDraft = (key: string, value: ModuleOptionValue) => {
+    setDraftOpts(prev => ({ ...prev, [key]: value }));
   };
+
+  useEscapeKey(closeModuleEditor, !!editingModule);
 
   // ── Workdays ──
   const toggleWorkday = (day: string) => {
@@ -334,8 +355,7 @@ export default function AIAppsPage() {
                   {MODULES.map(m => {
                     const selected = (m.id in normalizeModules(settings.modules));
                     const connected = connectedSet.has(m.id);
-                    const modVals = moduleOptions(normalizeModules(settings.modules), m.id);
-                    const opts = m.options ?? [];
+                    const hasOpts = (m.options ?? []).length > 0;
                     return (
                       <div key={m.id} className={`asec-module-card${selected ? ' selected' : ''}${connected ? '' : ' disabled'}`}>
                         <div
@@ -356,38 +376,22 @@ export default function AIAppsPage() {
                             {selected && <Check size={11} />}
                           </span>
                         </div>
-                        {selected && opts.length > 0 && (
-                          <div className="asec-module-options" onClick={e => e.stopPropagation()}>
-                            {opts.map(o => {
-                              const cur = (o.key in modVals) ? modVals[o.key] : o.default;
-                              const curArr = Array.isArray(cur) ? cur : [cur];
-                              return (
-                                <div key={o.key} className="asec-module-option">
-                                  <span className="asec-module-option-label">{t(o.labelKey)}</span>
-                                  <div className="asec-module-option-choices">
-                                    {o.choices.map(c => {
-                                      const active = o.type === 'multi_select'
-                                        ? curArr.includes(c.value)
-                                        : (cur === c.value || curArr[0] === c.value);
-                                      const onClick = () => o.type === 'multi_select'
-                                        ? toggleMultiOption(m.id, o.key, c.value, curArr)
-                                        : updateModuleOption(m.id, o.key, c.value);
-                                      return (
-                                        <button
-                                          key={c.value}
-                                          type="button"
-                                          className={`asec-opt-chip${active ? ' active' : ''}`}
-                                          onClick={onClick}
-                                        >
-                                          {c.icon && <span>{c.icon}</span>}
-                                          {t(c.labelKey)}
-                                        </button>
-                                      );
-                                    })}
-                                  </div>
-                                </div>
-                              );
-                            })}
+                        {connected && (
+                          <div className="asec-module-foot">
+                            {selected && hasOpts ? (
+                              <button
+                                type="button"
+                                className="asec-module-settings"
+                                onClick={() => openModuleEditor(m)}
+                              >
+                                <Settings2 size={12} /> {t('settings.aiApps.configure')}
+                              </button>
+                            ) : (
+                              <span className="asec-module-foot-spacer" />
+                            )}
+                            <span className="asec-module-toggle-hint">
+                              {selected ? t('settings.aiApps.clickToRemove') : t('settings.aiApps.clickToAdd')}
+                            </span>
                           </div>
                         )}
                       </div>
@@ -396,6 +400,100 @@ export default function AIAppsPage() {
                 </div>
               </div>
             </section>
+          )}
+
+          {/* ══ Module deep-options popup ══ */}
+          {editingModule && (
+            <div className="modal-overlay" onClick={closeModuleEditor}>
+              <div
+                className="modal"
+                style={{ maxWidth: 520, maxHeight: '82vh', overflow: 'auto' }}
+                onClick={e => e.stopPropagation()}
+                role="dialog"
+                aria-modal="true"
+                aria-label={t(editingModule.nameKey)}
+              >
+                <div className="modal-head">
+                  <h3 style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span>{editingModule.icon}</span> {t(editingModule.nameKey)}
+                  </h3>
+                  <button className="modal-x" onClick={closeModuleEditor} aria-label="Close"><X size={18} /></button>
+                </div>
+                <div className="asec-editor-body">
+                  {(editingModule.options ?? []).map(o => {
+                    const cur = (o.key in draftOpts) ? draftOpts[o.key] : o.default;
+                    if (o.type === 'text') {
+                      return (
+                        <div key={o.key} className="asec-editor-field">
+                          <span className="asec-module-option-label">{t(o.labelKey)}</span>
+                          <input
+                            type="text"
+                            className="asec-editor-input"
+                            value={String(cur ?? '')}
+                            placeholder={o.placeholderKey ? t(o.placeholderKey) : ''}
+                            onChange={e => setDraft(o.key, e.target.value)}
+                          />
+                        </div>
+                      );
+                    }
+                    if (o.type === 'book_range') {
+                      const bookVal = String(cur ?? BIBLE_BOOKS[0]);
+                      return (
+                        <div key={o.key} className="asec-editor-field">
+                          <span className="asec-module-option-label">{t(o.labelKey)}</span>
+                          <select
+                            className="asec-editor-select"
+                            value={bookVal}
+                            onChange={e => setDraft(o.key, e.target.value)}
+                          >
+                            {BIBLE_BOOKS.map(b => <option key={b} value={b}>{b}</option>)}
+                          </select>
+                        </div>
+                      );
+                    }
+                    // single_select / multi_select → chips
+                    const curArr: string[] = Array.isArray(cur) ? cur : (typeof cur === 'string' ? [cur] : []);
+                    return (
+                      <div key={o.key} className="asec-editor-field">
+                        <span className="asec-module-option-label">{t(o.labelKey)}</span>
+                        <div className="asec-module-option-choices">
+                          {(o.choices ?? []).map(c => {
+                            const active = o.type === 'multi_select'
+                              ? curArr.includes(c.value)
+                              : (cur === c.value || curArr[0] === c.value);
+                            const onClick = () => {
+                              if (o.type === 'multi_select') {
+                                const has = curArr.includes(c.value);
+                                setDraft(o.key, has ? curArr.filter(x => x !== c.value) : [...curArr, c.value]);
+                              } else {
+                                setDraft(o.key, c.value);
+                              }
+                            };
+                            return (
+                              <button
+                                key={c.value}
+                                type="button"
+                                className={`asec-opt-chip${active ? ' active' : ''}`}
+                                onClick={onClick}
+                              >
+                                {c.icon && <span>{c.icon}</span>}
+                                {t(c.labelKey)}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+                <div className="asec-actions" style={{ marginTop: 14 }}>
+                  <button className="btn-ghost" onClick={closeModuleEditor}>{t('settings.aiApps.cancel')}</button>
+                  <button className="btn-primary" onClick={saveModuleOptions} style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                    <Save size={14} /> {t('settings.aiApps.saveOptions')}
+                  </button>
+                </div>
+              </div>
+            </div>
           )}
 
           {/* ══ SECTION 2: 工作時間 ── */}

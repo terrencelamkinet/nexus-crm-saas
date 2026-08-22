@@ -573,7 +573,18 @@
       "personalRangeWeek": "This week",
       "slotNight": "Night",
       "tone": "Tone",
-      "quoteStatusAll": "All"
+      "quoteStatusAll": "All",
+      "configure": "Configure",
+      "clickToAdd": "Click to enable",
+      "clickToRemove": "Click to disable",
+      "saveOptions": "Save options",
+      "cancel": "Cancel",
+      "trafficOrigin": "Origin address",
+      "trafficOriginPh": "e.g. Kam Sheung Road Station",
+      "trafficDest": "Destination address",
+      "trafficDestPh": "e.g. Kwun Tong MTR",
+      "bibleStartBook": "Start book",
+      "bibleEndBook": "End book"
     }
   },
   "common": {

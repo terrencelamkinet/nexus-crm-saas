@@ -19,11 +19,29 @@ export interface ModuleOptionChoice {
 
 export interface ModuleOptionDef {
   key: string;                          // e.g. 'region', 'scope', 'time_of_day'
-  type: 'single_select' | 'multi_select';
+  type: 'single_select' | 'multi_select' | 'text' | 'book_range';
   labelKey: string;
-  choices: ModuleOptionChoice[];        // 2–10 個
-  default: string | string[];
+  choices?: ModuleOptionChoice[];       // single/multi select 用（2–10 個）
+  placeholderKey?: string;              // text 用
+  default: string | string[] | Record<string, string>;
 }
+
+/** 聖經 66 卷（canonical order）— 中文名同 backend _resolve_passages_for_day 對齊 */
+export const BIBLE_BOOKS: string[] = [
+  // 舊約 39
+  '創世記', '出埃及記', '利未記', '民數記', '申命記', '約書亞記', '士師記',
+  '路得記', '撒母耳記上', '撒母耳記下', '列王紀上', '列王紀下', '歷代志上',
+  '歷代志下', '以斯拉記', '尼希米記', '以斯帖記', '約伯記', '詩篇', '箴言',
+  '傳道書', '雅歌', '以賽亞書', '耶利米書', '耶利米哀歌', '以西結書', '但以理書',
+  '何西阿書', '約珥書', '阿摩司書', '俄巴底亞書', '約拿書', '彌迦書', '那鴻書',
+  '哈巴谷書', '西番雅書', '哈該書', '撒迦利亞書', '瑪拉基書',
+  // 新約 27
+  '馬太福音', '馬可福音', '路加福音', '約翰福音', '使徒行傳', '羅馬書',
+  '哥林多前書', '哥林多後書', '加拉太書', '以弗所書', '腓立比書', '歌羅西書',
+  '帖撒羅尼迦前書', '帖撒羅尼迦後書', '提摩太前書', '提摩太後書', '提多書',
+  '腓利門書', '希伯來書', '雅各書', '彼得前書', '彼得後書', '約翰一書',
+  '約翰二書', '約翰三書', '猶大書', '啟示錄',
+];
 
 export interface SecretaryModule {
   id: string;
@@ -344,13 +362,12 @@ export const MODULES: SecretaryModule[] = [
     id: 'traffic_commute', icon: '🚗', nameKey: 'settings.aiApps.modTraffic', descKey: 'settings.aiApps.modTrafficDesc', default: false,
     options: [
       {
-        key: 'route', type: 'single_select', labelKey: 'settings.aiApps.trafficRoute',
-        choices: [
-          { value: 'home_to_office', labelKey: 'settings.aiApps.routeHomeToOffice' },
-          { value: 'office_to_home', labelKey: 'settings.aiApps.routeOfficeToHome' },
-          { value: 'custom', labelKey: 'settings.aiApps.routeCustom' },
-        ],
-        default: 'home_to_office',
+        key: 'origin', type: 'text', labelKey: 'settings.aiApps.trafficOrigin', placeholderKey: 'settings.aiApps.trafficOriginPh',
+        default: '',
+      },
+      {
+        key: 'destination', type: 'text', labelKey: 'settings.aiApps.trafficDest', placeholderKey: 'settings.aiApps.trafficDestPh',
+        default: '',
       },
       {
         key: 'mode', type: 'single_select', labelKey: 'settings.aiApps.trafficMode',
@@ -453,9 +470,17 @@ export const MODULES: SecretaryModule[] = [
           { value: 'gospels', labelKey: 'settings.aiApps.bibleGospels' },
           { value: 'pentateuch', labelKey: 'settings.aiApps.biblePentateuch' },
           { value: 'pauline_epistles', labelKey: 'settings.aiApps.biblePauline' },
-          { value: 'custom', labelKey: 'settings.aiApps.bibleCustom' },
+          { value: 'custom_range', labelKey: 'settings.aiApps.bibleCustom' },
         ],
         default: 'ot_nt_mixed',
+      },
+      {
+        key: 'start_book', type: 'book_range', labelKey: 'settings.aiApps.bibleStartBook',
+        default: '創世記',
+      },
+      {
+        key: 'end_book', type: 'book_range', labelKey: 'settings.aiApps.bibleEndBook',
+        default: '啟示錄',
       },
       {
         key: 'plan', type: 'single_select', labelKey: 'settings.aiApps.biblePlan',
@@ -514,11 +539,12 @@ export const MODULES: SecretaryModule[] = [
 export const DEFAULT_MODULES = MODULES.filter(m => m.default).map(m => m.id);
 
 // 每個 module 嘅 options 預設值（同後端 DEFAULT_MODULE_OPTIONS 一致）
-export function defaultModuleOptions(): Record<string, Record<string, string | string[]>> {
-  const out: Record<string, Record<string, string | string[]>> = {};
+export type ModuleOptionValue = string | string[] | Record<string, string>;
+export function defaultModuleOptions(): Record<string, Record<string, ModuleOptionValue>> {
+  const out: Record<string, Record<string, ModuleOptionValue>> = {};
   for (const m of MODULES) {
     if (!m.options) continue;
-    const opts: Record<string, string | string[]> = {};
+    const opts: Record<string, ModuleOptionValue> = {};
     for (const o of m.options) opts[o.key] = o.default;
     out[m.id] = opts;
   }
@@ -531,7 +557,7 @@ export type DetailLevel = 1 | 2 | 3;
 export type ChannelId = 'whatsapp' | 'telegram' | 'email' | 'sms';
 
 export interface SecretarySettings {
-  modules: Record<string, Record<string, string | string[]>>;  // {module: {option: value}}
+  modules: Record<string, Record<string, ModuleOptionValue>>;  // {module: {option: value}}
   workdays: string[];
   weekend_mute: boolean;
   strict_silence: boolean;
@@ -556,21 +582,21 @@ export function enabledModuleKeys(modules: SecretarySettings['modules'] | string
   return Object.keys(modules);
 }
 
-export function moduleOptions(modules: SecretarySettings['modules'] | undefined, moduleId: string): Record<string, string | string[]> {
+export function moduleOptions(modules: SecretarySettings['modules'] | undefined, moduleId: string): Record<string, ModuleOptionValue> {
   if (!modules || Array.isArray(modules)) return {};
-  return (modules[moduleId] as Record<string, string | string[]>) || {};
+  return (modules[moduleId] as Record<string, ModuleOptionValue>) || {};
 }
 
 /** normalize 舊 string[] → dict（補 options 預設） */
-export function normalizeModules(modules: SecretarySettings['modules'] | string[] | undefined): Record<string, Record<string, string | string[]>> {
+export function normalizeModules(modules: SecretarySettings['modules'] | string[] | undefined): Record<string, Record<string, ModuleOptionValue>> {
   const defaults = defaultModuleOptions();
   if (!modules) return {};
   if (Array.isArray(modules)) {
-    const out: Record<string, Record<string, string | string[]>> = {};
+    const out: Record<string, Record<string, ModuleOptionValue>> = {};
     for (const m of modules) out[m] = { ...(defaults[m] || {}) };
     return out;
   }
-  const out: Record<string, Record<string, string | string[]>> = {};
+  const out: Record<string, Record<string, ModuleOptionValue>> = {};
   for (const [key, opts] of Object.entries(modules)) {
     out[key] = { ...(defaults[key] || {}), ...(opts || {}) };
   }

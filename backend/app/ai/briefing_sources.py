@@ -747,12 +747,15 @@ async def traffic_commute(
     status 1/3，limit 5。`lang_pref` 控制語言（zh-HK → 中文，en → 英文）。
 
     Deep options:
-      - route: 'home_to_office' | 'office_to_home' | 'custom' — 暫時冇路線
-        過濾數據（運輸署 API 唔提供），保留做未來 commute 設定
-      - mode: 'driving' | 'public' — 同上，pass-through
+      - origin: 起點地址（text，用戶輸入）— 用嚟 keyword 過濾交通消息
+      - destination: 目的地地址（text）— 同上
+      - mode: 'driving' | 'public' — 保留（未來 commute 設定）
     """
     opts = options or {}
-    # route / mode 目前係 pass-through — 運輸署 specialtrafficnews 係全港數據
+    # origin/destination 提供 keyword 過濾（例如「吐露港」「西隧」「觀塘」）
+    origin = (opts.get("origin") or "").strip()
+    destination = (opts.get("destination") or "").strip()
+    keywords = [k for k in (origin, destination) if k]
     items: list[dict[str, Any]] = []
     is_en = lang_pref.startswith("en")
     try:
@@ -777,6 +780,14 @@ async def traffic_commute(
                         or msg.findtext("{http://data.one.gov.hk/td}ChinText")
                         or ""
                     )
+                # origin/destination keyword 過濾 — 冇設定 keywords 就全部顯示
+                if keywords:
+                    haystack = raw
+                    # 英文過濾時同時用中文原文 match（用户可能打中文地址）
+                    if is_en:
+                        haystack += " " + (msg.findtext("{http://data.one.gov.hk/td}ChinShort") or "")
+                    if not any(k.lower() in haystack.lower() for k in keywords):
+                        continue
                 items.append({
                     "id": msg.findtext("{http://data.one.gov.hk/td}msgID") or "",
                     "text": _simplify_traffic(raw, is_en),
@@ -953,12 +964,14 @@ BIBLE_TRANSLATION_LABELS = {
 
 def _resolve_passages_for_day(
     plan: str, book_selection: str, day_index: int, chapters_per_push: str,
+    start_book: str | None = None, end_book: str | None = None,
 ) -> list[str]:
     """Map (plan, day_index) → list of scripture references.
 
     Static deterministic mapping — 唔 call 3rd-party API。以 365 日一年計劃
     為基準，簡單線性分配；90/30 日計劃壓縮比例。實際 verse 內容由
     bible_verses 表提供（seed 匯入），呢度只出 reference 範圍。
+    book_selection='custom_range' 時用 start_book/end_book 界定範圍。
     """
     # 舊約 39 卷（粗略 929 章）／新約 27 卷（260 章）— 用簡化比例
     ot_chapters = 929
@@ -997,6 +1010,17 @@ def _resolve_passages_for_day(
         books = ["羅馬書", "哥林多前書", "哥林多後書", "加拉太書", "以弗所書",
                  "腓立比書", "歌羅西書", "帖撒羅尼迦前書", "帖撒羅尼迦後書",
                  "提摩太前書", "提摩太後書", "提多書", "腓利門書"]
+    elif book_selection == "custom_range":
+        # start_book / end_book（66 卷 canonical order）之間嘅書卷
+        all_books = ot_books + nt_books
+        try:
+            s = all_books.index(start_book) if start_book else 0
+            e = all_books.index(end_book) if end_book else len(all_books) - 1
+        except ValueError:
+            s, e = 0, len(all_books) - 1
+        if s > e:
+            s, e = e, s
+        books = all_books[s:e + 1]
     else:  # ot_nt_mixed / custom
         books = ot_books + nt_books
 
@@ -1029,6 +1053,8 @@ async def bible_reading(ctx: AISessionContext, db: AsyncSession, options: dict |
     translation = opts.get("translation", "cuvmp")
     book_selection = opts.get("book_selection", "ot_nt_mixed")
     reminder = opts.get("reminder", "enabled")
+    start_book = opts.get("start_book") or None
+    end_book = opts.get("end_book") or None
 
     from app.models.bible_reading import BibleReadingProgress, BibleVerse
 
@@ -1058,6 +1084,7 @@ async def bible_reading(ctx: AISessionContext, db: AsyncSession, options: dict |
         passages = _resolve_passages_for_day(
             plan=plan, book_selection=book_selection,
             day_index=progress.day_index, chapters_per_push=chapters,
+            start_book=start_book, end_book=end_book,
         )
         if not passages:
             return []

@@ -573,7 +573,18 @@
       "personalRangeWeek": "本週",
       "slotNight": "夜晚",
       "tone": "語氣",
-      "quoteStatusAll": "全部"
+      "quoteStatusAll": "全部",
+      "configure": "設定",
+      "clickToAdd": "撳一下啟用",
+      "clickToRemove": "撳一下停用",
+      "saveOptions": "儲存選項",
+      "cancel": "取消",
+      "trafficOrigin": "起點地址",
+      "trafficOriginPh": "例如：錦上路站",
+      "trafficDest": "目的地地址",
+      "trafficDestPh": "例如：觀塘港鐵站",
+      "bibleStartBook": "開始書卷",
+      "bibleEndBook": "結束書卷"
     }
   },
   "common": {

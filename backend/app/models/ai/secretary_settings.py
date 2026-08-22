@@ -24,7 +24,7 @@ DEFAULT_MODULE_OPTIONS: dict[str, dict] = {
     "team_updates": {"scope": "my_teams", "task_status": "all"},
     "calendar_conflicts": {"range": "today"},
     "news_industry": {"topics": ["tech", "finance", "logistics", "retail"], "lang": "both"},
-    "traffic_commute": {"route": "home_to_office", "mode": "public"},
+    "traffic_commute": {"origin": "", "destination": "", "mode": "public"},
     "email_draft_review": {"status": "pending_review"},
     "sales_kpi": {"period": "month"},
     "customer_sentiment": {"days": "30", "show": "all"},
@@ -34,6 +34,7 @@ DEFAULT_MODULE_OPTIONS: dict[str, dict] = {
         "book_selection": "ot_nt_mixed", "plan": "one_year",
         "chapters_per_push": "1", "time_of_day": "morning",
         "translation": "cuvmp", "reminder": "enabled",
+        "start_book": "創世記", "end_book": "啟示錄",
     },
 }
 
