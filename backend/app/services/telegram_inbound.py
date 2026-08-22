@@ -24,7 +24,7 @@ import subprocess
 import tempfile
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import httpx
 from jose import jwt
@@ -131,6 +131,93 @@ async def _resolve_settings(db, mapping: TelegramBotMapping) -> SecretarySetting
     return row
 
 
+# ── Pending write-action confirm flow (IM-in confirm) ───────────────────────
+# The AI may return an action envelope (draft) from /chat. We surface a
+# preview in-band and remember pending_action_id in the mapping config so
+# the user's next 確認/取消 reply executes or rejects it.
+_CONFIRM_WORDS = re.compile(r"^(確認|確定|執行|好|好的|ok|yes|y|sure|同意|approved?|accept\b)[!。. ]*$", re.IGNORECASE)
+_CANCEL_WORDS = re.compile(r"^(取消|拒絕|唔要|不要|唔好|no|n|cancel|reject|decline|stop|abort)[!。. ]*$", re.IGNORECASE)
+
+_ACTION_LABELS = {
+    "create_task": "新增任務",
+    "create_touchpoint": "新增 Touchpoint",
+    "update_contact": "更新聯絡人",
+    "update_company": "更新公司",
+    "update_project": "更新項目",
+    "update_task": "更新任務",
+    "update_namecard": "更新名片",
+}
+
+
+def _format_action_preview(action: dict[str, Any]) -> str:
+    """Render an action envelope into a human-readable preview."""
+    preview = action.get("preview") or {}
+    if isinstance(preview, dict) and preview.get("errors"):
+        return f"⚠️ 無法草擬變更：{'; '.join(str(e) for e in preview['errors'])}"
+    tool_key = action.get("tool_key") or ""
+    label = _ACTION_LABELS.get(preview.get("action") or "", tool_key)
+    lines = [f"✍️ AI 建議{label}（尚待確認）："]
+    if isinstance(preview, dict):
+        for field, value in preview.items():
+            if field in ("action", "validated", "errors", "id", "created_at"):
+                continue
+            if value is None or value == "" or value == [] or value == {}:
+                continue
+            lines.append(f"• {field}: {value}")
+    lines.append("")
+    lines.append("回覆「確認」執行，或「取消」拒絕。")
+    return "\n".join(lines)
+
+
+async def _handle_pending_action_reply(
+    mapping: TelegramBotMapping, text: str, token: str
+) -> str | None:
+    """If the user's reply is a confirm/cancel word and a pending action exists,
+    call the confirm/reject endpoint. Returns the reply text, or None if the
+    message is not an action-confirm reply."""
+    action_id = (mapping.config or {}).get("pending_action_id")
+    if not action_id:
+        return None
+    if _CONFIRM_WORDS.match(text.strip()):
+        async with httpx.AsyncClient(timeout=30) as client:
+            resp = await client.post(
+                AI_INTERNAL_URL + f"/actions/{action_id}/confirm",
+                json={},
+                headers={"Authorization": f"Bearer {token}"},
+            )
+        if resp.status_code != 200:
+            detail = resp.json().get("detail") if resp.content else "Unknown error"
+            return f"⚠️ 執行失敗：{detail}"
+        async with async_session() as db:
+            m = (await db.execute(
+                select(TelegramBotMapping).where(TelegramBotMapping.id == mapping.id)
+            )).scalar_one_or_none()
+            if m:
+                mc = dict(cast(dict[str, Any], m.config or {}))
+                mc.pop("pending_action_id", None)
+                m.config = mc
+                await db.commit()
+        return "✅ 已完成並寫入 CRM。"
+    if _CANCEL_WORDS.match(text.strip()):
+        async with httpx.AsyncClient(timeout=30) as client:
+            resp = await client.post(
+                AI_INTERNAL_URL + f"/actions/{action_id}/reject",
+                json={},
+                headers={"Authorization": f"Bearer {token}"},
+            )
+        async with async_session() as db:
+            m = (await db.execute(
+                select(TelegramBotMapping).where(TelegramBotMapping.id == mapping.id)
+            )).scalar_one_or_none()
+            if m:
+                mc = dict(cast(dict[str, Any], m.config or {}))
+                mc.pop("pending_action_id", None)
+                m.config = mc
+                await db.commit()
+        return "已取消，不會寫入 CRM。"
+    return None
+
+
 async def handle_telegram_message(mapping: TelegramBotMapping, text: str) -> str | None:
     """Telegram message → internal AI chat → return reply text. None if no reply."""
     async with async_session() as db:
@@ -156,6 +243,13 @@ async def handle_telegram_message(mapping: TelegramBotMapping, text: str) -> str
             session_id = str(cfg["ai_session_id"])
 
     token = _make_internal_token(mapping.user_id, mapping.tenant_id)
+
+    # Pending write-action confirm? If the user replies 確認/取消 while a
+    # draft action awaits confirmation, execute it in-band (no AI call).
+    action_reply = await _handle_pending_action_reply(mapping, text, token)
+    if action_reply is not None:
+        return action_reply
+
     messages = [
         {"role": "system", "content": system_prompt},
         {"role": "user", "content": f"Question: {text}"},
@@ -203,6 +297,27 @@ async def handle_telegram_message(mapping: TelegramBotMapping, text: str) -> str
                 m_cfg["ai_session_id"] = new_session_id
                 m_cfg["ai_session_date"] = today_hkt
                 m.config = m_cfg
+                await db.commit()
+
+    # Embedded write-action (Draft → Confirm → Execute): surface the preview
+    # in-band and remember the pending action_id so the user's next
+    # 確認/取消 reply executes or rejects it.
+    action = data.get("action")
+    if action and action.get("action_id"):
+        action_id = str(action["action_id"])
+        preview_text = _format_action_preview(action)
+        if preview_text not in reply:
+            reply = f"{reply}\n\n{preview_text}"
+        async with async_session() as db:
+            m = (
+                await db.execute(
+                    select(TelegramBotMapping).where(TelegramBotMapping.id == mapping.id)
+                )
+            ).scalar_one_or_none()
+            if m:
+                mc: dict[str, Any] = dict(cast(dict[str, Any], m.config or {}))
+                mc["pending_action_id"] = action_id
+                m.config = mc
                 await db.commit()
 
     return reply
