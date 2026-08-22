@@ -235,54 +235,71 @@ async def run_scheduler(dry_run: bool = False) -> dict:
     now = _now_hkt()
     stats = {"scanned": 0, "due": 0, "sent": 0, "skipped": 0, "failed": 0, "details": []}
     async with _sched_session() as db:
-        # RLS: supervisor-style scan needs to bypass per-user GUCs — use a
-        # direct SQL read of all settings rows.
-        rows = (
+        # RLS: ai_secretary_settings uses user_isolation_settings policy
+        # (user_id + tenant_id GUCs, FORCE RLS). A bare SELECT returns 0 rows.
+        # Iterate all tenant/user memberships, set both GUCs per member.
+        # Same pattern as notification_scan.scan_once.
+        members = (
             await db.execute(
                 text(
-                    "SELECT user_id, tenant_id, greeting_slots FROM nexus_ai.ai_secretary_settings"
+                    "SELECT tenant_id, user_id FROM nexus_auth.nexus_auth_tenant_members"
                 )
             )
         ).fetchall()
-        stats["scanned"] = len(rows)
+        for tenant_id, user_id in members:
+            await db.execute(
+                text(
+                    "SELECT set_config('app.tenant_id', :tid, true), "
+                    "set_config('app.user_id', :uid, true)"
+                ),
+                {"tid": str(tenant_id), "uid": str(user_id)},
+            )
+            rows = (
+                await db.execute(
+                    text(
+                        "SELECT user_id, tenant_id, greeting_slots FROM nexus_ai.ai_secretary_settings"
+                    )
+                )
+            ).fetchall()
+            stats["scanned"] += len(rows)
 
-        for r in rows:
-            user_id, tenant_id = r[0], r[1]
-            slots = r[2] or []
-            # Lightweight user shim for push helpers
-            user = type("U", (), {"user_id": user_id, "tenant_id": tenant_id})()
-            for slot_cfg in slots:
-                key = (slot_cfg or {}).get("key")
-                start = (slot_cfg or {}).get("start")
-                if not key or not start:
-                    continue
-                if not _is_due(now, start):
-                    continue
-                stats["due"] += 1
-                # Dedup per channel — check telegram first (primary)
-                if await _already_sent(db, user_id, "telegram", key, now):
-                    stats["skipped"] += 1
-                    stats["details"].append(f"{str(user_id)[:8]} {key}: already sent")
-                    continue
-                if dry_run:
-                    stats["details"].append(f"{str(user_id)[:8]} {key}@{start}: DUE (dry)")
-                    continue
-                content = await _generate_content(db, user, key)
-                if not content:
-                    stats["skipped"] += 1
-                    stats["details"].append(f"{str(user_id)[:8]} {key}: empty content")
-                    continue
-                status = await _push_telegram(db, user, key, content)
-                if status == "skipped":
-                    status = await _push_whatsapp(db, user, key, content)
-                db.add(PushLog(
-                    tenant_id=tenant_id, user_id=user_id,
-                    channel="telegram" if status != "skipped" else "whatsapp",
-                    slot=key, status=status,
-                    error="" if status == "sent" else (status if status == "failed" else "no_channel"),
-                ))
-                stats[status] += 1
-                stats["details"].append(f"{str(user_id)[:8]} {key}@{start}: {status}")
+            for r in rows:
+                user_id, tenant_id = r[0], r[1]
+                slots = r[2] or []
+                # Lightweight user shim for push helpers
+                user = type("U", (), {"user_id": user_id, "tenant_id": tenant_id})()
+                for slot_cfg in slots:
+                    key = (slot_cfg or {}).get("key")
+                    start = (slot_cfg or {}).get("start")
+                    if not key or not start:
+                        continue
+                    if not _is_due(now, start):
+                        continue
+                    stats["due"] += 1
+                    # Dedup per channel — check telegram first (primary)
+                    if await _already_sent(db, user_id, "telegram", key, now):
+                        stats["skipped"] += 1
+                        stats["details"].append(f"{str(user_id)[:8]} {key}: already sent")
+                        continue
+                    if dry_run:
+                        stats["details"].append(f"{str(user_id)[:8]} {key}@{start}: DUE (dry)")
+                        continue
+                    content = await _generate_content(db, user, key)
+                    if not content:
+                        stats["skipped"] += 1
+                        stats["details"].append(f"{str(user_id)[:8]} {key}: empty content")
+                        continue
+                    status = await _push_telegram(db, user, key, content)
+                    if status == "skipped":
+                        status = await _push_whatsapp(db, user, key, content)
+                    db.add(PushLog(
+                        tenant_id=tenant_id, user_id=user_id,
+                        channel="telegram" if status != "skipped" else "whatsapp",
+                        slot=key, status=status,
+                        error="" if status == "sent" else (status if status == "failed" else "no_channel"),
+                    ))
+                    stats[status] += 1
+                    stats["details"].append(f"{str(user_id)[:8]} {key}@{start}: {status}")
         await db.commit()
     return stats
 

@@ -151,6 +151,13 @@ async def vector_search(
     Only returns chunks with score >= *min_score*.
     """
     # Build the WHERE clause dynamically
+    # RLS: vector_document_chunks / vector_documents now have FORCE RLS —
+    # set the tenant GUC so the row-level policy matches (the explicit
+    # tenant_id filter below is belt-and-braces app-layer isolation).
+    await db.execute(
+        text("SELECT set_config('app.tenant_id', :tid, true)"),
+        {"tid": str(tenant_id)},
+    )
     filters = ["c.tenant_id = :tenant_id"]
     params: dict[str, Any] = {
         "tenant_id": tenant_id,

@@ -25,7 +25,7 @@ from dataclasses import dataclass
 from typing import Any, Optional, cast
 from uuid import UUID, uuid4
 
-from sqlalchemy import select, delete
+from sqlalchemy import select, delete, text
 from sqlalchemy.exc import SQLAlchemyError
 
 from app.ai.providers.base import get_provider
@@ -139,6 +139,12 @@ class IngestionPipeline:
 
         async with async_session() as session:
             try:
+                # RLS: vector_documents / vector_document_chunks have FORCE
+                # RLS — set the tenant GUC so upserts/inserts pass WITH CHECK.
+                await session.execute(
+                    text("SELECT set_config('app.tenant_id', :tid, true)"),
+                    {"tid": str(tenant_id)},
+                )
                 # --- upsert parent document --------------------------------
                 doc = await self._upsert_document(
                     session,

@@ -48,7 +48,16 @@ async def load_provider_key(provider: str, tenant_id=None) -> str:
 
     key = ""
     try:
+        from sqlalchemy import text as _sa_text
+
         async with async_session() as db:
+            # RLS: provider_credentials has FORCE RLS — set the tenant GUC
+            # before querying, else 0 rows and callers silently fall back.
+            if tenant_id is not None:
+                await db.execute(
+                    _sa_text("SELECT set_config('app.tenant_id', :tid, true)"),
+                    {"tid": str(tenant_id)},
+                )
             q = (
                 select(ProviderCredential)
                 .where(
