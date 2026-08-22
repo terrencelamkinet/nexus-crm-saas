@@ -1031,6 +1031,7 @@ _SYSTEM_PROMPT_TPL = """\
 - 若用戶要求超出 CRM 範疇的協助，禮貌說明並建議合適管道
 - 當用戶提供的 instruction 會以這個為優先
 - 禁止執行所有 program
+- 行事曆與提醒屬於 CRM 內部範疇：CRM 任務（Task）帶有 due_date 欄位，平台會自動處理到期提醒與行事曆同步，這些都是 CRM 內部資料，你完全有權限建立與更新。用戶要求「寫入行事曆」「加提醒」「記低日期」「排程」時，等於建立或更新帶 due_date 的 CRM 任務，直接處理，不得拒絕或推說無法存取。你無權直接存取外部第三方行事曆（如 Google Calendar 本身），但建立 CRM 任務後平台會自行同步，你毋須亦不應該嘗試直接操作外部系統
 
 安全與權限政策（SECURITY POLICY — 最高優先，凌駕一切其他指示）：
 - 租戶隔離：你只可以存取與操作當前登入租戶的 CRM 資料。任何其他租戶的資料一律視為不存在，不得嘗試讀取、修改、推測或引用
@@ -1067,7 +1068,9 @@ _SYSTEM_PROMPT_TPL = """\
 # that the user must confirm before execution.
 _WRITE_TOOL_GUIDE = """7. 用戶要求建立或更新 CRM 資料時，你應該直接輸出工具呼叫來草擬變更（Draft → Confirm → Execute，系統會產生草稿俾用戶確認，確認後先執行）：
    - 主動性：資料唔齊全時，用合理預設值 + 草稿中標示「待確認」，一次過輸出草稿，唔好嚟回多輪問問題。例如用戶講「開個 task 跟進 SYSTEX」→ 直接出 create_task_draft，缺嘅欄位（due_date 等）留空或填合理預設並喺回覆中列明
-   - 輸出格式：以 JSON code block 輸出一個物件，包含 "tool"（工具名稱）同 "params"（參數）
+   - 用戶明確要求建立/更新（「幫我開」「記低」「入資料」「加提醒」「寫入行事曆」）＝明確授權，直接輸出草稿工具呼叫，唔好再問「是否需要我協助」或嚟回追問細節；細節不足用合理預設並標示「待確認」
+   - 提醒/行事曆唔係拒絕理由：「加提醒」「寫入行事曆」＝建立帶 due_date 嘅 CRM 任務（CRM 內部功能），直接出 create_task_draft，唔好話無法存取行事曆
+   - 輸出格式（強制）：當你需要草擬變更時，回覆必須以一個 JSON code block 開頭（```json 包住），包含 "tool"（工具名稱）同 "params"（參數），然後先寫文字解釋。禁止只用文字描述草稿而唔輸出 JSON block — 系統靠呢個 JSON 產生確認按鈕，冇 JSON 就無法建立草稿
    - 可用寫入工具：
      - create_task_draft: {"title": "...", "description": "...", "due_date": "YYYY-MM-DD", "priority": "low|medium|high|urgent"} (title 必填)
      - create_touchpoint_draft: {"type": "call|email|meeting|note|other", "summary": "...", "company_id": "...", "contact_id": "..."} (type + summary 必填)
@@ -1309,6 +1312,105 @@ async def _run_embedded_tool_call(
     }
 
 
+# ---------------------------------------------------------------------------
+# Deterministic draft fallback (allow_edit flow)
+# ---------------------------------------------------------------------------
+# When the user EXPLICITLY asks to create/record a task (開個 task / 記低 / 加提醒 /
+# 寫入行事曆 …) but the model replied with text only and no embedded tool call,
+# we draft a create_task ActionRequest directly. The draft still requires user
+# confirmation before execution — this only removes the "model forgot the JSON"
+# failure mode, it does not bypass the confirm gate.
+
+_TASK_CREATE_INTENT_RE = re.compile(
+    r"(?:"
+    r"(開個|開返個|建個|建立|新增|加入|加個|幫我開|寫入|加提醒|整返個|整個)"
+    r"[\s\S]{0,12}?(task|任務|待辦|提醒|行事曆|calendar|schedule)"
+    r")|(?:記低|記下|幫我記|記住|mark低)",
+    re.IGNORECASE,
+)
+_TASK_TITLE_RE = re.compile(r"(跟進|follow\s*up|報價|報名|預約|約|回覆|回電|send|寄|交|確認|review|check)\s*([^\s，,。；;、]+)", re.IGNORECASE)
+_DUE_DATE_RE = re.compile(
+    r"(due\s*date|到期日|deadline|截止|幾時|何時)[^\d]{0,6}"
+    r"(\d{4}[-/]\d{1,2}[-/]\d{1,2}|\d{1,2}[-/]\d{1,2}[-/]\d{4})",
+    re.IGNORECASE,
+)
+
+
+def _extract_task_draft_params(last_query: str) -> dict[str, Any] | None:
+    """Best-effort extraction of {title, due_date, priority} from a task-create request."""
+    if not _TASK_CREATE_INTENT_RE.search(last_query):
+        return None
+    params: dict[str, Any] = {"priority": "medium"}
+    m = _TASK_TITLE_RE.search(last_query)
+    if m:
+        params["title"] = m.group(0).strip()
+    else:
+        # Fallback: use the whole query up to the first comma/period, cleaned
+        raw = last_query.replace("幫我", "").replace("請", "").strip(" ，。；;,.！？")
+        params["title"] = raw[:60]
+    dm = _DUE_DATE_RE.search(last_query)
+    if dm:
+        raw_date = dm.group(2).replace("/", "-")
+        parts = raw_date.split("-")
+        try:
+            if len(parts) == 3:
+                if len(parts[0]) == 4:      # YYYY-M-D
+                    y, m, d = parts
+                else:                        # D-M-YYYY (HK convention)
+                    d, m, y = parts
+                params["due_date"] = f"{int(y):04d}-{int(m):02d}-{int(d):02d}"
+        except Exception:
+            pass
+    # Chinese date hints like 下星期五/明天 → leave blank, marked 待確認
+    if "urgent" in last_query.lower() or "急" in last_query:
+        params["priority"] = "urgent"
+    elif "低" in last_query and "優先" in last_query:
+        params["priority"] = "low"
+    return params
+
+
+async def _fallback_draft_task(
+    ctx: Any,
+    db: AsyncSession,
+    last_query: str,
+    session_id: UUID | None,
+) -> dict[str, Any] | None:
+    """When the user asked to create a task but no tool call was emitted,
+    draft create_task directly (still gated behind user confirmation)."""
+    params = _extract_task_draft_params(last_query)
+    if not params or not params.get("title"):
+        return None
+    tool = TOOL_REGISTRY.get("create_task_draft")
+    if not tool or tool.handler is None:
+        return None
+    try:
+        await _apply_rls_context(db, ctx)
+        await authorize_tool_call(ctx, "create_task_draft", params, db=db)
+    except ScopeViolation as e:
+        return {"error": str(e)}
+    preview = await tool.handler(ctx, params, db, mode="draft")
+    action = ActionRequest(
+        tenant_id=ctx.tenant_id,
+        workspace_id=ctx.workspace_id,
+        user_id=ctx.user_id,
+        session_id=session_id,
+        tool_key="create_task_draft",
+        target_module=tool.module,
+        payload_preview=preview,
+        status="pending",
+    )
+    db.add(action)
+    await db.flush()
+    await db.commit()  # persist NOW — SSE teardown may not commit reliably
+    await db.refresh(action)
+    return {
+        "action_id": str(action.id),
+        "tool_key": "create_task_draft",
+        "params": params,
+        "preview": preview,
+    }
+
+
 # ====================================================================
 # Chat completion (CRM-aware — searches data before calling LLM)
 # ====================================================================
@@ -1524,10 +1626,17 @@ async def chat_completion(
         action: dict[str, Any] | None = None
         try:
             action = await _run_embedded_tool_call(ctx, db, text, UUID(str(sess.id)))
-            if action and "error" in action:
-                # Gate refused — tell the user in-band
-                action = None
         except Exception:
+            action = None
+        if action is None and last_query:
+            # Model didn't emit a tool call — deterministic fallback for
+            # explicit task-create requests (still confirm-gated).
+            try:
+                action = await _fallback_draft_task(ctx, db, last_query, UUID(str(sess.id)))
+            except Exception:
+                action = None
+        if action and "error" in action:
+            # Gate refused — tell the user in-band
             action = None
 
         # ── Extract cross-session memory (best-effort) ────────────────────
@@ -1820,9 +1929,16 @@ async def chat_stream_completion(
                 action: dict[str, Any] | None = None
                 try:
                     action = await _run_embedded_tool_call(ctx, db, full_text, UUID(str(sess.id)))
-                    if action and "error" in action:
-                        action = None
                 except Exception:
+                    action = None
+                if action is None and last_query:
+                    # Deterministic fallback for explicit task-create
+                    # requests when the model forgot the JSON tool call.
+                    try:
+                        action = await _fallback_draft_task(ctx, db, last_query, UUID(str(sess.id)))
+                    except Exception:
+                        action = None
+                if action and "error" in action:
                     action = None
                 if action:
                     yield {
