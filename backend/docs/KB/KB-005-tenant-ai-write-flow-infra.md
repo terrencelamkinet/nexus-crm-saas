@@ -63,9 +63,22 @@ Telegram 用 Kinetix tenant（`edc6add4-...`，兩樣都缺）。
    （prompt 註明「現在日期 2026年8月22日 HKT，冇年份一律用今年」—
    AI 曾將「9月15日」錯判做 2025）。
 
-**完整修復鏈（4 commits）:** infra (allow_edit+workspace) → confirm words 加寬
+5. **Webhook watermark 更新嘅 MVCC snapshot（stale overwrite 嘅真正底層）** —
+   上一個 fix（同 session fresh re-load）**仍然唔 work**：handle_webhook_update
+   嘅 session transaction snapshot 喺開頭 load mapping 時已固定，process_update
+   用另一個 session commit pending_action_id 之後，喺**同一舊 transaction** 度
+   fresh re-load 都睇唔到（MVCC 舊 snapshot）→ 照樣覆寫沖走。
+   Fix：watermark 更新改用**獨立 `async with async_session()`**（新 transaction
+   一定睇到 process_update 嘅 commit）（commit `9c62419`）。
+
+6. **DB 診斷陷阱：RLS 擋 query** — 用 `async_session()` 直接查 `nexus_crm.tasks`
+   冇 set `app.tenant_id` GUC → RLS 擋晒（count=0）→ 誤判「task 冇寫入」。
+   必須先 `SELECT set_config('app.tenant_id', :t, true)` 再查。用戶 task 其實
+   一直有寫入，我誤刪/誤報咗好多次。
+
+**完整修復鏈（5 commits）:** infra (allow_edit+workspace) → confirm words 加寬
 (`3219b0f`) → webhook stale overwrite (`16e7ce8`) → parser markdown/日期/年份
-(`d714d9c`)。
+(`d714d9c`) → webhook MVCC 獨立 session (`9c62419`)。
 
 ## 4. 解決過程 (Debug Process)
 1. 查 `nexus_crm.nexus_telegram_mappings.config` → `pending_action_id = None`
