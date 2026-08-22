@@ -138,3 +138,28 @@ VALUES (gen_random_uuid(), 'Default Workspace', '<tenant_id>');
 - `backend/app/ai/tool_registry.py` — `_create_task_draft`（workspace_id 直接寫入）
 - `backend/app/services/telegram_inbound.py` — pending_action_id 存取
 - `backend/app/routers/ai.py` — `_fallback_draft_task`（error 被當 None）
+
+## 10. 2026-08-22 追加：Webhook Watermark 污染 + RLS 診斷陷阱
+
+### Root Cause 1: Mock 測試推高 watermark → 真實 message 全部被 dedup
+- `tg_last_webhook_update_id` 係 dedup watermark（`upd_id <= last_id → skip`）
+- 診斷時用 mock update_id（393000xxx）直接 POST webhook → watermark 被推高
+- 真實 Telegram update_id（~3922615xx）細過 watermark → **所有用戶 message 靜默丟棄**
+- 病徵：用戶 send 嘢 bot 完全冇回應，journalctl 只有 SELECT mapping + ROLLBACK
+- 修復：`UPDATE nexus_crm.nexus_telegram_mappings SET config = config || '{"tg_last_webhook_update_id": <real_offset>}'::jsonb`
+- **預防**：mock 測試 update_id 必須細過真實範圍，或者測試後 restore watermark；
+  dedup skip 加咗 warning log（2026-08-22 commit a05db45），再發生會即時見到
+  `SKIPPED (dedup: watermark=...)`
+
+### Root Cause 2: 診斷查詢冇 set RLS GUC → 誤判「task 冇寫入」
+- 用 async_session 直接查 DB 但冇 `set_config('app.tenant_id', ...)` → RLS 擋晒 → count=0
+- 誤判「寫入失敗」，其實 data 一直喺 DB（`FORCE ROW LEVEL SECURITY`）
+- **診斷任何 nexus_crm 表前必須先**：
+  `SELECT set_config('app.tenant_id', '<tenant>', true)`
+- commit 後 GUC 會 reset（新 transaction）→ 每個查詢 block 都要重新 set
+
+### 驗證清單（寫入後必查）
+1. action_requests 最新一條：`tenant_id` 必須 = mapping.tenant_id（唔係 session 嘅 tenant！）
+2. `result->>'id'` = 新 task id，`target_record_id` 可為 NULL（正常）
+3. tasks 表：title/due_date/tenant_id 正確
+4. RAG Debug / 測試 tenant 唔應該有 production user 嘅 action（`user_id` 必須屬於該 tenant）
