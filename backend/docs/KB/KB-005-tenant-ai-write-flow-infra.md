@@ -45,6 +45,28 @@ violates foreign key constraint "tasks_workspace_id_fkey"
 `00000000-0000-0000-0000-000000000001`（有 allow_edit + Default Workspace）；
 Telegram 用 Kinetix tenant（`edc6add4-...`，兩樣都缺）。
 
+### 後續發現（同日，用戶實測仍然 fail 後再挖）：
+
+3. **Webhook stale-config overwrite（致命）** — `telegram_inbound.handle_webhook_update`
+   喺 `process_update()` **之前** capture `cfg = dict(mapping.config)`，process_update
+   入面 `handle_telegram_message` 存入 `pending_action_id` + `ai_session_id` 落 DB，
+   之後 handle_webhook_update 用舊 `cfg` 覆寫 `mapping.config` + commit →
+   **每次 webhook update 都沖走 pending_action_id**（連 ai_session_id 都冇埋，
+   config 淨返 watermark）。用戶「確認」永遠搵唔到 pending → 無限循環。
+   Fix：process_update 後 re-load fresh row，只 merge watermark（commit `16e7ce8`）。
+
+4. **Draft-summary parser 唔 match markdown bold** — AI 慣性出
+   `- **任務標題**：xxx`（標籤同冒號之間有 `**`），但 regex 寫死
+   `任務標題\s*[：:]` → parser return None → action 從未建立。
+   Fix：`\s*\**\s*[：:]` 允許中間有 `*`（commit `d714d9c`）。
+   同日加埋：中文日期格式（`2025年9月15日`）+ AI 年份提示
+   （prompt 註明「現在日期 2026年8月22日 HKT，冇年份一律用今年」—
+   AI 曾將「9月15日」錯判做 2025）。
+
+**完整修復鏈（4 commits）:** infra (allow_edit+workspace) → confirm words 加寬
+(`3219b0f`) → webhook stale overwrite (`16e7ce8`) → parser markdown/日期/年份
+(`d714d9c`)。
+
 ## 4. 解決過程 (Debug Process)
 1. 查 `nexus_crm.nexus_telegram_mappings.config` → `pending_action_id = None`
    但 `ai_session_id` 存在 → 用戶有傾偈但 pending 從未存入
