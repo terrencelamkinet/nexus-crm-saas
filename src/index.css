@@ -1488,8 +1488,8 @@ textarea.input-field{resize:vertical;min-height:60px}
 .asec-card h3:not(:first-child){margin-top:22px}
 .asec-card-hint{font-size:12px;color:var(--color-text-muted);margin:-4px 0 14px 0}
 .asec-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:8px}
-/* Modules grid */
-.asec-module-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:10px}
+/* Modules grid — responsive density (v6.66 UX: 3 breakpoints) */
+.asec-module-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(268px,1fr));gap:10px}
 .asec-module-card{display:flex;flex-direction:column;gap:0;padding:13px;border:1.5px solid var(--color-divider);border-radius:var(--radius-md);cursor:pointer;transition:all 150ms;background:var(--color-surface)}
 .asec-module-card:hover{border-color:var(--color-primary)}
 .asec-module-card.selected{border-color:var(--color-primary);background:var(--color-primary-highlight)}
@@ -1571,10 +1571,40 @@ textarea.input-field{resize:vertical;min-height:60px}
   .asec-shell{flex-direction:column}
   .asec-nav{width:100%;flex-direction:row;overflow-x:auto;position:static;padding-bottom:4px}
   .asec-nav-item{white-space:nowrap;flex-shrink:0}
-  .asec-module-grid{grid-template-columns:1fr}
   .asec-header{flex-direction:column;gap:10px}
   .asec-save-indicator{align-self:flex-start}
 }
+/* ── v6.66 UX: tablet icon rail（721–1080px）── */
+@media(min-width:721px) and (max-width:1080px){
+  .asec-nav{width:64px}
+  .asec-nav-item{justify-content:center;padding:11px 0}
+  .asec-nav-item .asec-nav-label{display:none}
+  .asec-module-grid{grid-template-columns:repeat(2,1fr)}
+}
+/* ── v6.66 UX: mobile（≤720px）── */
+@media(max-width:720px){
+  .asec-module-grid{grid-template-columns:1fr;gap:9px}
+  .asec-module-card{padding:14px}
+}
+/* ── v6.66 UX: editor modal — 唔再貼框 ── */
+.asec-editor-overlay{position:fixed;inset:0;z-index:50;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.35);backdrop-filter:blur(3px);padding:32px;animation:asec-overlay-in .22s cubic-bezier(.16,1,.3,1)}
+.asec-editor-modal{background:var(--color-surface);border-radius:20px;box-shadow:0 24px 64px rgba(0,0,0,.22);width:100%;max-width:520px;max-height:82vh;overflow:auto;animation:asec-modal-in .3s cubic-bezier(.16,1,.3,1)}
+@keyframes asec-overlay-in{from{opacity:0}to{opacity:1}}
+@keyframes asec-modal-in{from{opacity:0;transform:translateY(14px) scale(.985)}to{opacity:1;transform:translateY(0) scale(1)}}
+@media(max-width:640px){
+  .asec-editor-overlay{padding:0;align-items:flex-end}
+  .asec-editor-modal{max-width:100%;max-height:88vh;border-radius:18px 18px 0 0;padding-bottom:env(safe-area-inset-bottom);animation:asec-sheet-in .32s cubic-bezier(.16,1,.3,1)}
+  @keyframes asec-sheet-in{from{transform:translateY(100%)}to{transform:translateY(0)}}
+}
+/* ── v6.66 UX: module summary chips（摺疊狀態顯示已選選項）── */
+.asec-module-summary-row{display:flex;flex-wrap:wrap;gap:5px;margin-top:10px}
+.asec-module-summary-chip{display:inline-flex;align-items:center;gap:3px;font-size:10px;line-height:1;padding:4px 8px;border-radius:99px;background:var(--color-surface);border:1px solid var(--color-divider);color:var(--color-text-muted);white-space:nowrap}
+.asec-module-card.selected .asec-module-summary-chip{background:var(--color-surface);border-color:var(--color-primary-highlight);color:var(--color-primary)}
+/* ── v6.66 UX: book+chapter cascading select ── */
+.asec-cascade-row{display:flex;gap:8px;align-items:stretch}
+.asec-cascade-row select{flex:1;min-width:0}
+.asec-cascade-row select:first-child{flex:1.4}
+.asec-cascade-hint{font-size:10.5px;color:var(--color-text-faint);margin-top:2px}
 
 .quick-field{margin-bottom:12px}
 .quick-field label{display:block;font-size:12px;font-weight:600;color:var(--color-text-muted);margin-bottom:4px}

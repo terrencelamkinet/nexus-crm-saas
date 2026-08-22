@@ -10,6 +10,7 @@ import {
   type ModuleOptionValue, type SecretaryModule,
   type ToneId, type LangPref, type DetailLevel, type ChannelId,
 } from '../hooks/useSecretarySettings';
+import BookChapterSelect from '../components/BookChapterSelect';
 
 // ── Working-hours slider helpers ──
 const toMins = (hhmm: string): number => {
@@ -339,6 +340,31 @@ export default function AIAppsPage() {
     { id: 'model', icon: '⚙️', labelKey: 'settings.aiApps.navModel' },
   ];
 
+  // v6.66: 已選模組嘅深層選項摘要（摺疊狀態卡片底部 chips）— 最多 3 個
+  const moduleSummary = (m: SecretaryModule, opts: Record<string, ModuleOptionValue>): string[] => {
+    const out: string[] = [];
+    for (const o of (m.options ?? [])) {
+      if (o.showWhen) {
+        const parentVal = opts[o.showWhen.key];
+        if (String(parentVal) !== o.showWhen.equals) continue;
+      }
+      const v = opts[o.key];
+      if (v === undefined || v === null || v === '') continue;
+      if (o.type === 'single_select') {
+        const c = (o.choices ?? []).find(x => x.value === v);
+        if (c) out.push(t(c.labelKey));
+      } else if (o.type === 'multi_select') {
+        const arr = Array.isArray(v) ? v : [];
+        if (arr.length) out.push(arr.map(x => t((o.choices ?? []).find(c => c.value === x)?.labelKey ?? String(x))).join('+'));
+      } else if (o.type === 'number') {
+        out.push(String(v));
+      } else if (o.type === 'book_range' || o.type === 'text') {
+        out.push(String(v));
+      }
+    }
+    return out.slice(0, 3);
+  };
+
   return (
     <div className="stg-page">
       <div className="breadcrumb">
@@ -369,7 +395,7 @@ export default function AIAppsPage() {
               onClick={() => setSection(n.id)}
             >
               <span className="asec-nav-icon">{n.icon}</span>
-              {t(n.labelKey)}
+              <span className="asec-nav-label">{t(n.labelKey)}</span>
             </button>
           ))}
         </nav>
@@ -411,6 +437,16 @@ export default function AIAppsPage() {
                             {selected && <Check size={11} />}
                           </span>
                         </div>
+                        {selected && hasOpts && (() => {
+                          const opts = normalizeModules(settings.modules)[m.id] ?? {};
+                          const chips = moduleSummary(m, opts);
+                          if (!chips.length) return null;
+                          return (
+                            <div className="asec-module-summary-row">
+                              {chips.map((c, i) => <span key={i} className="asec-module-summary-chip">{c}</span>)}
+                            </div>
+                          );
+                        })()}
                         {connected && (
                           <div className="asec-module-foot">
                             {selected && hasOpts ? (
@@ -439,10 +475,9 @@ export default function AIAppsPage() {
 
           {/* ══ Module deep-options popup ══ */}
           {editingModule && (
-            <div className="modal-overlay" onClick={closeModuleEditor}>
+            <div className="modal-overlay asec-editor-overlay" onClick={closeModuleEditor}>
               <div
-                className="modal"
-                style={{ maxWidth: 520, maxHeight: '82vh', overflow: 'auto' }}
+                className="modal asec-editor-modal"
                 onClick={e => e.stopPropagation()}
                 role="dialog"
                 aria-modal="true"
@@ -478,6 +513,8 @@ export default function AIAppsPage() {
                       );
                     }
                     if (o.type === 'number') {
+                      // v6.66: start_chapter/end_chapter 已合併入 BookChapterSelect（cascading）
+                      if (o.key === 'start_chapter' || o.key === 'end_chapter') return null;
                       return (
                         <div key={o.key} className="asec-editor-field">
                           <span className="asec-module-option-label">{t(o.labelKey)}</span>
@@ -496,17 +533,22 @@ export default function AIAppsPage() {
                       );
                     }
                     if (o.type === 'book_range') {
+                      // v6.66: cascading select — 書卷 + 對應章數（start_book↔start_chapter, end_book↔end_chapter）
+                      const chKey = o.key === 'start_book' ? 'start_chapter' : o.key === 'end_book' ? 'end_chapter' : null;
+                      const chOpt = chKey ? (editingModule.options ?? []).find(x => x.key === chKey) : null;
                       const bookVal = String(cur ?? BIBLE_BOOKS[0]);
+                      const rawCh = (chKey && chKey in draftOpts) ? draftOpts[chKey] : chOpt?.default;
+                      const chVal = Number(rawCh ?? 1);
                       return (
                         <div key={o.key} className="asec-editor-field">
                           <span className="asec-module-option-label">{t(o.labelKey)}</span>
-                          <select
-                            className="asec-editor-select"
-                            value={bookVal}
-                            onChange={e => setDraft(o.key, e.target.value)}
-                          >
-                            {BIBLE_BOOKS.map(b => <option key={b} value={b}>{b}</option>)}
-                          </select>
+                          <BookChapterSelect
+                            book={bookVal}
+                            chapter={chVal}
+                            allowEndOfBook={o.key === 'end_book'}
+                            onBookChange={b => setDraft(o.key, b)}
+                            onChapterChange={c => { if (chKey) setDraft(chKey, c); }}
+                          />
                         </div>
                       );
                     }
