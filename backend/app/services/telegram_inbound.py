@@ -932,6 +932,14 @@ async def handle_webhook_update(data: dict) -> None:
             cfg: dict[str, Any] = dict(mapping.config or {})
             last_id = cfg.get("tg_last_webhook_update_id")
             if upd_id is not None and last_id is not None and upd_id <= last_id:
+                # ⚠️ 2026-08-22: silent dedup 幾乎令 production inbound 死寂 —
+                # mock 測試用 393000xxx update_id 推高 watermark，真實 update
+                # (~3922615xx) 全部被當 duplicate 忽略。必須 log 以便診斷。
+                _log.getLogger("telegram_inbound").warning(
+                    "webhook update %s SKIPPED (dedup: watermark=%s) — "
+                    "若此為真實 message，watermark 可能被 mock/test 推高",
+                    upd_id, last_id,
+                )
                 return  # duplicate delivery (Telegram retry) — already processed
             # Telegram webhook test pings (update_id 999999998 / 999999999)
             # must NEVER advance the dedup watermark — they are not real
