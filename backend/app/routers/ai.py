@@ -2056,6 +2056,35 @@ async def chat_stream_completion(
             + "\n".join(client_system)
         )
     enhanced: list[dict[str, Any]] = [{"role": "system", "content": system_prompt}]
+
+    # ── Load session history (context continuation) ────────────────────
+    # Replay the recent conversation so the AI remembers prior turns.
+    # The just-saved current query (last_query) is excluded — it is
+    # appended below via body.messages.
+    if sess.id:
+        try:
+            hist_q = (
+                select(Message)
+                .where(Message.session_id == sess.id)
+                .order_by(Message.created_at.asc())
+                .limit(20)
+            )
+            hist_rows = (await db.execute(hist_q)).scalars().all()
+            if hist_rows:
+                # Explicit marker so the model treats replayed turns as
+                # prior conversation (models otherwise ignore them when
+                # the system prompt says "no past conversation data").
+                enhanced.append({
+                    "role": "system",
+                    "content": "The messages below (up to the final user message) are the PRIOR conversation history of this session. Use them as context — the user may refer to them.",
+                })
+            for hm in hist_rows:
+                if hm.role == "user" and hm.content == last_query:
+                    continue
+                enhanced.append({"role": hm.role, "content": hm.content})
+        except Exception:
+            pass  # history replay is best-effort
+
     for m in body.messages:
         if m.get("role") != "system":
             enhanced.append(m)
