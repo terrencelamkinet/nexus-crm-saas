@@ -360,6 +360,10 @@ export default function AiSearchPanel({ open, onClose, onScanCard }: Props) {
                 return (
                   <div key={m.id} className="cb-msg-ai-row">
                     <div className="cb-msg-ai-body ai-card">
+                      {/* v6.88: 對話者名 — NEXUS AI（唔用框，用 meta 標示） */}
+                      <div className="cb-msg-ai-meta">
+                        <span className="cb-msg-time">NEXUS AI</span>
+                      </div>
                       <div className="msg-ai-content cb-msg-ai-content">
                         <MarkdownMessage content={m.content} />
                       </div>

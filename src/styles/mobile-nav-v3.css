@@ -298,6 +298,14 @@
 .aisp-msg-area .cb-msg-user, .aisp-msg-area .cb-msg-ai-row { margin: 0; }
 .aisp-msg-area .cb-msg-user { align-self: flex-end; max-width: 85%; }
 .aisp-msg-area .cb-msg-ai-row { align-self: flex-start; max-width: 92%; }
+/* v6.88: AI chat 訊息唔要框 — 移除 ai-card animated border + thinking pulse，
+   NEXUS AI 做對話者名（meta） */
+.aisp-msg-area .cb-msg-ai-body.ai-card::before,
+.aipage-msg-area .cb-msg-ai-body.ai-card::before,
+.cb-panel .cb-msg-ai-body.ai-card::before { display: none; }
+.aisp-msg-area .cb-msg-ai-body.ai-card.is-thinking,
+.aipage-msg-area .cb-msg-ai-body.ai-card.is-thinking,
+.cb-panel .cb-msg-ai-body.ai-card.is-thinking { animation: none; box-shadow: none; }
 .aisp-msg-area .aisp-input-row { display: none; }
 .aisp-chat > .aisp-input-row {
   /* v6.85: flush to panel bottom — only safe-area inset (home indicator)
