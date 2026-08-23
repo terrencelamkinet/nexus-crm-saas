@@ -654,6 +654,22 @@ async def calendar_conflicts(ctx: AISessionContext, db: AsyncSession, options: d
         )
     ).scalars().all()
 
+    # Cross-source duplicates（同一 event 被 Outlook + Google 各自 mirror —
+    # title + start + end 完全一樣）唔可以當衝突：先按 (title, start, end) 去重
+    seen_keys: set[tuple[str, str, str]] = set()
+    deduped: list = []
+    for row in rows:
+        key = (
+            str(row.title or ""),
+            row.start.isoformat() if row.start is not None else "",
+            row.end.isoformat() if row.end is not None else "",
+        )
+        if key in seen_keys:
+            continue
+        seen_keys.add(key)
+        deduped.append(row)
+    rows = deduped
+
     conflicts: list[dict[str, Any]] = []
     for i in range(len(rows) - 1):
         a, b = rows[i], rows[i + 1]

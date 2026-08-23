@@ -797,8 +797,8 @@ export default function DashboardV2() {
             <span className="dv2-ai-toggle-right">
               <span className="dv2-widget-badge">
                 {aiGenAt
-                  ? `每日 4 次更新 · ${new Date(aiGenAt).toLocaleTimeString(i18n.language, { hour: '2-digit', minute: '2-digit' })}`
-                  : t('dashboard.dailyUpdates', { defaultValue: '每日 4 次更新' })}
+                  ? `🕐 ${new Date(aiGenAt).toLocaleTimeString(i18n.language, { hour: '2-digit', minute: '2-digit' })}`
+                  : t('dashboard.aiUpdated', { defaultValue: 'AI 更新' })}
               </span>
               <ChevronDown size={16} className={`dv2-ai-chevron ${aiExpanded ? 'open' : ''}`} />
             </span>

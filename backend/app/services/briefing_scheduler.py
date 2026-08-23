@@ -18,6 +18,7 @@ CLI: python -m app.services.briefing_scheduler
 from __future__ import annotations
 
 import asyncio
+import re
 import sys
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
@@ -69,6 +70,57 @@ BIBLE_SLOT_TIMES = {
     "evening": "18:00",
     "night": "22:00",
 }
+
+# slot key → emoji + 中文 label（同 briefing_generator.SLOT_PROMPTS 一致）
+_SLOT_META = {
+    "morning": ("🌅", "早安"),
+    "noon": ("☀️", "午安"),
+    "evening": ("🌆", "晚安"),
+    "night": ("🌙", "深夜"),
+}
+
+# Telegram sendMessage 上限 4096 chars — 留 buffer 避免 API reject
+_MAX_IM_LEN = 4000
+
+
+def _style_for_channel(content: str, channel: str, slot: str, now: datetime) -> str:
+    """Convert briefing content to the target IM's message style.
+
+    Telegram（高密度、時間放最前、少隔行、冇 table — 跟 telegram-mobile-format）：
+      - 第一行加 `🕐 HH:MM · 🌅 早安` header（時間放最前）
+      - 剝走 content 開頭重複嘅 emoji title（LLM 已出「🌅 早安」）
+      - 壓縮連續空行 → 最多 1 個
+      - `|` 分隔嘅 table 行 → bullet（Telegram 唔 support table）
+      - 截斷到 4000 chars
+    WhatsApp 等：淨係壓空行 + 截斷（寬鬆啲，保留原文）。
+
+    其他 channel（未支援）：原樣返回。
+    """
+    text = (content or "").strip()
+    if not text:
+        return text
+    # 壓縮連續空行（高密度）→ 最多保留 1 個
+    text = re.sub(r"\n{2,}", "\n", text)
+    # strip 每行頭尾空白
+    text = "\n".join(line.strip() for line in text.splitlines()).strip()
+    if channel != "telegram":
+        return text[:_MAX_IM_LEN] if len(text) > _MAX_IM_LEN else text
+
+    emoji, label = _SLOT_META.get(slot, ("📋", "簡報"))
+    # 剝走 content 開頭重複嘅 emoji+label title（「🌅 早安」/「🌅早安」）
+    for e2, l2 in _SLOT_META.values():
+        for prefix in (f"{e2} {l2}", f"{e2}{l2}"):
+            if text.startswith(prefix):
+                text = text[len(prefix):].lstrip("\n:： ")
+                break
+    header = f"🕐 {now.strftime('%H:%M')} · {emoji} {label}"
+    text = f"{header}\n{text}"
+    # Telegram 唔 support table — 兩格以上 | 嘅行轉 bullet
+    text = "\n".join(
+        ("• " + line.replace("|", " · ").strip("• ")) if line.count("|") >= 2 else line
+        for line in text.splitlines()
+    )
+    return text[:_MAX_IM_LEN] if len(text) > _MAX_IM_LEN else text
 
 
 def _now_hkt() -> datetime:
@@ -197,7 +249,8 @@ async def _push_telegram(db, user, slot: str, content: str) -> str:
     if not token:
         return "skipped"
     try:
-        result = await telegram_service.send_message(token, str(tg.chat_id), content)
+        styled = _style_for_channel(content, "telegram", slot, _now_hkt())
+        result = await telegram_service.send_message(token, str(tg.chat_id), styled)
         ok = isinstance(result, dict) and result.get("ok")
         return "sent" if ok else "failed"
     except Exception:
@@ -223,7 +276,8 @@ async def _push_whatsapp(db, user, slot: str, content: str) -> str:
     if not mapping:
         return "skipped"
     try:
-        result = await whatsapp_service.send_text(mapping.wa_id, content)
+        styled = _style_for_channel(content, "whatsapp", slot, _now_hkt())
+        result = await whatsapp_service.send_text(mapping.wa_id, styled)
         ok = isinstance(result, dict) and result.get("messages")
         return "sent" if ok else "failed"
     except Exception:
@@ -231,11 +285,20 @@ async def _push_whatsapp(db, user, slot: str, content: str) -> str:
 
 
 async def _generate_content(db, user, slot_key: str) -> str:
-    """Compose briefing content via the existing generator."""
+    """Compose briefing content via the existing generator.
+
+    skip_im_push=True: 推送由 scheduler 統一控制（Telegram primary + WhatsApp
+    fallback，各自 channel gate）— 避免 generator 內部 WhatsApp push 同
+    scheduler push 造成 double push。
+    """
     from app.services.briefing_generator import generate_briefing
 
     # generate_briefing(db, tenant_id, user_id, slot) — slot is morning/noon/evening/night
-    result = await generate_briefing(db, user.tenant_id, user.user_id, SLOT_MAP.get(slot_key, "morning"))
+    result = await generate_briefing(
+        db, user.tenant_id, user.user_id,
+        SLOT_MAP.get(slot_key, "morning"),
+        skip_im_push=True,
+    )
     content = result.get("content", "") if isinstance(result, dict) else ""
     return content
 

@@ -503,6 +503,27 @@ async def _upsert_events(
 
         existing = by_ext_id.get(ext_id)
         if existing is None:
+            # Cross-source dedup: the same event can be mirrored by multiple
+            # sources (e.g. Google Calendar imports the user's Outlook
+            # calendar → identical event arrives via google_oauth AND outlook).
+            # Match on identical (title, start, end) so we never store the
+            # same event twice. Sync is mirror-check only — skipping insert
+            # keeps the existing row authoritative.
+            dup = (
+                await db.execute(
+                    select(ProjectCalendarEvent.id).where(
+                        ProjectCalendarEvent.tenant_id == tenant_id,
+                        ProjectCalendarEvent.owner_user_id == user_id,
+                        ProjectCalendarEvent.title == ev["title"],
+                        ProjectCalendarEvent.start == ev["start"],
+                        ProjectCalendarEvent.end == ev["end"],
+                        ProjectCalendarEvent.external_event_id.is_not(None),
+                    ).limit(1)
+                )
+            ).scalar_one_or_none()
+            if dup is not None:
+                stats["unchanged"] += 1
+                continue
             db.add(ProjectCalendarEvent(
                 tenant_id=tenant_id,
                 owner_user_id=user_id,
