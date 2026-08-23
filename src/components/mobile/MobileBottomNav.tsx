@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../../lib/AuthContext';
 import { apiClient } from '../../lib/api';
+import { useSecretarySettings } from '../../hooks/useSecretarySettings';
 
 /**
  * NEXUS CRM — Mobile Bottom Navigation v3 (AI 管家秘書 theme) — v6.70
@@ -37,6 +38,27 @@ export default function MobileBottomNav({ onOpenAiSearch, onScanCard, onQuickAdd
   const [dark, setDark] = useState(() => document.documentElement.getAttribute('data-theme') === 'dark');
   const [notifications, setNotifications] = useState<{ id: string; title: string; body?: string; status?: string }[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
+
+  /* ── v6.94: AI 管家設定 4 開關（backend ai_secretary_settings）── */
+  const secretary = useSecretarySettings();
+  const secSettings = secretary.settings;
+  const BRIEFING_MODULES = ['weather', 'today_tasks', 'meetings'];
+  const briefingOn = !!secSettings?.modules && BRIEFING_MODULES.some(m => (secSettings.modules as Record<string, unknown>)[m]);
+  const toggleBriefing = async () => {
+    const cur: Record<string, unknown> = { ...(secSettings?.modules || {}) };
+    if (briefingOn) {
+      const next: Record<string, unknown> = {};
+      for (const [k, v] of Object.entries(cur)) if (!BRIEFING_MODULES.includes(k)) next[k] = v;
+      await secretary.update({ modules: next as any });
+    } else {
+      const next: Record<string, unknown> = { ...cur };
+      for (const m of BRIEFING_MODULES) if (!next[m]) next[m] = {};
+      await secretary.update({ modules: next as any });
+    }
+  };
+  const toggleCalAwareness = async () => { await secretary.update({ calendar_awareness: !secSettings?.calendar_awareness }); };
+  const toggleWeekendMute = async () => { await secretary.update({ weekend_mute: !secSettings?.weekend_mute }); };
+  const toggleStrictSilence = async () => { await secretary.update({ strict_silence: !secSettings?.strict_silence }); };
 
   /* ── Sidebar mirror（同 SidebarV2 一致）── */
   /* v6.93: project-centric — Deals 完全移除（設計文件：Deal/Pipeline 唔再顯示） */
@@ -199,6 +221,25 @@ export default function MobileBottomNav({ onOpenAiSearch, onScanCard, onQuickAdd
               <item.icon /><span>{item.label}</span><ChevronRight className="chev" />
             </button>
           ))}
+
+          {/* v6.94: AI 管家設定 4 開關 */}
+          <div className="mnav-section-label">AI 管家</div>
+          <button type="button" className="mnav-org-row" onClick={toggleBriefing}>
+            <Sparkles /><span>每日 Briefing</span>
+            <span className={`mnav-switch ${briefingOn ? 'on' : ''}`} onClick={e => { e.stopPropagation(); toggleBriefing(); }} />
+          </button>
+          <button type="button" className="mnav-org-row" onClick={toggleCalAwareness}>
+            <Calendar /><span>行事曆主動提問</span>
+            <span className={`mnav-switch ${secSettings?.calendar_awareness ? 'on' : ''}`} onClick={e => { e.stopPropagation(); toggleCalAwareness(); }} />
+          </button>
+          <button type="button" className="mnav-org-row" onClick={toggleWeekendMute}>
+            <Moon /><span>週末靜音</span>
+            <span className={`mnav-switch ${secSettings?.weekend_mute ? 'on' : ''}`} onClick={e => { e.stopPropagation(); toggleWeekendMute(); }} />
+          </button>
+          <button type="button" className="mnav-org-row" onClick={toggleStrictSilence}>
+            <Bell /><span>嚴格靜音</span>
+            <span className={`mnav-switch ${secSettings?.strict_silence ? 'on' : ''}`} onClick={e => { e.stopPropagation(); toggleStrictSilence(); }} />
+          </button>
 
           {/* 外觀（top bar 黑白轉） */}
           <div className="mnav-section-label">外觀</div>

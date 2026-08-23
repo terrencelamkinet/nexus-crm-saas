@@ -10,6 +10,7 @@ from app.models.ai.vector import VectorDocument, VectorDocumentChunk
 from app.models.ai.user_memory import UserMemory
 from app.models.ai.prompt_template import PromptTemplate
 from app.models.ai.secretary_settings import SecretarySettings, ChannelCredential
+from app.models.ai.pending_question import PendingAIQuestion
 
 __all__ = [
     "Agent",
@@ -28,4 +29,5 @@ __all__ = [
     "PromptTemplate",
     "SecretarySettings",
     "ChannelCredential",
+    "PendingAIQuestion",
 ]

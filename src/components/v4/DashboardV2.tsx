@@ -64,11 +64,16 @@ function parseBriefing(content: string): { title: string; sections: AiSection[] 
    Layer 3: 脈絡與趨勢（weather + news，可收合）
    Layer 4: 延伸內容（bible，預設收合）
    ═══════════════════════════════════════════════════════════ */
-function LayeredBriefing({ layers, weather, navigate, i18nLang }: {
+function LayeredBriefing({ layers, weather, pendingQs, pqIndex, navigate, i18nLang, onAnswer, onDismiss, onDot }: {
   layers: any
   weather: any
+  pendingQs: any[]
+  pqIndex: number
   navigate: (to: string) => void
   i18nLang: string
+  onAnswer: (id: string, answer: string) => void
+  onDismiss: (id: string) => void
+  onDot: (i: number) => void
 }) {
   const conflicts: any[] = layers?.conflicts || []
   const overdue: any[] = layers?.overdue || []
@@ -87,6 +92,35 @@ function LayeredBriefing({ layers, weather, navigate, i18nLang }: {
 
   return (
     <div className="dv2-layered">
+      {/* ── Layer 0 · AI 主動提問（Calendar Awareness 輪播）── */}
+      {pendingQs.length > 0 && (() => {
+        const q = pendingQs[pqIndex % pendingQs.length]
+        return (
+          <div className="dv2-pq-card">
+            <div className="dv2-pq-head">
+              <span className="dv2-pq-icon">💬</span>
+              <span className="dv2-pq-title">AI 管家提問</span>
+              <button type="button" className="dv2-pq-dismiss" onClick={() => onDismiss(q.id)} aria-label="忽略此問題">✕</button>
+            </div>
+            <div className="dv2-pq-body">
+              <div className="dv2-pq-question">{q.question}</div>
+              <div className="dv2-pq-chips">
+                {(q.suggested_answers || []).map((a: string) => (
+                  <button key={a} type="button" className="dv2-pq-chip" onClick={() => onAnswer(q.id, a)}>{a}</button>
+                ))}
+              </div>
+              {pendingQs.length > 1 && (
+                <div className="dv2-pq-dots">
+                  {pendingQs.map((_, i) => (
+                    <span key={i} className={`dv2-pq-dot ${i === pqIndex % pendingQs.length ? 'on' : ''}`} onClick={() => onDot(i)} />
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )
+      })()}
+
       {/* ── Layer 1 · 需要立即處理 ── */}
       {hasAlerts && (
         <div className="dv2-layer-label">🌙 Layer 1 · 需要立即處理</div>
@@ -331,6 +365,9 @@ export default function DashboardV2() {
   const [aiLoading, setAiLoading] = useState(true)
   // v6.92: structured layered briefing data (Layer 1-4 cards) from backend
   const [aiLayers, setAiLayers] = useState<any>(null)
+  // v6.94: calendar awareness — AI 主動提問（pending questions 輪播）
+  const [pendingQs, setPendingQs] = useState<any[]>([])
+  const [pqIndex, setPqIndex] = useState(0)
 
   const [customizeMode, setCustomizeMode] = useState(false)
   const [isPhone, setIsPhone] = useState(() => (typeof window !== 'undefined' ? window.matchMedia('(max-width: 640px)').matches : false))
@@ -523,6 +560,36 @@ export default function DashboardV2() {
       setAiLoading(false)
     }).catch(() => setAiLoading(false))
   }, [])
+
+  // ── v6.94: Calendar Awareness — AI 主動提問（pending questions 輪播）──
+  useEffect(() => {
+    apiClient.get<{ items: any[] }>('/api/v1/ai-secretary/pending-questions')
+      .then((d: any) => setPendingQs(d?.items || []))
+      .catch(() => {})
+  }, [])
+
+  // 輪播 — 每 7 秒轉下一條（多過 1 條先轉）
+  useEffect(() => {
+    if (pendingQs.length <= 1) return
+    const t = setInterval(() => setPqIndex(i => (i + 1) % pendingQs.length), 7000)
+    return () => clearInterval(t)
+  }, [pendingQs.length])
+
+  const answerPendingQ = async (id: string, answer: string) => {
+    try {
+      await apiClient.post(`/api/v1/ai-secretary/pending-questions/${id}/answer`, { answer })
+      setPendingQs(prev => prev.filter(q => q.id !== id))
+      setPqIndex(0)
+    } catch { /* keep the question on failure */ }
+  }
+
+  const dismissPendingQ = async (id: string) => {
+    try {
+      await apiClient.post(`/api/v1/ai-secretary/pending-questions/${id}/dismiss`, {})
+      setPendingQs(prev => prev.filter(q => q.id !== id))
+      setPqIndex(0)
+    } catch { /* keep the question on failure */ }
+  }
 
   const hour = new Date().getHours()
   const greeting = hour < 12 ? t('dashboard.goodMorning', { defaultValue: 'Good morning' })
@@ -720,7 +787,7 @@ export default function DashboardV2() {
                   <div className="dv2-skel-line w70" /><div className="dv2-skel-line w90" /><div className="dv2-skel-line w50" />
                 </div>
               ) : aiLayers ? (
-                <LayeredBriefing layers={aiLayers} weather={aiWeather} navigate={navigate} i18nLang={i18n.language} />
+                <LayeredBriefing layers={aiLayers} weather={aiWeather} pendingQs={pendingQs} pqIndex={pqIndex} navigate={navigate} i18nLang={i18n.language} onAnswer={answerPendingQ} onDismiss={dismissPendingQ} onDot={setPqIndex} />
               ) : aiInsight ? (
                 <>
                   <p className="dv2-ai-headline">

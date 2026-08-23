@@ -106,6 +106,7 @@ class SecretarySettings(Base):
     workdays = Column(JSONB, default=lambda: list(DEFAULT_WORKDAYS), nullable=False)
     weekend_mute = Column(Boolean, default=True, nullable=False)
     strict_silence = Column(Boolean, default=True, nullable=False)
+    calendar_awareness = Column(Boolean, default=True, nullable=False)
     tone = Column(String(20), default="professional", nullable=False)
     instructions = Column(Text, default="", nullable=False)
     lang_pref = Column(String(10), default="zh-HK", nullable=False)

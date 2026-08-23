@@ -17,7 +17,7 @@ from app.models.telegram_bot import TelegramBotMapping  # Register Telegram mode
 from app.models.im_push import IMDeliveryPref, PushLog  # Register IM Push models
 from app.models.bible_reading import BibleReadingProgress, BibleVerse  # Register Bible reading models
 from app.models.oauth_client import OAuthClientSetting  # Register OAuth client settings model
-from app.models.ai import Agent, AISession, Message, Tool, ActionRequest, Quota, UsageEvent, ModelProfile, ProviderCredential, ProviderHealth, SecretarySettings, ChannelCredential  # Register AI models
+from app.models.ai import Agent, AISession, Message, Tool, ActionRequest, Quota, UsageEvent, ModelProfile, ProviderCredential, ProviderHealth, SecretarySettings, ChannelCredential, PendingAIQuestion  # Register AI models
 from app.middleware.tenant import TenantMiddleware
 from app.middleware.ai_session import AISessionMiddleware
 

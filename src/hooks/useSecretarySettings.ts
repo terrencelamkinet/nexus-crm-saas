@@ -594,6 +594,7 @@ export interface SecretarySettings {
   workdays: string[];
   weekend_mute: boolean;
   strict_silence: boolean;
+  calendar_awareness: boolean;
   tone: ToneId;
   instructions: string;
   lang_pref: LangPref;
@@ -641,6 +642,7 @@ export const DEFAULT_SETTINGS: SecretarySettings = {
   workdays: ['mon', 'tue', 'wed', 'thu', 'fri'],
   weekend_mute: true,
   strict_silence: true,
+  calendar_awareness: true,
   tone: 'professional',
   instructions: '',
   lang_pref: 'zh-HK',

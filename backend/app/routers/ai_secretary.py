@@ -35,6 +35,9 @@ from app.models.ai.secretary_settings import (
 )
 from app.models.whatsapp import WhatsAppMapping
 from app.models.telegram_bot import TelegramBotMapping
+from app.models.ai.pending_question import PendingAIQuestion
+from app.models.crm import ProjectCalendarEvent
+from app.services.calendar_awareness import list_pending, scan_calendar_gaps
 
 router = APIRouter(prefix="/api/v1/ai-secretary", tags=["AI Secretary"])
 
@@ -82,6 +85,7 @@ class SettingsOut(BaseModel):
     workdays: list[str]
     weekend_mute: bool
     strict_silence: bool
+    calendar_awareness: bool
     tone: str
     instructions: str
     lang_pref: str
@@ -99,6 +103,7 @@ class SettingsPatch(BaseModel):
     workdays: list[str] | None = None
     weekend_mute: bool | None = None
     strict_silence: bool | None = None
+    calendar_awareness: bool | None = None
     tone: str | None = None
     instructions: str | None = None
     lang_pref: str | None = None
@@ -198,6 +203,7 @@ def _to_out(row: SecretarySettings) -> SettingsOut:
         workdays=list(row.workdays or DEFAULT_WORKDAYS),
         weekend_mute=row.weekend_mute,
         strict_silence=row.strict_silence,
+        calendar_awareness=row.calendar_awareness,
         tone=row.tone,
         instructions=row.instructions,
         lang_pref=row.lang_pref,
@@ -342,6 +348,7 @@ async def reset_settings(
     row.workdays = list(DEFAULT_WORKDAYS)
     row.weekend_mute = True
     row.strict_silence = True
+    row.calendar_awareness = True
     row.tone = "professional"
     row.instructions = ""
     row.lang_pref = "zh-HK"
@@ -556,3 +563,104 @@ async def run_briefing_generation(
     from app.services.briefing_generator import run_for_all_users
     stats = await run_for_all_users(db, slot)
     return {"slot": slot, "run_at": datetime.now(timezone(timedelta(hours=8))).isoformat(), **stats}
+
+
+# ── Calendar Awareness — AI 主動提問（pending questions）──
+class AnswerBody(BaseModel):
+    answer: str
+
+
+@router.get("/pending-questions")
+async def get_pending_questions(
+    request: Request,
+    force_scan: bool = True,
+    db: AsyncSession = Depends(get_tenant_session),
+):
+    """返回 pending questions — lazy scan 一次再攞（calendar_awareness off 時直接空）。"""
+    user_id, tenant_id = _ctx_ids(request)
+    row = await _get_or_create(db, user_id, tenant_id)
+    await db.commit()
+    if row.calendar_awareness is False:
+        return {"items": []}
+    rows = await list_pending(db, user_id, tenant_id, force_scan=force_scan)
+    return {
+        "items": [
+            {
+                "id": str(q.id),
+                "question": q.question,
+                "context_type": q.context_type,
+                "context_id": str(q.context_id) if q.context_id else None,
+                "context_title": q.context_title,
+                "suggested_answers": q.suggested_answers or [],
+                "source": q.source,
+                "created_at": q.created_at.isoformat() if q.created_at else None,
+            }
+            for q in rows
+        ]
+    }
+
+
+@router.post("/pending-questions/{qid}/answer")
+async def answer_pending_question(
+    qid: uuid.UUID,
+    body: AnswerBody,
+    request: Request,
+    db: AsyncSession = Depends(get_tenant_session),
+):
+    user_id, tenant_id = _ctx_ids(request)
+    q = (
+        await db.execute(
+            select(PendingAIQuestion).where(
+                PendingAIQuestion.id == qid,
+                PendingAIQuestion.tenant_id == tenant_id,
+                PendingAIQuestion.user_id == user_id,
+            )
+        )
+    ).scalar_one_or_none()
+    if not q:
+        raise HTTPException(404, "question not found")
+    q.status = "answered"
+    q.answer = body.answer
+    q.answered_at = datetime.now(timezone.utc)
+
+    # 「加地點：X」答案 → 實際更新 event location（AI 管家行為 — 下次 scan 就唔會再問）
+    if body.answer.startswith("加地點：") and q.context_id:
+        loc = body.answer.split("：", 1)[1].strip()
+        if loc:
+            ev = (
+                await db.execute(
+                    select(ProjectCalendarEvent).where(
+                        ProjectCalendarEvent.id == q.context_id,
+                        ProjectCalendarEvent.tenant_id == tenant_id,
+                    )
+                )
+            ).scalar_one_or_none()
+            if ev:
+                ev.location = loc
+
+    await db.commit()
+    return {"ok": True, "id": str(qid)}
+
+
+@router.post("/pending-questions/{qid}/dismiss")
+async def dismiss_pending_question(
+    qid: uuid.UUID,
+    request: Request,
+    db: AsyncSession = Depends(get_tenant_session),
+):
+    user_id, tenant_id = _ctx_ids(request)
+    q = (
+        await db.execute(
+            select(PendingAIQuestion).where(
+                PendingAIQuestion.id == qid,
+                PendingAIQuestion.tenant_id == tenant_id,
+                PendingAIQuestion.user_id == user_id,
+            )
+        )
+    ).scalar_one_or_none()
+    if not q:
+        raise HTTPException(404, "question not found")
+    q.status = "dismissed"
+    q.answered_at = datetime.now(timezone.utc)
+    await db.commit()
+    return {"ok": True, "id": str(qid)}
