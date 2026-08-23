@@ -3483,6 +3483,7 @@ async def global_crm_search(
     request: Request,
     q: str,
     limit: int = 10,
+    types: str = Query("", description="Comma-separated entity types to filter (contact,company,deal,task,project,touchpoint,note). Empty = all."),
     db: AsyncSession = Depends(get_tenant_session),
 ):
     """Search across all CRM entities (contacts, companies, deals, tasks,
@@ -3492,6 +3493,19 @@ async def global_crm_search(
     """
     tenant_id = _get_tenant_id(request)
     pattern = f"%{q}%"
+    type_list = [t.strip() for t in types.split(",") if t.strip()] if types else []
+    # Whitelist guard — these values are inlined into SQL below (safe: fixed
+    # enum of entity types, no user free-text).
+    _VALID_TYPES = {"contact", "company", "deal", "task", "project", "touchpoint", "note"}
+    type_list = [t for t in type_list if t in _VALID_TYPES]
+
+    # ── Type filter (whitelist inline — safe: fixed entity-type enum) ──
+    type_where = ""
+    count_type_where = ""
+    if type_list:
+        safe = ",".join(f"'{t}'" for t in type_list)
+        type_where = f"WHERE results.type IN ({safe})"
+        count_type_where = f"WHERE cnt.type IN ({safe})"
 
     # ── Main data query with UNION ALL ────────────────────────────────
     data_sql = text(
@@ -3587,40 +3601,42 @@ async def global_crm_search(
               AND (n.title   ILIKE :q
                 OR n.content ILIKE :q)
         ) results
+        {type_where}
         LIMIT :limit
-        """
+        """.format(type_where=type_where)
     )
 
     # ── Count query (same filters, no data) ───────────────────────────
     count_sql = text(
         """
         SELECT COUNT(*) FROM (
-            SELECT c.id FROM nexus_crm.contacts c
+            SELECT 'contact' AS type, c.id FROM nexus_crm.contacts c
              WHERE c.tenant_id = :tenant_id
                AND (c.name ILIKE :q OR c.email ILIKE :q OR c.phone ILIKE :q OR c.chinese_name ILIKE :q)
             UNION ALL
-            SELECT co.id FROM nexus_crm.companies co
+            SELECT 'company' AS type, co.id FROM nexus_crm.companies co
              WHERE co.tenant_id = :tenant_id
                AND (co.name ILIKE :q OR co.domain ILIKE :q OR co.industry ILIKE :q)
             UNION ALL
-            SELECT d.id FROM nexus_crm.deals d
+            SELECT 'deal' AS type, d.id FROM nexus_crm.deals d
              WHERE d.tenant_id = :tenant_id
                AND (d.name ILIKE :q OR d.notes ILIKE :q)
             UNION ALL
-            SELECT t.id FROM nexus_crm.tasks t
+            SELECT 'task' AS type, t.id FROM nexus_crm.tasks t
              WHERE t.tenant_id = :tenant_id AND t.title ILIKE :q
             UNION ALL
-            SELECT p.id FROM nexus_crm.projects p
+            SELECT 'project' AS type, p.id FROM nexus_crm.projects p
              WHERE p.tenant_id = :tenant_id AND p.name ILIKE :q
             UNION ALL
-            SELECT tp.id FROM nexus_crm.touchpoints tp
+            SELECT 'touchpoint' AS type, tp.id FROM nexus_crm.touchpoints tp
              WHERE tp.tenant_id = :tenant_id AND tp.title ILIKE :q
             UNION ALL
-            SELECT n.id FROM nexus_crm.notes n
+            SELECT 'note' AS type, n.id FROM nexus_crm.notes n
              WHERE n.tenant_id = :tenant_id
                AND (n.title ILIKE :q OR n.content ILIKE :q)
         ) cnt
-        """
+        {type_where}
+        """.format(type_where=count_type_where)
     )
 
     params = {"tenant_id": tenant_id, "q": pattern, "limit": limit}

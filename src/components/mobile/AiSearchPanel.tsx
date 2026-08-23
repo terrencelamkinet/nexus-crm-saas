@@ -5,7 +5,7 @@ import { apiClient, getStoredAuth } from '../../lib/api';
 import FollowUpChips from '../ai/chat/core/FollowUpChips';
 import MarkdownMessage from '../MarkdownRenderer';
 import {
-  Search, Plus, PencilLine, Trash2, CalendarClock, Camera, Mic, ArrowUp, X, Sparkles,
+  Search, Plus, PencilLine, Trash2, CalendarClock, Camera, Mic, ArrowUp, X, Sparkles, Maximize2,
 } from 'lucide-react';
 
 /**
@@ -76,7 +76,19 @@ export default function AiSearchPanel({ open, onClose, onScanCard }: Props) {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<SearchResult[]>([]);
   const [searching, setSearching] = useState(false);
+  const [searchType, setSearchType] = useState('');
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const SEARCH_FILTERS = [
+    { key: '', label: '全部' },
+    { key: 'contact', label: '聯絡人' },
+    { key: 'company', label: '公司' },
+    { key: 'deal', label: '商機' },
+    { key: 'task', label: '任務' },
+    { key: 'project', label: '專案' },
+    { key: 'touchpoint', label: '互動' },
+    { key: 'note', label: '筆記' },
+  ];
 
   /* ── Sessions ── */
   const switchSession = useCallback(async (sid: string) => {
@@ -226,7 +238,8 @@ export default function AiSearchPanel({ open, onClose, onScanCard }: Props) {
     setSearching(true);
     debounceRef.current = setTimeout(async () => {
       try {
-        const data = await apiClient.get<{ results: any[] }>(`/api/v1/crm/search?q=${encodeURIComponent(q)}&limit=10`);
+        const typesParam = searchType ? `&types=${encodeURIComponent(searchType)}` : '';
+        const data = await apiClient.get<{ results: any[] }>(`/api/v1/crm/search?q=${encodeURIComponent(q)}&limit=10${typesParam}`);
         setResults((data?.results || []).map((r: any) => ({
           id: String(r.id), type: r.type, title: r.label, subtitle: r.sub,
           icon: TYPE_EMOJI[r.type] || '📄',
@@ -235,13 +248,23 @@ export default function AiSearchPanel({ open, onClose, onScanCard }: Props) {
       setSearching(false);
     }, 250);
     return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
-  }, [query, mode, open]);
+  }, [query, mode, open, searchType]);
 
   const handleClose = () => {
     if (closing) return;
     setClosing(true);
     abortRef.current?.abort();
-    setTimeout(onClose, 200);
+    setTimeout(() => {
+      // Reset closing BEFORE onClose — otherwise a quick reopen renders one
+      // frame with the .closing class (opacity 0) = open flash/flicker.
+      setClosing(false);
+      onClose();
+    }, 200);
+  };
+
+  const openFullscreen = () => {
+    handleClose();
+    navigate('/search');
   };
 
   if (!open) return null;
@@ -260,7 +283,10 @@ export default function AiSearchPanel({ open, onClose, onScanCard }: Props) {
         <div className="aisp-handle" />
         <div className="aisp-head">
           <h3>AI 管家秘書</h3>
-          <button type="button" className="aisp-close" onClick={handleClose} aria-label="Close"><X /></button>
+          <div className="aisp-head-actions">
+            <button type="button" className="aisp-close" onClick={openFullscreen} aria-label="全螢幕搜尋"><Maximize2 /></button>
+            <button type="button" className="aisp-close" onClick={handleClose} aria-label="Close"><X /></button>
+          </div>
         </div>
 
         <div className="aisp-tabs">
@@ -393,6 +419,18 @@ export default function AiSearchPanel({ open, onClose, onScanCard }: Props) {
                 value={query}
                 onChange={e => setQuery(e.target.value)}
               />
+            </div>
+            <div className="aisp-filters">
+              {SEARCH_FILTERS.map(f => (
+                <button
+                  key={f.key || 'all'}
+                  type="button"
+                  className={`aisp-filter-chip ${searchType === f.key ? 'active' : ''}`}
+                  onClick={() => setSearchType(f.key)}
+                >
+                  {f.label}
+                </button>
+              ))}
             </div>
             <div className="aisp-body">
               {searching && results.length === 0 && <div className="aisp-empty">搜尋中…</div>}

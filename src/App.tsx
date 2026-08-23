@@ -23,6 +23,7 @@ import NameCardModuleRouter from './namecards/NameCardModuleRouter';
 import SettingsPage from './pages/SettingsPage';
 import AIAppsPage from './pages/AIAppsPage';
 import NotificationsPage from './pages/NotificationsPage';
+import SearchPage from './pages/SearchPage';
 import DeepLinkEventPage from './pages/DeepLinkEventPage';
 import SalesGate from './components/SalesGate';
 import ProjectGate from './components/ProjectGate';
@@ -90,6 +91,7 @@ function App() {
           <Route path="ai-apps" element={<AIAppsPage />} />
           <Route path="settings" element={<SettingsPage />} />
           <Route path="notifications" element={<NotificationsPage />} />
+          <Route path="search" element={<SearchPage />} />
         </Route>
 
         {/* Catch-all → redirect to dashboard */}
