@@ -4,11 +4,10 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import {
   LayoutDashboard, Users, Calendar, Building2, FolderKanban, CheckSquare,
-  TrendingUp, Activity, ScanLine, BarChart3, UsersRound, Sparkles, Bell,
+  Activity, ScanLine, BarChart3, UsersRound, Sparkles, Bell,
   Store, Settings, Plus, ChevronRight, X, LogOut, Moon, FileText,
 } from 'lucide-react';
 import { useAuth } from '../../lib/AuthContext';
-import { useModuleSettings } from '../../lib/useModules';
 import { apiClient } from '../../lib/api';
 
 /**
@@ -33,22 +32,20 @@ export default function MobileBottomNav({ onOpenAiSearch, onScanCard, onQuickAdd
   const navigate = useNavigate();
   const location = useLocation();
   const { user, logout } = useAuth();
-  const mods = useModuleSettings();
-  const salesOn = mods['sales'] !== false;
-  const addTiles = ADD_TILES_BASE.filter(t => t.id !== 'deal' || salesOn);
+  const addTiles = ADD_TILES_BASE;
   const [sheet, setSheet] = useState<'workspace' | 'record' | 'add' | 'settings' | null>(null);
   const [dark, setDark] = useState(() => document.documentElement.getAttribute('data-theme') === 'dark');
   const [notifications, setNotifications] = useState<{ id: string; title: string; body?: string; status?: string }[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
 
   /* ── Sidebar mirror（同 SidebarV2 一致）── */
+  /* v6.93: project-centric — Deals 完全移除（設計文件：Deal/Pipeline 唔再顯示） */
   const workspaceItems = [
     { to: '/dashboard',  label: t('nav.dashboard', { defaultValue: 'Dashboard' }), icon: LayoutDashboard },
     { to: '/contacts',   label: t('nav.contacts', { defaultValue: '聯絡人' }), icon: Users },
     { to: '/calendar',   label: t('nav.calendar', { defaultValue: '日曆' }), icon: Calendar },
     { to: '/companies',  label: t('nav.companies', { defaultValue: '公司' }), icon: Building2 },
     { to: '/projects',   label: t('nav.projects', { defaultValue: '項目' }), icon: FolderKanban },
-    ...(salesOn ? [{ to: '/deals', label: t('nav.deals', { defaultValue: '商機' }), icon: TrendingUp }] : []),
     { to: '/tasks',      label: t('nav.tasks', { defaultValue: '任務' }), icon: CheckSquare },
   ];
   const recordItems = [
@@ -77,7 +74,7 @@ export default function MobileBottomNav({ onOpenAiSearch, onScanCard, onQuickAdd
   const activeTab: 'workspace' | 'records' | 'settings' | 'none' =
     path.startsWith('/settings') || path.startsWith('/team') || path.startsWith('/ai-apps') || path.startsWith('/marketplace') || path.startsWith('/notifications') ? 'settings'
     : ['/touchpoints', '/namecards', '/reports'].some(p => path.startsWith(p)) ? 'records'
-    : ['/dashboard', '/contacts', '/calendar', '/companies', '/projects', '/deals', '/tasks'].some(p => path.startsWith(p)) ? 'workspace'
+    : ['/dashboard', '/contacts', '/calendar', '/companies', '/projects', '/tasks'].some(p => path.startsWith(p)) ? 'workspace'
     : 'none';
 
   const toggleTheme = () => {
@@ -225,9 +222,9 @@ const ADD_TILES_BASE = [
   { id: 'project', label: 'Project', icon: FolderKanban, color: 'var(--color-primary)' },
   { id: 'contact', label: 'Contact', icon: Users,        color: 'var(--color-blue)' },
   { id: 'company', label: 'Company', icon: Building2,    color: 'var(--color-warning)' },
-  { id: 'deal',    label: 'Deal',    icon: TrendingUp,   color: 'var(--color-gold, #b8901a)' },
   { id: 'task',    label: 'Task',    icon: CheckSquare,  color: 'var(--color-purple)' },
   { id: 'event',   label: 'Event',   icon: Calendar,     color: 'var(--color-success)' },
+  { id: 'note',    label: 'Note',    icon: FileText,     color: 'var(--color-gold, #b8901a)' },
 ];
 
 function Sheet({ title, onClose, children, tall = false }: { title: string; onClose: () => void; children: ReactNode; tall?: boolean }) {

@@ -11,7 +11,7 @@ import { apiClient } from '../lib/api';
 interface SearchResult { id: string; type: string; title: string; subtitle?: string; icon: string; }
 
 const TYPE_EMOJI: Record<string, string> = {
-  contact: '👤', company: '🏢', deal: '💰', task: '✅',
+  contact: '👤', company: '🏢', task: '✅',
   project: '📁', touchpoint: '🔄', note: '📝', event: '📅',
 };
 
@@ -19,7 +19,6 @@ const FILTERS = [
   { key: '', label: '全部' },
   { key: 'contact', label: '聯絡人' },
   { key: 'company', label: '公司' },
-  { key: 'deal', label: '商機' },
   { key: 'task', label: '任務' },
   { key: 'project', label: '專案' },
   { key: 'touchpoint', label: '互動' },
@@ -27,7 +26,7 @@ const FILTERS = [
 ];
 
 const ROUTE_MAP: Record<string, string> = {
-  contact: 'contacts', company: 'companies', deal: 'deals', task: 'tasks',
+  contact: 'contacts', company: 'companies', task: 'tasks',
   project: 'projects', touchpoint: 'touchpoints', note: 'notes',
 };
 
@@ -53,7 +52,7 @@ export default function SearchPage() {
         const data = await apiClient.get<{ results: any[]; total?: number }>(
           `/api/v1/crm/search?q=${encodeURIComponent(q)}&limit=50${typesParam}`
         );
-        setResults((data?.results || []).map((r: any) => ({
+        setResults((data?.results || []).filter((r: any) => r.type !== 'deal').map((r: any) => ({
           id: String(r.id), type: r.type, title: r.label, subtitle: r.sub,
           icon: TYPE_EMOJI[r.type] || '📄',
         })));

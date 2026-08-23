@@ -11,7 +11,6 @@ import CompaniesPage from './modules/companies/CompaniesPage';
 import CompaniesDetailPage from './modules/companies/CompaniesDetailPage';
 import ProjectsPage from './modules/projects/ProjectsPage';
 import ProjectsDetailPage from './modules/projects/ProjectsDetailPage';
-import DealsPage from './pages/DealsPage';
 import TasksPage from './modules/tasks/TasksPage';
 import TaskDetailPage from './modules/tasks/TaskDetailPage';
 import TouchpointsPage from './modules/touchpoints/TouchpointsPage';
@@ -26,7 +25,6 @@ import NotificationsPage from './pages/NotificationsPage';
 import SearchPage from './pages/SearchPage';
 import AiPage from './pages/AiPage';
 import DeepLinkEventPage from './pages/DeepLinkEventPage';
-import SalesGate from './components/SalesGate';
 import ProjectGate from './components/ProjectGate';
 
 function App() {
@@ -63,7 +61,6 @@ function App() {
           <Route path="companies/:id" element={<CompaniesDetailPage />} />
           <Route path="projects" element={<ProjectGate><ProjectsPage /></ProjectGate>} />
           <Route path="projects/:id" element={<ProjectGate><ProjectsDetailPage /></ProjectGate>} />
-          <Route path="deals" element={<SalesGate><DealsPage /></SalesGate>} />
           <Route path="shipping" element={
             <div className="p-8">
               <h1 className="text-2xl font-bold c-text">Shipping</h1>

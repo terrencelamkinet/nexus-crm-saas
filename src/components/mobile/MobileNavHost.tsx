@@ -28,8 +28,6 @@ export default function MobileNavHost() {
     const config = ADD_CONFIGS[recordType];
     if (config) {
       setSmartAdd({ config });
-    } else if (recordType === 'deal') {
-      navigate('/deals?new=1');
     } else if (recordType === 'event') {
       navigate('/calendar');
     } else {

@@ -24,7 +24,7 @@ interface Props {
 }
 
 const TYPE_EMOJI: Record<string, string> = {
-  contact: '👤', company: '🏢', deal: '💰', task: '✅',
+  contact: '👤', company: '🏢', task: '✅',
   project: '📁', touchpoint: '🔄', note: '📝', event: '📅',
 };
 
@@ -83,7 +83,6 @@ export default function AiSearchPanel({ open, onClose, onScanCard }: Props) {
     { key: '', label: '全部' },
     { key: 'contact', label: '聯絡人' },
     { key: 'company', label: '公司' },
-    { key: 'deal', label: '商機' },
     { key: 'task', label: '任務' },
     { key: 'project', label: '專案' },
     { key: 'touchpoint', label: '互動' },
@@ -242,7 +241,7 @@ export default function AiSearchPanel({ open, onClose, onScanCard }: Props) {
       try {
         const typesParam = searchType ? `&types=${encodeURIComponent(searchType)}` : '';
         const data = await apiClient.get<{ results: any[] }>(`/api/v1/crm/search?q=${encodeURIComponent(q)}&limit=10${typesParam}`);
-        setResults((data?.results || []).map((r: any) => ({
+        setResults((data?.results || []).filter((r: any) => r.type !== 'deal').map((r: any) => ({
           id: String(r.id), type: r.type, title: r.label, subtitle: r.sub,
           icon: TYPE_EMOJI[r.type] || '📄',
         })));
@@ -281,7 +280,7 @@ export default function AiSearchPanel({ open, onClose, onScanCard }: Props) {
   if (!open) return null;
 
   const goResult = (r: SearchResult) => {
-    const map: Record<string, string> = { contact: 'contacts', company: 'companies', deal: 'deals', task: 'tasks', project: 'projects', touchpoint: 'touchpoints' };
+    const map: Record<string, string> = { contact: 'contacts', company: 'companies', task: 'tasks', project: 'projects', touchpoint: 'touchpoints' };
     handleClose();
     navigate(`/${map[r.type] || 'dashboard'}/${r.id}`);
   };

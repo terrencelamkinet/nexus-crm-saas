@@ -5,12 +5,11 @@ import {
   TrendingUp, Users, Building2, CheckSquare, Calendar, Activity, Sparkles,
   AlertTriangle, Plus, LayoutGrid, CloudSun, ChevronRight,
   X, GripVertical, Check, Phone, Mail, MessageSquare, Clock, ChevronDown,
-  FolderKanban, Truck, Target, BarChart3, Tags, HandCoins,
-  Trophy, Percent,
+  FolderKanban, Truck, Tags,
+  Percent,
 } from 'lucide-react'
 import { apiClient } from '../../lib/api'
 import { useToast } from './useToast'
-import { useModuleSettings } from '../../lib/useModules'
 import { sectionIcon, sectionRouteWithItemFallback } from './briefingRoutes'
 import WidgetAskAI from '../WidgetAskAI'
 
@@ -262,15 +261,6 @@ const ALL_WIDGETS = [
   { id: 'co2', label: '公司分級', group: 'companies' },
   { id: 'co4', label: '健康分數', group: 'companies' },
   { id: 'co5', label: '行業分佈', group: 'companies' },
-  { id: 's1', label: '待處理訂單', group: 'deals' },
-  { id: 'kpi_deals', label: '商機數量', group: 'deals' },
-  { id: 'pipeline', label: '商機管道', group: 'deals' },
-  { id: 'dealvalue', label: '商機總值', group: 'deals' },
-  { id: 'd1', label: '管道總額', group: 'deals' },
-  { id: 'd2', label: '階段分佈', group: 'deals' },
-  { id: 'd3', label: '停滯警示', group: 'deals' },
-  { id: 'd4', label: '預測達成率', group: 'deals' },
-  { id: 'd5', label: '近期贏單', group: 'deals' },
   { id: 'p1', label: '進行中專案', group: 'projects' },
   { id: 'p2', label: '里程碑追蹤', group: 'projects' },
   { id: 'p3', label: '進度概覽', group: 'projects' },
@@ -288,7 +278,6 @@ const WIDGET_GROUPS: { key: string; label: string }[] = [
   { key: 'core', label: '核心' },
   { key: 'contacts', label: '聯絡人' },
   { key: 'companies', label: '公司' },
-  { key: 'deals', label: '商機' },
   { key: 'projects', label: '專案' },
   { key: 'tasks', label: '任務' },
   { key: 'calendar', label: '行事曆' },
@@ -297,9 +286,7 @@ const WIDGET_GROUPS: { key: string; label: string }[] = [
 ]
 const WIDGET_PREF_KEY = 'nexus-dashboard-widgets'
 const WIDGET_ORDER_KEY = 'nexus-dashboard-widget-order'
-/** Deal widgets — hidden when the sales module is disabled (kept for future re-enable) */
-const DEAL_WIDGET_IDS: ReadonlySet<string> = new Set(['s1', 'kpi_deals', 'pipeline', 'dealvalue', 'd1', 'd2', 'd3', 'd4', 'd5'])
-const DEFAULT_ORDER = ['stats:0', 'stats:1', 'stats:2', 'stats:3', 'kpi_deals', 'dealvalue', 'c1', 'co1', 'p1', 'todos', 'events', 'interactions', 'activity', 'ask_ai', 'c2', 'co3', 's1', 'te2', 'touchpoints', 'pipeline', 'c3', 'c5', 'co2', 'co4', 'co5', 'd1', 'd2', 'd3', 'd4', 'd5', 'p2', 'p3', 'p4', 't2', 't3', 't4', 'cal2', 'cal3', 's5']
+const DEFAULT_ORDER = ['stats:0', 'stats:1', 'stats:2', 'stats:3', 'c1', 'co1', 'p1', 'todos', 'events', 'interactions', 'activity', 'ask_ai', 'c2', 'co3', 'te2', 'touchpoints', 'c3', 'c5', 'co2', 'co4', 'co5', 'p2', 'p3', 'p4', 't2', 't3', 't4', 'cal2', 'cal3', 's5']
 
 const WIDGET_SIZE_KEY = 'nexus-dashboard-widget-sizes'
 
@@ -325,13 +312,7 @@ export default function DashboardV2() {
   const { t, i18n } = useTranslation()
   const navigate = useNavigate()
   const { showToast } = useToast()
-  const mods = useModuleSettings()
-  // Conservative: only show deal widgets when sales is EXPLICITLY enabled.
-  // mods['sales'] is undefined until the async module-settings fetch resolves,
-  // so `!== false` would wrongly show deals before/without fetch. Use `=== true`.
-  const dealOn = mods['sales'] === true
-
-  const [stats, setStats] = useState<Stats>({ contacts: 0, companies: 0, tasksDue: 0, dealsValue: 0 })
+  const [stats, setStats] = useState<Stats>({ contacts: 0, companies: 0, tasksDue: 0 })
   const [todos, setTodos] = useState<Todo[]>([])
   const [events, setEvents] = useState<any[]>([])
   const [activity, setActivity] = useState<any[]>([])
@@ -339,8 +320,6 @@ export default function DashboardV2() {
   const [companies3, setCompanies3] = useState<any[]>([])
   const [allCompanies, setAllCompanies] = useState<any[]>([])
   const [allContacts, setAllContacts] = useState<any[]>([])
-  const [deals, setDeals] = useState<any[]>([])
-  const [openDeals, setOpenDeals] = useState<any[]>([])
   const [projects, setProjects] = useState<any[]>([])
   const [projectsTotal, setProjectsTotal] = useState(0)
   const [overdueTasks, setOverdueTasks] = useState<any[]>([])
@@ -485,22 +464,12 @@ export default function DashboardV2() {
 
   useEffect(() => {
     // ── Stats: compose from existing endpoints (no new backend needed) ──
-    const deals$ = apiClient.get<{ items: any[]; total: number }>('/api/v1/crm/deals?page=1&page_size=100').catch(() => ({ items: [], total: 0 }))
     Promise.all([
       apiClient.get<{ total: number }>('/api/v1/crm/contacts?page=1&page_size=1').catch(() => ({ total: 0 })),
       apiClient.get<{ total: number }>('/api/v1/crm/companies?page=1&page_size=1').catch(() => ({ total: 0 })),
       apiClient.get<{ total: number }>('/api/v1/crm/tasks?page=1&page_size=1').catch(() => ({ total: 0 })),
-      deals$,
-    ]).then(([c, co, t, d]) => {
-      const dealsValue = (d?.items || []).reduce((s: number, x: { amount: number | null }) => s + (x.amount || 0), 0)
-      setStats({ contacts: c?.total || 0, companies: co?.total || 0, tasksDue: t?.total || 0, dealsValue })
-    })
-    deals$.then((d: any) => {
-      const list = d?.items || []
-      setDeals(list)
-      const closed = ['won', 'lost', 'closed', 'closed_won', 'closed_lost']
-      const open = list.filter((x: any) => !closed.includes((x?.status || 'open').toLowerCase()))
-      setOpenDeals(open.slice(0, 5))
+    ]).then(([c, co, t]) => {
+      setStats({ contacts: c?.total || 0, companies: co?.total || 0, tasksDue: t?.total || 0 })
     })
     apiClient.get<{ items: any[]; total: number }>('/api/v1/crm/contacts?page=1&page_size=100').then((d: any) => setAllContacts(d?.items || [])).catch(() => {})
     apiClient.get<{ items: any[]; total: number }>('/api/v1/crm/companies?page=1&page_size=100').then((d: any) => setAllCompanies(d?.items || [])).catch(() => {})
@@ -600,7 +569,7 @@ export default function DashboardV2() {
   ) : null
 
   const widgetCls = (wid: string) => {
-    const kpi = wid.startsWith('stats:') || ['kpi_deals', 'dealvalue', 'c1', 'co1', 'p1', 'd1'].includes(wid)
+    const kpi = wid.startsWith('stats:') || ['c1', 'co1', 'p1'].includes(wid)
     const span = kpi ? 'dv2-w-stat' : wid === 'activity' ? 'dv2-w-table' : wid === 'ai' ? 'dv2-w-ai dv2-widget-ai' : 'dv2-w-list'
     return `dv2-widget ${span} ${dragWid === wid ? 'dragging' : ''}`
   }
@@ -711,7 +680,7 @@ export default function DashboardV2() {
         { icon: <Users size={15} />, label: t('dashboard.widgets.totalCustomers', { defaultValue: '累計聯絡人' }), value: stats.contacts, color: 'var(--color-primary)', onClick: () => navigate('/contacts') },
         { icon: <Building2 size={15} />, label: t('dashboard.widgets.totalCompanies', { defaultValue: '總公司數' }), value: stats.companies, color: 'var(--color-purple, #7c3aed)', onClick: () => navigate('/companies') },
         { icon: <CheckSquare size={15} />, label: t('dashboard.widgets.tasksDue', { defaultValue: '待辦任務' }), value: stats.tasksDue, color: 'var(--color-amber, #d97706)', accent: true, onClick: () => navigate('/tasks') },
-        { icon: <TrendingUp size={15} />, label: t('dashboard.widgets.pipelineValue', { defaultValue: '商機總值' }), value: `$${(stats.dealsValue || 0).toLocaleString()}`, color: 'var(--color-green, #16a34a)', onClick: () => navigate('/deals') },
+        { icon: <FolderKanban size={15} />, label: t('dashboard.widgets.activeProjects', { defaultValue: '進行中專案' }), value: projectsTotal, color: 'var(--color-green, #16a34a)', onClick: () => navigate('/projects') },
       ]
       const c = cards[i]
       if (!c) return null
@@ -968,28 +937,6 @@ export default function DashboardV2() {
         </div>
       )
     }
-    if (wid === 's1') {
-      return (
-        <div className={widgetCls(wid)} data-wid={wid} style={widgetStyle(wid)}>
-                                        {dragHandle(wid)}
-                                        {resizeGrip(wid)}
-          <div className="dv2-widget-header">
-            <div className="dv2-widget-title"><Clock size={15} /> {t('dashboard.widgets.pendingOrders', { defaultValue: '待處理訂單' })}</div>
-            <button className="dv2-widget-action" onClick={() => navigate('/deals')}>{t('common.viewAll', { defaultValue: '查看全部' })}</button>
-          </div>
-          <div className="dv2-widget-body dv2-list-body">
-            {openDeals.length === 0 ? <div className="dv2-empty-mini">{t('dashboard.noPendingOrders', { defaultValue: '暫無待處理訂單' })}</div> :
-              openDeals.map((d) => (
-                <button key={d.id} className="dv2-list-row dv2-list-row-btn" onClick={() => navigate('/deals')}>
-                  <Clock size={13} className="dv2-list-row-icon" />
-                  <span className="dv2-list-row-title">{d.name}</span>
-                  <span className="dv2-list-row-meta">${(d.amount || 0).toLocaleString()}</span>
-                </button>
-              ))}
-          </div>
-        </div>
-      )
-    }
     if (wid === 'te2') {
       return (
         <div className={widgetCls(wid)} data-wid={wid} style={widgetStyle(wid)}>
@@ -1012,12 +959,9 @@ export default function DashboardV2() {
       )
     }
     // ── Legacy KPI widgets ──
-    if (wid === 'kpi_deals') return kpiCard(<TrendingUp size={15} />, t('dashboard.widgets.activeDeals', { defaultValue: '商機數量' }), deals.length, 'var(--color-primary)', () => navigate('/deals'))
-    if (wid === 'dealvalue') return kpiCard(<HandCoins size={15} />, t('dashboard.widgets.dealTotal', { defaultValue: '商機總值' }), `$${(stats.dealsValue || 0).toLocaleString()}`, 'var(--color-green, #16a34a)', () => navigate('/deals'))
     if (wid === 'c1') return kpiCard(<Users size={15} />, t('dashboard.widgets.newContacts', { defaultValue: '新增聯絡人' }), stats.contacts, 'var(--color-primary)', () => navigate('/contacts'))
     if (wid === 'co1') return kpiCard(<Building2 size={15} />, t('dashboard.widgets.totalCompanies', { defaultValue: '公司總數' }), stats.companies, 'var(--color-purple, #7c3aed)', () => navigate('/companies'))
     if (wid === 'p1') return kpiCard(<FolderKanban size={15} />, t('dashboard.widgets.activeProjects', { defaultValue: '進行中專案' }), projectsTotal, 'var(--color-amber, #d97706)', () => navigate('/projects'))
-    if (wid === 'd1') return kpiCard(<BarChart3 size={15} />, t('dashboard.widgets.pipelineTotal', { defaultValue: '管道總額' }), `$${(stats.dealsValue || 0).toLocaleString()}`, 'var(--color-primary)', () => navigate('/deals'))
 
     // ── Legacy list / bar widgets ──
     if (wid === 'touchpoints') {
@@ -1029,22 +973,6 @@ export default function DashboardV2() {
             <span className="dv2-list-row-tag">{tp.type}</span>
           </button>
         )), <Activity size={15} />)
-    }
-    if (wid === 'pipeline') {
-      const group = new Map<string, { name: string; total: number; count: number }>()
-      deals.forEach((d) => {
-        const key = d?.stage_id ? String(d.stage_id) : '未分類'
-        const g = group.get(key) || { name: key.slice(0, 8), total: 0, count: 0 }
-        g.total += d.amount || 0
-        g.count += 1
-        group.set(key, g)
-      })
-      const rows = Array.from(group.entries()).map(([k, g]) => ({ ...g, key: k }))
-      const maxTotal = Math.max(1, ...rows.map((r) => r.total))
-      return listWidget(t('dashboard.widgets.pipeline', { defaultValue: '商機管道' }), () => navigate('/deals'), t('dashboard.noDeals', { defaultValue: '暫無商機' }),
-        rows.length === 0 ? null : (
-          <div className="dv2-bar-stack">{rows.map((r) => barRow(r.name, r.total, maxTotal, 'var(--color-primary)', `$${r.total.toLocaleString()}`))}</div>
-        ), <BarChart3 size={15} />)
     }
     if (wid === 'c3') {
       const pct = allCompanies.length ? allCompanies[0]?.data_completeness_pct : undefined
@@ -1096,53 +1024,6 @@ export default function DashboardV2() {
         top.length === 0 ? null : (
           <div className="dv2-bar-stack">{top.map(([k, n], i) => barRow(k, n, total, i === 0 ? 'var(--color-purple, #7c3aed)' : 'var(--color-blue, #2563eb)'))}</div>
         ), <Tags size={15} />)
-    }
-    if (wid === 'd2') {
-      const group = new Map<string, { name: string; total: number; count: number }>()
-      deals.forEach((d) => {
-        const key = d?.stage_id ? String(d.stage_id) : '未分類'
-        const g = group.get(key) || { name: key.slice(0, 8), total: 0, count: 0 }
-        g.total += d.amount || 0
-        g.count += 1
-        group.set(key, g)
-      })
-      const rows = Array.from(group.values())
-      const maxTotal = Math.max(1, ...rows.map((r) => r.total))
-      return listWidget(t('dashboard.widgets.stageDistribution', { defaultValue: '階段分佈' }), () => navigate('/deals'), t('dashboard.noDeals', { defaultValue: '暫無商機' }),
-        rows.length === 0 ? null : (
-          <div className="dv2-bar-stack">{rows.map((r, i) => barRow(r.name, r.total, maxTotal, i === 0 ? 'var(--color-primary)' : 'var(--color-blue, #2563eb)', `$${r.total.toLocaleString()}`))}</div>
-        ), <BarChart3 size={15} />)
-    }
-    if (wid === 'd3') {
-      const now = Date.now()
-      const stale = deals
-        .filter((d) => d?.updated_at && (now - new Date(d.updated_at).getTime()) > 14 * 86400000)
-        .slice(0, 4)
-      return listWidget(t('dashboard.widgets.stagnationAlerts', { defaultValue: '停滯警示' }), () => navigate('/deals'), t('dashboard.noStaleDeals', { defaultValue: '冇停滯商機' }),
-        stale.length === 0 ? null : stale.map((d) => {
-          const days = Math.floor((now - new Date(d.updated_at).getTime()) / 86400000)
-          return <div key={d.id} className="dv2-list-row"><span className="dv2-list-row-title">{d.name}</span><span className="dv2-list-row-meta">{days}日無更新</span></div>
-        }), <AlertTriangle size={15} />)
-    }
-    if (wid === 'd4') {
-      const won = deals.filter((d) => ['won', 'closed_won', 'closed'].includes((d?.status || '').toLowerCase())).reduce((s, d) => s + (d.amount || 0), 0)
-      const totalVal = deals.reduce((s, d) => s + (d.amount || 0), 0)
-      const pct = totalVal > 0 ? Math.round((won / totalVal) * 100) : 0
-      return listWidget(t('dashboard.widgets.forecastRate', { defaultValue: '預測達成率' }), () => navigate('/deals'), t('dashboard.noDeals', { defaultValue: '暫無商機' }),
-        <div className="dv2-bar-stack">
-          <div className="dv2-bar-label"><span>{t('dashboard.widgets.forecastRate', { defaultValue: '預測達成率' })}</span><span>{pct}%</span></div>
-          <div className="dv2-bar-track"><div className="dv2-bar-fill" style={{ width: `${pct}%`, background: 'var(--color-primary)' }} /></div>
-        </div>, <Target size={15} />)
-    }
-    if (wid === 'd5') {
-      const won = deals
-        .filter((d) => ['won', 'closed_won', 'closed'].includes((d?.status || '').toLowerCase()))
-        .sort((a, b) => new Date(b?.won_at || b?.updated_at || 0).getTime() - new Date(a?.won_at || a?.updated_at || 0).getTime())
-        .slice(0, 3)
-      return listWidget(t('dashboard.widgets.recentWon', { defaultValue: '近期贏單' }), () => navigate('/deals'), t('dashboard.noDeals', { defaultValue: '暫無商機' }),
-        won.length === 0 ? null : won.map((d) => (
-          <div key={d.id} className="dv2-list-row"><span className="dv2-list-row-title">{d.name}</span><span className="dv2-list-row-meta">${(d.amount || 0).toLocaleString()}</span></div>
-        )), <Trophy size={15} />)
     }
     if (wid === 'p2' || wid === 'p3' || wid === 'p4') {
       const label = wid === 'p2' ? t('dashboard.widgets.milestoneTracking', { defaultValue: '里程碑追蹤' })
@@ -1250,8 +1131,8 @@ export default function DashboardV2() {
         {widgetOrder.map(wid => {
           if (wid === 'ai') return null
           if (wid.startsWith('stats:')) return has('stats') ? renderWidget(wid) : null
-          // hide deal widgets when sales module off
-          if (!dealOn && DEAL_WIDGET_IDS.has(wid)) return null
+          // v6.93: project-centric — deal widgets removed; also guard against stale saved widget ids
+          if (!ALL_WIDGETS.some(w => w.id === wid) && !wid.startsWith('stats:')) return null
           return has(wid) ? renderWidget(wid) : null
         })}
       </div>

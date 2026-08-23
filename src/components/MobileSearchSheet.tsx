@@ -96,7 +96,7 @@ export default function MobileSearchSheet({ open, onClose }: Props) {
         const data = await apiClient.get<{ results: SearchResult[] }>(
           `/api/v1/crm/search?q=${encodeURIComponent(q)}&limit=10`
         );
-        setResults(data?.results || []);
+        setResults((data?.results || []).filter((r: SearchResult) => r.type !== 'deal'));
       } catch { setResults([]); }
       setLoading(false);
     }, 200);

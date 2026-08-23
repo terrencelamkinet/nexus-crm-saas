@@ -1,8 +1,7 @@
 import { NavLink } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { useModuleSettings } from '../../lib/useModules'
 import {
-  LayoutDashboard, Users, Calendar, Building2, TrendingUp, CheckSquare,
+  LayoutDashboard, Users, Calendar, Building2, CheckSquare,
   Activity, ScanLine, BarChart3, UsersRound, Sparkles, Bell,
   Store, Settings, ChevronLeft, FolderKanban,
 } from 'lucide-react'
@@ -19,8 +18,6 @@ interface NavSection { label: string; items: NavItem[] }
 
 export default function SidebarV2({ collapsed, onToggleCollapse }: { collapsed: boolean; onToggleCollapse: () => void }) {
   const { t } = useTranslation()
-  const mods = useModuleSettings()
-  const salesOn = mods['sales'] !== false
 
   const sections: NavSection[] = [
     { label: t('nav.workspace', { defaultValue: '工作區' }), items: [
@@ -29,7 +26,6 @@ export default function SidebarV2({ collapsed, onToggleCollapse }: { collapsed: 
       { to: '/calendar', label: t('nav.calendar', { defaultValue: '日曆' }), icon: Calendar },
       { to: '/companies', label: t('nav.companies', { defaultValue: '公司' }), icon: Building2 },
       { to: '/projects', label: t('nav.projects', { defaultValue: '項目' }), icon: FolderKanban },
-      ...(salesOn ? [{ to: '/deals', label: t('nav.deals', { defaultValue: '商機' }), icon: TrendingUp }] : []),
       { to: '/tasks', label: t('nav.tasks', { defaultValue: '任務' }), icon: CheckSquare },
     ]},
     { label: t('nav.records', { defaultValue: '記錄' }), items: [

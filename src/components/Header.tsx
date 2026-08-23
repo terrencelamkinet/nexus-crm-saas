@@ -1,4 +1,4 @@
-import { Bell, ChevronDown, LogOut, Search, Moon, Sun, Users, Building2, TrendingUp, CheckSquare, FolderKanban, Activity, FileText, X } from 'lucide-react';
+import { Bell, ChevronDown, LogOut, Search, Moon, Sun, Users, Building2, CheckSquare, FolderKanban, Activity, FileText, X } from 'lucide-react';
 import { useAuth } from '../lib/AuthContext';
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -18,7 +18,6 @@ interface TopBarSearchResult {
 const TOPBAR_TYPE_ICONS: Record<string, any> = {
   contact: Users,
   company: Building2,
-  deal: TrendingUp,
   task: CheckSquare,
   project: FolderKanban,
   touchpoint: Activity,
@@ -55,7 +54,7 @@ export default function Header() {
       const data = await apiClient.get<{ results: TopBarSearchResult[] }>(
         `/api/v1/crm/search?q=${encodeURIComponent(q)}&limit=10`
       );
-      if (id === topReqRef.current) { setTopResults(data?.results || []); setTopOpen(true); }
+      if (id === topReqRef.current) { setTopResults((data?.results || []).filter(r => r.type !== 'deal')); setTopOpen(true); }
     } catch {
       if (id === topReqRef.current) setTopResults([]);
     } finally {

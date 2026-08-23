@@ -210,4 +210,18 @@ export const ADD_CONFIGS: Record<string, AddModalConfig> = {
       { key: 'company',  label: 'Company',          type: 'relation', relation: { resource: 'companies', multiple: false, displayField: 'name' } },
     ],
   },
+
+  // v6.93: project-centric — Note quick-create（設計文件 Add grid 有 Note，Deal 移除）
+  note: {
+    name: 'note',
+    label: 'Note',
+    apiPath: '/api/v1/crm/notes',
+    fields: [
+      { key: 'title',   label: 'Note Title', type: 'title', required: true, gridColumn: 'full' },
+      { key: 'content', label: 'Content',    type: 'rich_text', gridColumn: 'full' },
+      { key: 'contact', label: 'Contact',    type: 'relation', relation: { resource: 'contacts', multiple: false, displayField: 'name' }, apiKey: 'contact_id' },
+      { key: 'company', label: 'Company',    type: 'relation', relation: { resource: 'companies', multiple: false, displayField: 'name' }, apiKey: 'company_id' },
+      { key: 'project', label: 'Project',    type: 'relation', relation: { resource: 'projects', multiple: false, displayField: 'name' }, apiKey: 'project_id' },
+    ],
+  },
 }

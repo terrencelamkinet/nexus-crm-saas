@@ -2,11 +2,10 @@ import { useState, useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   Menu, Search, Plus, Bell, Moon, Sun, ChevronDown, Sparkles,
-  Users, CheckSquare, TrendingUp, LogOut, Settings, User as UserIcon,
+  Users, CheckSquare, LogOut, Settings, User as UserIcon,
 } from 'lucide-react'
 import CommandPalette from './CommandPalette'
 import { apiClient } from '../../lib/api'
-import { useModuleSettings } from '../../lib/useModules'
 import { useAuth } from '../../lib/AuthContext'
 import { useToast } from './useToast'
 import { useNavigate } from 'react-router-dom'
@@ -35,8 +34,6 @@ export default function HeaderV2({ onToggleSidebar }: { onToggleSidebar: () => v
   const newRef = useRef<HTMLDivElement>(null)
   const notifRef = useRef<HTMLDivElement>(null)
   const userRef = useRef<HTMLDivElement>(null)
-  const mods = useModuleSettings()
-  const dealsEnabled = mods['sales'] !== false && Object.keys(mods).length > 0
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -127,9 +124,6 @@ export default function HeaderV2({ onToggleSidebar }: { onToggleSidebar: () => v
             </button>
             <div className={`hdr2-new-dropdown ${newOpen ? 'open' : ''}`}>
               <button className="hdr2-new-dropdown-item" onClick={() => { setNewOpen(false); navigate('/contacts?new=1') }}><Users size={14} /> {t('quickAction.newContact', { defaultValue: '新增聯絡人' })}</button>
-              {dealsEnabled && (
-                <button className="hdr2-new-dropdown-item" onClick={() => { setNewOpen(false); navigate('/deals?new=1') }}><TrendingUp size={14} /> {t('quickAction.newDeal', { defaultValue: '新增商機' })}</button>
-              )}
               <button className="hdr2-new-dropdown-item" onClick={() => { setNewOpen(false); navigate('/tasks?new=1') }}><CheckSquare size={14} /> {t('quickAction.newTask', { defaultValue: '新增任務' })}</button>
               <div className="hdr2-new-dropdown-divider" />
               <button className="hdr2-new-dropdown-item" onClick={() => { setNewOpen(false); setPaletteOpen(true) }}><Sparkles size={14} /> {t('quickAction.aiQuery', { defaultValue: '問 AI 一個問題' })}</button>

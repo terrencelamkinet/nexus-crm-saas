@@ -38,11 +38,6 @@ export const BRIEFING_ROUTE_MAP: BriefingRouteGroup[] = [
     patterns: ['crm', '客戶', '聯絡人', '生日', '人脈', 'lead', 'contact', 'customer', 'birthday', 'sentiment'],
   },
   {
-    route: '/deals',
-    icon: 'opp',
-    patterns: ['交易', '報價', '商機', '停滯', '發票', '銷售', 'deal', 'quote', 'pipeline', 'invoice', 'sales', 'kpi', 'revenue', 'opportunit'],
-  },
-  {
     route: '/projects',
     icon: 'spark',
     patterns: ['項目', 'project'],
@@ -103,7 +98,6 @@ export function sectionIcon(header: string): string {
 const ITEM_SIGNALS: { route: string; patterns: string[] }[] = [
   { route: '/calendar', patterns: ['會議', 'meeting', 'teams', '📅', '📆'] },
   { route: '/tasks', patterns: ['死線', 'due', 'p1', 'p2', 'p3', '優先', '📚', '📖', '🖥', '⏰', '✅'] },
-  { route: '/deals', patterns: ['報價', 'quote', '商機', '停滯'] },
   { route: '/contacts', patterns: ['生日', 'birthday', '客戶'] },
 ]
 
