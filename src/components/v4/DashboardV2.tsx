@@ -67,20 +67,20 @@ const SLOT_LABELS: Record<string, { emoji: string; label: string }> = {
 
 const ALL_WIDGETS = [
   { id: 'ai', label: 'AI 洞察摘要', group: 'ai', required: true },
-  { id: 'stats', label: '關鍵指標（客戶/公司/任務/商機）', group: 'core', required: true },
+  { id: 'stats', label: '關鍵指標（聯絡人/公司/任務/商機）', group: 'core', required: true },
   { id: 'todos', label: '今日待辦', group: 'core' },
   { id: 'events', label: '即將舉行', group: 'core' },
   { id: 'interactions', label: '近期互動', group: 'core' },
   { id: 'activity', label: '最近活動表格', group: 'core' },
   { id: 'ask_ai', label: 'Ask AI', group: 'core' },
   { id: 'touchpoints', label: '近期互動', group: 'core' },
-  { id: 'c2', label: '待處理客戶', group: 'contacts' },
-  { id: 'c1', label: '新增客戶', group: 'contacts' },
+  { id: 'c2', label: '待處理聯絡人', group: 'contacts' },
+  { id: 'c1', label: '新增聯絡人', group: 'contacts' },
   { id: 'c3', label: '資料完整度', group: 'contacts' },
   { id: 'c5', label: '來源分佈', group: 'contacts' },
   { id: 'co3', label: '續約提醒', group: 'companies' },
   { id: 'co1', label: '公司總數', group: 'companies' },
-  { id: 'co2', label: '客戶分級', group: 'companies' },
+  { id: 'co2', label: '公司分級', group: 'companies' },
   { id: 'co4', label: '健康分數', group: 'companies' },
   { id: 'co5', label: '行業分佈', group: 'companies' },
   { id: 's1', label: '待處理訂單', group: 'deals' },
@@ -524,7 +524,7 @@ export default function DashboardV2() {
     if (wid.startsWith('stats:')) {
       const i = Number(wid.split(':')[1])
       const cards = [
-        { icon: <Users size={15} />, label: t('dashboard.widgets.totalCustomers', { defaultValue: '總客戶數' }), value: stats.contacts, color: 'var(--color-primary)', onClick: () => navigate('/contacts') },
+        { icon: <Users size={15} />, label: t('dashboard.widgets.totalCustomers', { defaultValue: '累計聯絡人' }), value: stats.contacts, color: 'var(--color-primary)', onClick: () => navigate('/contacts') },
         { icon: <Building2 size={15} />, label: t('dashboard.widgets.totalCompanies', { defaultValue: '總公司數' }), value: stats.companies, color: 'var(--color-purple, #7c3aed)', onClick: () => navigate('/companies') },
         { icon: <CheckSquare size={15} />, label: t('dashboard.widgets.tasksDue', { defaultValue: '待辦任務' }), value: stats.tasksDue, color: 'var(--color-amber, #d97706)', accent: true, onClick: () => navigate('/tasks') },
         { icon: <TrendingUp size={15} />, label: t('dashboard.widgets.pipelineValue', { defaultValue: '商機總值' }), value: `$${(stats.dealsValue || 0).toLocaleString()}`, color: 'var(--color-green, #16a34a)', onClick: () => navigate('/deals') },
@@ -744,11 +744,11 @@ export default function DashboardV2() {
                                         {dragHandle(wid)}
                                         {resizeGrip(wid)}
           <div className="dv2-widget-header">
-            <div className="dv2-widget-title"><Users size={15} /> {t('dashboard.widgets.pendingContacts', { defaultValue: '待處理客戶' })}</div>
+            <div className="dv2-widget-title"><Users size={15} /> {t('dashboard.widgets.pendingContacts', { defaultValue: '待處理聯絡人' })}</div>
             <button className="dv2-widget-action" onClick={() => navigate('/contacts')}>{t('common.viewAll', { defaultValue: '查看全部' })}</button>
           </div>
           <div className="dv2-widget-body dv2-list-body">
-            {pendingContacts.length === 0 ? <div className="dv2-empty-mini">{t('dashboard.noContacts', { defaultValue: '暫無待處理客戶' })}</div> :
+            {pendingContacts.length === 0 ? <div className="dv2-empty-mini">{t('dashboard.noContacts', { defaultValue: '暫無待處理聯絡人' })}</div> :
               pendingContacts.slice(0, 5).map((c) => (
                 <button key={c.id} className="dv2-list-row dv2-list-row-btn" onClick={() => navigate('/contacts')}>
                   <Users size={13} className="dv2-list-row-icon" />
@@ -828,7 +828,7 @@ export default function DashboardV2() {
     // ── Legacy KPI widgets ──
     if (wid === 'kpi_deals') return kpiCard(<TrendingUp size={15} />, t('dashboard.widgets.activeDeals', { defaultValue: '商機數量' }), deals.length, 'var(--color-primary)', () => navigate('/deals'))
     if (wid === 'dealvalue') return kpiCard(<HandCoins size={15} />, t('dashboard.widgets.dealTotal', { defaultValue: '商機總值' }), `$${(stats.dealsValue || 0).toLocaleString()}`, 'var(--color-green, #16a34a)', () => navigate('/deals'))
-    if (wid === 'c1') return kpiCard(<Users size={15} />, t('dashboard.widgets.newContacts', { defaultValue: '新增客戶' }), stats.contacts, 'var(--color-primary)', () => navigate('/contacts'))
+    if (wid === 'c1') return kpiCard(<Users size={15} />, t('dashboard.widgets.newContacts', { defaultValue: '新增聯絡人' }), stats.contacts, 'var(--color-primary)', () => navigate('/contacts'))
     if (wid === 'co1') return kpiCard(<Building2 size={15} />, t('dashboard.widgets.totalCompanies', { defaultValue: '公司總數' }), stats.companies, 'var(--color-purple, #7c3aed)', () => navigate('/companies'))
     if (wid === 'p1') return kpiCard(<FolderKanban size={15} />, t('dashboard.widgets.activeProjects', { defaultValue: '進行中專案' }), projectsTotal, 'var(--color-amber, #d97706)', () => navigate('/projects'))
     if (wid === 'd1') return kpiCard(<BarChart3 size={15} />, t('dashboard.widgets.pipelineTotal', { defaultValue: '管道總額' }), `$${(stats.dealsValue || 0).toLocaleString()}`, 'var(--color-primary)', () => navigate('/deals'))
@@ -884,7 +884,7 @@ export default function DashboardV2() {
       allCompanies.forEach((c) => { const key = g(c?.category || c?.industry); dist.set(key, (dist.get(key) || 0) + 1) })
       const top = Array.from(dist.entries()).sort((a, b) => b[1] - a[1]).slice(0, 4)
       const total = allCompanies.length || 1
-      return listWidget(t('dashboard.widgets.clientTier', { defaultValue: '客戶分級' }), () => navigate('/companies'), t('dashboard.noCompanies', { defaultValue: '暫無公司' }),
+      return listWidget(t('dashboard.widgets.clientTier', { defaultValue: '公司分級' }), () => navigate('/companies'), t('dashboard.noCompanies', { defaultValue: '暫無公司' }),
         top.length === 0 ? null : (
           <div className="dv2-bar-stack">{top.map(([k, n]) => barRow(k, n, total, 'var(--color-purple, #7c3aed)'))}</div>
         ), <Building2 size={15} />)

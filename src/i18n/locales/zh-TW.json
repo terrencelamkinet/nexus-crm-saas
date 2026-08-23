@@ -123,7 +123,7 @@
     "loading": "載入中...",
     "noData": "暫冇資料",
     "widgets": {
-      "totalCustomers": "累計客戶公司",
+      "totalCustomers": "累計聯絡人",
       "activeDeals": "進行中交易",
       "dealTotal": "進行中Deal總額",
       "newContacts": "新增聯絡人",
@@ -132,7 +132,7 @@
       "recentInteractions": "最近互動",
       "sourceDistribution": "來源分布",
       "totalCompanies": "公司總數",
-      "clientTier": "客戶分級",
+      "clientTier": "公司分級",
       "renewalReminders": "續約提醒",
       "healthScore": "健康分數",
       "industryDistribution": "行業分布",

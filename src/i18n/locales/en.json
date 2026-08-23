@@ -123,7 +123,7 @@
     "loading": "Loading...",
     "noData": "No data available",
     "widgets": {
-      "totalCustomers": "Total Customers",
+      "totalCustomers": "Total Contacts",
       "activeDeals": "Active Deals",
       "dealTotal": "Deal Total",
       "newContacts": "New Contacts",
@@ -132,7 +132,7 @@
       "recentInteractions": "Recent Interactions",
       "sourceDistribution": "Source Distribution",
       "totalCompanies": "Total Companies",
-      "clientTier": "Client Tier",
+      "clientTier": "Company Tier",
       "renewalReminders": "Renewal Reminders",
       "healthScore": "Health Score",
       "industryDistribution": "Industry Distribution",
