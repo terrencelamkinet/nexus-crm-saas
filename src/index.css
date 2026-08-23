@@ -2529,7 +2529,7 @@ textarea.input-field{resize:vertical;min-height:60px}
 .cb-msg-user-meta{display:flex;align-items:center;gap:6px;margin-right:4px}
 .cb-msg-time{font-size:var(--text-xs,12px);color:var(--color-text-faint)}
 .cb-avatar-user{width:24px;height:24px;border-radius:50%;background:var(--color-surface-offset-2);color:var(--color-text-muted);display:grid;place-items:center;font-size:10px;font-weight:600;flex-shrink:0;border:1px solid var(--color-border)}
-.cb-msg-user-bubble{max-width:82%;padding:8px 12px;background:var(--color-primary-highlight);border-radius:var(--radius-lg) var(--radius-lg) var(--radius-sm) var(--radius-lg);white-space:pre-wrap;word-break:break-word;font-size:var(--text-base,16px);line-height:1.6;color:var(--color-text);font-weight:400}
+.cb-msg-user-bubble{max-width:82%;padding:8px 12px;background:var(--color-primary-highlight);border-radius:var(--radius-lg) var(--radius-lg) var(--radius-sm) var(--radius-lg);white-space:pre-wrap;word-break:break-word;font-size:14px;line-height:1.6;color:var(--color-text);font-weight:400}
 
 /* ── AI message bubble ── */
 .cb-msg-ai-row{display:flex;gap:8px;align-items:flex-start}
