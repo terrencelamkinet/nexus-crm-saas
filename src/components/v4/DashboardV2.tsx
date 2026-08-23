@@ -58,6 +58,185 @@ function parseBriefing(content: string): { title: string; sections: AiSection[] 
   return { title, sections }
 }
 
+/* ═══════════════════════════════════════════════════════════
+   v6.92 LayeredBriefing — 4-layer dashboard AI card
+   Layer 1: 狀態異常置頂（conflicts 紅卡 + overdue amber 卡）
+   Layer 2: 今日核心指標（2×2 stat grid）
+   Layer 3: 脈絡與趨勢（weather + news，可收合）
+   Layer 4: 延伸內容（bible，預設收合）
+   ═══════════════════════════════════════════════════════════ */
+function LayeredBriefing({ layers, weather, navigate, i18nLang }: {
+  layers: any
+  weather: any
+  navigate: (to: string) => void
+  i18nLang: string
+}) {
+  const conflicts: any[] = layers?.conflicts || []
+  const overdue: any[] = layers?.overdue || []
+  const stats: any = layers?.stats || {}
+  const news: any[] = layers?.news || []
+  const bible: any = layers?.bible || {}
+  const hasAlerts = conflicts.length > 0 || overdue.length > 0
+  const navigateTo = (to: string) => { navigate(to) }
+
+  const fmtDue = (d: string) => {
+    if (!d) return ''
+    const dt = new Date(d)
+    if (isNaN(dt.getTime())) return String(d).slice(0, 10)
+    return dt.toLocaleDateString(i18nLang, { month: 'numeric', day: 'numeric' })
+  }
+
+  return (
+    <div className="dv2-layered">
+      {/* ── Layer 1 · 需要立即處理 ── */}
+      {hasAlerts && (
+        <div className="dv2-layer-label">🌙 Layer 1 · 需要立即處理</div>
+      )}
+      {conflicts.length > 0 && (
+        <div className="dv2-status-card dv2-status-danger">
+          <div className="dv2-status-head">
+            <span className="dv2-status-icon">🚨</span>
+            <span className="dv2-status-title">行程衝突偵測</span>
+            <button type="button" className="dv2-status-go" onClick={() => navigateTo('/calendar')}>查看行事曆 ›</button>
+            <span className="dv2-chip dv2-chip-danger">高風險</span>
+          </div>
+          <div className="dv2-status-body">
+            {conflicts.map((c, i) => (
+              <div key={i} className="dv2-status-row">
+                <span className="dv2-status-dot" style={{ background: '#EF4444' }} />
+                <span className="dv2-status-text">
+                  <b>{c.event_a}</b> 與 <b>{c.event_b}</b> 重疊{' '}
+                  <span className="dv2-tag dv2-tag-overdue">衝突</span>
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+      {overdue.length > 0 && (
+        <div className="dv2-status-card dv2-status-warn">
+          <div className="dv2-status-head">
+            <span className="dv2-status-icon">⏰</span>
+            <span className="dv2-status-title">逾期事項</span>
+            <button type="button" className="dv2-status-go" onClick={() => navigateTo('/tasks')}>查看任務 ›</button>
+            <span className="dv2-chip dv2-chip-warn">{overdue.length} 項逾期</span>
+          </div>
+          <div className="dv2-status-body">
+            {overdue.map((o, i) => (
+              <div key={i} className="dv2-status-row">
+                <span className="dv2-status-dot" style={{ background: '#F59E0B' }} />
+                <span className="dv2-status-text">
+                  <b>{o.title}</b>
+                  {o.due_date && <span className="dv2-tag dv2-tag-overdue">原定 {fmtDue(o.due_date)}</span>}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ── Layer 2 · 今日核心指標 ── */}
+      {(stats.tasks_today != null || stats.contacts_total != null) && (
+        <div className="dv2-layer-label">📊 Layer 2 · 今日核心指標</div>
+      )}
+      <div className="dv2-l2-grid">
+        {stats.tasks_today != null && (
+          <div className="dv2-stat-card">
+            <div className="dv2-stat-label">✅ 今日待辦</div>
+            <div className="dv2-stat-value" style={{ color: 'var(--color-blue, #2563EB)' }}>{stats.tasks_today}</div>
+            {stats.tasks_p1 > 0 && <div className="dv2-stat-sub">{stats.tasks_p1} 項 P1 優先</div>}
+          </div>
+        )}
+        {stats.meetings_today != null && (
+          <div className="dv2-stat-card">
+            <div className="dv2-stat-label">📅 今日會議</div>
+            <div className="dv2-stat-value" style={{ color: 'var(--color-purple, #7C3AED)' }}>{stats.meetings_today}</div>
+            {stats.next_meeting && <div className="dv2-stat-sub">{String(stats.next_meeting).slice(0, 22)}</div>}
+          </div>
+        )}
+        {stats.contacts_total != null && (
+          <div className="dv2-stat-card">
+            <div className="dv2-stat-label">👥 聯絡人</div>
+            <div className="dv2-stat-value" style={{ color: 'var(--color-blue, #2563EB)' }}>{stats.contacts_total}</div>
+            <div className="dv2-stat-sub">Total Contacts</div>
+          </div>
+        )}
+        {stats.companies_total != null && (
+          <div className="dv2-stat-card">
+            <div className="dv2-stat-label">🏢 公司</div>
+            <div className="dv2-stat-value" style={{ color: 'var(--color-purple, #7C3AED)' }}>{stats.companies_total}</div>
+            <div className="dv2-stat-sub">Total Companies</div>
+          </div>
+        )}
+      </div>
+
+      {/* ── Layer 3 · 脈絡與趨勢（可收合） ── */}
+      {(weather?.temp != null || news.length > 0) && (
+        <div className="dv2-layer-label">🗂 Layer 3 · 脈絡與趨勢</div>
+      )}
+      {weather?.temp != null && (
+        <details className="dv2-collapsible" open>
+          <summary>
+            <span>☀️ 天氣</span>
+            <span className="dv2-coll-chev">▸</span>
+          </summary>
+          <div className="dv2-coll-content">
+            <div className="dv2-weather-row">
+              <span className="dv2-weather-temp">{weather.temp}°C</span>
+              <span className="dv2-weather-desc">
+                {weather.desc || weather.condition || ''}
+                {weather.condition ? ` · ${weather.condition}` : ''}
+              </span>
+            </div>
+          </div>
+        </details>
+      )}
+      {news.length > 0 && (
+        <details className="dv2-collapsible">
+          <summary>
+            <span>📰 行業新聞摘要</span>
+            <span className="dv2-coll-chev">▸</span>
+          </summary>
+          <div className="dv2-coll-content">
+            {news.map((n, i) => (
+              <div key={i} className="dv2-news-item">
+                <span className="dv2-news-src">{String(n.feed || '').replace('www.', '').split('.')[0]}</span>
+                <span className="dv2-news-title">{n.title}</span>
+              </div>
+            ))}
+          </div>
+        </details>
+      )}
+
+      {/* ── Layer 4 · 延伸內容（預設收合） ── */}
+      {bible?.reference && (
+        <>
+          <div className="dv2-layer-label">📖 Layer 4 · 延伸內容</div>
+          <details className="dv2-collapsible">
+            <summary>
+              <span>🙏 靈修 · {bible.reference}</span>
+              <span className="dv2-coll-chev">▸</span>
+            </summary>
+            <div className="dv2-coll-content">
+              {bible.summary && <p className="dv2-bible-summary">{bible.summary}</p>}
+              {(bible.links?.bible_com || bible.links?.we_devote) && (
+                <div className="dv2-bible-links">
+                  {bible.links?.bible_com && (
+                    <a href={bible.links.bible_com} target="_blank" rel="noreferrer" onClick={e => e.stopPropagation()}>📖 打開和合本修訂版</a>
+                  )}
+                  {bible.links?.we_devote && (
+                    <a href={bible.links.we_devote} target="_blank" rel="noreferrer" onClick={e => e.stopPropagation()}>📱 用微讀細讀經文</a>
+                  )}
+                </div>
+              )}
+            </div>
+          </details>
+        </>
+      )}
+    </div>
+  )
+}
+
 const SLOT_LABELS: Record<string, { emoji: string; label: string }> = {
   morning: { emoji: '🌅', label: '早間簡報' },
   noon: { emoji: '☀️', label: '午間簡報' },
@@ -171,6 +350,8 @@ export default function DashboardV2() {
   const [aiInsight, setAiInsight] = useState<AiInsight | null>(null)
   const [aiWeather, setAiWeather] = useState<any>(null)
   const [aiLoading, setAiLoading] = useState(true)
+  // v6.92: structured layered briefing data (Layer 1-4 cards) from backend
+  const [aiLayers, setAiLayers] = useState<any>(null)
 
   const [customizeMode, setCustomizeMode] = useState(false)
   const [isPhone, setIsPhone] = useState(() => (typeof window !== 'undefined' ? window.matchMedia('(max-width: 640px)').matches : false))
@@ -341,6 +522,9 @@ export default function DashboardV2() {
     // ── AI insight: content = same generated briefing as Telegram (portal style applied here) ──
     apiClient.get<any>('/api/v1/ai/briefing').then((d: any) => {
       if (d?.weather && typeof d.weather === 'object') setAiWeather(d.weather)
+      // v6.92: layered card data (Layer 1-4) — when present, render the new
+      // layered design; markdown sections remain as fallback.
+      if (d?.layers && Object.keys(d.layers).length) setAiLayers(d.layers)
       if (d?.content) {
         // Same content as Telegram → portal rendering
         const parsed = parseBriefing(d.content)
@@ -566,6 +750,8 @@ export default function DashboardV2() {
                 <div className="dv2-ai-skeleton">
                   <div className="dv2-skel-line w70" /><div className="dv2-skel-line w90" /><div className="dv2-skel-line w50" />
                 </div>
+              ) : aiLayers ? (
+                <LayeredBriefing layers={aiLayers} weather={aiWeather} navigate={navigate} i18nLang={i18n.language} />
               ) : aiInsight ? (
                 <>
                   <p className="dv2-ai-headline">

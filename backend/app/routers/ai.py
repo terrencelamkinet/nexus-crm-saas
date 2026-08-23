@@ -2470,6 +2470,172 @@ class BriefingResponse(BaseModel):
     generated_at: str = ""
     source: str = "crm_core"
     source_fallback: bool = False
+    # v6.92: structured layered data for the dashboard card (Layer 1-4):
+    #   conflicts / overdue / stats / news / bible — raw module outputs so the
+    #   frontend renders the layered card design without re-parsing markdown.
+    layers: dict[str, Any] = {}
+
+
+async def _build_briefing_layers(ctx, db) -> dict[str, Any]:
+    """Collect structured layer data for the dashboard AI card.
+
+    Layer 1 (alerts): calendar conflicts + overdue tasks
+    Layer 2 (stats): today tasks/meetings + total contacts/companies
+    Layer 3 (context): news headlines
+    Layer 4 (extended): bible reading
+
+    Mirrors briefing_generator._collect_modules but only pulls what the
+    layered card needs, so a dashboard load stays cheap.
+    """
+    from app.ai import briefing_sources as bs
+    from app.models.ai.secretary_settings import (
+        SecretarySettings, DEFAULT_MODULES, DEFAULT_MODULE_OPTIONS, normalize_modules,
+    )
+    from sqlalchemy import select, func, text
+
+    layers: dict[str, Any] = {}
+    today_hkt = datetime.now(HKT).strftime("%Y-%m-%d")
+    today_date = datetime.now(HKT).date()
+
+    # ── enabled modules (same resolution as briefing_generator) ──
+    modules: dict[str, dict] = {}
+    try:
+        srow = (
+            await db.execute(
+                select(SecretarySettings).where(SecretarySettings.user_id == ctx.user_id)
+            )
+        ).scalar_one_or_none()
+        modules = normalize_modules(srow.modules or DEFAULT_MODULES) if srow else {
+            m: dict(DEFAULT_MODULE_OPTIONS.get(m, {})) for m in DEFAULT_MODULES
+        }
+    except Exception:
+        modules = {m: dict(DEFAULT_MODULE_OPTIONS.get(m, {})) for m in DEFAULT_MODULES}
+
+    # ── Layer 1a: calendar conflicts ──
+    if "calendar_conflicts" in modules or "meetings" in modules:
+        try:
+            layers["conflicts"] = await bs.calendar_conflicts(ctx, db, modules.get("calendar_conflicts") or {})
+        except Exception:
+            layers["conflicts"] = []
+
+    # ── Layer 1b: overdue tasks (due before today, not done) ──
+    try:
+        rows = (
+            await db.execute(
+                text(
+                    "SELECT id, title, priority, due_date, status FROM nexus_crm.tasks "
+                    "WHERE tenant_id = :tid AND status NOT IN ('done','cancelled') "
+                    "AND due_date IS NOT NULL AND due_date < :today "
+                    "ORDER BY due_date ASC LIMIT 8"
+                ),
+                {"tid": ctx.tenant_id, "today": today_hkt},
+            )
+        ).mappings().all()
+        layers["overdue"] = [
+            {
+                "id": r["id"], "title": r["title"],
+                "priority": (r["priority"] or "medium").upper() if len(str(r["priority"] or "")) == 2 else r["priority"],
+                "due_date": r["due_date"],
+            }
+            for r in rows
+        ]
+    except Exception:
+        layers["overdue"] = []
+
+    # ── Layer 2: stats — today tasks/meetings + total contacts/companies ──
+    stats: dict[str, Any] = {}
+    try:
+        # today's pending tasks
+        today_tasks = (
+            await db.execute(
+                text(
+                    "SELECT COUNT(*) AS n FROM nexus_crm.tasks "
+                    "WHERE tenant_id = :tid AND status NOT IN ('done','cancelled') "
+                    "AND (due_date = :today OR due_date IS NULL)"
+                ),
+                {"tid": ctx.tenant_id, "today": today_date},
+            )
+        ).scalar() or 0
+        p1_tasks = (
+            await db.execute(
+                text(
+                    "SELECT COUNT(*) AS n FROM nexus_crm.tasks "
+                    "WHERE tenant_id = :tid AND status NOT IN ('done','cancelled') "
+                    "AND priority IN ('P0','P1','urgent','high')"
+                ),
+                {"tid": ctx.tenant_id},
+            )
+        ).scalar() or 0
+        stats["tasks_today"] = int(today_tasks)
+        stats["tasks_p1"] = int(p1_tasks)
+
+        # today's meetings (project_calendar_events)
+        try:
+            from app.routers.ai import _get_upcoming_events
+            evts = await _get_upcoming_events(ctx, {"days_ahead": 1, "limit": 20}, db)
+            today_meetings = [
+                {"title": e.get("title", e.get("summary", "")), "time": _hkt_time_str(e.get("start"))}
+                for e in (evts or [])
+                if str(e.get("start", "")).startswith(today_hkt) or _hkt_time_str(e.get("start")).startswith(today_hkt)
+            ]
+            stats["meetings_today"] = len(today_meetings)
+            stats["next_meeting"] = today_meetings[0]["title"] if today_meetings else ""
+        except Exception:
+            stats["meetings_today"] = 0
+            stats["next_meeting"] = ""
+
+        # total contacts / companies
+        try:
+            c = (
+                await db.execute(
+                    text("SELECT COUNT(*) FROM nexus_crm.contacts WHERE tenant_id = :tid"),
+                    {"tid": ctx.tenant_id},
+                )
+            ).scalar() or 0
+            co = (
+                await db.execute(
+                    text("SELECT COUNT(*) FROM nexus_crm.companies WHERE tenant_id = :tid"),
+                    {"tid": ctx.tenant_id},
+                )
+            ).scalar() or 0
+            stats["contacts_total"] = int(c)
+            stats["companies_total"] = int(co)
+        except Exception:
+            pass
+    except Exception:
+        pass
+    layers["stats"] = stats
+
+    # ── Layer 3: industry news (top 3) ──
+    if "news_industry" in modules:
+        try:
+            news = await bs.news_industry(ctx, db, modules.get("news_industry") or {})
+            layers["news"] = [
+                {"feed": n.get("feed", ""), "title": n.get("title", "")}
+                for n in (news or [])[:3]
+            ]
+        except Exception:
+            layers["news"] = []
+    else:
+        layers["news"] = []
+
+    # ── Layer 4: bible reading ──
+    if "bible_reading" in modules:
+        try:
+            bible = await bs.bible_reading(ctx, db, modules.get("bible_reading") or {})
+            if bible:
+                b0 = bible[0]
+                layers["bible"] = {
+                    "reference": b0.get("reference", ""),
+                    "summary": b0.get("summary", ""),
+                    "links": b0.get("links", {}) or {},
+                }
+        except Exception:
+            layers["bible"] = {}
+    else:
+        layers["bible"] = {}
+
+    return layers
 
 
 @router.get("/briefing")
@@ -2523,6 +2689,10 @@ async def get_briefing(
     if source != "crm_core":
         try:
             fallback = await _build_crm_briefing(ctx, db, lang_pref)
+            try:
+                layers = await _build_briefing_layers(ctx, db)
+            except Exception:
+                layers = {}
             return BriefingResponse(
                 weather=fallback.get("weather", {}),
                 schedule=fallback["schedule"],
@@ -2531,6 +2701,7 @@ async def get_briefing(
                 content=gen_content, slot=gen_slot, generated_at=gen_at,
                 source=source,
                 source_fallback=True,
+                layers=layers,
             )
         except Exception:
             return BriefingResponse(
@@ -2542,6 +2713,10 @@ async def get_briefing(
 
     try:
         brief = await _build_crm_briefing(ctx, db, lang_pref)
+        try:
+            layers = await _build_briefing_layers(ctx, db)
+        except Exception:
+            layers = {}
         return BriefingResponse(
             weather=brief.get("weather", {}),
             schedule=brief["schedule"],
@@ -2550,6 +2725,7 @@ async def get_briefing(
             content=gen_content, slot=gen_slot, generated_at=gen_at,
             source=source,
             source_fallback=False,
+            layers=layers,
         )
     except Exception:
         return BriefingResponse(
