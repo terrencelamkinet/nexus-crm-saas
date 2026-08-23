@@ -64,9 +64,10 @@ function parseBriefing(content: string): { title: string; sections: AiSection[] 
    Layer 3: 脈絡與趨勢（weather + news，可收合）
    Layer 4: 延伸內容（bible，預設收合）
    ═══════════════════════════════════════════════════════════ */
-function LayeredBriefing({ layers, weather, pendingQs, pqIndex, navigate, i18nLang, onAnswer, onDismiss, onDot }: {
+function LayeredBriefing({ layers, weather, summary, pendingQs, pqIndex, navigate, i18nLang, onAnswer, onDismiss, onDot }: {
   layers: any
   weather: any
+  summary: string
   pendingQs: any[]
   pqIndex: number
   navigate: (to: string) => void
@@ -92,6 +93,17 @@ function LayeredBriefing({ layers, weather, pendingQs, pqIndex, navigate, i18nLa
 
   return (
     <div className="dv2-layered">
+      {/* ── AI Summary · 置頂整合（briefing 4 次/日預生成，跟用戶語言）── */}
+      {summary && (
+        <div className="dv2-summary-card">
+          <div className="dv2-summary-head">
+            <span className="dv2-summary-icon">✨</span>
+            <span className="dv2-summary-title">AI 摘要</span>
+          </div>
+          <div className="dv2-summary-text">{summary}</div>
+        </div>
+      )}
+
       {/* ── Layer 0 · AI 主動提問（Calendar Awareness 輪播）── */}
       {pendingQs.length > 0 && (() => {
         const q = pendingQs[pqIndex % pendingQs.length]
@@ -365,6 +377,8 @@ export default function DashboardV2() {
   const [aiLoading, setAiLoading] = useState(true)
   // v6.92: structured layered briefing data (Layer 1-4 cards) from backend
   const [aiLayers, setAiLayers] = useState<any>(null)
+  // v6.95: AI 整合摘要（置頂 — briefing 4 次/日預生成，跟用戶語言）
+  const [aiSummary, setAiSummary] = useState('')
   // v6.94: calendar awareness — AI 主動提問（pending questions 輪播）
   const [pendingQs, setPendingQs] = useState<any[]>([])
   const [pqIndex, setPqIndex] = useState(0)
@@ -528,6 +542,8 @@ export default function DashboardV2() {
     // ── AI insight: content = same generated briefing as Telegram (portal style applied here) ──
     apiClient.get<any>('/api/v1/ai/briefing').then((d: any) => {
       if (d?.weather && typeof d.weather === 'object') setAiWeather(d.weather)
+      // v6.95: AI 整合摘要（置頂）
+      if (d?.summary) setAiSummary(d.summary)
       // v6.92: layered card data (Layer 1-4) — when present, render the new
       // layered design; markdown sections remain as fallback.
       if (d?.layers && Object.keys(d.layers).length) setAiLayers(d.layers)
@@ -787,7 +803,7 @@ export default function DashboardV2() {
                   <div className="dv2-skel-line w70" /><div className="dv2-skel-line w90" /><div className="dv2-skel-line w50" />
                 </div>
               ) : aiLayers ? (
-                <LayeredBriefing layers={aiLayers} weather={aiWeather} pendingQs={pendingQs} pqIndex={pqIndex} navigate={navigate} i18nLang={i18n.language} onAnswer={answerPendingQ} onDismiss={dismissPendingQ} onDot={setPqIndex} />
+                <LayeredBriefing layers={aiLayers} weather={aiWeather} summary={aiSummary} pendingQs={pendingQs} pqIndex={pqIndex} navigate={navigate} i18nLang={i18n.language} onAnswer={answerPendingQ} onDismiss={dismissPendingQ} onDot={setPqIndex} />
               ) : aiInsight ? (
                 <>
                   <p className="dv2-ai-headline">

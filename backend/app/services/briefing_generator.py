@@ -249,7 +249,7 @@ def _build_prompt(slot: str, settings: SecretarySettings, data: dict[str, Any]) 
             "願神的話語成為你今日的力量 ❤️\n"
         )
         user += bible_rule + "\n"
-    user += "輸出：只有簡報內容（以 emoji title 開頭），唔好加任何 metadata 或解釋。"
+    user += "輸出格式：第一行用 <summary>...</summary> 包住一段 1-2 句嘅全日整合摘要（用上述語言，簡短精煉，整合下面所有數據嘅重點），跟住先係完整簡報內容（以 emoji title 開頭）。唔好加任何 metadata 或解釋。"
     return [
         {"role": "system", "content": system},
         {"role": "user", "content": user},
@@ -400,18 +400,26 @@ async def generate_briefing(
     if not content:
         return {"user_id": str(user_id), "slot": slot, "status": "empty_content", "im": "disabled"}
 
+    # v6.95: AI summary — 抽 <summary> tag（同一 LLM call，零額外成本）
+    import re as _re
+    _m = _re.search(r"<summary>(.*?)</summary>", content, _re.S)
+    summary = _m.group(1).strip() if _m else ""
+    if _m:
+        content = _re.sub(r"<summary>.*?</summary>\s*", "", content, flags=_re.S).strip()
+
     # store to PG (raw SQL — no model boilerplate)
     from sqlalchemy import text as sql_text
     await db.execute(
         sql_text(
             "INSERT INTO nexus_crm.generated_briefings "
-            "(tenant_id, user_id, slot, briefing_date, content, data_snapshot, modules) "
-            "VALUES (:tid, :uid, :slot, :d, :content, CAST(:snapshot AS jsonb), :modules)"
+            "(tenant_id, user_id, slot, briefing_date, content, summary, data_snapshot, modules) "
+            "VALUES (:tid, :uid, :slot, :d, :content, :summary, CAST(:snapshot AS jsonb), :modules)"
         ),
         {
             "tid": tenant_id, "uid": user_id, "slot": slot,
             "d": _now_hkt().date(),
             "content": content,
+            "summary": summary or None,
             "snapshot": json.dumps({k: v for k, v in data.items() if k in ("weather", "schedule", "tasks")},
                                    ensure_ascii=False, default=str),
             "modules": list(modules.keys()),  # text[] column — module keys

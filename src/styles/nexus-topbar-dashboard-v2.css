@@ -173,6 +173,14 @@
 .dv2-layered { display: flex; flex-direction: column; gap: 8px; }
 .dv2-layer-label { font-size: 11px; font-weight: 700; color: var(--color-text-faint); margin: 8px 0 2px; letter-spacing: .03em; }
 .dv2-layered .dv2-layer-label:first-child { margin-top: 0; }
+/* v6.95 AI Summary — 置頂整合摘要（briefing 4 次/日預生成） */
+.dv2-summary-card { border-radius: 12px; border: 1.5px solid rgba(20,116,239,.35); background: linear-gradient(135deg, rgba(20,116,239,.08), rgba(124,92,252,.06)); overflow: hidden; }
+:root[data-theme="dark"] .dv2-summary-card { border-color: rgba(78,147,255,.45); background: linear-gradient(135deg, rgba(20,116,239,.14), rgba(124,92,252,.10)); }
+.dv2-summary-head { display: flex; align-items: center; gap: 7px; padding: 8px 12px; font-weight: 700; font-size: 12.5px; color: #1D4ED8; border-bottom: 1px solid rgba(20,116,239,.2); }
+:root[data-theme="dark"] .dv2-summary-head { color: #93C5FD; border-bottom-color: rgba(78,147,255,.2); }
+.dv2-summary-icon { font-size: 14px; flex-shrink: 0; }
+.dv2-summary-title { flex: 1; }
+.dv2-summary-text { padding: 10px 12px 11px; font-size: 13.5px; line-height: 1.6; color: var(--color-text); font-weight: 600; }
 /* v6.94 Layer 0 — AI 主動提問（Calendar Awareness） */
 .dv2-pq-card { border-radius: 12px; border: 1.5px solid #A78BFA; background: linear-gradient(135deg, rgba(139,92,246,.10), rgba(34,211,238,.08)); overflow: hidden; }
 :root[data-theme="dark"] .dv2-pq-card { border-color: rgba(167,139,250,.5); background: linear-gradient(135deg, rgba(139,92,246,.16), rgba(34,211,238,.10)); }

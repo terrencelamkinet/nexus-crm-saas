@@ -2466,6 +2466,7 @@ class BriefingResponse(BaseModel):
     tasks: list[dict[str, Any]] = []
     ai_tip: str = ""
     content: str = ""          # LLM-generated briefing (AI-app pipeline)
+    summary: str = ""          # v6.95: AI 整合摘要（置頂，跟用戶語言，4 次/日預生成）
     slot: str = ""             # morning/noon/evening/night of the generated content
     generated_at: str = ""
     source: str = "crm_core"
@@ -2668,12 +2669,12 @@ async def get_briefing(
         pass
 
     # ── Latest LLM-generated briefing (AI-app pipeline) — THIS user only ──
-    gen_content, gen_slot, gen_at = "", "", ""
+    gen_content, gen_slot, gen_at, gen_summary = "", "", "", ""
     try:
         row = (
             await db.execute(
                 text(
-                    "SELECT content, slot, created_at::text FROM nexus_crm.generated_briefings "
+                    "SELECT content, slot, created_at::text, summary FROM nexus_crm.generated_briefings "
                     "WHERE tenant_id = :tid AND user_id = :uid AND briefing_date = CURRENT_DATE "
                     "ORDER BY id DESC LIMIT 1"
                 ),
@@ -2682,6 +2683,7 @@ async def get_briefing(
         ).first()
         if row:
             gen_content, gen_slot, gen_at = row[0], row[1], (row[2] or "")
+            gen_summary = row[3] or ""
     except Exception:
         pass
 
@@ -2698,7 +2700,7 @@ async def get_briefing(
                 schedule=fallback["schedule"],
                 tasks=fallback["tasks"],
                 ai_tip=fallback["ai_tip"],
-                content=gen_content, slot=gen_slot, generated_at=gen_at,
+                content=gen_content, summary=gen_summary, slot=gen_slot, generated_at=gen_at,
                 source=source,
                 source_fallback=True,
                 layers=layers,
@@ -2707,7 +2709,7 @@ async def get_briefing(
             return BriefingResponse(
                 weather={}, schedule=[], tasks=[],
                 ai_tip=(_DEFAULT_TIP_EN if lang_pref.startswith("en") else _DEFAULT_TIP_ZH),
-                content=gen_content, slot=gen_slot, generated_at=gen_at,
+                content=gen_content, summary=gen_summary, slot=gen_slot, generated_at=gen_at,
                 source=source, source_fallback=True,
             )
 
@@ -2722,7 +2724,7 @@ async def get_briefing(
             schedule=brief["schedule"],
             tasks=brief["tasks"],
             ai_tip=brief["ai_tip"],
-            content=gen_content, slot=gen_slot, generated_at=gen_at,
+            content=gen_content, summary=gen_summary, slot=gen_slot, generated_at=gen_at,
             source=source,
             source_fallback=False,
             layers=layers,
