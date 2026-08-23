@@ -68,15 +68,17 @@ export default function AiPage() {
       const resp = await apiClient.get<{ sessions: SessionItem[] }>('/api/v1/ai/sessions');
       const list = resp?.sessions || [];
       setSessionList(list);
-      const active = list.find(s => s.status === 'active') || list[0];
-      if (active) await switchSession(active.session_id);
-      else { setSessionId(null); setMessages([]); }
+      // v6.90: 每次入 fullscreen AI 頁都係新對話 — 唔好自動 switch 去舊
+      // session（同 panel 一致）。之前自動 load active/first session →
+      // AI 帶住舊 context 答非所問。舊對話喺 session chips 自己揀。
+      setSessionId(null);
+      setMessages([assistantMessage(GREETING)]);
     } catch {
       setMessages([assistantMessage(GREETING)]);
     } finally {
       setLoadingSession(false);
     }
-  }, [switchSession]);
+  }, []);
 
   useEffect(() => { loadSessions(); }, [loadSessions]);
 

@@ -114,15 +114,17 @@ export default function AiSearchPanel({ open, onClose, onScanCard }: Props) {
       const resp = await apiClient.get<{ sessions: SessionItem[] }>('/api/v1/ai/sessions');
       const list = resp?.sessions || [];
       setSessionList(list);
-      const active = list.find(s => s.status === 'active') || list[0];
-      if (active) await switchSession(active.session_id);
-      else { setSessionId(null); setMessages([]); }
+      // v6.90: 每次開 panel 都係新對話 — 唔好自動 switch 去舊 session。
+      // 之前自動 load active/first session → AI 帶住舊 context 答非所問
+      // （「佢有佢講」）。舊對話留喺 session chips 俾用戶自己揀。
+      setSessionId(null);
+      setMessages([assistantMessage(GREETING)]);
     } catch {
       setMessages([assistantMessage(GREETING)]);
     } finally {
       setLoadingSession(false);
     }
-  }, [switchSession]);
+  }, []);
 
   const createNewSession = () => {
     abortRef.current?.abort();
