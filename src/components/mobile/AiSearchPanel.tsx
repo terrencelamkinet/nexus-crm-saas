@@ -292,19 +292,19 @@ export default function AiSearchPanel({ open, onClose, onScanCard }: Props) {
         <div className="aisp-handle" />
         <div className="aisp-head">
           <h3>AI 管家秘書</h3>
+          {/* v6.87: tabs 搬入標題行 — 慳返成條 tab 欄，button 收窄做 pills */}
+          <div className="aisp-tabs">
+            <button type="button" className={`aisp-tab ${mode === 'ai' ? 'active' : ''}`} onClick={() => setMode('ai')}>
+              <Sparkles className="aisp-tab-icon" /> 問 AI
+            </button>
+            <button type="button" className={`aisp-tab ${mode === 'search' ? 'active' : ''}`} onClick={() => setMode('search')}>
+              <Search className="aisp-tab-icon" /> 搜尋
+            </button>
+          </div>
           <div className="aisp-head-actions">
             <button type="button" className="aisp-close" onClick={openFullscreen} aria-label="全螢幕搜尋"><Maximize2 /></button>
             <button type="button" className="aisp-close" onClick={handleClose} aria-label="Close"><X /></button>
           </div>
-        </div>
-
-        <div className="aisp-tabs">
-          <button type="button" className={`aisp-tab ${mode === 'ai' ? 'active' : ''}`} onClick={() => setMode('ai')}>
-            <Sparkles className="aisp-tab-icon" /> 問 AI
-          </button>
-          <button type="button" className={`aisp-tab ${mode === 'search' ? 'active' : ''}`} onClick={() => setMode('search')}>
-            <Search className="aisp-tab-icon" /> 搜尋
-          </button>
         </div>
 
         {mode === 'ai' && (
