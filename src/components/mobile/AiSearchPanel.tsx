@@ -264,7 +264,8 @@ export default function AiSearchPanel({ open, onClose, onScanCard }: Props) {
 
   const openFullscreen = () => {
     handleClose();
-    navigate('/search');
+    // v6.76: 跟當前 tab — AI tab 去 AI 頁面，搜尋 tab 去搜尋頁面
+    navigate(mode === 'ai' ? '/ai' : '/search');
   };
 
   if (!open) return null;

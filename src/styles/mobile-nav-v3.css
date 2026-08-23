@@ -254,7 +254,8 @@
 
 /* ═══════════ AI & Search panel ═══════════ */
 /* v6.75: 半屏（50dvh）— 問AI / 搜尋兩個 tab 同高，所有搜尋範圍喺 panel 入面 */
-.aisp-panel { height: 50dvh; min-height: 50dvh; overflow: hidden; }
+/* v6.76: 70dvh — 用戶要求更高比例 */
+.aisp-panel { height: 70dvh; min-height: 70dvh; overflow: hidden; }
 .aisp-head-actions { display: flex; align-items: center; gap: 8px; }
 .aisp-filters {
   display: flex; gap: 6px; overflow-x: auto; padding: 0 20px 10px; flex-shrink: 0;
@@ -487,3 +488,27 @@
 .sp-result-text strong { font-size: 14px; color: var(--color-text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .sp-result-text small { font-size: 11.5px; color: var(--color-text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .sp-result-type { font-size: 10.5px; color: var(--color-text-faint); background: var(--color-surface-offset); padding: 3px 8px; border-radius: 999px; flex-shrink: 0; }
+
+/* ═══════════ Fullscreen AI page (v6.76) ═══════════ */
+.aipage-page {
+  min-height: 100dvh; display: flex; flex-direction: column;
+  background: var(--color-bg); max-width: 720px; margin: 0 auto;
+}
+.aipage-head {
+  display: flex; align-items: center; gap: 10px;
+  padding: calc(12px + env(safe-area-inset-top)) 16px 10px;
+  position: sticky; top: 0; background: var(--color-bg); z-index: 10;
+}
+.aipage-head h3 { font-size: 16px; font-weight: 700; margin: 0; color: var(--color-text); }
+.aipage-back {
+  width: 36px; height: 36px; border-radius: 999px; flex-shrink: 0;
+  background: var(--color-surface-offset); border: 1px solid var(--color-divider);
+  display: flex; align-items: center; justify-content: center; cursor: pointer;
+  color: var(--color-text); font-family: inherit;
+}
+.aipage-back svg { width: 18px; height: 18px; }
+.aipage-chat { flex: 1; display: flex; flex-direction: column; min-height: 0; padding-bottom: calc(10px + env(safe-area-inset-bottom)); }
+.aipage-chat .aisp-msg-area { flex: 1; }
+.aipage-chat .aisp-input-row { margin-bottom: 0; }
+.aipage-msg-area .cb-msg-user { align-self: flex-end; max-width: 85%; }
+.aipage-msg-area .cb-msg-ai-row { align-self: flex-start; max-width: 92%; }
