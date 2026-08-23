@@ -219,6 +219,17 @@ async def _channel_gate(db, user, channel: str, slot: str) -> str:
 
 async def _push_telegram(db, user, slot: str, content: str) -> str:
     """Push via bound Telegram bot. Returns 'sent'|'skipped'|'failed'."""
+    # ⚠️ Caller（generate_briefing）已經 commit — transaction-local GUC 隨
+    # transaction 完結消失，必須重新 set 先讀到 IMDeliveryPref / 寫 push_log
+    # （兩者都有 RLS）。唔 set 嘅話 push_log INSERT 會 RLS violation → 永遠
+    # 寫唔入 → _already_sent 永遠 False → 每 15 分鐘 regenerate。
+    try:
+        await db.execute(
+            text("SELECT set_config('app.tenant_id', :t, true), set_config('app.user_id', :u, true)"),
+            {"t": str(user.tenant_id), "u": str(user.user_id)},
+        )
+    except Exception:
+        pass
     reason = await _channel_gate(db, user, "telegram", slot)
     if reason:
         db.add(PushLog(tenant_id=user.tenant_id, user_id=user.user_id, channel="telegram",
@@ -264,6 +275,14 @@ async def _push_telegram(db, user, slot: str, content: str) -> str:
 
 async def _push_whatsapp(db, user, slot: str, content: str) -> str:
     """Fallback channel — only if no active Telegram mapping."""
+    # 同 _push_telegram — caller commit 後 GUC 消失，重新 set（RLS）
+    try:
+        await db.execute(
+            text("SELECT set_config('app.tenant_id', :t, true), set_config('app.user_id', :u, true)"),
+            {"t": str(user.tenant_id), "u": str(user.user_id)},
+        )
+    except Exception:
+        pass
     reason = await _channel_gate(db, user, "whatsapp", slot)
     if reason:
         db.add(PushLog(tenant_id=user.tenant_id, user_id=user.user_id, channel="whatsapp",
@@ -417,6 +436,17 @@ async def run_scheduler(dry_run: bool = False) -> dict:
                             else:
                                 stats["skipped"] += 1
                                 stats["details"].append(f"{str(user_id)[:8]} {b_slot}: {bres.get('status', 'failed')}")
+            # ⚠️ per-member commit — pending PushLog 必須喺呢個 member 嘅 GUC
+            # 之下 flush。唔 commit 嘅話，下一個 member set 咗新 GUC 之後，
+            # autoflush 會用新 GUC INSERT 舊 member 嘅 PushLog → RLS violation
+            # （tenant mismatch — push_log policy 只睇 app.tenant_id GUC）
+            try:
+                await db.commit()
+            except Exception:
+                try:
+                    await db.rollback()
+                except Exception:
+                    pass
         await db.commit()
     return stats
 

@@ -110,10 +110,11 @@ async def _collect_modules(ctx: AISessionContext, db: AsyncSession, modules: dic
     # Force calendar sync before collecting schedule (mirror check — remote
     # updates land in project_calendar_events before the briefing reads them).
     try:
-        from app.services.calendar_sync import sync_user_calendars
-        await sync_user_calendars(db, ctx.tenant_id, ctx.user_id, force=True)
+        async with db.begin_nested():
+            from app.services.calendar_sync import sync_user_calendars
+            await sync_user_calendars(db, ctx.tenant_id, ctx.user_id, force=True)
     except Exception:
-        pass  # never block the briefing on sync failure
+        pass  # never block the briefing on sync failure (savepoint rollback only)
 
     out: dict[str, Any] = {}
     brief = await _build_crm_briefing(ctx, db)
@@ -182,7 +183,12 @@ async def _collect_modules(ctx: AISessionContext, db: AsyncSession, modules: dic
         if fn is None:
             continue
         try:
-            out[key] = await fn(ctx, db, opts or {})
+            # savepoint per module — 任何 module 內部 DB error 只 rollback
+            # 自己個 savepoint，主 transaction 保持可用（直接 rollback 會
+            # expired 之前 load 嘅 ORM objects → MissingGreenlet，而且令
+            # 後續 INSERT generated_briefings InFailedSQLTransaction）
+            async with db.begin_nested():
+                out[key] = await fn(ctx, db, opts or {})
         except Exception:
             out[key] = []
 
