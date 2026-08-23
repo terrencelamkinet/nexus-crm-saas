@@ -28,6 +28,7 @@
 | Widget save 咗 reload 唔見 / 每次 load 重複寫入 | loadAll setOrder 觸發 save effect (stale revert race) | [KB-003](./KB-003-dashboard-widget-save-race.md) |
 | Widget resize 後 reload width/height fallback | resize-grip 只改 DOM 冇 commit state/save | [KB-004](./KB-004-dashboard-widget-resize-fallback.md) |
 | IM AI 回「確認」冇反應、無限重複草稿 | tenant 冇 ai allow_edit / 冇 workspace | [KB-005](./KB-005-tenant-ai-write-flow-infra.md) |
+| Dashboard 顯示「即時更新」但 briefing 係 4 次/日 | briefing 係預生成 cache，唔係即時 | [KB-006](./KB-006-ai-briefing-4x-daily.md) |
 | AI 草稿 confirm 時 500 tasks_workspace_id_fkey | tenant 冇 workspace → sentinel 全零 | [KB-005](./KB-005-tenant-ai-write-flow-infra.md) |
 
 ---

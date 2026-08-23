@@ -24,6 +24,12 @@
 
 **所有 AI LLM 輸出（AI Chat、Morning/Noon/Evening Briefing、AI 草擬電郵、Dashboard Summary、WhatsApp AI 回覆、通知文案）一律使用專業、正式的書面語。**
 
+**AI Briefing 頻率規則（2026-08-24 確立 — 見 `backend/docs/KB/KB-006-ai-briefing-4x-daily.md`）：**
+- AI briefing（summary + content + layers）係 **一天 4 次預生成**（morning/noon/evening/night → `generated_briefings` cache），**唔係即時更新**
+- Dashboard **唔可以標「即時更新」** — 用「每日 4 次更新」+ 最後生成時間
+- Summary 併入 briefing 同一 LLM call（`<summary>` tag），零額外成本（5 萬人 × 4 次/日）
+- 所有 G08 知識 source of truth 喺 G08 repo 內（`backend/docs/KB/` + 本 CONTEXT.md），**唔依賴 GG-Fighter 個人系統** — G08 必須可以獨立拆離
+
 **語言設定（Language Rules）：**
 - 中文提問 → 繁體中文（正體中文）正式書面語回覆
 - 英文提問 → 專業商業英文（Professional Business English），禁口語縮寫（gonna/wanna/kinda/cos）及港式英文
