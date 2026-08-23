@@ -295,7 +295,9 @@
 .aisp-msg-area .cb-msg-ai-row { align-self: flex-start; max-width: 92%; }
 .aisp-msg-area .aisp-input-row { display: none; }
 .aisp-chat > .aisp-input-row {
-  margin: 0 20px calc(10px + env(safe-area-inset-bottom));
+  /* v6.85: flush to panel bottom — only safe-area inset (home indicator)
+     remains; previously 10px+inset left a visible gap above panel edge */
+  margin: 0 20px env(safe-area-inset-bottom);
   flex-shrink: 0;
 }
 .aisp-search-col { display: flex; flex-direction: column; flex: 1; min-height: 0; }
