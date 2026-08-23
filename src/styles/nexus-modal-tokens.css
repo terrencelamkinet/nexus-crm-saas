@@ -222,8 +222,11 @@
 
 /* ═══ Form fields ═══ */
 .nx-form-disabled { opacity: 0.4; pointer-events: none; }
-.nx-grid-2col { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-4); }
-@media (max-width: 767px) { .nx-grid-2col { grid-template-columns: 1fr; gap: var(--space-4); } }
+/* v6.91: minmax(0,1fr) 防止 grid item 內容（NexusEditor mobile toolbar 等
+   min-content 寬）撐闊 column — 之前 1fr 容許 min-width:auto item 將
+   modal body 撐到 429px（>390 viewport），Add modal 內頁 width 爆 */
+.nx-grid-2col { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: var(--space-4); }
+@media (max-width: 767px) { .nx-grid-2col { grid-template-columns: minmax(0, 1fr); gap: var(--space-4); } }
 .nx-field { position: relative; grid-column: span 1; }
 .nx-field.full { grid-column: 1 / -1; }
 .nx-field label {
