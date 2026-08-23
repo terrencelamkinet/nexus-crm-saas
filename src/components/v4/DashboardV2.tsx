@@ -803,6 +803,15 @@ export default function DashboardV2() {
               <ChevronDown size={16} className={`dv2-ai-chevron ${aiExpanded ? 'open' : ''}`} />
             </span>
           </button>
+          {!aiExpanded && aiSummary && (
+            <button
+              className="dv2-ai-collapsed-summary"
+              onClick={() => setAiExpanded(true)}
+              title={t('dashboard.aiExpandHint', { defaultValue: '點擊展開詳細資料' })}
+            >
+              {aiSummary}
+            </button>
+          )}
           {aiExpanded && (
             <div className="dv2-widget-body dv2-ai-body">
               {aiLoading ? (

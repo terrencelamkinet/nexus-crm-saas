@@ -145,13 +145,18 @@ def _is_due(now: datetime, start_hhmm: str) -> bool:
     return 0 <= diff < DUE_WINDOW_MIN
 
 
-async def _already_sent(db, user_id, channel: str, slot: str, now: datetime) -> bool:
+async def _already_sent(db, user_id, slot: str, now: datetime) -> bool:
+    """True if this slot already pushed today on ANY channel.
+
+    Channel-agnostic dedup: a WhatsApp-only send (Telegram gate skipped) must
+    still suppress the next 15-min tick — otherwise the same slot pushes twice
+    a day via the fallback path.
+    """
     day_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
     row = (
         await db.execute(
             select(PushLog.id).where(
                 PushLog.user_id == user_id,
-                PushLog.channel == channel,
                 PushLog.slot == slot,
                 PushLog.status == "sent",
                 PushLog.sent_at >= day_start,
@@ -349,8 +354,8 @@ async def run_scheduler(dry_run: bool = False) -> dict:
                     if not _is_due(now, start):
                         continue
                     stats["due"] += 1
-                    # Dedup per channel — check telegram first (primary)
-                    if await _already_sent(db, user_id, "telegram", key, now):
+                    # Dedup per day — any channel sent for this slot today
+                    if await _already_sent(db, user_id, key, now):
                         stats["skipped"] += 1
                         stats["details"].append(f"{str(user_id)[:8]} {key}: already sent")
                         continue
@@ -385,7 +390,7 @@ async def run_scheduler(dry_run: bool = False) -> dict:
                     b_start = BIBLE_SLOT_TIMES.get(tod)
                     if b_start and _is_due(now, b_start):
                         b_slot = f"bible_{tod}"
-                        if await _already_sent(db, user_id, "telegram", b_slot, now):
+                        if await _already_sent(db, user_id, b_slot, now):
                             stats["skipped"] += 1
                             stats["details"].append(f"{str(user_id)[:8]} {b_slot}: already sent")
                         elif dry_run:
