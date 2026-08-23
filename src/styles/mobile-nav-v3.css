@@ -263,7 +263,7 @@
 }
 .aisp-filter-chip {
   display: inline-flex; align-items: center; white-space: nowrap;
-  padding: 6px 12px; border-radius: 999px; font-size: 12px; font-weight: 600;
+  padding: 6px 12px; border-radius: 999px; font-size: 12.5px; font-weight: 600;
   background: var(--color-surface-offset); border: 1px solid var(--color-divider);
   color: var(--color-text-muted); cursor: pointer; font-family: inherit; flex-shrink: 0;
 }
@@ -278,7 +278,7 @@
   display: inline-flex; align-items: center; gap: 4px;
   padding: 6px 12px; border-radius: 999px; white-space: nowrap;
   background: var(--color-surface-offset); border: 1px solid var(--color-divider);
-  font-size: 12px; font-weight: 600; color: var(--color-text-muted);
+  font-size: 12.5px; font-weight: 600; color: var(--color-text-muted);
   cursor: pointer; font-family: inherit; flex-shrink: 0;
   max-width: 140px; overflow: hidden; text-overflow: ellipsis;
 }
@@ -302,7 +302,7 @@
   flex: 1; display: flex; align-items: center; justify-content: center; gap: 6px;
   padding: 10px 0; border-radius: 12px;
   background: var(--color-surface-offset); border: 1.5px solid transparent;
-  font-size: 13.5px; font-weight: 700; color: var(--color-text-muted);
+  font-size: 14px; font-weight: 700; color: var(--color-text-muted);
   cursor: pointer; font-family: inherit; transition: all 150ms;
 }
 .aisp-tab.active { background: var(--color-primary-highlight); border-color: var(--color-primary); color: var(--color-primary); }
@@ -310,7 +310,7 @@
 
 .aisp-input-row { display: flex; align-items: center; gap: 10px; background: var(--color-surface-offset); border-radius: 999px; padding: 12px 16px; margin: 0 20px 14px; flex-shrink: 0; }
 .aisp-input-row svg { width: 18px; height: 18px; color: var(--color-text-muted); flex-shrink: 0; }
-.aisp-input { flex: 1; background: none; border: none; outline: none; font-size: 15px; color: var(--color-text); font-family: inherit; min-width: 0; }
+.aisp-input { flex: 1; background: none; border: none; outline: none; font-size: 15.5px; color: var(--color-text); font-family: inherit; min-width: 0; }
 .aisp-icon-btn { width: 34px; height: 34px; border-radius: 999px; display: flex; align-items: center; justify-content: center; border: none; cursor: pointer; flex-shrink: 0; }
 .aisp-icon-btn svg { width: 16px; height: 16px; }
 .aisp-icon-btn.cam { background: var(--color-purple); }
@@ -319,7 +319,7 @@
 .aisp-icon-btn:disabled { opacity: 0.4; cursor: default; }
 
 .aisp-body { padding-top: 0; }
-.aisp-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--color-text-faint); margin-bottom: 10px; }
+.aisp-label { font-size: 11.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--color-text-faint); margin-bottom: 10px; }
 .aisp-capability { display: flex; align-items: flex-start; gap: 10px; padding: 10px 4px; border-bottom: 1px solid var(--color-divider); }
 .aisp-capability:last-child { border-bottom: none; }
 .aisp-capability .icn {
@@ -329,7 +329,7 @@
 }
 .aisp-capability .icn svg { width: 15px; height: 15px; }
 .aisp-capability strong { display: block; font-size: 13px; font-weight: 700; color: var(--color-text); }
-.aisp-capability span { font-size: 11.5px; color: var(--color-text-muted); line-height: 1.4; }
+.aisp-capability span { font-size: 12px; color: var(--color-text-muted); line-height: 1.4; }
 .aisp-chip-row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 18px; }
 .aisp-chip {
   font-size: 12.5px; font-weight: 600; padding: 8px 14px; border-radius: 999px;
@@ -353,8 +353,8 @@
 .aisp-result-icon { font-size: 18px; width: 32px; text-align: center; flex-shrink: 0; }
 .aisp-result-text { flex: 1; display: flex; flex-direction: column; min-width: 0; }
 .aisp-result-text strong { font-size: 14px; color: var(--color-text); }
-.aisp-result-text small { font-size: 11.5px; color: var(--color-text-muted); }
-.aisp-result-type { font-size: 10.5px; color: var(--color-text-faint); background: var(--color-surface-offset); padding: 3px 8px; border-radius: 999px; flex-shrink: 0; }
+.aisp-result-text small { font-size: 12px; color: var(--color-text-muted); }
+.aisp-result-type { font-size: 11px; color: var(--color-text-faint); background: var(--color-surface-offset); padding: 3px 8px; border-radius: 999px; flex-shrink: 0; }
 .aisp-thinking { display: flex; gap: 5px; padding: 20px 4px; }
 .aisp-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--color-primary); animation: aisp-bounce 1.2s infinite ease-in-out; }
 .aisp-dot:nth-child(2) { animation-delay: .15s; }
@@ -452,7 +452,7 @@
   border-radius: 999px; padding: 10px 14px; min-width: 0;
 }
 .sp-input-icon { width: 16px; height: 16px; color: var(--color-text-muted); flex-shrink: 0; }
-.sp-input { flex: 1; background: none; border: none; outline: none; font-size: 15px; color: var(--color-text); font-family: inherit; min-width: 0; }
+.sp-input { flex: 1; background: none; border: none; outline: none; font-size: 15.5px; color: var(--color-text); font-family: inherit; min-width: 0; }
 .sp-clear {
   width: 24px; height: 24px; border-radius: 999px; border: none; cursor: pointer;
   background: var(--color-divider); color: var(--color-text-muted);
@@ -465,7 +465,7 @@
 }
 .sp-filter-chip {
   display: inline-flex; align-items: center; white-space: nowrap;
-  padding: 7px 13px; border-radius: 999px; font-size: 12.5px; font-weight: 600;
+  padding: 7px 13px; border-radius: 999px; font-size: 13px; font-weight: 600;
   background: var(--color-surface-offset); border: 1px solid var(--color-divider);
   color: var(--color-text-muted); cursor: pointer; font-family: inherit; flex-shrink: 0;
 }
@@ -486,8 +486,8 @@
 .sp-result-icon { font-size: 19px; width: 34px; text-align: center; flex-shrink: 0; }
 .sp-result-text { flex: 1; display: flex; flex-direction: column; min-width: 0; }
 .sp-result-text strong { font-size: 14px; color: var(--color-text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.sp-result-text small { font-size: 11.5px; color: var(--color-text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.sp-result-type { font-size: 10.5px; color: var(--color-text-faint); background: var(--color-surface-offset); padding: 3px 8px; border-radius: 999px; flex-shrink: 0; }
+.sp-result-text small { font-size: 12px; color: var(--color-text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sp-result-type { font-size: 11px; color: var(--color-text-faint); background: var(--color-surface-offset); padding: 3px 8px; border-radius: 999px; flex-shrink: 0; }
 
 /* ═══════════ Fullscreen AI page (v6.76) ═══════════ */
 .aipage-page {

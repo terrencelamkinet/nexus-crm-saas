@@ -240,11 +240,12 @@
    ──────────────────────────────────────────────── */
 
 /* 3a. Segoe UI Variable — Windows 原生字體優先，其他平台自動回落 Space Grotesk/Inter */
+/* v6.77: 加中文 fallback（PingFang HK / Microsoft JhengHei / Noto Sans TC）統一繁中渲染 */
 :root,
 [data-theme="light"],
 [data-theme="dark"] {
-  --font-display: 'Segoe UI Variable Display', 'Space Grotesk', 'General Sans', 'Inter', sans-serif;
-  --font-body: 'Segoe UI Variable Text', 'Inter', 'General Sans', sans-serif;
+  --font-display: 'Segoe UI Variable Display', 'Space Grotesk', 'General Sans', 'Inter', -apple-system, BlinkMacSystemFont, 'PingFang HK', 'Microsoft JhengHei', 'Noto Sans TC', sans-serif;
+  --font-body: 'Segoe UI Variable Text', 'Inter', 'General Sans', -apple-system, BlinkMacSystemFont, 'PingFang HK', 'Microsoft JhengHei', 'Noto Sans TC', sans-serif;
 }
 
 /* 3b. Corner radius 拆分 — 小型控制 4px，卡片 8px */

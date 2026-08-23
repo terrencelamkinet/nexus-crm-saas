@@ -35,8 +35,8 @@
   --color-gold-highlight: #f6ecd2;
   --color-purple: #7350ad;
 
-  --font-display: 'Switzer', 'General Sans', 'Inter', sans-serif;
-  --font-body: 'General Sans', 'Inter', sans-serif;
+  --font-display: 'Switzer', 'General Sans', 'Inter', -apple-system, BlinkMacSystemFont, 'PingFang HK', 'Microsoft JhengHei', 'Noto Sans TC', sans-serif;
+  --font-body: 'General Sans', 'Inter', -apple-system, BlinkMacSystemFont, 'PingFang HK', 'Microsoft JhengHei', 'Noto Sans TC', sans-serif;
 }
 
 /* ═══════════════════════════════════════════
@@ -57,7 +57,7 @@
   --radius-sm: .375rem; --radius-md: .5rem; --radius-lg: .75rem; --radius-xl: 1rem; --radius-full: 9999px;
   --transition-interactive: 150ms cubic-bezier(.2,.8,.2,1); --ease-out: cubic-bezier(.16,1,.3,1);
   --shadow-sm: 0 1px 2px oklch(0.2 0.01 80/.06); --shadow-md: 0 6px 20px oklch(0.2 0.01 80/.09); --shadow-lg: 0 20px 48px oklch(0.2 0.01 80/.16);
-  --font-body: 'General Sans','Inter',sans-serif; --font-display: 'Switzer','General Sans',sans-serif;
+  --font-body: 'General Sans','Inter',-apple-system,BlinkMacSystemFont,'PingFang HK','Microsoft JhengHei','Noto Sans TC',sans-serif; --font-display: 'Switzer','General Sans','Inter',-apple-system,'PingFang HK','Microsoft JhengHei',sans-serif;
   --sidebar-w: 246px; --topbar-h: 56px;
   --space-1:.25rem; --space-2:.5rem; --space-3:.75rem; --space-4:1rem; --space-5:1.25rem; --space-6:1.5rem; --space-8:2rem; --space-10:2.5rem; --space-12:3rem; --space-16:4rem;
 }
@@ -84,7 +84,7 @@
    ═══════════════════════════════════════════ */
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 html{-webkit-font-smoothing:antialiased;scroll-behavior:smooth}
-body{font-family:var(--font-body);background:var(--color-bg);color:var(--color-text);font-size:14.5px;line-height:1.5;min-height:100vh;min-height:100dvh}
+body{font-family:var(--font-body);background:var(--color-bg);color:var(--color-text);font-size:15.5px;line-height:1.5;min-height:100vh;min-height:100dvh}
 /* Window-scroll architecture: body scrolls (no overflow:hidden) so the
    iOS Safari URL bar collapses on every page. Login page keeps its own
    fixed-height scroll container so it is unaffected by app layout. */
@@ -725,7 +725,7 @@ tbody tr:hover .menu-dots{opacity:1}
    ═══════════════════════════════════════════ */
 @media (max-width:480px){
   html{-webkit-text-size-adjust:100%}
-  body{font-size:14px}
+  body{font-size:15px}
   .topbar{padding:0 12px;gap:8px;padding-top:env(safe-area-inset-top);height:calc(var(--topbar-h) + env(safe-area-inset-top))}
   .topbar-hamburger{width:40px;height:40px}
   .icon-btn{width:40px;height:40px}
