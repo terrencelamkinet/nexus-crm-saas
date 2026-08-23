@@ -268,6 +268,14 @@ export default function AiSearchPanel({ open, onClose, onScanCard }: Props) {
     navigate(mode === 'ai' ? '/ai' : '/search');
   };
 
+  /* v6.82: lock background scroll while panel is open */
+  useEffect(() => {
+    if (!open) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => { document.body.style.overflow = prev; };
+  }, [open]);
+
   if (!open) return null;
 
   const goResult = (r: SearchResult) => {

@@ -85,6 +85,8 @@
   z-index: 900;
   display: flex; align-items: flex-end;
   animation: mnav-overlay-in 200ms ease;
+  /* v6.82: contain scroll so wheel/touch at sheet edges never chains to background */
+  overscroll-behavior: contain;
 }
 .aisp-overlay { z-index: 950; background: rgba(15,18,24,0.5); backdrop-filter: blur(2px); }
 .cam-overlay { z-index: 960; }
@@ -101,6 +103,7 @@
   display: flex; flex-direction: column;
   animation: mnav-sheet-in 320ms cubic-bezier(.16,1,.3,1);
   overflow-y: auto;
+  overscroll-behavior: contain;
 }
 .mnav-sheet.tall, .aisp-panel, .cam-panel { max-height: 90%; }
 .mnav-sheet.closing, .aisp-panel.closing, .cam-panel.closing { animation: mnav-sheet-out 200ms ease forwards; }

@@ -233,6 +233,15 @@ const ADD_TILES_BASE = [
 function Sheet({ title, onClose, children, tall = false }: { title: string; onClose: () => void; children: ReactNode; tall?: boolean }) {
   const [closing, setClosing] = useState(false);
 
+  /* v6.82: lock background scroll while sheet is open (same pattern as
+     BottomSheet/ActionPreviewModal — prevents touch scrolling the page
+     behind the sheet) */
+  useEffect(() => {
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => { document.body.style.overflow = prev; };
+  }, []);
+
   const handleClose = () => {
     if (closing) return;
     setClosing(true);

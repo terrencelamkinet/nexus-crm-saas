@@ -86,6 +86,14 @@ export default function CameraScanSheet({ open, onClose, onSaved }: Props) {
     }
   };
 
+  /* v6.82: lock background scroll while camera sheet is open */
+  useEffect(() => {
+    if (!open) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => { document.body.style.overflow = prev; };
+  }, [open]);
+
   if (!open) return null;
 
   const parsed = result?.parsed_data || {};
