@@ -312,11 +312,6 @@
 .aisp-tab-icon { font-size: 14px; }
 
 .aisp-input-row { display: flex; align-items: center; gap: 10px; background: var(--color-surface-offset); border-radius: 999px; padding: 12px 16px; margin: 0 20px 14px; flex-shrink: 0; }
-/* v6.80: panel composer needs bottom nav clearance too — panel is a
-   bottom sheet above the nav, but on devices with home indicator the
-   nav (64px) + safe-area still overlap the composer; give it the same
-   clearance as fullscreen pages */
-.aisp-chat > .aisp-input-row { margin: 0 20px calc(var(--mnav-height) + env(safe-area-inset-bottom) + 10px); }
 .aisp-input-row svg { width: 18px; height: 18px; color: var(--color-text-muted); flex-shrink: 0; }
 .aisp-input { flex: 1; background: none; border: none; outline: none; font-size: 15.5px; color: var(--color-text); font-family: inherit; min-width: 0; }
 .aisp-icon-btn { width: 34px; height: 34px; border-radius: 999px; display: flex; align-items: center; justify-content: center; border: none; cursor: pointer; flex-shrink: 0; }
