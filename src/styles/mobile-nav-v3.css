@@ -417,6 +417,12 @@
 @media (max-width: 768px) {
   .nx2-content { padding-bottom: calc(var(--mnav-height) + 24px) !important; }
   .nx2-main { min-height: 0; }
+  /* v6.78: fullscreen pages (/search /ai) have their own sticky header +
+     own bottom clearance — strip nx2-content padding so they truly fill
+     the viewport (18px top padding was pushing them down → bottom clipped
+     by bottom nav) */
+  .nx2-content:has(.sp-page),
+  .nx2-content:has(.aipage-page) { padding: 0 !important; }
   /* AI entry on mobile = center nav button; hide the floating FAB so it
      never overlaps the bottom nav (v6.69 Playwright probe 實證 intercepts) */
   #ai-fab, .cb-fab { display: none !important; }
