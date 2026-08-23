@@ -414,13 +414,20 @@
 .cam-actions .retake { background: var(--color-surface-offset); color: var(--color-text); border: 1px solid var(--color-border); }
 
 /* Content clearance so fixed nav never covers content */
+/* v6.79: fullscreen pages fill nx2-content as a flex column (all
+   viewports) so their inner scroll areas (sp-body / aisp-msg-area)
+   own the scroll — previously min-height:100dvh let the page grow
+   with content, pushing the composer/scroller out of view */
+.nx2-content:has(.sp-page),
+.nx2-content:has(.aipage-page) {
+  display: flex;
+  flex-direction: column;
+}
 @media (max-width: 768px) {
   .nx2-content { padding-bottom: calc(var(--mnav-height) + 24px) !important; }
   .nx2-main { min-height: 0; }
-  /* v6.78: fullscreen pages (/search /ai) have their own sticky header +
-     own bottom clearance — strip nx2-content padding so they truly fill
-     the viewport (18px top padding was pushing them down → bottom clipped
-     by bottom nav) */
+  /* mobile: fullscreen pages have own sticky header + bottom clearance —
+     strip nx2-content padding so they truly fill the viewport */
   .nx2-content:has(.sp-page),
   .nx2-content:has(.aipage-page) { padding: 0 !important; }
   /* AI entry on mobile = center nav button; hide the floating FAB so it
@@ -436,8 +443,11 @@
 }
 
 /* ═══════════ Fullscreen Search page (v6.75) ═══════════ */
+/* v6.79: flex:1 + min-height:0 — fills nx2-content (flex column) instead
+   of min-height:100dvh which let the page grow with long content */
 .sp-page {
-  min-height: 100dvh; display: flex; flex-direction: column;
+  flex: 1; min-height: 0; width: 100%;
+  display: flex; flex-direction: column;
   background: var(--color-bg); max-width: 720px; margin: 0 auto;
 }
 .sp-head {
@@ -496,8 +506,11 @@
 .sp-result-type { font-size: 11px; color: var(--color-text-faint); background: var(--color-surface-offset); padding: 3px 8px; border-radius: 999px; flex-shrink: 0; }
 
 /* ═══════════ Fullscreen AI page (v6.76) ═══════════ */
+/* v6.79: flex:1 + min-height:0 — fills nx2-content (flex column) instead
+   of min-height:100dvh which let the page grow with long content */
 .aipage-page {
-  min-height: 100dvh; display: flex; flex-direction: column;
+  flex: 1; min-height: 0; width: 100%;
+  display: flex; flex-direction: column;
   background: var(--color-bg); max-width: 720px; margin: 0 auto;
 }
 .aipage-head {
