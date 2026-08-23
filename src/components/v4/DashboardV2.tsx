@@ -379,6 +379,8 @@ export default function DashboardV2() {
   const [aiLayers, setAiLayers] = useState<any>(null)
   // v6.95: AI 整合摘要（置頂 — briefing 4 次/日預生成，跟用戶語言）
   const [aiSummary, setAiSummary] = useState('')
+  // v6.96: briefing 最後生成時間（4 次/日，唔係即時更新）
+  const [aiGenAt, setAiGenAt] = useState('')
   // v6.94: calendar awareness — AI 主動提問（pending questions 輪播）
   const [pendingQs, setPendingQs] = useState<any[]>([])
   const [pqIndex, setPqIndex] = useState(0)
@@ -544,6 +546,7 @@ export default function DashboardV2() {
       if (d?.weather && typeof d.weather === 'object') setAiWeather(d.weather)
       // v6.95: AI 整合摘要（置頂）
       if (d?.summary) setAiSummary(d.summary)
+      if (d?.generated_at) setAiGenAt(d.generated_at)
       // v6.92: layered card data (Layer 1-4) — when present, render the new
       // layered design; markdown sections remain as fallback.
       if (d?.layers && Object.keys(d.layers).length) setAiLayers(d.layers)
@@ -792,7 +795,11 @@ export default function DashboardV2() {
           >
             <div className="dv2-widget-title"><Sparkles size={15} className="dv2-ai-spark" /> {t('dashboard.aiInsight', { defaultValue: 'AI 洞察摘要' })}</div>
             <span className="dv2-ai-toggle-right">
-              <span className="dv2-widget-badge">{t('dashboard.liveUpdated', { defaultValue: '即時更新' })}</span>
+              <span className="dv2-widget-badge">
+                {aiGenAt
+                  ? `每日 4 次更新 · ${new Date(aiGenAt).toLocaleTimeString(i18n.language, { hour: '2-digit', minute: '2-digit' })}`
+                  : t('dashboard.dailyUpdates', { defaultValue: '每日 4 次更新' })}
+              </span>
               <ChevronDown size={16} className={`dv2-ai-chevron ${aiExpanded ? 'open' : ''}`} />
             </span>
           </button>
