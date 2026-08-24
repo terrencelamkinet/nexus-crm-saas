@@ -872,7 +872,7 @@ export default function ChatboxPanel() {
                   title={t('chat.agentSwitcher')}
                   aria-label={t('chat.agentSwitcher')}
                 >
-                  <option value="">預設助手</option>
+                  <option value="">{t('chat.defaultAssistant', { defaultValue: '預設助手' })}</option>
                   {agents.map(a => (
                     <option key={a.id} value={a.id}>{a.name}</option>
                   ))}
@@ -924,7 +924,7 @@ export default function ChatboxPanel() {
           <div className="nxc-secretary-banner">
             <span className="nxc-secretary-greeting">{getGreeting(secretary)} 👋</span>
             {!isWithinWorkHours(secretary) && (
-              <span className="nxc-secretary-note">目前非工作時間，AI 仍會即時回覆，但同事可能稍後跟進。</span>
+              <span className="nxc-secretary-note">{t('chat.offHoursNote', { defaultValue: '目前非工作時間，AI 仍會即時回覆，但同事可能稍後跟進。' })}</span>
             )}
             <button className="nxc-banner-close" onClick={() => setShowBanner(false)} aria-label={t('common.close')}>
               <SvcIcon name="x" size={12} />
@@ -1094,7 +1094,7 @@ export default function ChatboxPanel() {
             {activeContext && (
               <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 12px', fontSize: 12, color: 'var(--color-primary, #146EF5)', background: 'rgba(20,110,245,0.08)', borderRadius: 8, margin: '0 12px 6px', flexShrink: 0 }}>
                 <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>📎 正在討論: {activeContext.name}</span>
-                <button onClick={() => setActiveContext(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, color: 'inherit', padding: '0 2px', lineHeight: 1 }} aria-label="清除上下文">✕</button>
+                <button onClick={() => setActiveContext(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, color: 'inherit', padding: '0 2px', lineHeight: 1 }} aria-label={t('chat.clearContext', { defaultValue: '清除上下文' })}>✕</button>
               </div>
             )}
             <div onPointerDown={(e) => {

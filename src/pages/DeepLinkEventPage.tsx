@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { apiClient } from '../lib/api';
+import { useTranslation } from 'react-i18next';
 
 interface CalendarEvent {
   id: string;
@@ -22,6 +23,7 @@ interface CalendarEvent {
  * prep card degrades gracefully to event info + quick log.
  */
 export default function DeepLinkEventPage({ mode }: { mode: 'prep' | 'note' }) {
+  const { t } = useTranslation();
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [event, setEvent] = useState<CalendarEvent | null>(null);
@@ -78,9 +80,7 @@ export default function DeepLinkEventPage({ mode }: { mode: 'prep' | 'note' }) {
 
   if (loading) {
     return (
-      <div style={{ padding: 40, textAlign: 'center', color: '#64748b', fontSize: 14 }}>
-        載入中…
-      </div>
+      <div style={{ padding: 40, textAlign: 'center', color: '#64748b', fontSize: 14 }}>{t('common.loading', { defaultValue: '載入中…' })}</div>
     );
   }
 
@@ -88,13 +88,9 @@ export default function DeepLinkEventPage({ mode }: { mode: 'prep' | 'note' }) {
     return (
       <div style={{ padding: 40, textAlign: 'center' }}>
         <div style={{ fontSize: 40, marginBottom: 12 }}>🔍</div>
-        <div style={{ fontWeight: 600, marginBottom: 8 }}>找不到這個會議</div>
-        <div style={{ color: '#64748b', fontSize: 13, marginBottom: 20 }}>
-          活動可能已刪除，或你冇權限查看。
-        </div>
-        <button className="quick-submit" onClick={() => navigate('/dashboard', { replace: true })}>
-          返回 Dashboard
-        </button>
+        <div style={{ fontWeight: 600, marginBottom: 8 }}>{t('deeplink.eventNotFound', { defaultValue: '找不到這個會議' })}</div>
+        <div style={{ color: '#64748b', fontSize: 13, marginBottom: 20 }}>{t('deeplink.eventMissing', { defaultValue: '活動可能已刪除，或你冇權限查看。' })}</div>
+        <button className="quick-submit" onClick={() => navigate('/dashboard', { replace: true })}>{t('deeplink.backToDashboard', { defaultValue: '返回 Dashboard' })}</button>
       </div>
     );
   }
@@ -123,9 +119,7 @@ export default function DeepLinkEventPage({ mode }: { mode: 'prep' | 'note' }) {
         <div style={{
           background: '#fff7ed', border: '1px solid #fed7aa', borderRadius: 12,
           padding: '12px 14px', fontSize: 13, color: '#9a3412', marginBottom: 16,
-        }}>
-          偵測到你今日開咗呢個會，但 CRM 未有紀錄。用下面表單 30 秒留底 👇
-        </div>
+        }}>{t('deeplink.detectedMeeting', { defaultValue: '偵測到你今日開咗呢個會，但 CRM 未有紀錄。用下面表單 30 秒留底 👇' })}</div>
       )}
 
       {/* Quick touchpoint logger */}
@@ -134,7 +128,7 @@ export default function DeepLinkEventPage({ mode }: { mode: 'prep' | 'note' }) {
         padding: 16, boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
       }}>
         <div className="quick-field">
-          <label>類型</label>
+          <label>{t('common.type', { defaultValue: '類型' })}</label>
           <select value={type} onChange={(e) => setType(e.target.value)}>
             {['meeting', 'call', 'email', 'demo', 'follow-up', 'quote', 'other'].map((t) => (
               <option key={t} value={t}>{t}</option>
@@ -142,15 +136,15 @@ export default function DeepLinkEventPage({ mode }: { mode: 'prep' | 'note' }) {
           </select>
         </div>
         <div className="quick-field">
-          <label>標題 *</label>
-          <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="會議 / 跟進事項" />
+          <label>{t('contacts.detail.titleRequired', { defaultValue: '標題 *' })}</label>
+          <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder={t('deeplink.titlePlaceholder', { defaultValue: '會議 / 跟進事項' })} />
         </div>
         <div className="quick-field">
-          <label>內容</label>
+          <label>{t('common.content', { defaultValue: '內容' })}</label>
           <textarea
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
-            placeholder="記低會議重點、跟進事項…"
+            placeholder={t('deeplink.notesPlaceholder', { defaultValue: '記低會議重點、跟進事項…' })}
             rows={3}
           />
         </div>
@@ -169,9 +163,7 @@ export default function DeepLinkEventPage({ mode }: { mode: 'prep' | 'note' }) {
             width: '100%', marginTop: 8, padding: '10px 0', background: 'none',
             border: 'none', color: '#64748b', fontSize: 13, cursor: 'pointer',
           }}
-        >
-          返回 Dashboard
-        </button>
+        >{t('deeplink.backToDashboard', { defaultValue: '返回 Dashboard' })}</button>
       </div>
     </div>
   );

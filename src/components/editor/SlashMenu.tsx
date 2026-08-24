@@ -1,5 +1,6 @@
 import { forwardRef, useEffect, useImperativeHandle, useState } from 'react'
 import { Heading1, Heading2, Heading3, ListOrdered, ListChecks, Quote, Minus, Table as TableIcon, Code2, FileText, ImageIcon, List, Sparkles } from 'lucide-react'
+import { useTranslation } from 'react-i18next';
 
 export interface SlashItem { id: string; label: string; sub: string; group: string }
 
@@ -12,12 +13,14 @@ const ICONS: Record<string, any> = {
 interface SlashMenuProps { items: SlashItem[]; command: (item: SlashItem) => void }
 
 const SlashMenu = forwardRef((props: SlashMenuProps, ref) => {
+  const { t } = useTranslation()
   const [selected, setSelected] = useState(0)
   useEffect(() => setSelected(0), [props.items])
 
   useImperativeHandle(ref, () => ({
     onKeyDown: ({ event }: { event: KeyboardEvent }) => {
-      if (event.key === 'ArrowUp') { setSelected(s => (s + props.items.length - 1) % props.items.length); return true }
+      if (event.key === 'ArrowUp') {
+  setSelected(s => (s + props.items.length - 1) % props.items.length); return true }
       if (event.key === 'ArrowDown') { setSelected(s => (s + 1) % props.items.length); return true }
       if (event.key === 'Enter') { props.command(props.items[selected]); return true }
       return false
@@ -26,7 +29,7 @@ const SlashMenu = forwardRef((props: SlashMenuProps, ref) => {
 
   const groups = Array.from(new Set(props.items.map(i => i.group)))
 
-  if (!props.items.length) return <div className="nxe-slash-menu"><div className="nxe-slash-group-label">冇匹配結果</div></div>
+  if (!props.items.length) return <div className="nxe-slash-menu"><div className="nxe-slash-group-label">{t('chat.slashNoMatch', { defaultValue: '冇匹配結果' })}</div></div>
 
   return (
     <div className="nxe-slash-menu">

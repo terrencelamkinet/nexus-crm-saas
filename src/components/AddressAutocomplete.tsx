@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { apiClient } from '../lib/api';
+import { useTranslation } from 'react-i18next';
 
 /**
  * AddressAutocomplete — 地址輸入 + 自動完成（v6.67）
@@ -23,6 +24,7 @@ interface Props {
 }
 
 export default function AddressAutocomplete({ value, onChange, onSelect, placeholder, lang = 'zh-Hant' }: Props) {
+  const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const [items, setItems] = useState<GeoSuggestion[]>([]);
   const [loading, setLoading] = useState(false);
@@ -107,7 +109,7 @@ export default function AddressAutocomplete({ value, onChange, onSelect, placeho
           ))}
         </ul>
       )}
-      {err && <p className="asec-addr-err">地址搜尋暫時不可用，可以直接輸入地址</p>}
+      {err && <p className="asec-addr-err">{t('common.addressSearchUnavailable', { defaultValue: '地址搜尋暫時不可用，可以直接輸入地址' })}</p>}
     </div>
   );
 }

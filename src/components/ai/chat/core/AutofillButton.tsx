@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import SvcIcon from '../../../../components/SvcIcon'
+import { useTranslation } from 'react-i18next';
 
 /* ═══════════════════════════════════════════════════════════
    AutofillButton — mirrors Notion AI Database Autofill: reads
@@ -14,6 +15,7 @@ export default function AutofillButton({ mode = 'summary', onRun }: {
   mode?: AutofillMode
   onRun: (mode: AutofillMode) => Promise<void>
 }) {
+  const { t } = useTranslation();
   const [state, setState] = useState<'idle' | 'running' | 'done'>('idle')
 
   const handleClick = async () => {
@@ -25,9 +27,9 @@ export default function AutofillButton({ mode = 'summary', onRun }: {
 
   return (
     <button className={`nca-autofill-btn ${state}`} onClick={handleClick} disabled={state === 'running'}>
-      {state === 'idle' && <><SvcIcon name="sparkles" size={12} /> AI 填寫</>}
-      {state === 'running' && <><SvcIcon name="loader-2" size={12} className="nca-spin" /> 生成中…</>}
-      {state === 'done' && <><SvcIcon name="check" size={12} /> 已完成</>}
+      {state === 'idle' && <><SvcIcon name="sparkles" size={12} />{t('ai.autofill', { defaultValue: 'AI 填寫' })}</>}
+      {state === 'running' && <><SvcIcon name="loader-2" size={12} className="nca-spin" />{t('ai.generating', { defaultValue: '生成中…' })}</>}
+      {state === 'done' && <><SvcIcon name="check" size={12} />{t('ai.completed', { defaultValue: '已完成' })}</>}
     </button>
   )
 }

@@ -23,6 +23,7 @@ import { SlashCommand, executeSlashCommand, SLASH_ITEMS } from './SlashCommand'
 import type { SlashItem } from './SlashMenu'
 import { useMobile } from './useMobile'
 import { useHardwareKeyboard } from './useHardwareKeyboard'
+import { useTranslation } from 'react-i18next';
 
 /* ═══════════════════════════════════════════════════════════
    NexusEditor v2 — Notion-grade block editor for CRM records.
@@ -105,9 +106,11 @@ function loadCustomHl(): string[] {
 }
 
 export default function NexusEditor({
-  content = '', onChange, onSave, placeholder = '輸入內容，或按 "/" 開啟快速選單，"⌘+J" 呼叫 AI…',
+  content = '', onChange, onSave, placeholder: placeholderProp,
   autosaveMs = 1500, minHeight = 180, entityContext,
 }: NexusEditorProps) {
+  const { t } = useTranslation();
+  const placeholder = placeholderProp ?? t('editor.placeholder', { defaultValue: '輸入內容，或按 "/" 開啟快速選單，"⌘+J" 呼叫 AI…' });
   const { showToast } = useToast()
   const isMobileViewport = useMobile(720)
   const hasHardwareKeyboard = useHardwareKeyboard()
@@ -536,13 +539,13 @@ export default function NexusEditor({
 
           <div className="nxe-tb-spacer" />
           {hasHardwareKeyboard && isMobileViewport && (
-            <span className="nxe-hwkb-badge"><Keyboard size={11} /> 已連接實體鍵盤</span>
+            <span className="nxe-hwkb-badge"><Keyboard size={11} />{t('editor.hardwareKeyboard', { defaultValue: '已連接實體鍵盤' })}</span>
           )}
           <span className="nxe-tb-wordcount">{wordCount} 字 · {readingMin} 分鐘閱讀</span>
 
           <div style={{ position: 'relative' }} ref={aiMenuRef}>
             <button className="nxe-ai-btn" onClick={() => setAiMenuOpen(v => !v)}>
-              <SvcIcon name="sparkles" size={13} /> AI 助手 <SvcIcon name="chevron-down" size={12} />
+              <SvcIcon name="sparkles" size={13} />{t('editor.aiAssistant', { defaultValue: 'AI 助手' })}<SvcIcon name="chevron-down" size={12} />
             </button>
             {aiMenuOpen && (
               <div className="nxe-ai-menu" style={{ right: 0 }}>
@@ -568,7 +571,7 @@ export default function NexusEditor({
         <div className="nxe-bubble-menu" style={{ position: 'fixed', left: selectionBubble.x, top: selectionBubble.y, zIndex: 50 }} ref={bubbleRef}>
           <button className={`nxe-bubble-btn ${editor.isActive('bold') ? 'active' : ''}`} onClick={() => { editor.chain().focus().toggleBold().run(); hideBubbleAfterAction() }}><Bold size={13} /></button>
           <button className={`nxe-bubble-btn ${editor.isActive('italic') ? 'active' : ''}`} onClick={() => { editor.chain().focus().toggleItalic().run(); hideBubbleAfterAction() }}><Italic size={13} /></button>
-          <button className={`nxe-bubble-btn ${editor.isActive('highlight') ? 'active' : ''}`} title="Highlight 顏色" onClick={openHlRadial}><Highlighter size={13} /></button>
+          <button className={`nxe-bubble-btn ${editor.isActive('highlight') ? 'active' : ''}`} title={t('editor.highlightColor', { defaultValue: 'Highlight 顏色' })} onClick={openHlRadial}><Highlighter size={13} /></button>
           <button className="nxe-bubble-btn" onClick={openLinkPopover}><LinkIcon size={13} /></button>
           <div className="nxe-tb-divider" />
           <button className="nxe-bubble-ai-btn" onClick={() => setAiBubbleOpen(v => !v)}><SvcIcon name="sparkles" size={12} /> AI</button>
@@ -630,20 +633,20 @@ export default function NexusEditor({
 
         {blockMenuOpen && (
           <div className="nxe-block-context-menu" ref={blockMenuRef} style={{ left: 46, top: 40 }}>
-            <div className="nxe-bcm-item" onClick={duplicateBlock}><SvcIcon name="copy" size={14} /> 複製區塊</div>
-            <div className="nxe-bcm-item" onClick={copyBlockLink}><SvcIcon name="link-2" size={14} /> 複製連結</div>
+            <div className="nxe-bcm-item" onClick={duplicateBlock}><SvcIcon name="copy" size={14} />{t('editor.duplicateBlock', { defaultValue: '複製區塊' })}</div>
+            <div className="nxe-bcm-item" onClick={copyBlockLink}><SvcIcon name="link-2" size={14} />{t('editor.copyLink', { defaultValue: '複製連結' })}</div>
             <div className="nxe-bcm-sep" />
-            <div className="nxe-bcm-item" onClick={() => turnBlockInto('paragraph')}><ArrowRightLeft size={14} /> 轉為段落</div>
-            <div className="nxe-bcm-item" onClick={() => turnBlockInto('heading1')}><Heading1 size={14} /> 轉為大標題</div>
-            <div className="nxe-bcm-item" onClick={() => turnBlockInto('taskList')}><ListChecks size={14} /> 轉為待辦</div>
-            <div className="nxe-bcm-item" onClick={() => setColorSubmenuOpen(v => !v)}><Palette size={14} /> 顏色</div>
+            <div className="nxe-bcm-item" onClick={() => turnBlockInto('paragraph')}><ArrowRightLeft size={14} />{t('editor.toParagraph', { defaultValue: '轉為段落' })}</div>
+            <div className="nxe-bcm-item" onClick={() => turnBlockInto('heading1')}><Heading1 size={14} />{t('editor.toHeading', { defaultValue: '轉為大標題' })}</div>
+            <div className="nxe-bcm-item" onClick={() => turnBlockInto('taskList')}><ListChecks size={14} />{t('editor.toTodo', { defaultValue: '轉為待辦' })}</div>
+            <div className="nxe-bcm-item" onClick={() => setColorSubmenuOpen(v => !v)}><Palette size={14} />{t('editor.color', { defaultValue: '顏色' })}</div>
             {colorSubmenuOpen && (
               <div className="nxe-bcm-colors">
                 {BLOCK_COLORS.map(c => <button key={c} className="nxe-bcm-color-swatch" style={{ background: c }} onClick={() => applyBlockColor(c)} />)}
               </div>
             )}
             <div className="nxe-bcm-sep" />
-            <div className="nxe-bcm-item danger" onClick={deleteBlock}><SvcIcon name="trash-2" size={14} /> 刪除區塊</div>
+            <div className="nxe-bcm-item danger" onClick={deleteBlock}><SvcIcon name="trash-2" size={14} />{t('editor.deleteBlock', { defaultValue: '刪除區塊' })}</div>
           </div>
         )}
       </div>
@@ -694,7 +697,7 @@ export default function NexusEditor({
               style={{ position: 'fixed', left: cx, top: cy, zIndex: 60 }}
               onMouseDown={(e) => e.stopPropagation()}>
               {/* 中心：移除 highlight */}
-              <button className="nxe-hl-center" title="移除 Highlight" onClick={clearHl}><SvcIcon name="x" size={13} /></button>
+              <button className="nxe-hl-center" title={t('editor.removeHighlight', { defaultValue: '移除 Highlight' })} onClick={clearHl}><SvcIcon name="x" size={13} /></button>
               {/* 8 格環：7 色 + edit */}
               {Array.from({ length: HL_RADIAL_SLOTS }).map((_, i) => {
                 const angle = -Math.PI / 2 + (i * 2 * Math.PI) / HL_RADIAL_SLOTS
@@ -710,7 +713,7 @@ export default function NexusEditor({
                   )
                 }
                 return (
-                  <button key="edit" title="自訂顏色"
+                  <button key="edit" title={t('editor.customColor', { defaultValue: '自訂顏色' })}
                     className="nxe-hl-radial-slot nxe-hl-radial-edit"
                     style={{ left, top }}
                     onClick={(e) => { e.stopPropagation(); setHlEditOpen(v => !v) }}>
@@ -733,7 +736,7 @@ export default function NexusEditor({
               {hlEditOpen && (
                 <div className="nxe-hl-edit-pop" onClick={(e) => e.stopPropagation()}>
                   <input type="color" value={hlNewColor} onChange={(e) => setHlNewColor(e.target.value)} />
-                  <button className="nxe-hl-edit-add" onClick={addCustomHlColor}><SvcIcon name="check" size={12} /> 加入</button>
+                  <button className="nxe-hl-edit-add" onClick={addCustomHlColor}><SvcIcon name="check" size={12} />{t('editor.add', { defaultValue: '加入' })}</button>
                 </div>
               )}
             </div>
@@ -765,7 +768,7 @@ export default function NexusEditor({
             {saveState === 'saving' ? '正在儲存…' : saveState === 'saved' ? '已儲存' : '準備就緒'}
           </div>
           <div className="nxe-footer-hint">
-            <kbd>⌘⇧↑↓</kbd> 移動區塊 · <kbd>/</kbd> 插入 · <kbd>⌘J</kbd> AI
+            <kbd>⌘⇧↑↓</kbd>{t('editor.moveBlock', { defaultValue: '移動區塊 ·' })}<kbd>/</kbd>{t('editor.insert', { defaultValue: '插入 ·' })}<kbd>⌘J</kbd> AI
           </div>
         </div>
       )}

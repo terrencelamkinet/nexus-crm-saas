@@ -30,7 +30,7 @@ export default function MobileBottomNav({ onOpenAiSearch, onScanCard, onQuickAdd
   const navigate = useNavigate();
   const location = useLocation();
   const { user, logout } = useAuth();
-  const addTiles = ADD_TILES_BASE;
+  const addTiles = ADD_TILES_BASE.map(tile => ({ ...tile, label: t(tile.labelKey, { defaultValue: tile.label }) }));
   const [sheet, setSheet] = useState<'workspace' | 'record' | 'add' | 'settings' | null>(null);
   const [dark, setDark] = useState(() => document.documentElement.getAttribute('data-theme') === 'dark');
   const [notifications, setNotifications] = useState<{ id: string; title: string; body?: string; status?: string }[]>([]);
@@ -111,31 +111,31 @@ export default function MobileBottomNav({ onOpenAiSearch, onScanCard, onQuickAdd
     <>
       <nav className="mnav-bar" role="navigation" aria-label="Primary">
         <button type="button" className={`mnav-item ${activeTab === 'workspace' ? 'active' : ''}`} onClick={() => setSheet('workspace')}>
-          <SvcIcon name="layout-dashboard" /><span>工作區</span>
+          <SvcIcon name="layout-dashboard" /><span>{t('nav.workspace', { defaultValue: '工作區' })}</span>
         </button>
         <button type="button" className={`mnav-item ${activeTab === 'records' ? 'active' : ''}`} onClick={() => setSheet('record')}>
-          <SvcIcon name="file-text" /><span>紀錄</span>
+          <SvcIcon name="file-text" /><span>{t('nav.records', { defaultValue: '紀錄' })}</span>
         </button>
         <div className="mnav-center-wrap">
           <button type="button" className="mnav-center-btn" onClick={onOpenAiSearch} aria-label="AI assistant and search">
             <SvcIcon name="sparkles" />
           </button>
-          <span>AI &amp; 搜尋</span>
+          <span>{t('mobile.aiSearch', { defaultValue: 'AI & 搜尋' })}</span>
         </div>
         <button type="button" className="mnav-item" onClick={() => setSheet('add')}>
-          <SvcIcon name="plus" /><span>新增</span>
+          <SvcIcon name="plus" /><span>{t('common.add', { defaultValue: '新增' })}</span>
         </button>
         <button type="button" className={`mnav-item ${activeTab === 'settings' ? 'active' : ''}`} onClick={() => setSheet('settings')}>
           <SvcIcon name="settings" />
-          <span>設定</span>
+          <span>{t('nav.settings', { defaultValue: '設定' })}</span>
           {unreadCount > 0 && <span className="mnav-badge">{unreadCount > 9 ? '9+' : unreadCount}</span>}
         </button>
       </nav>
 
       {/* ── 工作區 sheet（= sidebar 工作區選項）── */}
       {sheet === 'workspace' && (
-        <Sheet title="工作區" onClose={() => setSheet(null)}>
-          <div className="mnav-section-label">Workspace</div>
+        <Sheet title={t('nav.workspace', { defaultValue: '工作區' })} onClose={() => setSheet(null)}>
+          <div className="mnav-section-label">{t('nav.workspace', { defaultValue: 'Workspace' })}</div>
           {workspaceItems.map(item => (
             <button key={item.to} type="button" className={`mnav-row ${isActive(item.to) ? 'active' : ''}`} onClick={() => go(item.to)}>
               <span className="mnav-row-icon mnav-row-icon-neutral"><item.icon /></span>
@@ -148,8 +148,8 @@ export default function MobileBottomNav({ onOpenAiSearch, onScanCard, onQuickAdd
 
       {/* ── 紀錄 sheet（= sidebar 記錄選項）── */}
       {sheet === 'record' && (
-        <Sheet title="紀錄" onClose={() => setSheet(null)}>
-          <div className="mnav-section-label">Records</div>
+        <Sheet title={t('nav.records', { defaultValue: '紀錄' })} onClose={() => setSheet(null)}>
+          <div className="mnav-section-label">{t('nav.records', { defaultValue: 'Records' })}</div>
           {recordItems.map(item => (
             <button key={item.to} type="button" className={`mnav-row ${isActive(item.to) ? 'active' : ''}`} onClick={() => go(item.to)}>
               <span className="mnav-row-icon mnav-row-icon-neutral"><item.icon /></span>
@@ -162,13 +162,13 @@ export default function MobileBottomNav({ onOpenAiSearch, onScanCard, onQuickAdd
 
       {/* ── 新增 sheet ── */}
       {sheet === 'add' && (
-        <Sheet title="Add New" onClose={() => setSheet(null)}>
+        <Sheet title={t('mobile.addNew', { defaultValue: 'Add New' })} onClose={() => setSheet(null)}>
           <button type="button" className="mnav-scan-banner" onClick={() => { setSheet(null); onScanCard(); }}>
             <span className="mnav-scan-banner-icon"><SvcIcon name="scan-line" /></span>
-            <span className="txt"><strong>拍卡片自動入庫</strong><span>用鏡頭掃描名片，AI 自動識別並存為聯絡人</span></span>
+            <span className="txt"><strong>{t('mobile.autoCardImport', { defaultValue: '拍卡片自動入庫' })}</strong><span>{t('mobile.scanCardDesc', { defaultValue: '用鏡頭掃描名片，AI 自動識別並存為聯絡人' })}</span></span>
             <SvcIcon name="chevron-right" className="chev" />
           </button>
-          <div className="mnav-section-label">Quick Create</div>
+          <div className="mnav-section-label">{t('mobile.quickCreate', { defaultValue: 'Quick Create' })}</div>
           <div className="mnav-add-grid">
             {addTiles.map(tile => (
               <button key={tile.id} type="button" className="mnav-add-tile" onClick={() => { setSheet(null); onQuickAdd(tile.id); }}>
@@ -182,7 +182,7 @@ export default function MobileBottomNav({ onOpenAiSearch, onScanCard, onQuickAdd
 
       {/* ── 設定 sheet（= sidebar 組織 + top bar：黑白轉/個人/通知）── */}
       {sheet === 'settings' && (
-        <Sheet title="設定" onClose={() => setSheet(null)} tall>
+        <Sheet title={t('nav.settings', { defaultValue: '設定' })} onClose={() => setSheet(null)} tall>
           {/* 個人頁面（top bar user menu → profile） */}
           <button type="button" className="mnav-org-profile" onClick={() => go('/settings')} style={{ width: '100%', textAlign: 'left', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit' }}>
             <span className="mnav-org-avatar">{(user?.displayName || user?.email || 'U')[0].toUpperCase()}</span>
@@ -194,10 +194,10 @@ export default function MobileBottomNav({ onOpenAiSearch, onScanCard, onQuickAdd
           </button>
 
           {/* 通知（top bar bell） */}
-          <div className="mnav-section-label">通知</div>
+          <div className="mnav-section-label">{t('nav.notifications', { defaultValue: '通知' })}</div>
           <button type="button" className="mnav-org-row" onClick={() => go('/notifications')}>
-            <SvcIcon name="bell" /><span>通知</span>
-            {unreadCount > 0 && <span className="mnav-notif-count">{unreadCount} 則新</span>}
+            <SvcIcon name="bell" /><span>{t('nav.notifications', { defaultValue: '通知' })}</span>
+            {unreadCount > 0 && <span className="mnav-notif-count">{t('mobile.newNotifs', { count: unreadCount, defaultValue: '{{count}} 則新' })}</span>}
             <SvcIcon name="chevron-right" className="chev" />
           </button>
           {notifications.length > 0 && (
@@ -212,7 +212,7 @@ export default function MobileBottomNav({ onOpenAiSearch, onScanCard, onQuickAdd
           )}
 
           {/* 組織（sidebar organization） */}
-          <div className="mnav-section-label">Organization</div>
+          <div className="mnav-section-label">{t('nav.organization', { defaultValue: 'Organization' })}</div>
           {settingsItems.map(item => (
             <button key={item.to} type="button" className="mnav-org-row" onClick={() => go(item.to)}>
               <item.icon /><span>{item.label}</span><SvcIcon name="chevron-right" className="chev" />
@@ -220,35 +220,35 @@ export default function MobileBottomNav({ onOpenAiSearch, onScanCard, onQuickAdd
           ))}
 
           {/* v6.94: AI 管家設定 4 開關 */}
-          <div className="mnav-section-label">AI 管家</div>
+          <div className="mnav-section-label">{t('mobile.aiButler', { defaultValue: 'AI 管家' })}</div>
           <button type="button" className="mnav-org-row" onClick={toggleBriefing}>
-            <SvcIcon name="sparkles" /><span>每日 Briefing</span>
+            <SvcIcon name="sparkles" /><span>{t('mobile.dailyBriefing', { defaultValue: '每日 Briefing' })}</span>
             <span className={`mnav-switch ${briefingOn ? 'on' : ''}`} onClick={e => { e.stopPropagation(); toggleBriefing(); }} />
           </button>
           <button type="button" className="mnav-org-row" onClick={toggleCalAwareness}>
-            <SvcIcon name="calendar" /><span>行事曆主動提問</span>
+            <SvcIcon name="calendar" /><span>{t('mobile.calendarProactive', { defaultValue: '行事曆主動提問' })}</span>
             <span className={`mnav-switch ${secSettings?.calendar_awareness ? 'on' : ''}`} onClick={e => { e.stopPropagation(); toggleCalAwareness(); }} />
           </button>
           <button type="button" className="mnav-org-row" onClick={toggleWeekendMute}>
-            <SvcIcon name="moon" /><span>週末靜音</span>
+            <SvcIcon name="moon" /><span>{t('mobile.weekendSilent', { defaultValue: '週末靜音' })}</span>
             <span className={`mnav-switch ${secSettings?.weekend_mute ? 'on' : ''}`} onClick={e => { e.stopPropagation(); toggleWeekendMute(); }} />
           </button>
           <button type="button" className="mnav-org-row" onClick={toggleStrictSilence}>
-            <SvcIcon name="bell" /><span>嚴格靜音</span>
+            <SvcIcon name="bell" /><span>{t('mobile.strictSilent', { defaultValue: '嚴格靜音' })}</span>
             <span className={`mnav-switch ${secSettings?.strict_silence ? 'on' : ''}`} onClick={e => { e.stopPropagation(); toggleStrictSilence(); }} />
           </button>
 
           {/* 外觀（top bar 黑白轉） */}
-          <div className="mnav-section-label">外觀</div>
+          <div className="mnav-section-label">{t('settings.appearance', { defaultValue: '外觀' })}</div>
           <button type="button" className="mnav-org-row" onClick={toggleTheme}>
-            <SvcIcon name="moon" /><span>Dark Mode</span>
+            <SvcIcon name="moon" /><span>{t('mobile.darkMode', { defaultValue: 'Dark Mode' })}</span>
             <span className={`mnav-switch ${dark ? 'on' : ''}`} onClick={e => e.stopPropagation()} />
           </button>
 
           {/* 帳戶 */}
-          <div className="mnav-section-label">帳戶</div>
+          <div className="mnav-section-label">{t('settings.account', { defaultValue: '帳戶' })}</div>
           <button type="button" className="mnav-org-row" onClick={() => { setSheet(null); logout(); }}>
-            <SvcIcon name="log-out" /><span style={{ color: 'var(--color-error)' }}>登出</span>
+            <SvcIcon name="log-out" /><span style={{ color: 'var(--color-error)' }}>{t('nav.signOut', { defaultValue: '登出' })}</span>
           </button>
         </Sheet>
       )}
@@ -257,12 +257,12 @@ export default function MobileBottomNav({ onOpenAiSearch, onScanCard, onQuickAdd
 }
 
 const ADD_TILES_BASE = [
-  { id: 'project', label: 'Project', icon: FolderKanban, color: 'var(--color-primary)' },
-  { id: 'contact', label: 'Contact', icon: Users,        color: 'var(--color-blue)' },
-  { id: 'company', label: 'Company', icon: Building2,    color: 'var(--color-warning)' },
-  { id: 'task',    label: 'Task',    icon: CheckSquare,  color: 'var(--color-purple)' },
-  { id: 'event',   label: 'Event',   icon: Calendar,     color: 'var(--color-success)' },
-  { id: 'note',    label: 'Note',    icon: FileText,     color: 'var(--color-gold, #b8901a)' },
+  { id: 'project', labelKey: 'mobile.addTiles.project', label: 'Project', icon: FolderKanban, color: 'var(--color-primary)' },
+  { id: 'contact', labelKey: 'mobile.addTiles.contact', label: 'Contact', icon: Users,        color: 'var(--color-blue)' },
+  { id: 'company', labelKey: 'mobile.addTiles.company', label: 'Company', icon: Building2,    color: 'var(--color-warning)' },
+  { id: 'task',    labelKey: 'mobile.addTiles.task',    label: 'Task',    icon: CheckSquare,  color: 'var(--color-purple)' },
+  { id: 'event',   labelKey: 'mobile.addTiles.event',   label: 'Event',   icon: Calendar,     color: 'var(--color-success)' },
+  { id: 'note',    labelKey: 'mobile.addTiles.note',    label: 'Note',    icon: FileText,     color: 'var(--color-gold, #b8901a)' },
 ];
 
 function Sheet({ title, onClose, children, tall = false }: { title: string; onClose: () => void; children: ReactNode; tall?: boolean }) {

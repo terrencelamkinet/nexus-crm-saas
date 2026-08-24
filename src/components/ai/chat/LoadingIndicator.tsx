@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useTranslation } from 'react-i18next';
 import SvcIcon from '../../../components/SvcIcon'
 
 interface Props {
@@ -13,6 +14,7 @@ const loadingMessages = [
 ]
 
 export default function LoadingIndicator({ isStreaming }: Props) {
+  const { t } = useTranslation();
   const [showSlow, setShowSlow] = useState(false)
   const [msgIndex, setMsgIndex] = useState(0)
 
@@ -60,9 +62,7 @@ export default function LoadingIndicator({ isStreaming }: Props) {
               {loadingMessages[msgIndex]}
             </span>
             {showSlow && (
-              <span style={{ fontSize: 11.5, color: 'var(--color-text-muted)', marginTop: 2 }}>
-                這個分析需要多一點時間…
-              </span>
+              <span style={{ fontSize: 11.5, color: 'var(--color-text-muted)', marginTop: 2 }}>{t('chat.analysisTakesTime', { defaultValue: '這個分析需要多一點時間…' })}</span>
             )}
           </div>
         )}

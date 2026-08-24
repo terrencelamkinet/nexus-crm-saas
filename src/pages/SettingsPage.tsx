@@ -240,8 +240,8 @@ export default function SettingsPage() {
 
           {active === 'preferences' && (
             <div className="stg-panel">
-              <h2><SvcIcon name="bell" className="w-4 h-4" style={{ verticalAlign: -3, marginRight: 6 }} />通知偏好</h2>
-              <p className="stg-subtitle">選擇每個模組嘅網內通知開關。關閉後該模組嘅通知唔會再彈出。</p>
+              <h2><SvcIcon name="bell" className="w-4 h-4" style={{ verticalAlign: -3, marginRight: 6 }} />{t('settings.notifPreference', { defaultValue: '通知偏好' })}</h2>
+              <p className="stg-subtitle">{t('settings.notifPreferenceDesc', { defaultValue: '選擇每個模組嘅網內通知開關。關閉後該模組嘅通知唔會再彈出。' })}</p>
               {notifLoading ? (
                 <div className="stg-loading">{t('settings.loading')}</div>
               ) : (

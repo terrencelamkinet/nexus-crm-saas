@@ -1,4 +1,5 @@
 import { BIBLE_BOOKS, BIBLE_CHAPTERS } from '../hooks/useSecretarySettings';
+import { useTranslation } from 'react-i18next';
 
 /**
  * BookChapterSelect — 聖經書卷 + 章數 cascading select（v6.66 UX）
@@ -18,6 +19,7 @@ interface Props {
 export default function BookChapterSelect({
   book, chapter, onBookChange, onChapterChange, allowEndOfBook = false,
 }: Props) {
+  const { t } = useTranslation();
   const total = BIBLE_CHAPTERS[book] ?? 1;
   const ch = Number.isFinite(chapter) ? Math.min(Math.max(1, Math.floor(chapter)), total) : 1;
 
@@ -28,7 +30,7 @@ export default function BookChapterSelect({
           className="asec-editor-select"
           value={book}
           onChange={e => onBookChange(e.target.value)}
-          aria-label="書卷"
+          aria-label={t('settings.bibleBook', { defaultValue: '書卷' })}
         >
           {BIBLE_BOOKS.map(b => <option key={b} value={b}>{b}</option>)}
         </select>
@@ -36,9 +38,9 @@ export default function BookChapterSelect({
           className="asec-editor-select"
           value={ch}
           onChange={e => onChapterChange(Number(e.target.value))}
-          aria-label="章數"
+          aria-label={t('settings.bibleChapter', { defaultValue: '章數' })}
         >
-          {allowEndOfBook && <option value={0}>書卷尾</option>}
+          {allowEndOfBook && <option value={0}>{t('settings.bibleEndOfBook', { defaultValue: '書卷尾' })}</option>}
           {Array.from({ length: total }, (_, i) => i + 1).map(n => (
             <option key={n} value={n}>第 {n} 章</option>
           ))}

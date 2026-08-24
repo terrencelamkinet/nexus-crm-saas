@@ -4,6 +4,7 @@ import SvcIcon from '../components/SvcIcon';
 import { apiClient, getStoredAuth } from '../lib/api';
 import FollowUpChips from '../components/ai/chat/core/FollowUpChips';
 import MarkdownMessage from '../components/MarkdownRenderer';
+import { useTranslation } from 'react-i18next';
 
 /**
  * Fullscreen AI chat page (v6.76) — 由 AI&Search panel 全螢幕按鈕（AI tab）進入。
@@ -30,6 +31,7 @@ const GREETING = "Hi! I'm NEXUS AI. How can I help you today?";
 const QUICK_CHIPS = ['總結今日待辦', '幫我起草跟進 email', '分析專案風險'];
 
 export default function AiPage() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
 
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -179,17 +181,17 @@ export default function AiPage() {
   return (
     <div className="aipage-page">
       <header className="aipage-head">
-        <button type="button" className="aipage-back" onClick={() => navigate(-1)} aria-label="返回">
+        <button type="button" className="aipage-back" onClick={() => navigate(-1)} aria-label={t('common.back', { defaultValue: '返回' })}>
           <SvcIcon name="arrow-left" />
         </button>
-        <h3>AI 管家秘書</h3>
+        <h3>{t('ai.aiButler', { defaultValue: 'AI 管家秘書' })}</h3>
       </header>
 
       <div className="aipage-chat">
         {/* Session bar */}
         <div className="aisp-session-bar">
           <button type="button" className={`aisp-session-chip ${!sessionId ? 'active' : ''}`} onClick={createNewSession}>
-            <SvcIcon name="plus" /> 新對話
+            <SvcIcon name="plus" />{t('chat.newChat', { defaultValue: '新對話' })}
           </button>
           {sessionList.slice(0, 10).map(s => (
             <button
@@ -206,10 +208,10 @@ export default function AiPage() {
 
         {/* Messages */}
         <div className="aisp-msg-area aipage-msg-area" ref={scrollRef}>
-          {loadingSession && <div className="aisp-empty">載入對話…</div>}
+          {loadingSession && <div className="aisp-empty">{t('ai.loadingChat', { defaultValue: '載入對話…' })}</div>}
           {emptyChat && (
             <>
-              <div className="aisp-label" style={{ marginTop: 8 }}>快速指令</div>
+              <div className="aisp-label" style={{ marginTop: 8 }}>{t('ai.quickCommands', { defaultValue: '快速指令' })}</div>
               <div className="aisp-chip-row">
                 {QUICK_CHIPS.map(chip => (
                   <button key={chip} type="button" className="aisp-chip" onClick={() => setInput(chip)}>
@@ -274,15 +276,15 @@ export default function AiPage() {
         <div className="aisp-input-row">
           <input
             className="aisp-input"
-            placeholder="問 AI 秘書任何事…"
+            placeholder={t('ai.askAnything', { defaultValue: '問 AI 秘書任何事…' })}
             value={input}
             onChange={e => setInput(e.target.value)}
             onKeyDown={e => { if (e.key === 'Enter') sendMessage(); }}
           />
-          <button type="button" className="aisp-icon-btn mic" onClick={() => setInput(prev => prev + '（語音輸入即將推出）')} aria-label="語音輸入">
+          <button type="button" className="aisp-icon-btn mic" onClick={() => setInput(prev => prev + '（語音輸入即將推出）')} aria-label={t('ai.voiceInput', { defaultValue: '語音輸入' })}>
             <SvcIcon name="mic" />
           </button>
-          <button type="button" className="aisp-icon-btn send" onClick={() => sendMessage()} disabled={isLoading || isStreaming || !input.trim()} aria-label="送出">
+          <button type="button" className="aisp-icon-btn send" onClick={() => sendMessage()} disabled={isLoading || isStreaming || !input.trim()} aria-label={t('ai.send', { defaultValue: '送出' })}>
             <SvcIcon name="arrow-up" />
           </button>
         </div>

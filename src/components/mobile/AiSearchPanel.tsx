@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
+import i18n from '../../i18n/config';
 import { apiClient, getStoredAuth } from '../../lib/api';
 import FollowUpChips from '../ai/chat/core/FollowUpChips';
 import MarkdownMessage from '../MarkdownRenderer';
@@ -46,14 +48,15 @@ function assistantMessage(content: string): ChatMessage { return { id: nextId(),
 
 const GREETING = "Hi! I'm NEXUS AI. How can I help you today?";
 const CAPABILITIES = [
-  { icon: Plus,        title: '新增資料', desc: '「幫我新增一個聯絡人…」— AI 直接寫入你嘅 tenant 資料庫' },
-  { icon: PencilLine,  title: '修改資料', desc: '「將 Kong API 專案到期日改成 9月20日」— AI 直接更新現有記錄' },
-  { icon: Trash2,      title: '刪除資料', desc: '「刪除 XXX 呢個聯絡人」— AI 會先確認再執行刪除' },
-  { icon: CalendarClock, title: '行事曆主動提問', desc: 'AI 自動掃描你嘅日程，細節不足嘅活動會主動問你補充' },
+  { icon: Plus,        title: i18n.t('ai.capabilityAdd', { defaultValue: '新增資料' }), desc: i18n.t('ai.capabilityAddDesc', { defaultValue: '「幫我新增一個聯絡人…」— AI 直接寫入你嘅 tenant 資料庫' }) },
+  { icon: PencilLine,  title: i18n.t('ai.capabilityEdit', { defaultValue: '修改資料' }), desc: i18n.t('ai.capabilityEditDesc', { defaultValue: '「將 Kong API 專案到期日改成 9月20日」— AI 直接更新現有記錄' }) },
+  { icon: Trash2,      title: i18n.t('ai.capabilityDelete', { defaultValue: '刪除資料' }), desc: i18n.t('ai.capabilityDeleteDesc', { defaultValue: '「刪除 XXX 呢個聯絡人」— AI 會先確認再執行刪除' }) },
+  { icon: CalendarClock, title: i18n.t('ai.capabilityCalendar', { defaultValue: '行事曆主動提問' }), desc: i18n.t('ai.capabilityCalendarDesc', { defaultValue: 'AI 自動掃描你嘅日程，細節不足嘅活動會主動問你補充' }) },
 ];
-const QUICK_CHIPS = ['總結今日待辦', '幫我起草跟進 email', '分析專案風險'];
+const QUICK_CHIPS = [i18n.t('ai.quickTodo', { defaultValue: '總結今日待辦' }), i18n.t('ai.quickEmail', { defaultValue: '幫我起草跟進 email' }), i18n.t('ai.quickRisk', { defaultValue: '分析專案風險' })];
 
 export default function AiSearchPanel({ open, onClose, onScanCard }: Props) {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const [mode, setMode] = useState<'ai' | 'search'>('ai');
   const [closing, setClosing] = useState(false);
@@ -79,13 +82,13 @@ export default function AiSearchPanel({ open, onClose, onScanCard }: Props) {
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const SEARCH_FILTERS = [
-    { key: '', label: '全部' },
-    { key: 'contact', label: '聯絡人' },
-    { key: 'company', label: '公司' },
-    { key: 'task', label: '任務' },
-    { key: 'project', label: '專案' },
-    { key: 'touchpoint', label: '互動' },
-    { key: 'note', label: '筆記' },
+    { key: '', label: t('searchTab.all', { defaultValue: '全部' }) },
+    { key: 'contact', label: t('searchTab.contact', { defaultValue: '聯絡人' }) },
+    { key: 'company', label: t('searchTab.company', { defaultValue: '公司' }) },
+    { key: 'task', label: t('searchTab.task', { defaultValue: '任務' }) },
+    { key: 'project', label: t('searchTab.project', { defaultValue: '專案' }) },
+    { key: 'touchpoint', label: t('searchTab.touchpoint', { defaultValue: '互動' }) },
+    { key: 'note', label: t('searchTab.note', { defaultValue: '筆記' }) },
   ];
 
   /* ── Sessions ── */
@@ -193,7 +196,7 @@ export default function AiSearchPanel({ open, onClose, onScanCard }: Props) {
       const resp2 = await apiClient.get<{ sessions: SessionItem[] }>('/api/v1/ai/sessions').catch(() => null);
       if (resp2?.sessions) setSessionList(resp2.sessions);
     } catch (e: any) {
-      if (e.name !== 'AbortError') setError(e?.message || '請求失敗，請再試');
+      if (e.name !== 'AbortError') setError(e?.message || i18n.t('ai.requestFailed', { defaultValue: '請求失敗，請再試' }));
     } finally {
       setIsStreaming(false);
       setIsLoading(false);
@@ -291,18 +294,18 @@ export default function AiSearchPanel({ open, onClose, onScanCard }: Props) {
       <div className={`aisp-panel ${closing ? 'closing' : ''}`} onClick={e => e.stopPropagation()}>
         <div className="aisp-handle" />
         <div className="aisp-head">
-          <h3>AI 管家秘書</h3>
+          <h3>{t('ai.aiButler', { defaultValue: 'AI 管家秘書' })}</h3>
           {/* v6.87: tabs 搬入標題行 — 慳返成條 tab 欄，button 收窄做 pills */}
           <div className="aisp-tabs">
             <button type="button" className={`aisp-tab ${mode === 'ai' ? 'active' : ''}`} onClick={() => setMode('ai')}>
-              <SvcIcon name="sparkles" className="aisp-tab-icon" /> 問 AI
+              <SvcIcon name="sparkles" className="aisp-tab-icon" /> {t('ai.askAi', { defaultValue: '問 AI' })}
             </button>
             <button type="button" className={`aisp-tab ${mode === 'search' ? 'active' : ''}`} onClick={() => setMode('search')}>
-              <SvcIcon name="search" className="aisp-tab-icon" /> 搜尋
+              <SvcIcon name="search" className="aisp-tab-icon" />{t('ai.tabSearch', { defaultValue: '搜尋' })}
             </button>
           </div>
           <div className="aisp-head-actions">
-            <button type="button" className="aisp-close" onClick={openFullscreen} aria-label="全螢幕搜尋"><Maximize2 /></button>
+            <button type="button" className="aisp-close" onClick={openFullscreen} aria-label={t('ai.fullscreenSearch', { defaultValue: '全螢幕搜尋' })}><Maximize2 /></button>
             <button type="button" className="aisp-close" onClick={handleClose} aria-label="Close"><SvcIcon name="x" /></button>
           </div>
         </div>
@@ -312,7 +315,7 @@ export default function AiSearchPanel({ open, onClose, onScanCard }: Props) {
             {/* Session bar */}
             <div className="aisp-session-bar">
               <button type="button" className={`aisp-session-chip ${!sessionId ? 'active' : ''}`} onClick={createNewSession}>
-                <SvcIcon name="plus" /> 新對話
+                <SvcIcon name="plus" /> {t('ai.newChat', { defaultValue: '新對話' })}
               </button>
               {sessionList.slice(0, 8).map(s => (
                 <button
@@ -322,24 +325,24 @@ export default function AiSearchPanel({ open, onClose, onScanCard }: Props) {
                   onClick={() => switchSession(s.session_id)}
                   title={s.title}
                 >
-                  {s.title || '未命名對話'}
+                  {s.title || t('ai.untitledChat', { defaultValue: '未命名對話' })}
                 </button>
               ))}
             </div>
 
             {/* Messages */}
             <div className="aisp-msg-area" ref={scrollRef}>
-              {loadingSession && <div className="aisp-empty">載入對話…</div>}
+              {loadingSession && <div className="aisp-empty">{t('ai.loadingChat', { defaultValue: '載入對話…' })}</div>}
               {emptyChat && (
                 <>
-                  <div className="aisp-label">AI 可以幫你</div>
+                  <div className="aisp-label">{t('ai.aiCanHelp', { defaultValue: 'AI 可以幫你' })}</div>
                   {CAPABILITIES.map(c => (
                     <div key={c.title} className="aisp-capability">
                       <span className="icn"><c.icon /></span>
                       <div><strong>{c.title}</strong><span>{c.desc}</span></div>
                     </div>
                   ))}
-                  <div className="aisp-label" style={{ marginTop: 16 }}>快速指令</div>
+                  <div className="aisp-label" style={{ marginTop: 16 }}>{t('ai.quickCommands', { defaultValue: '快速指令' })}</div>
                   <div className="aisp-chip-row">
                     {QUICK_CHIPS.map(chip => (
                       <button key={chip} type="button" className="aisp-chip" onClick={() => setInput(chip)}>
@@ -404,18 +407,18 @@ export default function AiSearchPanel({ open, onClose, onScanCard }: Props) {
             <div className="aisp-input-row">
               <input
                 className="aisp-input"
-                placeholder="問 AI 秘書任何事…"
+                placeholder={t('ai.askAnything', { defaultValue: '問 AI 秘書任何事…' })}
                 value={input}
                 onChange={e => setInput(e.target.value)}
                 onKeyDown={e => { if (e.key === 'Enter') sendMessage(); }}
               />
-              <button type="button" className="aisp-icon-btn cam" onClick={() => { handleClose(); onScanCard(); }} aria-label="拍卡片">
+              <button type="button" className="aisp-icon-btn cam" onClick={() => { handleClose(); onScanCard(); }} aria-label={t('ai.scanCard', { defaultValue: '拍卡片' })}>
                 <SvcIcon name="camera" />
               </button>
-              <button type="button" className="aisp-icon-btn mic" onClick={() => setInput(prev => prev + '（語音輸入即將推出）')} aria-label="語音輸入">
+              <button type="button" className="aisp-icon-btn mic" onClick={() => setInput(prev => prev + t('ai.voiceComingSoon', { defaultValue: '（語音輸入即將推出）' }))} aria-label={t('ai.voiceInput', { defaultValue: '語音輸入' })}>
                 <SvcIcon name="mic" />
               </button>
-              <button type="button" className="aisp-icon-btn send" onClick={() => sendMessage()} disabled={isLoading || isStreaming || !input.trim()} aria-label="送出">
+              <button type="button" className="aisp-icon-btn send" onClick={() => sendMessage()} disabled={isLoading || isStreaming || !input.trim()} aria-label={t('ai.send', { defaultValue: '送出' })}>
                 <SvcIcon name="arrow-up" />
               </button>
             </div>
@@ -428,7 +431,7 @@ export default function AiSearchPanel({ open, onClose, onScanCard }: Props) {
               <SvcIcon name="search" />
               <input
                 className="aisp-input"
-                placeholder="搜尋聯絡人、公司、專案、任務…"
+                placeholder={t('ai.searchPlaceholder', { defaultValue: '搜尋聯絡人、公司、專案、任務…' })}
                 value={query}
                 onChange={e => setQuery(e.target.value)}
               />
@@ -446,8 +449,8 @@ export default function AiSearchPanel({ open, onClose, onScanCard }: Props) {
               ))}
             </div>
             <div className="aisp-body">
-              {searching && results.length === 0 && <div className="aisp-empty">搜尋中…</div>}
-              {!searching && query.trim().length >= 2 && results.length === 0 && <div className="aisp-empty">冇搜尋到相關結果</div>}
+              {searching && results.length === 0 && <div className="aisp-empty">{t('ai.searching', { defaultValue: '搜尋中…' })}</div>}
+              {!searching && query.trim().length >= 2 && results.length === 0 && <div className="aisp-empty">{t('ai.noResults', { defaultValue: '冇搜尋到相關結果' })}</div>}
               {results.map(r => (
                 <button key={r.type + r.id} type="button" className="aisp-result-row" onClick={() => goResult(r)}>
                   <span className="aisp-result-icon">{r.icon}</span>

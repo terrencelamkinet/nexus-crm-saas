@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import SvcIcon from '../../components/SvcIcon';
 import { apiClient } from '../../lib/api';
+import { useTranslation } from 'react-i18next';
 
 /**
  * 拍卡片 → AI OCR → 自動入庫（v6.69）
@@ -24,6 +25,7 @@ interface Props {
 }
 
 export default function CameraScanSheet({ open, onClose, onSaved }: Props) {
+  const { t } = useTranslation();
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -110,7 +112,7 @@ export default function CameraScanSheet({ open, onClose, onSaved }: Props) {
       <div className={`cam-panel ${closing ? 'closing' : ''}`} onClick={e => e.stopPropagation()}>
         <div className="cam-handle" />
         <div className="cam-head">
-          <h3>拍卡片 · AI 自動識別</h3>
+          <h3>{t('nameCard.scanCardAi', { defaultValue: '拍卡片 · AI 自動識別' })}</h3>
           <button type="button" className="cam-close" onClick={handleClose} aria-label="Close"><SvcIcon name="x" /></button>
         </div>
         <div className="cam-body">
@@ -143,12 +145,12 @@ export default function CameraScanSheet({ open, onClose, onSaved }: Props) {
                   </div>
                 ))}
                 {!Object.keys(parsed).length && (
-                  <div className="cam-field"><span>OCR 原文</span><span>{(result as any).raw_ocr_text || '—'}</span></div>
+                  <div className="cam-field"><span>{t('nameCard.ocrRaw', { defaultValue: 'OCR 原文' })}</span><span>{(result as any).raw_ocr_text || '—'}</span></div>
                 )}
               </div>
               <div className="cam-actions">
-                <button type="button" className="retake" onClick={() => setResult(null)}><SvcIcon name="rotate-ccw" /> 重拍</button>
-                <button type="button" className="save" onClick={() => { handleClose(); onSaved(personName); }}>儲存為聯絡人</button>
+                <button type="button" className="retake" onClick={() => setResult(null)}><SvcIcon name="rotate-ccw" />{t('nameCard.retake', { defaultValue: '重拍' })}</button>
+                <button type="button" className="save" onClick={() => { handleClose(); onSaved(personName); }}>{t('nameCard.saveAsContact', { defaultValue: '儲存為聯絡人' })}</button>
               </div>
             </>
           )}

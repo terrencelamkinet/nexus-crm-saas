@@ -71,6 +71,7 @@ function LayeredBriefing({ layers, weather, summary, pendingQs, pqIndex, navigat
   onDismiss: (id: string) => void
   onDot: (i: number) => void
 }) {
+  const { t } = useTranslation()
   const conflicts: any[] = layers?.conflicts || []
   const overdue: any[] = layers?.overdue || []
   const stats: any = layers?.stats || {}
@@ -93,7 +94,7 @@ function LayeredBriefing({ layers, weather, summary, pendingQs, pqIndex, navigat
         <div className="dv2-summary-card">
           <div className="dv2-summary-head">
             <span className="dv2-summary-icon">✨</span>
-            <span className="dv2-summary-title">AI 摘要</span>
+            <span className="dv2-summary-title">{t('dashboard.aiSummary', { defaultValue: 'AI 摘要' })}</span>
           </div>
           <div className="dv2-summary-text">{summary}</div>
         </div>
@@ -106,8 +107,8 @@ function LayeredBriefing({ layers, weather, summary, pendingQs, pqIndex, navigat
           <div className="dv2-pq-card">
             <div className="dv2-pq-head">
               <span className="dv2-pq-icon">💬</span>
-              <span className="dv2-pq-title">AI 管家提問</span>
-              <button type="button" className="dv2-pq-dismiss" onClick={() => onDismiss(q.id)} aria-label="忽略此問題">✕</button>
+              <span className="dv2-pq-title">{t('dashboard.aiPrompt', { defaultValue: 'AI 管家提問' })}</span>
+              <button type="button" className="dv2-pq-dismiss" onClick={() => onDismiss(q.id)} aria-label={t('dashboard.dismissIssue', { defaultValue: '忽略此問題' })}>✕</button>
             </div>
             <div className="dv2-pq-body">
               <div className="dv2-pq-question">{q.question}</div>
@@ -130,23 +131,23 @@ function LayeredBriefing({ layers, weather, summary, pendingQs, pqIndex, navigat
 
       {/* ── Layer 1 · 需要立即處理 ── */}
       {hasAlerts && (
-        <div className="dv2-layer-label">🌙 Layer 1 · 需要立即處理</div>
+        <div className="dv2-layer-label">{t('dashboard.layer1Urgent', { defaultValue: '🌙 Layer 1 · 需要立即處理' })}</div>
       )}
       {conflicts.length > 0 && (
         <div className="dv2-status-card dv2-status-danger">
           <div className="dv2-status-head">
             <span className="dv2-status-icon">🚨</span>
-            <span className="dv2-status-title">行程衝突偵測</span>
-            <button type="button" className="dv2-status-go" onClick={() => navigateTo('/calendar')}>查看行事曆 ›</button>
-            <span className="dv2-chip dv2-chip-danger">高風險</span>
+            <span className="dv2-status-title">{t('dashboard.conflictDetection', { defaultValue: '行程衝突偵測' })}</span>
+            <button type="button" className="dv2-status-go" onClick={() => navigateTo('/calendar')}>{t('dashboard.viewCalendarLink', { defaultValue: '查看行事曆 ›' })}</button>
+            <span className="dv2-chip dv2-chip-danger">{t('dashboard.highRisk', { defaultValue: '高風險' })}</span>
           </div>
           <div className="dv2-status-body">
             {conflicts.map((c, i) => (
               <div key={i} className="dv2-status-row">
                 <span className="dv2-status-dot" style={{ background: '#EF4444' }} />
                 <span className="dv2-status-text">
-                  <b>{c.event_a}</b> 與 <b>{c.event_b}</b> 重疊{' '}
-                  <span className="dv2-tag dv2-tag-overdue">衝突</span>
+                  {t('dashboard.overlapsWith', { defaultValue: '{{a}} 與 {{b}} 重疊', a: c.event_a, b: c.event_b })}
+                  <span className="dv2-tag dv2-tag-overdue">{t('dashboard.conflictTag', { defaultValue: '衝突' })}</span>
                 </span>
               </div>
             ))}
@@ -157,9 +158,9 @@ function LayeredBriefing({ layers, weather, summary, pendingQs, pqIndex, navigat
         <div className="dv2-status-card dv2-status-warn">
           <div className="dv2-status-head">
             <span className="dv2-status-icon">⏰</span>
-            <span className="dv2-status-title">逾期事項</span>
-            <button type="button" className="dv2-status-go" onClick={() => navigateTo('/tasks')}>查看任務 ›</button>
-            <span className="dv2-chip dv2-chip-warn">{overdue.length} 項逾期</span>
+            <span className="dv2-status-title">{t('dashboard.overdueItems', { defaultValue: '逾期事項' })}</span>
+            <button type="button" className="dv2-status-go" onClick={() => navigateTo('/tasks')}>{t('dashboard.viewTasksLink', { defaultValue: '查看任務 ›' })}</button>
+            <span className="dv2-chip dv2-chip-warn">{t('dashboard.itemsOverdue', { defaultValue: '{{count}} 項逾期', count: overdue.length })}</span>
           </div>
           <div className="dv2-status-body">
             {overdue.map((o, i) => (
@@ -167,7 +168,7 @@ function LayeredBriefing({ layers, weather, summary, pendingQs, pqIndex, navigat
                 <span className="dv2-status-dot" style={{ background: '#F59E0B' }} />
                 <span className="dv2-status-text">
                   <b>{o.title}</b>
-                  {o.due_date && <span className="dv2-tag dv2-tag-overdue">原定 {fmtDue(o.due_date)}</span>}
+                  {o.due_date && <span className="dv2-tag dv2-tag-overdue">{t('dashboard.originalDue', { defaultValue: '原定 {{date}}', date: fmtDue(o.due_date) })}</span>}
                 </span>
               </div>
             ))}
@@ -177,33 +178,33 @@ function LayeredBriefing({ layers, weather, summary, pendingQs, pqIndex, navigat
 
       {/* ── Layer 2 · 今日核心指標 ── */}
       {(stats.tasks_today != null || stats.contacts_total != null) && (
-        <div className="dv2-layer-label">📊 Layer 2 · 今日核心指標</div>
+        <div className="dv2-layer-label">{t('dashboard.layer2Core', { defaultValue: '📊 Layer 2 · 今日核心指標' })}</div>
       )}
       <div className="dv2-l2-grid">
         {stats.tasks_today != null && (
           <div className="dv2-stat-card">
-            <div className="dv2-stat-label">✅ 今日待辦</div>
+            <div className="dv2-stat-label">{t('dashboard.todayTodos', { defaultValue: '✅ 今日待辦' })}</div>
             <div className="dv2-stat-value" style={{ color: 'var(--color-blue, #2563EB)' }}>{stats.tasks_today}</div>
-            {stats.tasks_p1 > 0 && <div className="dv2-stat-sub">{stats.tasks_p1} 項 P1 優先</div>}
+            {stats.tasks_p1 > 0 && <div className="dv2-stat-sub">{t('dashboard.p1Priority', { defaultValue: '{{count}} 項 P1 優先', count: stats.tasks_p1 })}</div>}
           </div>
         )}
         {stats.meetings_today != null && (
           <div className="dv2-stat-card">
-            <div className="dv2-stat-label">📅 今日會議</div>
+            <div className="dv2-stat-label">{t('dashboard.todayMeetings', { defaultValue: '📅 今日會議' })}</div>
             <div className="dv2-stat-value" style={{ color: 'var(--color-purple, #7C3AED)' }}>{stats.meetings_today}</div>
             {stats.next_meeting && <div className="dv2-stat-sub">{String(stats.next_meeting).slice(0, 22)}</div>}
           </div>
         )}
         {stats.contacts_total != null && (
           <div className="dv2-stat-card">
-            <div className="dv2-stat-label">👥 聯絡人</div>
+            <div className="dv2-stat-label">{t('dashboard.contacts', { defaultValue: '👥 聯絡人' })}</div>
             <div className="dv2-stat-value" style={{ color: 'var(--color-blue, #2563EB)' }}>{stats.contacts_total}</div>
             <div className="dv2-stat-sub">Total Contacts</div>
           </div>
         )}
         {stats.companies_total != null && (
           <div className="dv2-stat-card">
-            <div className="dv2-stat-label">🏢 公司</div>
+            <div className="dv2-stat-label">{t('dashboard.companies', { defaultValue: '🏢 公司' })}</div>
             <div className="dv2-stat-value" style={{ color: 'var(--color-purple, #7C3AED)' }}>{stats.companies_total}</div>
             <div className="dv2-stat-sub">Total Companies</div>
           </div>
@@ -212,12 +213,12 @@ function LayeredBriefing({ layers, weather, summary, pendingQs, pqIndex, navigat
 
       {/* ── Layer 3 · 脈絡與趨勢（可收合） ── */}
       {(weather?.temp != null || news.length > 0) && (
-        <div className="dv2-layer-label">🗂 Layer 3 · 脈絡與趨勢</div>
+        <div className="dv2-layer-label">{t('dashboard.layer3Trends', { defaultValue: '🗂 Layer 3 · 脈絡與趨勢' })}</div>
       )}
       {weather?.temp != null && (
         <details className="dv2-collapsible" open>
           <summary>
-            <span>☀️ 天氣</span>
+            <span>{t('dashboard.weather', { defaultValue: '☀️ 天氣' })}</span>
             <span className="dv2-coll-chev">▸</span>
           </summary>
           <div className="dv2-coll-content">
@@ -234,7 +235,7 @@ function LayeredBriefing({ layers, weather, summary, pendingQs, pqIndex, navigat
       {news.length > 0 && (
         <details className="dv2-collapsible">
           <summary>
-            <span>📰 行業新聞摘要</span>
+            <span>{t('dashboard.industryNews', { defaultValue: '📰 行業新聞摘要' })}</span>
             <span className="dv2-coll-chev">▸</span>
           </summary>
           <div className="dv2-coll-content">
@@ -251,10 +252,10 @@ function LayeredBriefing({ layers, weather, summary, pendingQs, pqIndex, navigat
       {/* ── Layer 4 · 延伸內容（預設收合） ── */}
       {bible?.reference && (
         <>
-          <div className="dv2-layer-label">📖 Layer 4 · 延伸內容</div>
+          <div className="dv2-layer-label">{t('dashboard.layer4Extended', { defaultValue: '📖 Layer 4 · 延伸內容' })}</div>
           <details className="dv2-collapsible">
             <summary>
-              <span>🙏 靈修 · {bible.reference}</span>
+              <span>{t('dashboard.devotion', { defaultValue: '🙏 靈修 · {{reference}}', reference: bible.reference })}</span>
               <span className="dv2-coll-chev">▸</span>
             </summary>
             <div className="dv2-coll-content">
@@ -262,10 +263,10 @@ function LayeredBriefing({ layers, weather, summary, pendingQs, pqIndex, navigat
               {(bible.links?.bible_com || bible.links?.we_devote) && (
                 <div className="dv2-bible-links">
                   {bible.links?.bible_com && (
-                    <a href={bible.links.bible_com} target="_blank" rel="noreferrer" onClick={e => e.stopPropagation()}>📖 打開和合本修訂版</a>
+                    <a href={bible.links.bible_com} target="_blank" rel="noreferrer" onClick={e => e.stopPropagation()}>{t('dashboard.openRev', { defaultValue: '📖 打開和合本修訂版' })}</a>
                   )}
                   {bible.links?.we_devote && (
-                    <a href={bible.links.we_devote} target="_blank" rel="noreferrer" onClick={e => e.stopPropagation()}>📱 用微讀細讀經文</a>
+                    <a href={bible.links.we_devote} target="_blank" rel="noreferrer" onClick={e => e.stopPropagation()}>{t('dashboard.readWithMicro', { defaultValue: '📱 用微讀細讀經文' })}</a>
                   )}
                 </div>
               )}
@@ -277,53 +278,53 @@ function LayeredBriefing({ layers, weather, summary, pendingQs, pqIndex, navigat
   )
 }
 
-const SLOT_LABELS: Record<string, { emoji: string; label: string }> = {
-  morning: { emoji: '🌅', label: '早間簡報' },
-  noon: { emoji: '☀️', label: '午間簡報' },
-  evening: { emoji: '🌆', label: '晚間簡報' },
-  night: { emoji: '🌙', label: '凌晨簡報' },
+const SLOT_LABELS: Record<string, { emoji: string; labelKey: string }> = {
+  morning: { emoji: '🌅', labelKey: 'dashboard.slotLabels.morning' },
+  noon: { emoji: '☀️', labelKey: 'dashboard.slotLabels.noon' },
+  evening: { emoji: '🌆', labelKey: 'dashboard.slotLabels.evening' },
+  night: { emoji: '🌙', labelKey: 'dashboard.slotLabels.night' },
 }
 
 const ALL_WIDGETS = [
-  { id: 'ai', label: 'AI 洞察摘要', group: 'ai', required: true },
-  { id: 'stats', label: '關鍵指標（聯絡人/公司/任務/商機）', group: 'core', required: true },
-  { id: 'todos', label: '今日待辦', group: 'core' },
-  { id: 'events', label: '即將舉行', group: 'core' },
-  { id: 'interactions', label: '近期互動', group: 'core' },
-  { id: 'activity', label: '最近活動表格', group: 'core' },
-  { id: 'ask_ai', label: 'Ask AI', group: 'core' },
-  { id: 'touchpoints', label: '近期互動', group: 'core' },
-  { id: 'c2', label: '待處理聯絡人', group: 'contacts' },
-  { id: 'c1', label: '新增聯絡人', group: 'contacts' },
-  { id: 'c3', label: '資料完整度', group: 'contacts' },
-  { id: 'c5', label: '來源分佈', group: 'contacts' },
-  { id: 'co3', label: '續約提醒', group: 'companies' },
-  { id: 'co1', label: '公司總數', group: 'companies' },
-  { id: 'co2', label: '公司分級', group: 'companies' },
-  { id: 'co4', label: '健康分數', group: 'companies' },
-  { id: 'co5', label: '行業分佈', group: 'companies' },
-  { id: 'p1', label: '進行中專案', group: 'projects' },
-  { id: 'p2', label: '里程碑追蹤', group: 'projects' },
-  { id: 'p3', label: '進度概覽', group: 'projects' },
-  { id: 'p4', label: '資源分配', group: 'projects' },
-  { id: 't2', label: '逾期待辦', group: 'tasks' },
-  { id: 't3', label: '優先級列表', group: 'tasks' },
-  { id: 't4', label: '完成率', group: 'tasks' },
-  { id: 'cal2', label: '會議密度', group: 'calendar' },
-  { id: 'cal3', label: '拜訪行程', group: 'calendar' },
-  { id: 'te2', label: '團隊成員', group: 'team' },
-  { id: 's5', label: '運費成本概覽', group: 'cost' },
+  { id: 'ai', labelKey: 'dashboard.aiInsight', group: 'ai', required: true },
+  { id: 'stats', labelKey: 'dashboard.keyIndicators', group: 'core', required: true },
+  { id: 'todos', labelKey: 'dashboard.widgets.todayTodos', group: 'core' },
+  { id: 'events', labelKey: 'dashboard.upcoming', group: 'core' },
+  { id: 'interactions', labelKey: 'dashboard.recentInteractions', group: 'core' },
+  { id: 'activity', labelKey: 'dashboard.recentActivityTable', group: 'core' },
+  { id: 'ask_ai', labelKey: 'dashboard.askAi', group: 'core' },
+  { id: 'touchpoints', labelKey: 'dashboard.recentInteractions', group: 'core' },
+  { id: 'c2', labelKey: 'dashboard.pendingContacts', group: 'contacts' },
+  { id: 'c1', labelKey: 'dashboard.addContact', group: 'contacts' },
+  { id: 'c3', labelKey: 'dashboard.dataCompleteness', group: 'contacts' },
+  { id: 'c5', labelKey: 'dashboard.sourceDistribution', group: 'contacts' },
+  { id: 'co3', labelKey: 'dashboard.renewalReminders', group: 'companies' },
+  { id: 'co1', labelKey: 'dashboard.totalCompanies', group: 'companies' },
+  { id: 'co2', labelKey: 'dashboard.clientTier', group: 'companies' },
+  { id: 'co4', labelKey: 'dashboard.healthScore', group: 'companies' },
+  { id: 'co5', labelKey: 'dashboard.industryDistribution', group: 'companies' },
+  { id: 'p1', labelKey: 'dashboard.activeProjects', group: 'projects' },
+  { id: 'p2', labelKey: 'dashboard.milestoneTracking', group: 'projects' },
+  { id: 'p3', labelKey: 'dashboard.progressOverview', group: 'projects' },
+  { id: 'p4', labelKey: 'dashboard.resourceAllocation', group: 'projects' },
+  { id: 't2', labelKey: 'dashboard.overdueTodos', group: 'tasks' },
+  { id: 't3', labelKey: 'dashboard.priorityList', group: 'tasks' },
+  { id: 't4', labelKey: 'dashboard.completionRate', group: 'tasks' },
+  { id: 'cal2', labelKey: 'dashboard.meetingDensity', group: 'calendar' },
+  { id: 'cal3', labelKey: 'dashboard.visitSchedule', group: 'calendar' },
+  { id: 'te2', labelKey: 'dashboard.teamMembers', group: 'team' },
+  { id: 's5', labelKey: 'dashboard.shippingCostOverview', group: 'cost' },
 ]
-const WIDGET_GROUPS: { key: string; label: string }[] = [
-  { key: 'ai', label: 'AI' },
-  { key: 'core', label: '核心' },
-  { key: 'contacts', label: '聯絡人' },
-  { key: 'companies', label: '公司' },
-  { key: 'projects', label: '專案' },
-  { key: 'tasks', label: '任務' },
-  { key: 'calendar', label: '行事曆' },
-  { key: 'team', label: '團隊' },
-  { key: 'cost', label: '成本' },
+const WIDGET_GROUPS: { key: string; labelKey: string }[] = [
+  { key: 'ai', labelKey: 'dashboard.widgetGroups.ai' },
+  { key: 'core', labelKey: 'dashboard.widgetGroups.core' },
+  { key: 'contacts', labelKey: 'dashboard.widgetGroups.contacts' },
+  { key: 'companies', labelKey: 'dashboard.widgetGroups.companies' },
+  { key: 'projects', labelKey: 'dashboard.widgetGroups.projects' },
+  { key: 'tasks', labelKey: 'dashboard.widgetGroups.tasks' },
+  { key: 'calendar', labelKey: 'dashboard.widgetGroups.calendar' },
+  { key: 'team', labelKey: 'dashboard.widgetGroups.team' },
+  { key: 'cost', labelKey: 'dashboard.widgetGroups.cost' },
 ]
 const WIDGET_PREF_KEY = 'nexus-dashboard-widgets'
 const WIDGET_ORDER_KEY = 'nexus-dashboard-widget-order'
@@ -561,10 +562,10 @@ export default function DashboardV2() {
         const risks = tasks.filter((x: any) => x.priority === 'P0' || x.priority === 'P1').slice(0, 3)
         const events = (d?.schedule || []).slice(0, 3)
         const sections: AiSection[] = []
-        if (risks.length) sections.push({ header: '風險', items: risks.map((x: any) => `${x.priority} ${x.title}`) })
-        if (events.length) sections.push({ header: '活動', items: events.map((x: any) => `${x.title}`) })
+        if (risks.length) sections.push({ header: t('dashboard.risksHeader', { defaultValue: '風險' }), items: risks.map((x: any) => `${x.priority} ${x.title}`) })
+        if (events.length) sections.push({ header: t('dashboard.activityHeader', { defaultValue: '活動' }), items: events.map((x: any) => `${x.title}`) })
         setAiInsight({
-          headline: d?.ai_tip || '今日重點：請查看待辦任務及即將來臨的會議。',
+          headline: d?.ai_tip || t('dashboard.todayFocus', { defaultValue: '今日重點：請查看待辦任務及即將來臨的會議。' }),
           sections,
           slot: d.slot || '',
           generatedAt: d.generated_at || '',
@@ -617,25 +618,25 @@ export default function DashboardV2() {
     setTodos(prev => nextDone ? prev.filter(t => t.id !== id) : prev.map(t => t.id === id ? { ...t, done: false } : t))
     // Persist via existing task update endpoint (status done/pending)
     apiClient.patch(`/api/v1/crm/tasks/${id}`, { status: nextDone ? 'done' : 'pending' }).catch(() => {})
-    showToast(nextDone ? '任務已完成 ✓' : '已重新標記為待辦')
+    showToast(nextDone ? t('dashboard.taskCompleted', { defaultValue: '任務已完成 ✓' }) : t('dashboard.reMarkedTodo', { defaultValue: '已重新標記為待辦' }))
   }
 
   const handleViewAll = (which: string) => {
     if (which === 'todos') setTodosExpanded(v => !v)
     else if (which === 'events') navigate('/calendar')
     else if (which === 'activity') navigate('/touchpoints')
-    else showToast('正在載入完整列表…')
+    else showToast(t('dashboard.loadingFullList', { defaultValue: '正在載入完整列表…' }))
   }
 
   const toggleWidget = (id: string) => {
     const w = ALL_WIDGETS.find(x => x.id === id)
-    if (w?.required) { showToast('此小工具為核心元件，無法停用'); return }
+    if (w?.required) { showToast(t('dashboard.coreWidget', { defaultValue: '此小工具為核心元件，無法停用' })); return }
     setEnabledWidgets(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id])
   }
   const saveWidgetPrefs = () => {
     localStorage.setItem(WIDGET_PREF_KEY, JSON.stringify(enabledWidgets))
     setAddWidgetOpen(false)
-    showToast('版面已更新')
+    showToast(t('dashboard.layoutUpdated', { defaultValue: '版面已更新' }))
   }
   const has = (id: string) => enabledWidgets.includes(id)
   const openTaskRow = (tp: any) => setActivityDrawer(tp)
@@ -645,7 +646,7 @@ export default function DashboardV2() {
       className="dv2-drag-handle"
       data-wid={wid}
       onPointerDown={(e) => startDrag(e, wid)}
-      aria-label="拖曳調整順序"
+      aria-label={t('dashboard.dragReorder', { defaultValue: '拖曳調整順序' })}
     ><SvcIcon name="grip-vertical" size={14} /></span>
   ) : null
 
@@ -718,7 +719,7 @@ export default function DashboardV2() {
         document.addEventListener('mousemove', onMove)
         document.addEventListener('mouseup', onUp)
       }}
-      aria-label="拖曳調整大小"
+      aria-label={t('dashboard.dragResize', { defaultValue: '拖曳調整大小' })}
     >
       <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M22 12L12 22M22 2L2 22"/></svg>
     </div>
@@ -786,7 +787,7 @@ export default function DashboardV2() {
             className="dv2-widget-header dv2-ai-toggle"
             onClick={() => setAiExpanded(v => !v)}
             aria-expanded={aiExpanded}
-            title={aiExpanded ? '收起 AI 洞察' : '展開 AI 洞察詳情'}
+            title={aiExpanded ? t('dashboard.collapseAiInsight', { defaultValue: '收起 AI 洞察' }) : t('dashboard.expandAiInsight', { defaultValue: '展開 AI 洞察詳情' })}
           >
             <div className="dv2-widget-title"><SvcIcon name="sparkles" size={15} className="dv2-ai-spark" /> {t('dashboard.aiInsight', { defaultValue: 'AI 洞察摘要' })}</div>
             <span className="dv2-ai-toggle-right">
@@ -847,7 +848,7 @@ export default function DashboardV2() {
                                       key={ii}
                                       className="dv2-ai-section-item dv2-ai-section-link"
                                       onClick={() => navigate(target)}
-                                      title={`前往${sec.header}`}
+                                      title={t('dashboard.goToHeader', { defaultValue: '前往{{header}}', header: sec.header })}
                                     >
                                       <span>{it}</span>
                                       <SvcIcon name="chevron-right" size={13} className="dv2-ai-section-go" />
@@ -865,7 +866,7 @@ export default function DashboardV2() {
                       )}
                       {aiInsight.slot && (
                         <div className="dv2-ai-meta">
-                          {SLOT_LABELS[aiInsight.slot]?.emoji || ''} {SLOT_LABELS[aiInsight.slot]?.label || aiInsight.slot}
+                          {SLOT_LABELS[aiInsight.slot]?.emoji || ''} {SLOT_LABELS[aiInsight.slot] ? t(SLOT_LABELS[aiInsight.slot].labelKey, { defaultValue: aiInsight.slot }) : aiInsight.slot}
                           {aiInsight.generatedAt ? ` · ${new Date(aiInsight.generatedAt).toLocaleTimeString(i18n.language, { hour: '2-digit', minute: '2-digit' })} 生成` : ''}
                         </div>
                       )}
@@ -885,7 +886,7 @@ export default function DashboardV2() {
                                         {resizeGrip(wid)}
           <div className="dv2-widget-header">
             <div className="dv2-widget-title"><SvcIcon name="check-square" size={15} /> {t('dashboard.widgets.todaysTodos', { defaultValue: '今日待辦' })}</div>
-            <button className="dv2-widget-action" onClick={() => handleViewAll('todos')}>{todosExpanded ? '收起' : t('common.viewAll', { defaultValue: '查看全部' })}</button>
+            <button className="dv2-widget-action" onClick={() => handleViewAll('todos')}>{todosExpanded ? t('dashboard.collapse', { defaultValue: '收起' }) : t('common.viewAll', { defaultValue: '查看全部' })}</button>
           </div>
           <div className="dv2-widget-body dv2-list-body">
             {todos.length === 0 ? <div className="dv2-empty-mini">{t('dashboard.noTasksYet', { defaultValue: '暫無任務' })}</div> :
@@ -939,7 +940,7 @@ export default function DashboardV2() {
                 <span className="dv2-list-row-tag">{tp.type}</span>
               </button>
             ))}
-            {activity.length === 0 && <div className="dv2-empty-mini">暫無互動記錄</div>}
+            {activity.length === 0 && <div className="dv2-empty-mini">{t('dashboard.noInteractions', { defaultValue: '暫無互動記錄' })}</div>}
           </div>
         </div>
       )
@@ -1045,7 +1046,7 @@ export default function DashboardV2() {
                 <div key={u.id} className="dv2-list-row">
                   <SvcIcon name="users" size={13} className="dv2-list-row-icon" />
                   <span className="dv2-list-row-title">{u.display_name || u.email}</span>
-                  <span className="dv2-list-row-meta">{teamUsers.length} 人</span>
+                  <span className="dv2-list-row-meta">{t('dashboard.memberCount', { defaultValue: '{{count}} 人', count: teamUsers.length })}</span>
                 </div>
               ))}
           </div>
@@ -1076,7 +1077,7 @@ export default function DashboardV2() {
     }
     if (wid === 'c5') {
       const colors = ['var(--color-blue, #2563eb)', 'var(--color-purple, #7c3aed)', 'var(--color-success, #16a34a)', 'var(--color-amber, #d97706)']
-      const g = (k?: string) => k || '其他'
+      const g = (k?: string) => k || t('dashboard.other', { defaultValue: '其他' })
       const dist = new Map<string, number>()
       allContacts.forEach((c) => { const key = g(c?.source); dist.set(key, (dist.get(key) || 0) + 1) })
       const top = Array.from(dist.entries()).sort((a, b) => b[1] - a[1]).slice(0, 4)
@@ -1087,7 +1088,7 @@ export default function DashboardV2() {
         ), <SvcIcon name="tags" size={15} />)
     }
     if (wid === 'co2') {
-      const g = (k?: string) => k || '未分類'
+      const g = (k?: string) => k || t('dashboard.uncategorized', { defaultValue: '未分類' })
       const dist = new Map<string, number>()
       allCompanies.forEach((c) => { const key = g(c?.category || c?.industry); dist.set(key, (dist.get(key) || 0) + 1) })
       const top = Array.from(dist.entries()).sort((a, b) => b[1] - a[1]).slice(0, 4)
@@ -1109,7 +1110,7 @@ export default function DashboardV2() {
         )), <SvcIcon name="building-2" size={15} />)
     }
     if (wid === 'co5') {
-      const g = (k?: string) => k || '未分類'
+      const g = (k?: string) => k || t('dashboard.uncategorized', { defaultValue: '未分類' })
       const dist = new Map<string, number>()
       allCompanies.forEach((c) => { const key = g(c?.industry || c?.category); dist.set(key, (dist.get(key) || 0) + 1) })
       const top = Array.from(dist.entries()).sort((a, b) => b[1] - a[1]).slice(0, 4)
@@ -1163,15 +1164,15 @@ export default function DashboardV2() {
       events.forEach((ev) => {
         const d = new Date(ev?.start || ev?.time || Date.now())
         const day = d.getDay()
-        const names = ['日', '一', '二', '三', '四', '五', '六']
-        const key = `週${names[day] || day}`
+        const names = [t('dashboard.daysAbbr.0', { defaultValue: '日' }), t('dashboard.daysAbbr.1', { defaultValue: '一' }), t('dashboard.daysAbbr.2', { defaultValue: '二' }), t('dashboard.daysAbbr.3', { defaultValue: '三' }), t('dashboard.daysAbbr.4', { defaultValue: '四' }), t('dashboard.daysAbbr.5', { defaultValue: '五' }), t('dashboard.daysAbbr.6', { defaultValue: '六' })]
+        const key = t('dashboard.weekday', { defaultValue: '週{{day}}', day: names[day] || day })
         byDay.set(key, (byDay.get(key) || 0) + 1)
       })
       const rows = Array.from(byDay.entries()).sort((a, b) => b[1] - a[1])
       const maxN = Math.max(1, ...rows.map(([, n]) => n))
       return listWidget(t('dashboard.widgets.meetingDensity', { defaultValue: '會議密度' }), () => navigate('/calendar'), t('dashboard.noEvents', { defaultValue: '暫無活動' }),
         rows.length === 0 ? null : (
-          <div className="dv2-bar-stack">{rows.map(([k, n]) => barRow(k, n, maxN, 'var(--color-primary)', `${n} 場`))}</div>
+          <div className="dv2-bar-stack">{rows.map(([k, n]) => barRow(k, n, maxN, 'var(--color-primary)', t('dashboard.meetingCount', { defaultValue: '{{count}} 場', count: n })))}</div>
         ), <SvcIcon name="calendar" size={15} />)
     }
     if (wid === 'cal3') {
@@ -1188,7 +1189,7 @@ export default function DashboardV2() {
           <div className="dv2-bar-track"><div className="dv2-bar-fill" style={{ width: '69%', background: 'var(--color-amber, #d97706)' }} /></div>
           <div className="dv2-bar-label"><span>{t('dashboard.widgets.monthlyBudget', { defaultValue: '本月預算' })}</span><span>$180K</span></div>
           <div className="dv2-bar-track"><div className="dv2-bar-fill" style={{ width: '100%', background: 'var(--color-blue, #2563eb)' }} /></div>
-          <div className="dv2-kpi-delta up">↑8% vs 上月</div>
+          <div className="dv2-kpi-delta up">{t('dashboard.upVsLastMonth', { defaultValue: '↑8% vs 上月' })}</div>
         </div>, <Truck size={15} />)
     }
     return null
@@ -1224,7 +1225,7 @@ export default function DashboardV2() {
       <div className="dv2-footer-actions">
         <button
           className={`dv2-btn ${customizeMode ? 'dv2-btn-active' : 'dv2-btn-secondary'}`}
-          onClick={() => { setCustomizeMode(v => !v); showToast(customizeMode ? '已退出自訂模式' : '自訂版面模式已開啟，拖曳可調整排序') }}
+          onClick={() => { setCustomizeMode(v => !v); showToast(customizeMode ? t('dashboard.exitCustomize', { defaultValue: '已退出自訂模式' }) : t('dashboard.customizeHint', { defaultValue: '自訂版面模式已開啟，拖曳可調整排序' })) }}
         >
           <SvcIcon name="layout-grid" size={14} /> {customizeMode ? t('dashboard.doneCustomizing', { defaultValue: '完成自訂' }) : t('dashboard.customize', { defaultValue: '自訂版面' })}
         </button>
@@ -1249,16 +1250,16 @@ export default function DashboardV2() {
               />
               {WIDGET_GROUPS.map(g => {
                 const widgets = ALL_WIDGETS.filter(w => w.group === g.key)
-                const visible = widgetSearch ? widgets.filter(w => w.label.toLowerCase().includes(widgetSearch.toLowerCase())) : widgets
+                const visible = widgetSearch ? widgets.filter(w => t(w.labelKey, { defaultValue: w.labelKey }).toLowerCase().includes(widgetSearch.toLowerCase())) : widgets
                 if (visible.length === 0) return null
                 return (
                   <div key={g.key} className="dv2-widget-group">
-                    <div className="dv2-widget-group-title">{g.label}</div>
+                    <div className="dv2-widget-group-title">{t(g.labelKey, { defaultValue: g.labelKey })}</div>
                     {visible.map(w => (
                       <label key={w.id} className="dv2-widget-option">
                         <input type="checkbox" checked={has(w.id)} disabled={w.required} onChange={() => toggleWidget(w.id)} />
-                        <span>{w.label}</span>
-                        {w.required && <span className="dv2-widget-required">必要</span>}
+                        <span>{t(w.labelKey, { defaultValue: w.labelKey })}</span>
+                        {w.required && <span className="dv2-widget-required">{t('dashboard.required', { defaultValue: '必要' })}</span>}
                       </label>
                     ))}
                   </div>
@@ -1284,7 +1285,7 @@ export default function DashboardV2() {
               <div className="dv2-drawer-row"><SvcIcon name="clock" size={14} /><span>{activityDrawer.created_at || '—'}</span></div>
               <div className="dv2-drawer-row"><SvcIcon name="building-2" size={14} /><span>{activityDrawer.company?.name || '—'}</span></div>
               <div className="dv2-drawer-row"><SvcIcon name="activity" size={14} /><span className="dv2-table-type-tag">{activityDrawer.type}</span></div>
-              <p className="dv2-drawer-desc">{activityDrawer.description || '暫無詳細備註。'}</p>
+              <p className="dv2-drawer-desc">{activityDrawer.description || t('dashboard.noDetailNotes', { defaultValue: '暫無詳細備註。' })}</p>
             </div>
             <div className="dv2-modal-foot">
               <button className="dv2-btn dv2-btn-secondary" onClick={() => setActivityDrawer(null)}>{t('common.close', { defaultValue: '關閉' })}</button>

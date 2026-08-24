@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import SvcIcon from '../components/SvcIcon';
 import { apiClient } from '../lib/api';
+import { useTranslation } from 'react-i18next';
 
 /**
  * Fullscreen search page (v6.75) — 由 AI & Search panel 嘅 fullscreen 按鈕進入。
@@ -31,6 +32,7 @@ const ROUTE_MAP: Record<string, string> = {
 };
 
 export default function SearchPage() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<SearchResult[]>([]);
@@ -70,7 +72,7 @@ export default function SearchPage() {
   return (
     <div className="sp-page">
       <header className="sp-head">
-        <button type="button" className="sp-back" onClick={() => navigate(-1)} aria-label="返回">
+        <button type="button" className="sp-back" onClick={() => navigate(-1)} aria-label={t('common.back', { defaultValue: '返回' })}>
           <SvcIcon name="arrow-left" />
         </button>
         <div className="sp-input-wrap">
@@ -78,12 +80,12 @@ export default function SearchPage() {
           <input
             ref={inputRef}
             className="sp-input"
-            placeholder="搜尋聯絡人、公司、商機、任務、專案…"
+            placeholder={t('search.placeholder', { defaultValue: '搜尋聯絡人、公司、商機、任務、專案…' })}
             value={query}
             onChange={e => setQuery(e.target.value)}
           />
           {query && (
-            <button type="button" className="sp-clear" onClick={() => setQuery('')} aria-label="清除">
+            <button type="button" className="sp-clear" onClick={() => setQuery('')} aria-label={t('common.clear', { defaultValue: '清除' })}>
               <SvcIcon name="x" />
             </button>
           )}
@@ -107,15 +109,15 @@ export default function SearchPage() {
         {!query.trim() && (
           <div className="sp-hint">
             <div className="sp-hint-icon">🔍</div>
-            <p>輸入至少 2 個字開始搜尋</p>
-            <p className="sp-hint-sub">可以揀範圍：聯絡人、公司、商機、任務、專案、互動、筆記</p>
+            <p>{t('search.minChars', { defaultValue: '輸入至少 2 個字開始搜尋' })}</p>
+            <p className="sp-hint-sub">{t('search.scopeHint', { defaultValue: '可以揀範圍：聯絡人、公司、商機、任務、專案、互動、筆記' })}</p>
           </div>
         )}
 
-        {searching && results.length === 0 && <div className="sp-empty">搜尋中…</div>}
+        {searching && results.length === 0 && <div className="sp-empty">{t('search.searching', { defaultValue: '搜尋中…' })}</div>}
 
         {!searching && query.trim().length >= 2 && results.length === 0 && (
-          <div className="sp-empty">冇搜尋到相關結果</div>
+          <div className="sp-empty">{t('ai.noResults', { defaultValue: '冇搜尋到相關結果' })}</div>
         )}
 
         {results.map(r => (
