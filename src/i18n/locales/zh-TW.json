@@ -24,7 +24,8 @@
     "team": "團隊",
     "aiApps": "AI 應用",
     "calendar": "日曆",
-    "marketplace": "市集"
+    "marketplace": "市集",
+    "namecards": "名片庫"
   },
   "header": {
     "searchPlaceholder": "搜尋聯絡人、公司、交易...",
@@ -33,7 +34,14 @@
     "userMenu": "用戶選單",
     "searchNoResults": "搵唔到結果",
     "searchWeb": "上網搜尋 \"{{query}}\" →",
-    "newNotificationsAlert": "🔔 你有 {{count}} 則新通知"
+    "newNotificationsAlert": "🔔 你有 {{count}} 則新通知",
+    "aiActive": "點擊詢問 AI 助手",
+    "logout": "登出",
+    "new": "則新通知",
+    "noNotifications": "暫無通知",
+    "profile": "個人資料",
+    "settings": "設定",
+    "viewAll": "查看全部"
   },
   "login": {
     "title": "歡迎回來",
@@ -174,7 +182,11 @@
       "completionRate": "完成率",
       "inProgress": "進行中",
       "completed": "已完成",
-      "overdue": "逾期"
+      "overdue": "逾期",
+      "monthlyBudget": "本月預算",
+      "noEvents": "暫無活動",
+      "todaysTodos": "今日待辦",
+      "upcomingEvents": "即將舉行"
     },
     "widgetGroups": {
       "ai": "AI",
@@ -288,7 +300,25 @@
     "askAi": "Ask AI",
     "collapse": "收起",
     "customize": "自訂版面",
-    "doneCustomizing": "完成自訂"
+    "doneCustomizing": "完成自訂",
+    "aiExpandHint": "點擊展開詳細資料",
+    "aiInsight": "AI 洞察摘要",
+    "aiUpdated": "AI 更新",
+    "goodAfternoon": "Good afternoon",
+    "goodEvening": "Good evening",
+    "goodMorning": "Good morning",
+    "manageWidgets": "管理小工具",
+    "noActivity": "暫無活動記錄",
+    "noAiInsight": "暫無 AI 洞察",
+    "noCompanies": "暫無公司",
+    "noContacts": "暫無待處理聯絡人",
+    "noContactsData": "暫無聯絡人數據",
+    "noEvents": "暫無活動",
+    "noOverdue": "暫無逾期待辦",
+    "noProjects": "暫無專案",
+    "noTasksYet": "暫無任務",
+    "noTeamUsers": "暫無團隊成員",
+    "searchWidgets": "搜尋小工具..."
   },
   "chat": {
     "title": "AI 助手",
@@ -343,7 +373,8 @@
     "slashNoMatch": "冇匹配結果",
     "youMightAsk": "你可能想問",
     "analysisTakesTime": "這個分析需要多一點時間…",
-    "clearContext": "清除上下文"
+    "clearContext": "清除上下文",
+    "agentSwitcher": "切換助手"
   },
   "settings": {
     "title": "設定",
@@ -913,7 +944,31 @@
     "viewFullProfile": "查看完整檔案",
     "dismiss": "忽略",
     "add": "新增",
-    "addressSearchUnavailable": "地址搜尋暫時不可用，可以直接輸入地址"
+    "addressSearchUnavailable": "地址搜尋暫時不可用，可以直接輸入地址",
+    "aiSummary": "AI 客戶摘要",
+    "askAI": "Ask AI",
+    "contacts": "Contacts",
+    "deadline": "Deadline",
+    "deals": "Deals",
+    "editing": "編輯",
+    "generalInfo": "General Info",
+    "healthScore": "Health Score",
+    "moreOptions": "More options",
+    "noActivity": "暫無活動記錄",
+    "noActivityDesc": "新增 Task、Touchpoint 或 Note 後將顯示於此",
+    "openTasks": "Open Tasks",
+    "overdueTasks": "Overdue Tasks",
+    "overview": "Overview",
+    "ownership": "Ownership",
+    "partners": "Partners",
+    "products": "Products",
+    "related": "Related",
+    "tasks": "Tasks",
+    "timeline": "Timeline",
+    "touchpoints": "Touchpoints",
+    "unlink": "取消連結",
+    "viewDetails": "查看完整記錄",
+    "saved": "已儲存"
   },
   "contacts": {
     "title": "聯絡人",
@@ -924,7 +979,10 @@
     "company": "公司",
     "jobTitle": "職位",
     "notes": "備註",
-    "empty": "未有聯絡人"
+    "empty": "未有聯絡人",
+    "detail": {
+      "titleRequired": "標題 *"
+    }
   },
   "companies": {
     "title": "公司",
@@ -1235,7 +1293,8 @@
         "call": "電話",
         "email": "電郵",
         "namecard": "名片",
-        "selectProjectFirst": "請先選擇一個項目"
+        "selectProjectFirst": "請先選擇一個項目",
+        "deleteConfirm": "刪除 {{name}}？"
       },
       "status": "狀態",
       "lastTouch": "上次聯繫"
@@ -1392,7 +1451,10 @@
       "listColor": "顏色",
       "deleteList": "刪除",
       "deleteListTitle": "刪除清單",
-      "deleteListConfirm": "確定要刪除「{{name}}」？入面嘅任務會移去「所有任務」。此操作無法還原。"
+      "deleteListConfirm": "確定要刪除「{{name}}」？入面嘅任務會移去「所有任務」。此操作無法還原。",
+      "attachments": "附件",
+      "addAttachment": "新增附件",
+      "notesHint": "可貼 design link / Word / Google Sheet 連結"
     },
     "notifications": {
       "title": "通知",
@@ -1403,7 +1465,8 @@
       "markAllRead": "全部標為已讀",
       "read": "已讀",
       "total": "共 {{count}} 個通知",
-      "summary": "共 {{total}} 個 · {{unread}} 個未讀"
+      "summary": "共 {{total}} 個 · {{unread}} 個未讀",
+      "allModules": "全部模組"
     },
     "projects": {
       "title": "項目",
@@ -1499,7 +1562,8 @@
     "placeholder": "例如：初次通話",
     "searchPlaceholder": "搜尋聯絡人…",
     "notesPlaceholder": "簡短備註…",
-    "empty": "未有互動記錄"
+    "empty": "未有互動記錄",
+    "date": "日期"
   },
   "project": {
     "calendar": "日曆",
@@ -1574,7 +1638,58 @@
     "deleteCropped": "刪除裁剪版",
     "zoomViewAlt": "名片放大檢視",
     "confirmDeleteImage": "刪除{{label}}圖片？刪除後另一張會自動成為預設。",
-    "confirmDeleteAll": "刪除全部圖片？此動作無法復原。"
+    "confirmDeleteAll": "刪除全部圖片？此動作無法復原。",
+    "addNew": "新增名片",
+    "addTagBulk": "加 Tag",
+    "aiConfidence": "AI 辨識信心度",
+    "allTags": "全部",
+    "applyTagsToAll": "批量套用 Tag",
+    "bulkDropHint": "拖放多張名片圖片到此處，或點擊選擇",
+    "bulkDropSub": "支援一次選取數十張圖片，最大單檔 15MB",
+    "bulkTitle": "批量上載名片",
+    "bulkUpload": "批量上載",
+    "clearDone": "清除已完成",
+    "confirmDelete": "刪除呢張名片？",
+    "copyContact": "複製名片",
+    "detailTitle": "名片詳情",
+    "done": "完成",
+    "downloadOriginal": "下載原圖",
+    "dropHint": "拖放圖片到此處，或點擊上載",
+    "dropSub": "支援拍照、相簿選取、剪貼板貼上 · 上載後自動 OCR 辨識並偵測重複聯絡人",
+    "dupFound": "疑似重複",
+    "dupWarning": "AI 發現呢張卡可能同現有聯絡人相同",
+    "duplicateCard": "建立副本",
+    "emptyDesc": "上載第一張名片，AI 會自動辨識並建立聯絡人",
+    "emptyTitle": "暫無名片",
+    "failed": "失敗",
+    "imagePreview": "名片圖片預覽",
+    "linkContact": "連結聯絡人",
+    "linked": "已連結聯絡人",
+    "linkedTo": "已連結",
+    "navBulkUpload": "批量上載",
+    "navGallery": "名片庫",
+    "navTags": "Tag 管理",
+    "noImage": "名片圖片",
+    "notLinked": "未連結",
+    "pasteImage": "貼上圖片 (Ctrl+V)",
+    "pickGallery": "相簿選取",
+    "possibleDup": "疑似重複",
+    "recrop": "重新裁剪",
+    "searchContact": "搜尋現有聯絡人…",
+    "searchPlaceholder": "搜尋姓名、公司、職位…",
+    "startUpload": "開始上載",
+    "statusProcessing": "AI 正在辨識…",
+    "statusQueued": "等待上載…",
+    "statusUploading": "正在上載…",
+    "tags": "分類 Tag",
+    "takePhoto": "拍照上載",
+    "total": "總數",
+    "unlinked": "未連結",
+    "unrecognized": "未辨識",
+    "uploadFailed": "上載失敗",
+    "uploading": "正在上載並辨識…",
+    "confirmBulkDelete": "刪除已選 {{count}} 張名片？",
+    "selectedCount": "已選 {{count}} 張"
   },
   "ai": {
     "oneClickFill": "AI 一鍵填寫",
@@ -1653,7 +1768,8 @@
     "task": "任務",
     "project": "專案",
     "touchpoint": "互動",
-    "note": "筆記"
+    "note": "筆記",
+    "contact": "聯絡人"
   },
   "editor": {
     "aiAssistant": "AI 助手",
@@ -1677,7 +1793,17 @@
     "scopeHint": "可以揀範圍：聯絡人、公司、商機、任務、專案、互動、筆記",
     "searching": "搜尋中…",
     "minChars": "輸入至少 2 個字開始搜尋",
-    "placeholder": "搜尋聯絡人、公司、商機、任務、專案…"
+    "placeholder": "搜尋聯絡人、公司、商機、任務、專案…",
+    "aiAnswer": "AI 回應",
+    "aiError": "AI 查詢失敗，請重試",
+    "navigate": "導航",
+    "noAiAnswer": "未能生成回應",
+    "noResults": "找不到相關結果",
+    "quickActions": "快速操作",
+    "recent": "最近搜尋",
+    "results": "結果",
+    "select": "選擇",
+    "triggerPlaceholder": "搜尋或詢問 AI…"
   },
   "deeplink": {
     "eventNotFound": "找不到這個會議",
@@ -1686,5 +1812,66 @@
     "detectedMeeting": "偵測到你今日開咗呢個會，但 CRM 未有紀錄。用下面表單 30 秒留底 👇",
     "titlePlaceholder": "會議 / 跟進事項",
     "notesPlaceholder": "記低會議重點、跟進事項…"
+  },
+  "fields": {
+    "address": "Address",
+    "budget": "Budget",
+    "category": "Category",
+    "ceo": "CEO",
+    "company": "Company",
+    "contact": "Contact",
+    "contactType": "Contact Type",
+    "created": "Created",
+    "date": "Date",
+    "deadline": "Deadline",
+    "department": "Department",
+    "description": "Description",
+    "domain": "Domain",
+    "dueDate": "Due Date",
+    "duration": "Duration",
+    "email": "Email",
+    "grade": "Grade",
+    "industry": "Industry",
+    "jobTitle": "Title",
+    "linkedin": "LinkedIn",
+    "location": "Location",
+    "name": "姓名",
+    "owner": "Owner",
+    "phone": "Phone",
+    "priority": "Priority",
+    "salesOwner": "Sales Owner",
+    "startDate": "Start Date",
+    "status": "Status",
+    "type": "Type",
+    "updated": "Updated",
+    "website": "Website"
+  },
+  "quickAction": {
+    "aiQuery": "問 AI 一個問題",
+    "newContact": "新增聯絡人",
+    "newTask": "新增任務",
+    "openAiApps": "開啟 AI Apps",
+    "scanNameCard": "掃描名片"
+  },
+  "sidebar": {
+    "collapse": "收合側邊欄",
+    "expand": "展開側邊欄"
+  },
+  "tags": {
+    "acceptMerge": "採用",
+    "aiCleanupSub": "偵測相似或重複嘅 Tag（例如「物流」同「物流業」），建議合併",
+    "aiCleanupTitle": "AI Tag 整理建議",
+    "confirmDelete": "刪除呢個 Tag？",
+    "emptyTitle": "暫無分類 Tag",
+    "mergeMode": "合併模式",
+    "mergeSelected": "合併已選",
+    "newTag": "新增 Tag",
+    "scanNow": "立即掃描",
+    "scanning": "掃描中…",
+    "searchPlaceholder": "搜尋 Tag 名稱…",
+    "subtitle": "管理同合併重複嘅名片 Tag",
+    "tagNamePlaceholder": "輸入新 Tag 名稱",
+    "title": "名片分類 Tag 管理",
+    "usageCount": "{{count}} 張名片"
   }
 }

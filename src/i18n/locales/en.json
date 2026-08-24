@@ -24,7 +24,8 @@
     "team": "Team",
     "aiApps": "AI Apps",
     "calendar": "Calendar",
-    "marketplace": "Marketplace"
+    "marketplace": "Marketplace",
+    "namecards": "Name Cards"
   },
   "header": {
     "searchPlaceholder": "Search contacts, companies, deals...",
@@ -33,7 +34,14 @@
     "userMenu": "User menu",
     "searchNoResults": "No results found",
     "searchWeb": "Search web for \"{{query}}\" →",
-    "newNotificationsAlert": "🔔 You have {{count}} new notifications"
+    "newNotificationsAlert": "🔔 You have {{count}} new notifications",
+    "aiActive": "Ask the AI assistant",
+    "logout": "Sign out",
+    "new": "new",
+    "noNotifications": "No notifications",
+    "profile": "Profile",
+    "settings": "Settings",
+    "viewAll": "View all"
   },
   "login": {
     "title": "Welcome back",
@@ -174,7 +182,11 @@
       "completionRate": "Completion Rate",
       "inProgress": "In Progress",
       "completed": "Completed",
-      "overdue": "Overdue"
+      "overdue": "Overdue",
+      "monthlyBudget": "Monthly Budget",
+      "noEvents": "No events",
+      "todaysTodos": "Today's Todos",
+      "upcomingEvents": "Upcoming Events"
     },
     "widgetGroups": {
       "ai": "AI",
@@ -269,13 +281,13 @@
     "other": "Other",
     "uncategorized": "Uncategorized",
     "daysAbbr": [
-      "日",
-      "一",
-      "二",
-      "三",
-      "四",
-      "五",
-      "六"
+      "Su",
+      "Mo",
+      "Tu",
+      "We",
+      "Th",
+      "Fr",
+      "Sa"
     ],
     "weekday": "{{week}} {{day}}",
     "upVsLastMonth": "↑8% vs last month",
@@ -288,7 +300,25 @@
     "askAi": "Ask AI",
     "collapse": "Collapse",
     "customize": "Customize",
-    "doneCustomizing": "Done customizing"
+    "doneCustomizing": "Done customizing",
+    "aiExpandHint": "Click to expand details",
+    "aiInsight": "AI Insight Summary",
+    "aiUpdated": "AI Updated",
+    "goodAfternoon": "Good afternoon",
+    "goodEvening": "Good evening",
+    "goodMorning": "Good morning",
+    "manageWidgets": "Manage Widgets",
+    "noActivity": "No activity recorded",
+    "noAiInsight": "No AI insight",
+    "noCompanies": "No companies",
+    "noContacts": "No pending contacts",
+    "noContactsData": "No contact data",
+    "noEvents": "No events",
+    "noOverdue": "No overdue todos",
+    "noProjects": "No projects",
+    "noTasksYet": "No tasks yet",
+    "noTeamUsers": "No team members",
+    "searchWidgets": "Search widgets..."
   },
   "chat": {
     "title": "AI Assistant",
@@ -343,7 +373,8 @@
     "slashNoMatch": "No matching commands",
     "youMightAsk": "You might want to ask",
     "analysisTakesTime": "This analysis takes a little longer…",
-    "clearContext": "Clear context"
+    "clearContext": "Clear context",
+    "agentSwitcher": "Switch agent"
   },
   "settings": {
     "title": "Settings",
@@ -913,7 +944,31 @@
     "viewFullProfile": "View Full Profile",
     "dismiss": "Dismiss",
     "add": "Add",
-    "addressSearchUnavailable": "Address search is temporarily unavailable — you can type the address directly"
+    "addressSearchUnavailable": "Address search is temporarily unavailable — you can type the address directly",
+    "aiSummary": "AI Customer Summary",
+    "askAI": "Ask AI",
+    "contacts": "Contacts",
+    "deadline": "Deadline",
+    "deals": "Deals",
+    "editing": "Editing",
+    "generalInfo": "General Info",
+    "healthScore": "Health Score",
+    "moreOptions": "More options",
+    "noActivity": "No activity recorded",
+    "noActivityDesc": "New tasks, touchpoints, or notes will appear here",
+    "openTasks": "Open Tasks",
+    "overdueTasks": "Overdue Tasks",
+    "overview": "Overview",
+    "ownership": "Ownership",
+    "partners": "Partners",
+    "products": "Products",
+    "related": "Related",
+    "tasks": "Tasks",
+    "timeline": "Timeline",
+    "touchpoints": "Touchpoints",
+    "unlink": "Unlink",
+    "viewDetails": "View full record",
+    "saved": "Saved"
   },
   "contacts": {
     "title": "Contacts",
@@ -924,7 +979,10 @@
     "company": "Company",
     "jobTitle": "Job Title",
     "notes": "Notes",
-    "empty": "No contacts yet"
+    "empty": "No contacts yet",
+    "detail": {
+      "titleRequired": "Title *"
+    }
   },
   "companies": {
     "title": "Companies",
@@ -1235,7 +1293,8 @@
         "call": "Call",
         "email": "Email",
         "namecard": "Name Card",
-        "selectProjectFirst": "Please select a project first"
+        "selectProjectFirst": "Please select a project first",
+        "deleteConfirm": "Delete {{name}}?"
       },
       "status": "Status",
       "lastTouch": "Last Touch"
@@ -1397,7 +1456,10 @@
       "listColor": "Color",
       "deleteList": "Delete",
       "deleteListTitle": "Delete List",
-      "deleteListConfirm": "Delete \"{{name}}\"? Its tasks will move to \"All\". This cannot be undone."
+      "deleteListConfirm": "Delete \"{{name}}\"? Its tasks will move to \"All\". This cannot be undone.",
+      "attachments": "Attachments",
+      "addAttachment": "Attach",
+      "notesHint": "Paste design links / Word / Google Sheets links"
     },
     "notifications": {
       "title": "Notifications",
@@ -1408,7 +1470,8 @@
       "markRead": "Mark as read",
       "markAllRead": "Mark all as read",
       "total": "{{count}} notifications",
-      "summary": "{{total}} total · {{unread}} unread"
+      "summary": "{{total}} total · {{unread}} unread",
+      "allModules": "All modules"
     },
     "contact": {
       "title": "Contacts",
@@ -1499,7 +1562,8 @@
     "placeholder": "e.g. Discovery call",
     "searchPlaceholder": "Search contacts…",
     "notesPlaceholder": "Brief notes…",
-    "empty": "No touchpoints yet"
+    "empty": "No touchpoints yet",
+    "date": "Date"
   },
   "project": {
     "title": "Projects",
@@ -1574,7 +1638,58 @@
     "deleteCropped": "Delete cropped",
     "zoomViewAlt": "Zoomed card view",
     "confirmDeleteImage": "Delete {{label}} image? The other one will become the default automatically.",
-    "confirmDeleteAll": "Delete all images? This cannot be undone."
+    "confirmDeleteAll": "Delete all images? This cannot be undone.",
+    "addNew": "Add Name Card",
+    "addTagBulk": "Add Tag",
+    "aiConfidence": "AI confidence",
+    "allTags": "All",
+    "applyTagsToAll": "Apply Tags to All",
+    "bulkDropHint": "Drop multiple card images here, or click to select",
+    "bulkDropSub": "Select dozens of images at once, up to 15MB each",
+    "bulkTitle": "Bulk Upload Name Cards",
+    "bulkUpload": "Bulk Upload",
+    "clearDone": "Clear completed",
+    "confirmDelete": "Delete this card?",
+    "copyContact": "Copy card",
+    "detailTitle": "Card Details",
+    "done": "Done",
+    "downloadOriginal": "Download original",
+    "dropHint": "Drop images here, or click to upload",
+    "dropSub": "Camera, gallery, or clipboard paste · auto OCR and duplicate detection after upload",
+    "dupFound": "Possible duplicate",
+    "dupWarning": "AI found this card may match an existing contact",
+    "duplicateCard": "Duplicate card",
+    "emptyDesc": "Upload your first card and AI will recognize it and create a contact",
+    "emptyTitle": "No cards yet",
+    "failed": "Failed",
+    "imagePreview": "Card image preview",
+    "linkContact": "Link contact",
+    "linked": "Contact linked",
+    "linkedTo": "Linked to",
+    "navBulkUpload": "Bulk Upload",
+    "navGallery": "Name Cards",
+    "navTags": "Tag Management",
+    "noImage": "Card image",
+    "notLinked": "Not linked",
+    "pasteImage": "Paste image (Ctrl+V)",
+    "pickGallery": "Gallery",
+    "possibleDup": "Possible duplicate",
+    "recrop": "Recrop",
+    "searchContact": "Search existing contacts…",
+    "searchPlaceholder": "Search name, company, title…",
+    "startUpload": "Start upload",
+    "statusProcessing": "AI is recognizing…",
+    "statusQueued": "Waiting to upload…",
+    "statusUploading": "Uploading…",
+    "tags": "Tags",
+    "takePhoto": "Take photo",
+    "total": "Total",
+    "unlinked": "Unlinked",
+    "unrecognized": "Unrecognized",
+    "uploadFailed": "Upload failed",
+    "uploading": "Uploading and recognizing…",
+    "confirmBulkDelete": "Delete {{count}} selected card(s)?",
+    "selectedCount": "{{count}} selected"
   },
   "ai": {
     "oneClickFill": "AI Auto-fill",
@@ -1653,7 +1768,8 @@
     "task": "Tasks",
     "project": "Projects",
     "touchpoint": "Interactions",
-    "note": "Notes"
+    "note": "Notes",
+    "contact": "Contacts"
   },
   "editor": {
     "aiAssistant": "AI Assistant",
@@ -1677,7 +1793,17 @@
     "scopeHint": "Search across: contacts, companies, deals, tasks, projects, touchpoints, notes",
     "searching": "Searching…",
     "minChars": "Type at least 2 characters to search",
-    "placeholder": "Search contacts, companies, deals, tasks, projects…"
+    "placeholder": "Search contacts, companies, deals, tasks, projects…",
+    "aiAnswer": "AI Answer",
+    "aiError": "AI query failed, please retry",
+    "navigate": "Navigate",
+    "noAiAnswer": "Could not generate a response",
+    "noResults": "No matching results",
+    "quickActions": "Quick Actions",
+    "recent": "Recent searches",
+    "results": "Results",
+    "select": "Select",
+    "triggerPlaceholder": "Search or ask AI…"
   },
   "deeplink": {
     "eventNotFound": "Event not found",
@@ -1686,5 +1812,66 @@
     "detectedMeeting": "We detected you attended this meeting today, but there's no CRM record yet. Use the form below to log it in 30 seconds 👇",
     "titlePlaceholder": "Meeting / follow-up",
     "notesPlaceholder": "Note meeting highlights, follow-ups…"
+  },
+  "fields": {
+    "address": "Address",
+    "budget": "Budget",
+    "category": "Category",
+    "ceo": "CEO",
+    "company": "Company",
+    "contact": "Contact",
+    "contactType": "Contact Type",
+    "created": "Created",
+    "date": "Date",
+    "deadline": "Deadline",
+    "department": "Department",
+    "description": "Description",
+    "domain": "Domain",
+    "dueDate": "Due Date",
+    "duration": "Duration",
+    "email": "Email",
+    "grade": "Grade",
+    "industry": "Industry",
+    "jobTitle": "Title",
+    "linkedin": "LinkedIn",
+    "location": "Location",
+    "name": "Name",
+    "owner": "Owner",
+    "phone": "Phone",
+    "priority": "Priority",
+    "salesOwner": "Sales Owner",
+    "startDate": "Start Date",
+    "status": "Status",
+    "type": "Type",
+    "updated": "Updated",
+    "website": "Website"
+  },
+  "quickAction": {
+    "aiQuery": "Ask AI a question",
+    "newContact": "New Contact",
+    "newTask": "New Task",
+    "openAiApps": "Open AI Apps",
+    "scanNameCard": "Scan Name Card"
+  },
+  "sidebar": {
+    "collapse": "Collapse sidebar",
+    "expand": "Expand sidebar"
+  },
+  "tags": {
+    "acceptMerge": "Accept",
+    "aiCleanupSub": "Detect similar or duplicate tags (e.g. \"Logistics\" vs \"Logistics Co\") and suggest merging",
+    "aiCleanupTitle": "AI Tag Cleanup Suggestions",
+    "confirmDelete": "Delete this tag?",
+    "emptyTitle": "No tags yet",
+    "mergeMode": "Merge Mode",
+    "mergeSelected": "Merge Selected",
+    "newTag": "New Tag",
+    "scanNow": "Scan Now",
+    "scanning": "Scanning…",
+    "searchPlaceholder": "Search tag names…",
+    "subtitle": "Manage and merge duplicate name-card tags",
+    "tagNamePlaceholder": "Enter new tag name",
+    "title": "Name Card Tag Management",
+    "usageCount": "{{count}} cards"
   }
 }

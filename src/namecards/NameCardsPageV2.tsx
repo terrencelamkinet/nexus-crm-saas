@@ -110,7 +110,7 @@ export default function NameCardsPageV2() {
   }
 
   const handleBulkDelete = async () => {
-    if (!confirm(t('nameCard.confirmBulkDelete', { defaultValue: `刪除已選 ${selected.size} 張名片？` }))) return
+    if (!confirm(t('nameCard.confirmBulkDelete', { count: selected.size, defaultValue: '刪除已選 {{count}} 張名片？' }))) return
     await Promise.all(Array.from(selected).map(id => apiClient.delete(`/api/v1/crm/name-cards/${id}`)))
     setSelected(new Set())
     fetchCards()
