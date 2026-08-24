@@ -51,15 +51,70 @@ SLOT_PROMPTS: dict[str, dict[str, str]] = {
 SYSTEM_PROMPT = (
     "你係專業 AI 助理，負責生成每日簡報。\n"
     "硬性規則：\n"
-    "- 用 {lang} 書面語/口語（廣東話語感），嚴禁英文敘述\n"
-    "- 全部 bullet points，每行一個 fact，高密度，少空行\n"
-    "- 有 data 就報 data（具體數字/時間/名稱），冇 data 就 skip 該 section，唔好出空泛句\n"
-    "- 嚴禁「一切安好」「暫無特別需要跟進」呢類 AI 腔空泛句\n"
-    "- 唔好加 commentary、感想、尾句、encouragement\n"
-    "- 語氣：{tone}\n"
-    "- 每個 event 標明來源 label（[Kinetix]/[Personal]/[敬拜隊] 等）\n"
-    "- 用戶額外指示：{instructions}\n"
+    "用 {lang} 書面語/口語（廣東話語感），嚴禁英文敘述\n"
+    "全部 bullet points，每行一個 fact，高密度，少空行\n"
+    "有 data 就報 data（具體數字/時間/名稱），冇 data 就 skip 該 section，唔好出空泛句\n"
+    "嚴禁「一切安好」「暫無特別需要跟進」呢類 AI 腔空泛句\n"
+    "唔好加 commentary、感想、尾句、encouragement\n"
+    "語氣：{tone}\n"
+    "每個 module 嘅內容每行必須以對應 module tag 開頭（格式 `- {{tag}} {{內容}}`，tag 表見 user message）\n"
+    "每個 event 標明來源 label（[Kinetix]/[Personal]/[敬拜隊] 等）\n"
+    "用戶額外指示：{instructions}\n"
 )
+
+# module key → emoji + 短名 tag（用戶 2026-08-24：「每個模組都加個 tag 容易啲區分」）
+MODULE_TAGS: dict[str, str] = {
+    "weather": "🌦️ 天氣",
+    "meetings": "📅 行程",
+    "today_tasks": "✅ 任務",
+    "team_updates": "👥 團隊",
+    "bible_reading": "📖 聖經",
+    "news_industry": "📰 新聞",
+    "quote_tracking": "📑 報價",
+    "traffic_commute": "🚗 交通",
+    "overdue_followup": "⏰ 跟進",
+    "expense_reminders": "💰 費用",
+    "invoice_reminders": "🧾 發票",
+    "calendar_conflicts": "⚠️ 衝突",
+    "email_draft_review": "📧 電郵",
+    "project_status": "📊 項目",
+    "stale_deals": "📉 商機",
+    "birthday_reminders": "🎂 生日",
+    "hot_leads": "🔥 潛在",
+    "sales_kpi": "📈 KPI",
+    "unread_messages": "💬 訊息",
+    "customer_sentiment": "🎯 情緒",
+    "personal_reminders": "🏠 個人",
+}
+
+# module → 4 大發送類別歸屬（LLM 分類準確性 — 固定歸屬，唔靠 LLM 自己估）
+MODULE_CATEGORY: dict[str, str] = {
+    # 通知：衝突、逾期、需要立即處理
+    "calendar_conflicts": "notifications",
+    "overdue_followup": "notifications",
+    # 提醒：任務、費用、發票、電郵、生日、個人
+    "today_tasks": "reminders",
+    "expense_reminders": "reminders",
+    "invoice_reminders": "reminders",
+    "email_draft_review": "reminders",
+    "birthday_reminders": "reminders",
+    "personal_reminders": "reminders",
+    # 資訊：天氣、行程、新聞、報價、交通、項目、團隊、KPI、商機、潛在、訊息、情緒
+    "weather": "info",
+    "meetings": "info",
+    "news_industry": "info",
+    "quote_tracking": "info",
+    "traffic_commute": "info",
+    "project_status": "info",
+    "team_updates": "info",
+    "sales_kpi": "info",
+    "stale_deals": "info",
+    "hot_leads": "info",
+    "unread_messages": "info",
+    "customer_sentiment": "info",
+    # 聖經
+    "bible_reading": "bible",
+}
 
 
 def _now_hkt() -> datetime:
@@ -228,6 +283,15 @@ def _build_prompt(slot: str, settings: SecretarySettings, data: dict[str, Any]) 
         f"今日指示：{slot_meta['instructions']}\n\n"
         f"以下係已收集嘅數據（用戶喺 AI 應用揀咗 modules：{', '.join(list(modules_summary.keys()) + ['schedule', 'tasks', 'weather']) if modules_summary else 'default'}）：\n"
         f"```json\n{json.dumps(payload, ensure_ascii=False, default=str, indent=1)}\n```\n\n"
+    )
+    # v7.01: module tag 表 — 每個 module 內容每行用 tag 開頭，容易區分
+    tag_lines = "\n".join(f"- {k}: {v}" for k, v in MODULE_TAGS.items())
+    cat_lines = "\n".join(f"- {k} → {v}" for k, v in MODULE_CATEGORY.items())
+    user += (
+        "Module tag 表（每個 module 嘅內容每行必須以對應 tag 開頭，格式 `- {tag} {內容}`）：\n"
+        f"{tag_lines}\n\n"
+        "Module 類別歸屬（module → 4 大類別，分類時跟呢個表）：\n"
+        f"{cat_lines}\n\n"
     )
     # Bible 專屬格式規則（有 bible_reading data 時）— 只提供 reference + 連結，
     # 唔列經文內文（用戶 2026-08-24 明確要求：「經文不需要 list，只要提供

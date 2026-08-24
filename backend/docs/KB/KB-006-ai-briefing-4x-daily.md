@@ -27,6 +27,10 @@ evening / night → 存 `nexus_crm.generated_briefings` cache），**唔係即�
   reminders / info / bible）→ `generate_briefing` parse 成 `categories` jsonb
   存 DB → scheduler 每類一條 message 推送（`🕐 HH:MM · 🔔 通知 / ⏰ 提醒 /
   📰 資訊 / 📖 聖經`）。Dashboard 讀完整 content（tags 剝走、保留 section headers）。
+- **每個模組都有 tag（v7.01 確立 — 用戶：「每個模組都加個 tag 容易啲區分」）**：
+  `MODULE_TAGS` 定義 module → emoji+短名（🌦️ 天氣 / 📅 行程 / ✅ 任務 / 📰 新聞 /
+  ⏰ 跟進 / 💰 費用 / 🧾 發票 / ⚠️ 衝突…），LLM 輸出每行 `- {tag} {內容}`；
+  `MODULE_CATEGORY` 固定 module → 4 大類別歸屬（分類唔靠 LLM 估）
 - **聖經唔列經文內文（v7.00 確立）**：只提供 reference + 今日經文連結
   （bible.com / 微讀）— 用戶會自己開 Bible app 睇
 - scheduler 統一控制推送（`skip_im_push=True` 傳俾 generator）— 避免 double push
