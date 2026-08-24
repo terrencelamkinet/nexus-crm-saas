@@ -19,6 +19,7 @@ import MarketplacePage from './pages/MarketplacePage';
 import IntegrationDetailPage from './pages/IntegrationDetailPage';
 import OAuthCallbackPage from './pages/OAuthCallbackPage';
 import NameCardModuleRouter from './namecards/NameCardModuleRouter';
+import SvcIconsPage from './pages/SvcIconsPage';
 import SettingsPage from './pages/SettingsPage';
 import AIAppsPage from './pages/AIAppsPage';
 import NotificationsPage from './pages/NotificationsPage';
@@ -72,6 +73,7 @@ function App() {
           <Route path="tasks" element={<TasksPage />} />
           <Route path="tasks/:id" element={<TaskDetailPage />} />
           <Route path="namecards/*" element={<NameCardModuleRouter />} />
+          <Route path="newicon" element={<SvcIconsPage />} />
           <Route path="reports" element={
             <div className="p-8">
               <h1 className="text-2xl font-bold text-slate-900">Reports & Analytics</h1>

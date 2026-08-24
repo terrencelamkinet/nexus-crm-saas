@@ -19,6 +19,7 @@
     "outage-drill": "cd backend && source venv/bin/activate && python scripts/outage_drill.py"
   },
   "dependencies": {
+    "@tiptap/core": "^2.27.2",
     "@tiptap/extension-character-count": "^2.27.2",
     "@tiptap/extension-color": "^2.27.2",
     "@tiptap/extension-dropcursor": "^2.27.2",
