@@ -133,6 +133,9 @@
 .dv2-btn-primary:hover { background: var(--color-primary-hover); }
 .dv2-btn-active { background: color-mix(in oklch, var(--color-primary) 16%, var(--color-surface)); color: var(--color-primary); border-color: color-mix(in oklch, var(--color-primary) 40%, var(--color-border)); }
 
+/* 底部操作區 — 自訂版面 / 新增小工具（捲到最後先見到） */
+.dv2-footer-actions { display: flex; gap: 10px; justify-content: center; margin-top: 32px; padding-top: 20px; border-top: 1px solid var(--color-divider); flex-wrap: wrap; }
+
 /* ═══ WIDGET GRID (base) ═══ */
 .dv2-grid { display: grid; grid-template-columns: repeat(12, 1fr); gap: 16px; align-items: start; grid-auto-rows: min-content; }
 .dv2-grid.customizing .dv2-widget { outline: 2px dashed color-mix(in oklch, var(--color-primary) 45%, transparent); outline-offset: 2px; cursor: grab; }

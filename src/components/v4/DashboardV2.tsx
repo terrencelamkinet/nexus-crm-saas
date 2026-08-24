@@ -1201,17 +1201,6 @@ export default function DashboardV2() {
           <h1 className="dv2-greeting">{greeting}</h1>
           <p className="dv2-date">{new Date().toLocaleDateString(i18n.language, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</p>
         </div>
-        <div className="dv2-toolbar-actions">
-          <button
-            className={`dv2-btn ${customizeMode ? 'dv2-btn-active' : 'dv2-btn-secondary'}`}
-            onClick={() => { setCustomizeMode(v => !v); showToast(customizeMode ? '已退出自訂模式' : '自訂版面模式已開啟，拖曳可調整排序') }}
-          >
-            <SvcIcon name="layout-grid" size={14} /> {customizeMode ? t('dashboard.doneCustomizing', { defaultValue: '完成自訂' }) : t('dashboard.customize', { defaultValue: '自訂版面' })}
-          </button>
-          <button className="dv2-btn dv2-btn-primary" onClick={() => { setWidgetSearch(''); setAddWidgetOpen(true) }}>
-            <SvcIcon name="plus" size={14} /> {t('dashboard.addWidget', { defaultValue: '新增小工具' })}
-          </button>
-        </div>
       </div>
 
       {/* AI 洞察摘要 — 頂部全寬獨立 section（唔喺 widget grid 內） */}
@@ -1229,6 +1218,19 @@ export default function DashboardV2() {
           if (!ALL_WIDGETS.some(w => w.id === wid) && !wid.startsWith('stats:')) return null
           return has(wid) ? renderWidget(wid) : null
         })}
+      </div>
+
+      {/* 底部操作區 — 自訂版面 / 新增小工具（捲到最後先見到） */}
+      <div className="dv2-footer-actions">
+        <button
+          className={`dv2-btn ${customizeMode ? 'dv2-btn-active' : 'dv2-btn-secondary'}`}
+          onClick={() => { setCustomizeMode(v => !v); showToast(customizeMode ? '已退出自訂模式' : '自訂版面模式已開啟，拖曳可調整排序') }}
+        >
+          <SvcIcon name="layout-grid" size={14} /> {customizeMode ? t('dashboard.doneCustomizing', { defaultValue: '完成自訂' }) : t('dashboard.customize', { defaultValue: '自訂版面' })}
+        </button>
+        <button className="dv2-btn dv2-btn-primary" onClick={() => { setWidgetSearch(''); setAddWidgetOpen(true) }}>
+          <SvcIcon name="plus" size={14} /> {t('dashboard.addWidget', { defaultValue: '新增小工具' })}
+        </button>
       </div>
 
       {addWidgetOpen && (
