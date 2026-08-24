@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Plus, Search, X, ChevronRight } from 'lucide-react';
+import SvcIcon from '../components/SvcIcon';
 import { useNavigate } from 'react-router-dom';
 import { useApi, useSearch, useCreateModal, TableSkeleton, ErrorBox } from '../lib/useApi';
 import { apiClient } from '../lib/api';
@@ -76,7 +76,7 @@ export default function TasksPage() {
       {/* Breadcrumb */}
       <div className="breadcrumb">
         <span className="breadcrumb-link" onClick={() => navigate('/dashboard')}>Home</span>
-        <ChevronRight />
+        <SvcIcon name="chevron-right" />
         <span className="breadcrumb-current">Tasks</span>
       </div>
       {/* Page header */}
@@ -87,7 +87,7 @@ export default function TasksPage() {
         </div>
         <div className="header-actions">
           <button onClick={create.openModal} className="btn-primary">
-            <Plus className="w-4 h-4" /> {t('pages.tasks.new')}
+            <SvcIcon name="plus" className="w-4 h-4" /> {t('pages.tasks.new')}
           </button>
         </div>
       </div>
@@ -96,7 +96,7 @@ export default function TasksPage() {
       <div className="panel animate-in">
         <div className="panel-head">
           <div className="search-box">
-            <Search />
+            <SvcIcon name="search" />
             <input
               type="text"
               placeholder="Search tasks..."
@@ -150,7 +150,7 @@ export default function TasksPage() {
           <div className="modal">
             <div className="modal-head">
               <h2>{t('pages.tasks.new')}</h2>
-              <button onClick={create.closeModal} className="modal-x"><X className="w-5 h-5" /></button>
+              <button onClick={create.closeModal} className="modal-x"><SvcIcon name="x" className="w-5 h-5" /></button>
             </div>
             <div className="modal-body space-y-4">
               <div>

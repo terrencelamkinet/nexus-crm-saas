@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { CalendarDays } from 'lucide-react';
+import SvcIcon from '../../../components/SvcIcon';
 import { isSameDay } from './calendar-utils';
 import type { CalendarEventFormatted } from './types';
 import { TYPE_COLORS, SOURCE_LABELS } from './types';
@@ -100,7 +100,7 @@ export default function DeadlineView({ events, onEventClick }: DeadlineViewProps
       <div>
         {/* Empty state */}
         <div className="calendar-empty">
-          <CalendarDays />
+          <SvcIcon name="calendar-days" />
           <p>No events</p>
         </div>
       </div>

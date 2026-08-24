@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { CheckCircle2, X, RotateCcw } from 'lucide-react';
+import SvcIcon from '../../components/SvcIcon';
 import { apiClient } from '../../lib/api';
 
 /**
@@ -111,7 +111,7 @@ export default function CameraScanSheet({ open, onClose, onSaved }: Props) {
         <div className="cam-handle" />
         <div className="cam-head">
           <h3>拍卡片 · AI 自動識別</h3>
-          <button type="button" className="cam-close" onClick={handleClose} aria-label="Close"><X /></button>
+          <button type="button" className="cam-close" onClick={handleClose} aria-label="Close"><SvcIcon name="x" /></button>
         </div>
         <div className="cam-body">
           {!result ? (
@@ -129,7 +129,7 @@ export default function CameraScanSheet({ open, onClose, onSaved }: Props) {
             <>
               <div className="cam-result">
                 <div className="cam-result-head">
-                  <CheckCircle2 /><span>{saveLabel}</span>
+                  <SvcIcon name="check-circle-2" /><span>{saveLabel}</span>
                 </div>
                 {[
                   ['姓名', parsed?.name || parsed?.person_name],
@@ -147,7 +147,7 @@ export default function CameraScanSheet({ open, onClose, onSaved }: Props) {
                 )}
               </div>
               <div className="cam-actions">
-                <button type="button" className="retake" onClick={() => setResult(null)}><RotateCcw /> 重拍</button>
+                <button type="button" className="retake" onClick={() => setResult(null)}><SvcIcon name="rotate-ccw" /> 重拍</button>
                 <button type="button" className="save" onClick={() => { handleClose(); onSaved(personName); }}>儲存為聯絡人</button>
               </div>
             </>

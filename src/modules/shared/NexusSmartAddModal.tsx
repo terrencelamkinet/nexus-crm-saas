@@ -5,7 +5,7 @@
 // ═══════════════════════════════════════════════════════
 import { useState, useRef, useCallback, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Sparkles, ScanLine, X, Loader2, Camera, Upload, AlertTriangle, Users2 } from 'lucide-react'
+import SvcIcon from '../../components/SvcIcon'
 import { FieldsRenderer } from './FieldsRenderer'
 import { buildPayload, defaultForm, apiErrorToString } from './field-utils'
 import { apiClient } from '../../lib/api'
@@ -254,25 +254,25 @@ export default function NexusSmartAddModal({ config, open, onClose, onCreated, e
         <div className="nx-modal-drag-handle" />
         <div className="nx-modal-head">
           <h2 id="nx-modal-title">{t(`pages.${config.name}.new`)}</h2>
-          <button onClick={handleClose} className="nx-modal-x" aria-label={t('common.close')}><X size={18} /></button>
+          <button onClick={handleClose} className="nx-modal-x" aria-label={t('common.close')}><SvcIcon name="x" size={18} /></button>
         </div>
 
         <div className="nx-modal-body">
           {showNameCardScan && (
             <div className={`nx-namecard-zone ${isThinking ? 'scanning' : ''}`} onClick={() => fileInputRef.current?.click()}>
               <input ref={fileInputRef} type="file" accept="image/*" capture="environment" className="sr-only" onChange={onFileSelected} />
-              <div className="nx-namecard-icon">{isThinking ? <Loader2 size={18} className="nx-spin" /> : <ScanLine size={18} />}</div>
+              <div className="nx-namecard-icon">{isThinking ? <SvcIcon name="loader-2" size={18} className="nx-spin" /> : <SvcIcon name="scan-line" size={18} />}</div>
               <div>
                 <div className="nx-namecard-title">{t('ai.scanNameCard')}</div>
                 <div className="nx-namecard-sub">{isThinking ? t('ai.scanningInProgress') : t('ai.scanNameCardHint')}</div>
               </div>
-              <div className="nx-namecard-cta"><Camera size={14} /><Upload size={14} /></div>
+              <div className="nx-namecard-cta"><SvcIcon name="camera" size={14} /><SvcIcon name="upload" size={14} /></div>
             </div>
           )}
 
           <div className="nx-ai-bar">
             <div className="nx-ai-bar-row">
-              <div className="nx-ai-icon"><Sparkles size={15} /></div>
+              <div className="nx-ai-icon"><SvcIcon name="sparkles" size={15} /></div>
               <div className="nx-ai-text">
                 <div className="nx-ai-title">{t('ai.oneClickFill')}</div>
                 <div className="nx-ai-desc">{t('ai.oneClickFillHint')}</div>
@@ -290,7 +290,7 @@ export default function NexusSmartAddModal({ config, open, onClose, onCreated, e
               <div className="nx-paste-actions">
                 <button className="nx-btn-mini" onClick={() => { setPasteOpen(false); setPasteText('') }}>{t('common.cancel')}</button>
                 <button className="nx-btn-mini primary" disabled={!pasteText.trim() || isThinking} onClick={handleAIParseText}>
-                  {isThinking ? <Loader2 size={12} className="nx-spin" /> : <Sparkles size={12} />} {t('ai.analyzeAndFill')}
+                  {isThinking ? <SvcIcon name="loader-2" size={12} className="nx-spin" /> : <SvcIcon name="sparkles" size={12} />} {t('ai.analyzeAndFill')}
                 </button>
               </div>
             </div>
@@ -305,7 +305,7 @@ export default function NexusSmartAddModal({ config, open, onClose, onCreated, e
 
           {dupMatch && (
             <div className="nx-dup-alert">
-              <Users2 size={16} />
+              <SvcIcon name="users-2" size={16} />
               <span style={{ flex: 1 }}>{t('ai.duplicateFound', { name: dupMatch.name, pct: Math.round(dupMatch.similarity * 100) })}</span>
               <button className="nx-btn nx-btn-secondary">{t('ai.viewRecord')}</button>
               <button className="nx-btn-mini" onClick={() => setDupMatch(null)}>{t('common.dismiss')}</button>
@@ -317,7 +317,7 @@ export default function NexusSmartAddModal({ config, open, onClose, onCreated, e
               <div key={f.key} className={`nx-field ${f.gridColumn === 'full' ? 'full' : ''}`}>
                 {suggestions[f.key] && (
                   <div className="nx-suggest">
-                    <Sparkles size={12} />
+                    <SvcIcon name="sparkles" size={12} />
                     <span>{t('ai.suggestPrefix')} <strong>{suggestions[f.key].name}</strong> — {suggestions[f.key].reason}</span>
                     <button
                       className="nx-btn-mini"
@@ -339,7 +339,7 @@ export default function NexusSmartAddModal({ config, open, onClose, onCreated, e
         <div className="nx-modal-foot">
           <button onClick={handleClose} className="nx-btn nx-btn-secondary">{t('common.cancel')}</button>
           <button onClick={handleCreate} disabled={saving || isThinking} className="nx-btn nx-btn-primary">
-            {saving ? <Loader2 size={14} className="nx-spin" /> : null} {saving ? t('common.processing') : t('common.create')}
+            {saving ? <SvcIcon name="loader-2" size={14} className="nx-spin" /> : null} {saving ? t('common.processing') : t('common.create')}
           </button>
         </div>
       </div>
@@ -352,7 +352,7 @@ function AIConfidenceBadge({ confidence }: { confidence: number }) {
   const low = pct < 70
   return (
     <span className={`nx-ai-badge ${low ? 'low' : ''}`} title={low ? '準確度較低，建議人手覆核' : 'AI 自動填寫'}>
-      {low ? <AlertTriangle size={10} /> : <Sparkles size={10} />} {pct}%
+      {low ? <SvcIcon name="alert-triangle" size={10} /> : <SvcIcon name="sparkles" size={10} />} {pct}%
     </span>
   )
 }

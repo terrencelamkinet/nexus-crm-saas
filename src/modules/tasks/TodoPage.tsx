@@ -4,12 +4,8 @@ import { useSearchParams, useNavigate } from 'react-router-dom'
 import { apiClient } from '../../lib/api'
 import { useTranslation } from 'react-i18next'
 import NexusEditor from '../../components/editor/NexusEditor'
-import {
-  Plus, X, Check, Sun, Calendar, Bell, Repeat, FileText, Paperclip,
-  Share2, ChevronRight, Trash2, List, Loader2,
-  MoreVertical, Pencil, ArrowUp, ArrowDown, Palette, Inbox, Star,
-  CheckCircle2, User, Flag, Briefcase, Home, Heart, Bookmark,
-} from 'lucide-react'
+import { Repeat, Paperclip, Share2, MoreVertical, ArrowDown, Palette, Inbox, Star, Flag, Briefcase, Home, Heart, Bookmark } from 'lucide-react'
+import SvcIcon from '../../components/SvcIcon'
 
 /* ── Types ── */
 interface TaskList {
@@ -32,11 +28,11 @@ interface TaskAttachment { id: string; filename: string; file_size?: number; con
 const LIST_ICON_OPTIONS: { value: string; icon: React.ReactNode; label: string }[] = [
   { value: 'inbox', icon: <Inbox size={16} />, label: 'Inbox' },
   { value: 'star', icon: <Star size={16} />, label: 'Star' },
-  { value: 'calendar', icon: <Calendar size={16} />, label: 'Calendar' },
-  { value: 'sun', icon: <Sun size={16} />, label: 'Sun' },
-  { value: 'check', icon: <CheckCircle2 size={16} />, label: 'Check' },
-  { value: 'user', icon: <User size={16} />, label: 'User' },
-  { value: 'bell', icon: <Bell size={16} />, label: 'Bell' },
+  { value: 'calendar', icon: <SvcIcon name="calendar" size={16} />, label: 'Calendar' },
+  { value: 'sun', icon: <SvcIcon name="sun" size={16} />, label: 'Sun' },
+  { value: 'check', icon: <SvcIcon name="check-circle-2" size={16} />, label: 'Check' },
+  { value: 'user', icon: <SvcIcon name="user" size={16} />, label: 'User' },
+  { value: 'bell', icon: <SvcIcon name="bell" size={16} />, label: 'Bell' },
   { value: 'flag', icon: <Flag size={16} />, label: 'Flag' },
   { value: 'briefcase', icon: <Briefcase size={16} />, label: 'Briefcase' },
   { value: 'home', icon: <Home size={16} />, label: 'Home' },
@@ -431,12 +427,12 @@ export default function TodoPage() {
                   ><MoreVertical size={14} /></button>
                   {menuFor === l.id && (
                     <div className="tl-menu" onClick={e => e.stopPropagation()}>
-                      <button onClick={() => startRename(l)}><Pencil size={14} /> {t('pages.tasks.renameList', { defaultValue: '重新命名' })}</button>
-                      <button onClick={() => moveList(l, -1)} disabled={idx <= 0}><ArrowUp size={14} /> {t('pages.tasks.moveUp', { defaultValue: '上移' })}</button>
+                      <button onClick={() => startRename(l)}><SvcIcon name="pencil" size={14} /> {t('pages.tasks.renameList', { defaultValue: '重新命名' })}</button>
+                      <button onClick={() => moveList(l, -1)} disabled={idx <= 0}><SvcIcon name="arrow-up" size={14} /> {t('pages.tasks.moveUp', { defaultValue: '上移' })}</button>
                       <button onClick={() => moveList(l, 1)} disabled={idx >= customs.length - 1}><ArrowDown size={14} /> {t('pages.tasks.moveDown', { defaultValue: '下移' })}</button>
                       <div className="tl-menu-sep" />
                       <button onClick={() => { setTypeFor(typeFor === l.id ? null : l.id); setMenuFor(null) }}><Palette size={14} /> {t('pages.tasks.listType', { defaultValue: '類型' })}</button>
-                      <button className="danger" onClick={() => setDeleteTarget(l)}><Trash2 size={14} /> {t('pages.tasks.deleteList', { defaultValue: '刪除' })}</button>
+                      <button className="danger" onClick={() => setDeleteTarget(l)}><SvcIcon name="trash-2" size={14} /> {t('pages.tasks.deleteList', { defaultValue: '刪除' })}</button>
                     </div>
                   )}
                   {typeFor === l.id && (
@@ -460,7 +456,7 @@ export default function TodoPage() {
             })}
           </div>
           <button className="todo-add-list" onClick={() => setShowNewList(!showNewList)}>
-            <Plus size={14} /> {t('pages.tasks.newList')}
+            <SvcIcon name="plus" size={14} /> {t('pages.tasks.newList')}
           </button>
           {showNewList && (
             <div style={{display:'flex',gap:6,padding:'4px 10px'}}>
@@ -483,7 +479,7 @@ export default function TodoPage() {
         {/* ── CENTER PANEL ── */}
         <div className="todo-center">
           <div className="todo-list-header">
-            <button className="icon-btn-small mobile-hamburger" onClick={() => setShowLeft(true)}><List size={18} /></button>
+            <button className="icon-btn-small mobile-hamburger" onClick={() => setShowLeft(true)}><SvcIcon name="list" size={18} /></button>
             <h2>
               {activeList?.is_smart && <span>{smartIcon(activeList?.name || '')}</span>}
               {!activeList?.is_smart && <span className="lh-color" style={{background:activeList?.color}} />}
@@ -523,7 +519,7 @@ export default function TodoPage() {
                   className={`todo-task-row${task.status === 'done' ? ' done' : ''}${selectedTask?.id === task.id ? ' selected' : ''}`}
                   onClick={e => { e.stopPropagation(); setSelectedTask(task) }}>
                   <button className={`t-check${task.status === 'done' ? ' checked' : ''}`} onClick={e => { e.stopPropagation(); toggleComplete(task) }}>
-                    {task.status === 'done' && <Check size={11} strokeWidth={3} />}
+                    {task.status === 'done' && <SvcIcon name="check" size={11} strokeWidth={3} />}
                   </button>
                   <span className="t-title">{task.title}</span>
                   {task.my_day_date && <span className="t-myday">{t('pages.tasks.myDay')}</span>}
@@ -548,7 +544,7 @@ export default function TodoPage() {
                 aria-label={t('pages.tasks.taskPlaceholder')} />
               <label className="at-label">{t('pages.tasks.taskPlaceholder')}</label>
             </div>
-            <button className="at-btn" onClick={createTask}><Plus size={16} /></button>
+            <button className="at-btn" onClick={createTask}><SvcIcon name="plus" size={16} /></button>
           </div>
         </div>
 
@@ -559,7 +555,7 @@ export default function TodoPage() {
               {/* Drawer close button (smooth slide-out drawer) */}
               <div className="dt-close-wrap">
                 <button className="icon-btn-small dt-close" onClick={() => setSelectedTask(null)} title={t('common.close')} aria-label={t('common.close')}>
-                  <ChevronRight size={18} style={{transform:'rotate(180deg)'}} />
+                  <SvcIcon name="chevron-right" size={18} style={{transform:'rotate(180deg)'}} />
                 </button>
               </div>
               {/* Title */}
@@ -575,18 +571,18 @@ export default function TodoPage() {
                 {selectedTask.steps?.map(s => (
                   <div key={s.id} className={`dt-step${s.is_completed ? ' done' : ''}`}>
                     <button className={`s-check${s.is_completed ? ' checked' : ''}`} onClick={() => toggleStep(selectedTask.id, s)}>
-                      {s.is_completed && <Check size={10} strokeWidth={3} />}
+                      {s.is_completed && <SvcIcon name="check" size={10} strokeWidth={3} />}
                     </button>
                     <input className="s-text" value={s.title}
                       onChange={e => setSelectedTask(prev => prev ? { ...prev, steps: prev.steps?.map(st => st.id === s.id ? { ...st, title: e.target.value } : st) } : prev)}
                       onBlur={e => apiClient.patch(`/api/v1/crm/todo/tasks/${selectedTask.id}/steps/${s.id}`, { title: e.target.value }).catch(() => {})} />
-                    <button className="s-del" onClick={() => deleteStep(selectedTask.id, s.id)}><X size={12} /></button>
+                    <button className="s-del" onClick={() => deleteStep(selectedTask.id, s.id)}><SvcIcon name="x" size={12} /></button>
                   </div>
                 ))}
                 <button className="dt-add-step" onClick={() => {
                   const title = prompt(t('pages.tasks.stepNamePrompt'))
                   if (title?.trim()) addStep(selectedTask.id, title.trim())
-                }}><Plus size={13} /> {t('pages.tasks.addStep')}</button>
+                }}><SvcIcon name="plus" size={13} /> {t('pages.tasks.addStep')}</button>
               </div>
 
               {/* Fields */}
@@ -595,7 +591,7 @@ export default function TodoPage() {
 
                 {/* My Day */}
                 <div className="dt-field">
-                  <Sun size={15} className="f-label-icon" style={{color:'var(--color-text-muted)',flexShrink:0}} />
+                  <SvcIcon name="sun" size={15} className="f-label-icon" style={{color:'var(--color-text-muted)',flexShrink:0}} />
                   <span className="f-label">{t('pages.tasks.myDay')}</span>
                   <div className={`f-toggle${selectedTask.my_day_date ? ' on' : ''}`} onClick={() => toggleMyDay(selectedTask)}>
                     <div className="f-knob" />
@@ -604,7 +600,7 @@ export default function TodoPage() {
 
                 {/* Due Date */}
                 <div className="dt-field">
-                  <Calendar size={15} style={{color:'var(--color-text-muted)',flexShrink:0}} />
+                  <SvcIcon name="calendar" size={15} style={{color:'var(--color-text-muted)',flexShrink:0}} />
                   <span className="f-label">{t('pages.tasks.due')}</span>
                   <div className="f-value">
                     <input type="date" value={selectedTask.due_date?.split('T')[0] || ''}
@@ -614,7 +610,7 @@ export default function TodoPage() {
 
                 {/* Reminder */}
                 <div className="dt-field">
-                  <Bell size={15} style={{color:'var(--color-text-muted)',flexShrink:0}} />
+                  <SvcIcon name="bell" size={15} style={{color:'var(--color-text-muted)',flexShrink:0}} />
                   <span className="f-label">{t('pages.tasks.remind')}</span>
                   <div className="f-value">
                     <input type="datetime-local" value={selectedTask.reminder_at?.slice(0, 16) || ''}
@@ -642,14 +638,14 @@ export default function TodoPage() {
 
                 {/* Categories */}
                 <div className="dt-field">
-                  <FileText size={15} style={{color:'var(--color-text-muted)',flexShrink:0}} />
+                  <SvcIcon name="file-text" size={15} style={{color:'var(--color-text-muted)',flexShrink:0}} />
                   <span className="f-label">{t('pages.tasks.category')}</span>
                   <div className="f-value cat-pos-rel">
                     <div className="f-tag-row">
                       {selectedTask.categories?.map(c => (
                         <span key={c.id} className="f-tag" style={{background:c.color+'22',color:c.color}}
                           onClick={() => removeCategory(selectedTask.id, c.id)}>
-                          {c.name} <X size={10} />
+                          {c.name} <SvcIcon name="x" size={10} />
                         </span>
                       ))}
                       <button className="f-add-tag" onClick={() => setShowCatPicker(!showCatPicker)}>+</button>
@@ -684,7 +680,7 @@ export default function TodoPage() {
                       onClick={() => fileInputRef.current?.click()}
                       disabled={uploading}
                     >
-                      {uploading ? <Loader2 size={13} style={{marginRight:4,animation:'tbs-rotate .8s linear infinite'}} /> : `+ ${t('pages.tasks.addAttachment','Attach')}`}
+                      {uploading ? <SvcIcon name="loader-2" size={13} style={{marginRight:4,animation:'tbs-rotate .8s linear infinite'}} /> : `+ ${t('pages.tasks.addAttachment','Attach')}`}
                     </button>
                     <input
                       ref={fileInputRef}
@@ -714,7 +710,7 @@ export default function TodoPage() {
                             onClick={() => deleteAttachment(selectedTask.id, a.id)}
                             title={t('common.delete')}
                             style={{color:'var(--color-notification)'}}
-                          ><X size={12} /></button>
+                          ><SvcIcon name="x" size={12} /></button>
                         </div>
                       ))}
                     </div>
@@ -724,7 +720,7 @@ export default function TodoPage() {
                 {/* Notes — rich text editor w/ floating toolbar (design04 spec) */}
                 <div className="dt-field" style={{flexDirection:'column',alignItems:'stretch',gap:6,borderBottom:'none'}}>
                   <div style={{display:'flex',alignItems:'center',gap:8}}>
-                    <FileText size={15} style={{color:'var(--color-text-muted)',flexShrink:0}} />
+                    <SvcIcon name="file-text" size={15} style={{color:'var(--color-text-muted)',flexShrink:0}} />
                     <span className="f-label">{t('pages.tasks.notes')}</span>
                     <span style={{marginLeft:'auto',fontSize:11,color:'var(--color-text-faint)'}}>{t('pages.tasks.notesHint','可貼 design link / Word / Google Sheet 連結')}</span>
                   </div>
@@ -742,10 +738,10 @@ export default function TodoPage() {
               {/* Actions */}
               <div style={{borderTop:'1px solid var(--color-divider)',paddingTop:12,marginTop:4,display:'flex',gap:8}}>
                 <button className="icon-btn-small" onClick={() => deleteTask(selectedTask.id)} title={t('common.delete')} style={{color:'var(--color-notification)'}}>
-                  <Trash2 size={15} />
+                  <SvcIcon name="trash-2" size={15} />
                 </button>
                 <button className="icon-btn-small" onClick={() => navigate(`/tasks/${selectedTask.id}`)} title={t('pages.tasks.openStandalone')} style={{marginLeft:'auto'}}>
-                  <ChevronRight size={15} />
+                  <SvcIcon name="chevron-right" size={15} />
                 </button>
               </div>
             </div>

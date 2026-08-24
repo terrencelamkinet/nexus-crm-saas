@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { ChevronLeft, ChevronRight, CalendarDays } from 'lucide-react';
+import SvcIcon from '../../../components/SvcIcon';
 import {
   getHourSlots,
   isSameDay,
@@ -149,7 +149,7 @@ export default function DayView({ events, date, onDateChange, onEventClick, focu
               onClick={handlePrev}
               className="px-3 py-1.5 rounded-lg text-xs font-medium text-[var(--color-text-muted)] hover:bg-[var(--color-surface-offset)] transition-colors min-h-[36px] min-w-[36px] flex items-center justify-center"
             >
-              <ChevronLeft className="w-4 h-4" />
+              <SvcIcon name="chevron-left" className="w-4 h-4" />
             </button>
             <span className="text-sm font-semibold text-[var(--color-text)] px-3 min-w-[180px] text-center select-none">
               {formatDayHeader(date)}
@@ -158,7 +158,7 @@ export default function DayView({ events, date, onDateChange, onEventClick, focu
               onClick={handleNext}
               className="px-3 py-1.5 rounded-lg text-xs font-medium text-[var(--color-text-muted)] hover:bg-[var(--color-surface-offset)] transition-colors min-h-[36px] min-w-[36px] flex items-center justify-center"
             >
-              <ChevronRight className="w-4 h-4" />
+              <SvcIcon name="chevron-right" className="w-4 h-4" />
             </button>
             <button
               onClick={handleToday}
@@ -171,7 +171,7 @@ export default function DayView({ events, date, onDateChange, onEventClick, focu
 
         {/* Empty state */}
         <div className="calendar-empty">
-          <CalendarDays />
+          <SvcIcon name="calendar-days" />
           <p>No events</p>
         </div>
       </div>
@@ -187,7 +187,7 @@ export default function DayView({ events, date, onDateChange, onEventClick, focu
             onClick={handlePrev}
             className="px-3 py-1.5 rounded-lg text-xs font-medium text-[var(--color-text-muted)] hover:bg-[var(--color-surface-offset)] transition-colors min-h-[36px] min-w-[36px] flex items-center justify-center"
           >
-            <ChevronLeft className="w-4 h-4" />
+            <SvcIcon name="chevron-left" className="w-4 h-4" />
           </button>
           <span className="text-sm font-semibold text-[var(--color-text)] px-3 min-w-[180px] text-center select-none">
             {formatDayHeader(date)}
@@ -196,7 +196,7 @@ export default function DayView({ events, date, onDateChange, onEventClick, focu
             onClick={handleNext}
             className="px-3 py-1.5 rounded-lg text-xs font-medium text-[var(--color-text-muted)] hover:bg-[var(--color-surface-offset)] transition-colors min-h-[36px] min-w-[36px] flex items-center justify-center"
           >
-            <ChevronRight className="w-4 h-4" />
+            <SvcIcon name="chevron-right" className="w-4 h-4" />
           </button>
           <button
             onClick={handleToday}

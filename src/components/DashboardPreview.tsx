@@ -1,12 +1,8 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { apiClient } from '../lib/api';
-import {
-  CheckSquare, Activity, Sparkles, X, Plus,
-  DollarSign, Building2, TrendingUp,
-  Calendar, Clock, Mail, Phone, Tag,
-  FileText, Layout,
-} from 'lucide-react'
+import { DollarSign, Layout } from 'lucide-react'
+import SvcIcon from '../components/SvcIcon'
 import SlideDrawer from '../components/SlideDrawer'
 
 interface Task { id: string; title: string; priority: string; status: string; due_date: string | null }
@@ -230,13 +226,13 @@ export default function DashboardPreview() {
         </div>
         <div className="list-row">
           <div className="list-main">
-            <div className="list-title"><FileText size={14} /> {t('tasks.status')}</div>
+            <div className="list-title"><SvcIcon name="file-text" size={14} /> {t('tasks.status')}</div>
             <div className="list-sub">{task.status || 'pending'}</div>
           </div>
         </div>
         {task.due_date && (
           <div className="list-row">
-            <Calendar size={14} />
+            <SvcIcon name="calendar" size={14} />
             <div className="list-main">
               <div className="list-title">{t('tasks.dueDate')}</div>
               <div className="list-sub">{new Date(task.due_date).toLocaleDateString()}</div>
@@ -251,7 +247,7 @@ export default function DashboardPreview() {
     <div style={{display:'flex',flexDirection:'column',gap:14,padding:'12px 0'}}>
       <div className="flex-col">
         <div className="list-row">
-          <TrendingUp size={16} style={{color:'var(--color-primary)'}} />
+          <SvcIcon name="trending-up" size={16} style={{color:'var(--color-primary)'}} />
           <div className="list-main">
             <div className="list-title">{deal.name}</div>
             <div className="list-sub">{deal.company?.name || '—'}</div>
@@ -262,7 +258,7 @@ export default function DashboardPreview() {
           }}>${deal.amount?.toLocaleString() || '—'}</span>
         </div>
         <div className="list-row">
-          <Tag size={14} />
+          <SvcIcon name="tags" size={14} />
           <div className="list-main">
             <div className="list-title">{t('deals.stage')}</div>
             <div className="list-sub">{stages[deal.stage_id]?.label || deal.stage_id}</div>
@@ -292,7 +288,7 @@ export default function DashboardPreview() {
         </div>
         {contact.email && (
           <div className="list-row">
-            <Mail size={14} />
+            <SvcIcon name="mail" size={14} />
             <div className="list-main">
               <div className="list-title">{t('contacts.email')}</div>
               <div className="list-sub">{contact.email}</div>
@@ -301,7 +297,7 @@ export default function DashboardPreview() {
         )}
         {contact.phone && (
           <div className="list-row">
-            <Phone size={14} />
+            <SvcIcon name="phone" size={14} />
             <div className="list-main">
               <div className="list-title">{t('contacts.phone')}</div>
               <div className="list-sub">{contact.phone}</div>
@@ -310,7 +306,7 @@ export default function DashboardPreview() {
         )}
         {contact.company?.name && (
           <div className="list-row">
-            <Building2 size={14} />
+            <SvcIcon name="building-2" size={14} />
             <div className="list-main">
               <div className="list-title">{t('contacts.company')}</div>
               <div className="list-sub">{contact.company.name}</div>
@@ -325,7 +321,7 @@ export default function DashboardPreview() {
     <div style={{display:'flex',flexDirection:'column',gap:14,padding:'12px 0'}}>
       <div className="flex-col">
         <div className="list-row">
-          <Activity size={16} style={{color:'var(--color-primary)'}} />
+          <SvcIcon name="activity" size={16} style={{color:'var(--color-primary)'}} />
           <div className="list-main">
             <div className="list-title">{tp.title}</div>
             <div className="list-sub">{tp.contact?.name || ''} {tp.company?.name ? `· ${tp.company.name}` : ''}</div>
@@ -337,7 +333,7 @@ export default function DashboardPreview() {
         </div>
         {tp.description && (
           <div className="list-row">
-            <FileText size={14} />
+            <SvcIcon name="file-text" size={14} />
             <div className="list-main">
               <div className="list-title">{t('touchpoint.notes')}</div>
               <div className="list-sub">{tp.description}</div>
@@ -345,7 +341,7 @@ export default function DashboardPreview() {
           </div>
         )}
         <div className="list-row">
-          <Clock size={14} />
+          <SvcIcon name="clock" size={14} />
           <div className="list-main">
             <div className="list-title">{t('touchpoint.type')}</div>
             <div className="list-sub">{new Date(tp.created_at).toLocaleString()}</div>
@@ -366,7 +362,7 @@ export default function DashboardPreview() {
         <div style={{display:'flex', gap:10, alignItems:'center'}}>
           {/* AI toggle inline */}
           <div className="ai-toggle-inline">
-            <Sparkles size={15} />
+            <SvcIcon name="sparkles" size={15} />
             <span>AI</span>
             <button className={`switcher${aiOn ? ' on' : ''}`} onClick={() => setAiOn(!aiOn)} />
           </div>
@@ -381,7 +377,7 @@ export default function DashboardPreview() {
       {aiOn && (
         <section className="ai-brief-card">
           <div className="brief-head">
-            <Sparkles size={20} />
+            <SvcIcon name="sparkles" size={20} />
             <h2>{t('greeting.aiBriefing')}</h2>
             <span>{t('pages.briefing.title')}</span>
           </div>
@@ -427,18 +423,18 @@ export default function DashboardPreview() {
               <div className="w-head">
                 <h3>
                   {k.startsWith('kpi_') ? def.label :
-                   k === 'tasks' ? <><CheckSquare size={14} style={{color:'var(--color-text-muted)'}} /> {t('dashboard.widgets.tasksDue')} <span className="dash-badge" style={{background:'color-mix(in oklch,var(--color-primary)18%,var(--color-surface))',color:'var(--color-primary)'}}>{stats.tasks}</span></> :
-                   k === 'touchpoints' ? <><Activity size={14} style={{color:'var(--color-text-muted)'}} /> {t('dashboard.widgets.recentActivity')}</> :
-                   k === 'pipeline' ? <><TrendingUp size={14} style={{color:'var(--color-text-muted)'}} /> {t('dashboard.widgets.pipeline')}</> :
+                   k === 'tasks' ? <><SvcIcon name="check-square" size={14} style={{color:'var(--color-text-muted)'}} /> {t('dashboard.widgets.tasksDue')} <span className="dash-badge" style={{background:'color-mix(in oklch,var(--color-primary)18%,var(--color-surface))',color:'var(--color-primary)'}}>{stats.tasks}</span></> :
+                   k === 'touchpoints' ? <><SvcIcon name="activity" size={14} style={{color:'var(--color-text-muted)'}} /> {t('dashboard.widgets.recentActivity')}</> :
+                   k === 'pipeline' ? <><SvcIcon name="trending-up" size={14} style={{color:'var(--color-text-muted)'}} /> {t('dashboard.widgets.pipeline')}</> :
                    k === 'dealvalue' ? <><DollarSign size={15} style={{color:'var(--color-text-muted)'}} /> {t('dashboard.widgets.dealTotal')}</> :
-                   k === 'aiinsight' ? <><Sparkles size={15} style={{color:'var(--color-purple)'}} /> AI Insight</> :
-                   k === 'activity_feed' ? <><Activity size={15} style={{color:'var(--color-text-muted)'}} /> {t('dashboard.widgets.recentActivity')}</> :
+                   k === 'aiinsight' ? <><SvcIcon name="sparkles" size={15} style={{color:'var(--color-purple)'}} /> AI Insight</> :
+                   k === 'activity_feed' ? <><SvcIcon name="activity" size={15} style={{color:'var(--color-text-muted)'}} /> {t('dashboard.widgets.recentActivity')}</> :
                    def.label}
                 </h3>
                 {editing && (
                   <div className="w-actions">
                     <button className="w-action" title={t('greeting.drag')}><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="9" cy="6" r="1"/><circle cx="9" cy="12" r="1"/><circle cx="9" cy="18" r="1"/><circle cx="15" cy="6" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="15" cy="18" r="1"/></svg></button>
-                    <button className="w-action" title={t('greeting.remove')} onClick={e => { e.stopPropagation(); removeW(k) }}><X size={14} /></button>
+                    <button className="w-action" title={t('greeting.remove')} onClick={e => { e.stopPropagation(); removeW(k) }}><SvcIcon name="x" size={14} /></button>
                   </div>
                 )}
               </div>
@@ -462,7 +458,7 @@ export default function DashboardPreview() {
                           <div style={{display:'flex',flexDirection:'column',gap:8,padding:'8px 0'}}>
                             {deals.slice(0,10).map(d => (
                               <div key={d.id} className="dash-row" onClick={() => openDrawer(d.name, buildDealDetail(d))}>
-                                <TrendingUp size={14} className="row-icon" />
+                                <SvcIcon name="trending-up" size={14} className="row-icon" />
                                 <span className="row-name">{d.name}</span>
                                 <span className="dash-badge" style={{background:'color-mix(in oklch,var(--color-primary)14%,var(--color-surface))',color:'var(--color-primary)'}}>${d.amount?.toLocaleString()||'—'}</span>
                               </div>
@@ -473,7 +469,7 @@ export default function DashboardPreview() {
                           <div style={{display:'flex',flexDirection:'column',gap:8,padding:'8px 0'}}>
                             {tasks.slice(0,10).map(t => (
                               <div key={t.id} className="dash-row" onClick={() => openDrawer(t.title, buildTaskDetail(t))}>
-                                <CheckSquare size={14} className="row-icon" />
+                                <SvcIcon name="check-square" size={14} className="row-icon" />
                                 <span className="row-name">{t.title}</span>
                                 <span className="dash-badge" style={{background:t.priority==='P0'?'color-mix(in oklch,var(--color-notification)18%,var(--color-surface))':'color-mix(in oklch,var(--color-warning)18%,var(--color-surface))',color:t.priority==='P0'?'var(--color-notification)':'var(--color-warning)'}}>{t.priority||'P3'}</span>
                               </div>
@@ -495,7 +491,7 @@ export default function DashboardPreview() {
                   ? <div className="empty">{t('pages.tasks.empty')}</div>
                   : tasks.slice(0,5).map(t => (
                     <div key={t.id} className="dash-row" onClick={() => openDrawer(t.title, buildTaskDetail(t))}>
-                      <CheckSquare size={14} className="row-icon" />
+                      <SvcIcon name="check-square" size={14} className="row-icon" />
                       <span className="row-name">{t.title}</span>
                       <span className="dash-badge" style={{
                         background: t.priority==='P0'?'color-mix(in oklch,var(--color-notification)18%,var(--color-surface))':t.priority==='P1'?'color-mix(in oklch,var(--color-warning)18%,var(--color-surface))':'color-mix(in oklch,var(--color-success)18%,var(--color-surface))',
@@ -508,7 +504,7 @@ export default function DashboardPreview() {
                   ? <div className="empty">{t('common.noResults')}</div>
                   : touchpoints.map(tp => (
                     <div key={tp.id} className="dash-row" onClick={() => openDrawer(tp.title, buildTouchpointDetail(tp))}>
-                      <Activity size={14} className="row-icon" />
+                      <SvcIcon name="activity" size={14} className="row-icon" />
                       <span className="row-name">{tp.title}</span>
                       <span className="row-meta">{tp.company?.name||''}</span>
                     </div>
@@ -521,7 +517,7 @@ export default function DashboardPreview() {
                       <div style={{display:'flex',flexDirection:'column',gap:8,padding:'8px 0'}}>
                         {stageDeals.map(d => (
                           <div key={d.id} className="list-row" onClick={() => openDrawer(d.name, buildDealDetail(d))}>
-                            <TrendingUp size={14} style={{color:'var(--color-primary)'}} />
+                            <SvcIcon name="trending-up" size={14} style={{color:'var(--color-primary)'}} />
                             <div className="list-main">
                               <div className="list-title">{d.name}</div>
                               <div className="list-sub">{d.company?.name||''}</div>
@@ -631,7 +627,7 @@ export default function DashboardPreview() {
         {/* Add widget tile */}
         {editing && (
           <div className="dash-add-tile" onClick={() => setShowPicker(!showPicker)}>
-            <Plus size={24} />
+            <SvcIcon name="plus" size={24} />
             <span>{t('dashboard.addWidget')}</span>
           </div>
         )}

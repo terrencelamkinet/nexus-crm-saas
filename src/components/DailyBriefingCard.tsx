@@ -1,15 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { apiClient } from '../lib/api';
-import {
-  Sun,
-  Calendar,
-  CheckSquare,
-  Lightbulb,
-  RefreshCw,
-  Sparkles,
-  Clock,
-} from 'lucide-react';
+import { Lightbulb } from 'lucide-react'
+import SvcIcon from '../components/SvcIcon';
 
 // ── Types ──
 interface WeatherData {
@@ -187,7 +180,7 @@ export default function DailyBriefingCard({ className = '', style }: Props) {
               border: 'none', fontSize: 13, fontWeight: 600, cursor: 'pointer',
             }}
           >
-            <RefreshCw size={14} />
+            <SvcIcon name="refresh-cw" size={14} />
             Retry
           </button>
         </div>
@@ -227,7 +220,7 @@ export default function DailyBriefingCard({ className = '', style }: Props) {
       {/* ── Header ── */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <Sparkles size={16} style={{ color: 'var(--color-purple)' }} />
+          <SvcIcon name="sparkles" size={16} style={{ color: 'var(--color-purple)' }} />
           <h3 style={{ fontSize: 15, fontWeight: 700, letterSpacing: '-0.01em' }}>
             {t('pages.briefing.title')}
           </h3>
@@ -245,7 +238,7 @@ export default function DailyBriefingCard({ className = '', style }: Props) {
           onMouseEnter={e => (e.currentTarget.style.background = 'var(--color-surface-offset)')}
           onMouseLeave={e => (e.currentTarget.style.background = 'none')}
         >
-          <RefreshCw size={14} style={{ animation: loading ? 'spin 1s linear infinite' : 'none' }} />
+          <SvcIcon name="refresh-cw" size={14} style={{ animation: loading ? 'spin 1s linear infinite' : 'none' }} />
         </button>
       </div>
 
@@ -275,7 +268,7 @@ export default function DailyBriefingCard({ className = '', style }: Props) {
             data!.weather?.icon_emoji ? (
               <span className="dbc-weather-emoji" style={{ fontSize: 15, lineHeight: 1 }}>{data!.weather.icon_emoji}</span>
             ) : (
-              <Sun size={15} style={{ color: 'var(--color-warning)' }} />
+              <SvcIcon name="sun" size={15} style={{ color: 'var(--color-warning)' }} />
             )
           }
           label={t('pages.briefing.weather')}
@@ -296,7 +289,7 @@ export default function DailyBriefingCard({ className = '', style }: Props) {
 
         {/* Schedule */}
         <SectionRow
-          icon={<Calendar size={15} style={{ color: 'var(--color-blue)' }} />}
+          icon={<SvcIcon name="calendar" size={15} style={{ color: 'var(--color-blue)' }} />}
           label={t('pages.briefing.schedule')}
           onClick={() => {/* navigate to calendar */}}
         >
@@ -325,7 +318,7 @@ export default function DailyBriefingCard({ className = '', style }: Props) {
 
         {/* Tasks */}
         <SectionRow
-          icon={<CheckSquare size={15} style={{ color: 'var(--color-notification)' }} />}
+          icon={<SvcIcon name="check-square" size={15} style={{ color: 'var(--color-notification)' }} />}
           label={t('pages.briefing.tasks')}
           onClick={() => {/* navigate to tasks */}}
         >
@@ -373,7 +366,7 @@ export default function DailyBriefingCard({ className = '', style }: Props) {
         borderTop: '1px solid var(--color-divider)',
         paddingTop: 10, marginTop: 2,
       }}>
-        <Clock size={11} />
+        <SvcIcon name="clock" size={11} />
         <span>{t('pages.briefing.updated', { time: formatLastUpdated(lastUpdated) })}</span>
       </div>
 

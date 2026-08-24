@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { X } from 'lucide-react';
+import SvcIcon from '../components/SvcIcon';
 import { useEscapeKey } from '../lib/useEscapeKey';
 
 interface Props {
@@ -73,7 +73,7 @@ export default function BottomSheet({ open, onClose, title, children }: Props) {
         <div className="bs-header">
           <span className="bs-handle" />
           <h3 className="bs-title">{title}</h3>
-          <button className="bs-close" onClick={handleClose}><X size={18} /></button>
+          <button className="bs-close" onClick={handleClose}><SvcIcon name="x" size={18} /></button>
         </div>
         <div className="bs-body">
           {children}

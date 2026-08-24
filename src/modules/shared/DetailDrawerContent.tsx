@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
-import { User, ExternalLink, Trash2, Pencil, Sparkles } from 'lucide-react'
+import SvcIcon from '../../components/SvcIcon'
 import { useNavigate } from 'react-router-dom'
 import { apiClient } from '../../lib/api'
 import { FieldsRenderer } from './FieldsRenderer'
@@ -278,23 +278,23 @@ export default function DetailDrawerContent({ config, id, onClose, extraData }: 
         ) : (
           <>
             <button onClick={() => setDeleteModalOpen(true)} className="nx-btn nx-btn-secondary btn-sm">
-              <Trash2 size={13} /> {t('common.delete')}
+              <SvcIcon name="trash-2" size={13} /> {t('common.delete')}
             </button>
             <button onClick={() => {
               const route = config.routePrefix || config.labelPlural.toLowerCase()
               onClose()
               navigate(`/${route}/${entity.id}`)
             }} className="nx-btn nx-btn-secondary btn-sm">
-              <ExternalLink size={13} /> {t('common.openFull')}
+              <SvcIcon name="external-link" size={13} /> {t('common.openFull')}
             </button>
             <button onClick={() => setEditOpen(true)} className="nx-btn nx-btn-primary btn-sm">
-              <Pencil size={13} /> {t('common.edit')}
+              <SvcIcon name="pencil" size={13} /> {t('common.edit')}
             </button>
             <button
               onClick={() => window.dispatchEvent(new CustomEvent('nexus:open-ai-panel', { detail: { context: { id: entity.id, name: entityName, type: config.name } } }))}
               className="nx-btn nx-btn-ai btn-sm"
             >
-              <Sparkles size={13} /> {t('common.askAI', { defaultValue: 'Ask AI' })}
+              <SvcIcon name="sparkles" size={13} /> {t('common.askAI', { defaultValue: 'Ask AI' })}
             </button>
           </>
         )}
@@ -374,7 +374,7 @@ export default function DetailDrawerContent({ config, id, onClose, extraData }: 
                       }}
                       title={relatedCompanyName || value}
                     >
-                      <User size={12} /><span className="nx-drawer-related-tag-text">{value}</span>
+                      <SvcIcon name="user" size={12} /><span className="nx-drawer-related-tag-text">{value}</span>
                     </span>
                   ) : (
                     <span className="nx-sidebar-field-value">{value}</span>
@@ -406,7 +406,7 @@ export default function DetailDrawerContent({ config, id, onClose, extraData }: 
                 if (relatedCompanyId) { onClose(); navigate(`/companies/${relatedCompanyId}`) }
               }}
             >
-              <User size={13} />
+              <SvcIcon name="user" size={13} />
               <span>{relatedCompanyName || String(relatedCompanyId)}</span>
             </div>
           </div>
@@ -418,7 +418,7 @@ export default function DetailDrawerContent({ config, id, onClose, extraData }: 
         <div className="modal-overlay" onClick={e => { if (e.target === e.currentTarget) setDeleteModalOpen(false) }}>
           <div className="modal modal-sm">
             <div className="delete-body">
-              <div className="delete-icon-wrap"><Trash2 /></div>
+              <div className="delete-icon-wrap"><SvcIcon name="trash-2" /></div>
               <h3 className="delete-heading">{t('common.deleteConfirm', { name: entityName })}</h3>
               <p className="delete-text">{t('common.cannotUndo')}</p>
             </div>

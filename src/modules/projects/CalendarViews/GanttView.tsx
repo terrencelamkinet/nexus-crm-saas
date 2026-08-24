@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { CalendarDays } from 'lucide-react';
+import SvcIcon from '../../../components/SvcIcon';
 import { formatDateKey, DAY_NAMES, isSameDay } from './calendar-utils';
 import type { CalendarEventFormatted } from './types';
 import { TYPE_COLORS } from './types';
@@ -95,7 +95,7 @@ export default function GanttView({ events, onEventClick }: GanttViewProps) {
       <div>
         {/* Empty state */}
         <div className="calendar-empty">
-          <CalendarDays />
+          <SvcIcon name="calendar-days" />
           <p>No events for Gantt view</p>
         </div>
       </div>
@@ -106,7 +106,7 @@ export default function GanttView({ events, onEventClick }: GanttViewProps) {
     return (
       <div>
         <div className="calendar-empty">
-          <CalendarDays />
+          <SvcIcon name="calendar-days" />
           <p>No project data available</p>
         </div>
       </div>

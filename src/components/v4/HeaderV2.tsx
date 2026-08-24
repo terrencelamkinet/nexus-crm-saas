@@ -1,9 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
-import {
-  Menu, Search, Plus, Bell, Moon, Sun, ChevronDown, Sparkles,
-  Users, CheckSquare, LogOut, Settings, User as UserIcon,
-} from 'lucide-react'
+import { Menu } from 'lucide-react'
+import SvcIcon from '../../components/SvcIcon'
 import CommandPalette from './CommandPalette'
 import { apiClient } from '../../lib/api'
 import { useAuth } from '../../lib/AuthContext'
@@ -105,7 +103,7 @@ export default function HeaderV2({ onToggleSidebar }: { onToggleSidebar: () => v
             <Menu size={19} />
           </button>
           <button className="hdr2-search-trigger" onClick={() => setPaletteOpen(true)}>
-            <Search size={15} />
+            <SvcIcon name="search" size={15} />
             <span className="hdr2-search-placeholder">{t('search.triggerPlaceholder', { defaultValue: '搜尋或詢問 AI…' })}</span>
             <kbd className="hdr2-search-kbd">⌘K</kbd>
           </button>
@@ -113,30 +111,30 @@ export default function HeaderV2({ onToggleSidebar }: { onToggleSidebar: () => v
 
         <div className="hdr2-right">
           <button className="hdr2-ai-pill" title={t('header.aiActive', { defaultValue: '點擊詢問 AI 助手' })} onClick={() => setPaletteOpen(true)}>
-            <Sparkles size={13} className="hdr2-ai-icon-on" />
+            <SvcIcon name="sparkles" size={13} className="hdr2-ai-icon-on" />
             <span>AI</span>
             <span className="hdr2-ai-dot on" />
           </button>
 
           <div className="hdr2-new-wrap" ref={newRef}>
             <button className="hdr2-new-btn" onClick={() => setNewOpen(v => !v)} aria-label="Create new">
-              <Plus size={18} />
+              <SvcIcon name="plus" size={18} />
             </button>
             <div className={`hdr2-new-dropdown ${newOpen ? 'open' : ''}`}>
-              <button className="hdr2-new-dropdown-item" onClick={() => { setNewOpen(false); navigate('/contacts?new=1') }}><Users size={14} /> {t('quickAction.newContact', { defaultValue: '新增聯絡人' })}</button>
-              <button className="hdr2-new-dropdown-item" onClick={() => { setNewOpen(false); navigate('/tasks?new=1') }}><CheckSquare size={14} /> {t('quickAction.newTask', { defaultValue: '新增任務' })}</button>
+              <button className="hdr2-new-dropdown-item" onClick={() => { setNewOpen(false); navigate('/contacts?new=1') }}><SvcIcon name="users" size={14} /> {t('quickAction.newContact', { defaultValue: '新增聯絡人' })}</button>
+              <button className="hdr2-new-dropdown-item" onClick={() => { setNewOpen(false); navigate('/tasks?new=1') }}><SvcIcon name="check-square" size={14} /> {t('quickAction.newTask', { defaultValue: '新增任務' })}</button>
               <div className="hdr2-new-dropdown-divider" />
-              <button className="hdr2-new-dropdown-item" onClick={() => { setNewOpen(false); setPaletteOpen(true) }}><Sparkles size={14} /> {t('quickAction.aiQuery', { defaultValue: '問 AI 一個問題' })}</button>
+              <button className="hdr2-new-dropdown-item" onClick={() => { setNewOpen(false); setPaletteOpen(true) }}><SvcIcon name="sparkles" size={14} /> {t('quickAction.aiQuery', { defaultValue: '問 AI 一個問題' })}</button>
             </div>
           </div>
 
           <button className="hdr2-icon-btn" onClick={toggleTheme} aria-label="Toggle theme">
-            {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
+            {theme === 'dark' ? <SvcIcon name="sun" size={18} /> : <SvcIcon name="moon" size={18} />}
           </button>
 
           <div className="hdr2-notif-wrap" ref={notifRef}>
             <button className="hdr2-icon-btn" onClick={() => setNotifOpen(v => !v)} aria-label="Notifications">
-              <Bell size={18} />
+              <SvcIcon name="bell" size={18} />
               {unreadCount > 0 && <span className="hdr2-notif-badge">{unreadCount > 9 ? '9+' : unreadCount}</span>}
             </button>
             <div className={`hdr2-notif-panel ${notifOpen ? 'open' : ''}`}>
@@ -161,16 +159,16 @@ export default function HeaderV2({ onToggleSidebar }: { onToggleSidebar: () => v
           <div className="hdr2-user-wrap" ref={userRef}>
             <button className="hdr2-user-btn" onClick={() => setUserOpen(v => !v)}>
               <div className="hdr2-avatar">{initials}</div>
-              <ChevronDown size={14} className="hdr2-chevron" />
+              <SvcIcon name="chevron-down" size={14} className="hdr2-chevron" />
             </button>
             <div className={`hdr2-user-dropdown ${userOpen ? 'open' : ''}`}>
               <div className="hdr2-user-info">
                 <div className="hdr2-user-name">{user?.displayName}</div>
                 <div className="hdr2-user-email">{user?.email}</div>
               </div>
-              <button className="hdr2-user-dropdown-item" onClick={() => { setUserOpen(false); navigate('/settings') }}><UserIcon size={14} /> {t('header.profile', { defaultValue: '個人資料' })}</button>
-              <button className="hdr2-user-dropdown-item" onClick={() => { setUserOpen(false); navigate('/settings') }}><Settings size={14} /> {t('header.settings', { defaultValue: '設定' })}</button>
-              <button className="hdr2-user-dropdown-item danger" onClick={logout}><LogOut size={14} /> {t('header.logout', { defaultValue: '登出' })}</button>
+              <button className="hdr2-user-dropdown-item" onClick={() => { setUserOpen(false); navigate('/settings') }}><SvcIcon name="user" size={14} /> {t('header.profile', { defaultValue: '個人資料' })}</button>
+              <button className="hdr2-user-dropdown-item" onClick={() => { setUserOpen(false); navigate('/settings') }}><SvcIcon name="settings" size={14} /> {t('header.settings', { defaultValue: '設定' })}</button>
+              <button className="hdr2-user-dropdown-item danger" onClick={logout}><SvcIcon name="log-out" size={14} /> {t('header.logout', { defaultValue: '登出' })}</button>
             </div>
           </div>
         </div>

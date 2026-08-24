@@ -1,4 +1,4 @@
-import { Sparkles } from 'lucide-react'
+import SvcIcon from '../../../../components/SvcIcon'
 
 /* ═══════════════════════════════════════════════════════════
    FollowUpChips — Perplexity-style "related questions" strip
@@ -12,7 +12,7 @@ export default function FollowUpChips({ suggestions, onSelect }: {
   if (!suggestions.length) return null
   return (
     <div className="nca-followups">
-      <span className="nca-followups-label"><Sparkles size={11} /> 你可能想問</span>
+      <span className="nca-followups-label"><SvcIcon name="sparkles" size={11} /> 你可能想問</span>
       <div className="nca-followups-chips">
         {suggestions.map((q, i) => (
           <button key={i} className="nca-followup-chip" onClick={() => onSelect(q)}>{q}</button>

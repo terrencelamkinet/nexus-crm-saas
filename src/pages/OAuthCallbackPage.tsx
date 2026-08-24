@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { CheckCircle, XCircle, Loader } from 'lucide-react';
+import SvcIcon from '../components/SvcIcon';
 
 const API_BASE = '';
 
@@ -85,7 +85,7 @@ export default function OAuthCallbackPage() {
       <div style={{ textAlign: 'center', maxWidth: 400, padding: 40 }}>
         {status === 'processing' && (
           <>
-            <Loader size={48} style={{ animation: 'spin 1s linear infinite', margin: '0 auto 20px', color: 'var(--color-primary)' }} />
+            <SvcIcon name="loader" size={48} style={{ animation: 'spin 1s linear infinite', margin: '0 auto 20px', color: 'var(--color-primary)' }} />
             <h2 style={{ margin: '0 0 8px', fontSize: 20 }}>Connecting...</h2>
             <p style={{ color: 'var(--color-text-muted)', fontSize: 14 }}>
               Completing your connection. This window will close automatically.
@@ -95,7 +95,7 @@ export default function OAuthCallbackPage() {
 
         {status === 'success' && (
           <>
-            <CheckCircle size={48} style={{ color: '#22c55e', margin: '0 auto 20px' }} />
+            <SvcIcon name="check-circle" size={48} style={{ color: '#22c55e', margin: '0 auto 20px' }} />
             <h2 style={{ margin: '0 0 8px', fontSize: 20 }}>Connected!</h2>
             <p style={{ color: 'var(--color-text-muted)', fontSize: 14 }}>
               Your integration is now active. This window will close shortly.
@@ -105,7 +105,7 @@ export default function OAuthCallbackPage() {
 
         {status === 'error' && (
           <>
-            <XCircle size={48} style={{ color: '#ef4444', margin: '0 auto 20px' }} />
+            <SvcIcon name="x-circle" size={48} style={{ color: '#ef4444', margin: '0 auto 20px' }} />
             <h2 style={{ margin: '0 0 8px', fontSize: 20 }}>Connection failed</h2>
             <p style={{ color: '#ef4444', fontSize: 14 }}>{errorMsg}</p>
             <button

@@ -1,6 +1,6 @@
 import { useState, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Plus, Search, X, Trash2, Edit3, Filter, ArrowUpDown, LayoutGrid, SlidersHorizontal, Download, ChevronRight, MoreHorizontal, GripVertical } from 'lucide-react';
+import SvcIcon from '../components/SvcIcon';
 import { useNavigate } from 'react-router-dom';
 import { useApi, useSearch, useCreateModal, TableSkeleton, ErrorBox } from '../lib/useApi';
 import { apiClient } from '../lib/api';
@@ -396,7 +396,7 @@ export default function ContactsPage() {
       {/* Breadcrumb */}
       <div className="breadcrumb">
         <span className="breadcrumb-link" onClick={() => navigate('/dashboard')}>{t('common.home')}</span>
-        <ChevronRight />
+        <SvcIcon name="chevron-right" />
         <span className="breadcrumb-current">{t('pages.contacts.title')}</span>
       </div>
 
@@ -408,10 +408,10 @@ export default function ContactsPage() {
         </div>
         <div className="header-actions">
           <button className="btn-secondary">
-            <Download className="w-4 h-4" /> {t('common.export')}
+            <SvcIcon name="download" className="w-4 h-4" /> {t('common.export')}
           </button>
           <button onClick={create.openModal} className="btn-primary">
-            <Plus className="w-4 h-4" /> {t('pages.contacts.new')}
+            <SvcIcon name="plus" className="w-4 h-4" /> {t('pages.contacts.new')}
           </button>
         </div>
       </div>
@@ -421,16 +421,16 @@ export default function ContactsPage() {
         {/* DB Toolbar */}
         <div className="db-toolbar">
           <div className="db-search">
-            <Search className="w-4 h-4" />
+            <SvcIcon name="search" className="w-4 h-4" />
             <input type="text" placeholder={t('pages.contacts.searchPlaceholder')} value={query}
               onChange={e => setQuery(e.target.value)} />
           </div>
           <div className="toolbar-actions">
-            <button className="toolbar-btn"><Filter className="w-4 h-4" /> {t('common.filter')}</button>
-            <button className="toolbar-btn"><ArrowUpDown className="w-4 h-4" /> {t('common.sort')}</button>
-            <button className="toolbar-btn"><LayoutGrid className="w-4 h-4" /> {t('common.group')}</button>
+            <button className="toolbar-btn"><SvcIcon name="filter" className="w-4 h-4" /> {t('common.filter')}</button>
+            <button className="toolbar-btn"><SvcIcon name="arrow-up-down" className="w-4 h-4" /> {t('common.sort')}</button>
+            <button className="toolbar-btn"><SvcIcon name="layout-grid" className="w-4 h-4" /> {t('common.group')}</button>
             <span className="toolbar-sep" />
-            <button className="toolbar-btn" onClick={col.openMobile}><SlidersHorizontal className="w-4 h-4" /> {t('common.properties')}</button>
+            <button className="toolbar-btn" onClick={col.openMobile}><SvcIcon name="sliders-horizontal" className="w-4 h-4" /> {t('common.properties')}</button>
           </div>
         </div>
 
@@ -484,14 +484,14 @@ export default function ContactsPage() {
                     <td className="col-menu" onClick={e => e.stopPropagation()}>
                       <div className="menu-wrap">
                         <button className="menu-dots" title={t('common.moreActions')}>
-                          <MoreHorizontal className="w-4 h-4" />
+                          <SvcIcon name="more-horizontal" className="w-4 h-4" />
                         </button>
                         <div className="menu-dropdown">
                           <button className="menu-item" onClick={() => openEdit(c)}>
-                            <Edit3 /> {t('common.edit')}
+                            <SvcIcon name="edit-3" /> {t('common.edit')}
                           </button>
                           <button className="menu-item text-notification" onClick={() => setDeleteTarget(c)}>
-                            <Trash2 /> {t('common.delete')}
+                            <SvcIcon name="trash-2" /> {t('common.delete')}
                           </button>
                         </div>
                       </div>
@@ -512,7 +512,7 @@ export default function ContactsPage() {
                     const first = items.find(i => selectedIds.has(i.id));
                     if (first) setDeleteTarget(first);
                   }}>
-                  <Trash2 className="w-4 h-4" /> {t('common.delete')}
+                  <SvcIcon name="trash-2" className="w-4 h-4" /> {t('common.delete')}
                 </button>
               </div>
             )}
@@ -527,7 +527,7 @@ export default function ContactsPage() {
           <div className="modal">
             <div className="modal-head">
               <h2>{t('pages.contacts.new')}</h2>
-              <button onClick={create.closeModal} className="modal-x"><X className="icon-16" /></button>
+              <button onClick={create.closeModal} className="modal-x"><SvcIcon name="x" className="icon-16" /></button>
             </div>
             <div className="modal-body form-body pb-100">
               <ContactFormFields form={form} setForm={setForm} inputCls={inputCls} />
@@ -550,7 +550,7 @@ export default function ContactsPage() {
           <div className="modal">
             <div className="modal-head">
               <h2>{t('common.edit')}</h2>
-              <button onClick={() => setEditTarget(null)} className="modal-x"><X className="icon-16" /></button>
+              <button onClick={() => setEditTarget(null)} className="modal-x"><SvcIcon name="x" className="icon-16" /></button>
             </div>
             <div className="modal-body form-body pb-100">
               <ContactFormFields form={form} setForm={setForm} inputCls={inputCls} />
@@ -573,7 +573,7 @@ export default function ContactsPage() {
           <div className="modal modal-sm">
             <div className="delete-body">
               <div className="delete-icon-wrap">
-                <Trash2 />
+                <SvcIcon name="trash-2" />
               </div>
               <h2 className="delete-heading">{t('pages.contacts.deleteTitle')}</h2>
               <p className="delete-text">
@@ -597,7 +597,7 @@ export default function ContactsPage() {
         <div className="col-settings">
           {visibleCols.map((v, i) => (
             <div key={v.key} className="col-settings-row">
-              <GripVertical className="w-4 h-4 col-grip" />
+              <SvcIcon name="grip-vertical" className="w-4 h-4 col-grip" />
               <span className="col-settings-label">{colLabel(v.key)}</span>
               <div className="col-settings-arrows">
                 <button className="col-arrow" disabled={i === 0}

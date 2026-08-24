@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Plus, X, ChevronRight } from 'lucide-react';
+import SvcIcon from '../components/SvcIcon';
 import { useNavigate } from 'react-router-dom';
 import { apiClient } from '../lib/api';
 import { useCreateModal, ErrorBox } from '../lib/useApi';
@@ -131,7 +131,7 @@ export default function DealsPage() {
       <div className="page-content">
         <div className="breadcrumb">
           <span className="breadcrumb-link" onClick={() => navigate('/dashboard')}>Home</span>
-          <ChevronRight />
+          <SvcIcon name="chevron-right" />
           <span className="breadcrumb-current">Deals</span>
         </div>
         <div className="animate-pulse space-y-4">
@@ -151,7 +151,7 @@ export default function DealsPage() {
       {/* Breadcrumb */}
       <div className="breadcrumb">
         <span className="breadcrumb-link" onClick={() => navigate('/dashboard')}>Home</span>
-        <ChevronRight />
+        <SvcIcon name="chevron-right" />
         <span className="breadcrumb-current">Deals</span>
       </div>
       {/* Header */}
@@ -177,7 +177,7 @@ export default function DealsPage() {
             }}
             className="btn-primary"
           >
-            <Plus className="w-4 h-4" /> {t('pages.deals.new')}
+            <SvcIcon name="plus" className="w-4 h-4" /> {t('pages.deals.new')}
           </button>
         </div>
       </div>
@@ -235,7 +235,7 @@ export default function DealsPage() {
           <div className="modal">
             <div className="modal-head">
               <h2>{t('pages.deals.new')}</h2>
-              <button onClick={create.closeModal} className="modal-x"><X className="w-5 h-5" /></button>
+              <button onClick={create.closeModal} className="modal-x"><SvcIcon name="x" className="w-5 h-5" /></button>
             </div>
             <div className="modal-body pb-100">
               <div className="space-y-4">

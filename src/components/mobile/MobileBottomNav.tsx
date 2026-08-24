@@ -2,11 +2,8 @@ import { useState, useEffect, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import {
-  LayoutDashboard, Users, Calendar, Building2, FolderKanban, CheckSquare,
-  Activity, ScanLine, BarChart3, UsersRound, Sparkles, Bell,
-  Store, Settings, Plus, ChevronRight, X, LogOut, Moon, FileText,
-} from 'lucide-react';
+import { UsersRound, Store, Activity, BarChart3, Building2, Calendar, CheckSquare, FileText, FolderKanban, LayoutDashboard, ScanLine, Settings, Sparkles, Users } from 'lucide-react'
+import SvcIcon from '../../components/SvcIcon';
 import { useAuth } from '../../lib/AuthContext';
 import { apiClient } from '../../lib/api';
 import { useSecretarySettings } from '../../hooks/useSecretarySettings';
@@ -114,22 +111,22 @@ export default function MobileBottomNav({ onOpenAiSearch, onScanCard, onQuickAdd
     <>
       <nav className="mnav-bar" role="navigation" aria-label="Primary">
         <button type="button" className={`mnav-item ${activeTab === 'workspace' ? 'active' : ''}`} onClick={() => setSheet('workspace')}>
-          <LayoutDashboard /><span>工作區</span>
+          <SvcIcon name="layout-dashboard" /><span>工作區</span>
         </button>
         <button type="button" className={`mnav-item ${activeTab === 'records' ? 'active' : ''}`} onClick={() => setSheet('record')}>
-          <FileText /><span>紀錄</span>
+          <SvcIcon name="file-text" /><span>紀錄</span>
         </button>
         <div className="mnav-center-wrap">
           <button type="button" className="mnav-center-btn" onClick={onOpenAiSearch} aria-label="AI assistant and search">
-            <Sparkles />
+            <SvcIcon name="sparkles" />
           </button>
           <span>AI &amp; 搜尋</span>
         </div>
         <button type="button" className="mnav-item" onClick={() => setSheet('add')}>
-          <Plus /><span>新增</span>
+          <SvcIcon name="plus" /><span>新增</span>
         </button>
         <button type="button" className={`mnav-item ${activeTab === 'settings' ? 'active' : ''}`} onClick={() => setSheet('settings')}>
-          <Settings />
+          <SvcIcon name="settings" />
           <span>設定</span>
           {unreadCount > 0 && <span className="mnav-badge">{unreadCount > 9 ? '9+' : unreadCount}</span>}
         </button>
@@ -143,7 +140,7 @@ export default function MobileBottomNav({ onOpenAiSearch, onScanCard, onQuickAdd
             <button key={item.to} type="button" className={`mnav-row ${isActive(item.to) ? 'active' : ''}`} onClick={() => go(item.to)}>
               <span className="mnav-row-icon mnav-row-icon-neutral"><item.icon /></span>
               <span className="txt"><strong>{item.label}</strong></span>
-              <ChevronRight className="mnav-row-chev" />
+              <SvcIcon name="chevron-right" className="mnav-row-chev" />
             </button>
           ))}
         </Sheet>
@@ -157,7 +154,7 @@ export default function MobileBottomNav({ onOpenAiSearch, onScanCard, onQuickAdd
             <button key={item.to} type="button" className={`mnav-row ${isActive(item.to) ? 'active' : ''}`} onClick={() => go(item.to)}>
               <span className="mnav-row-icon mnav-row-icon-neutral"><item.icon /></span>
               <span className="txt"><strong>{item.label}</strong></span>
-              <ChevronRight className="mnav-row-chev" />
+              <SvcIcon name="chevron-right" className="mnav-row-chev" />
             </button>
           ))}
         </Sheet>
@@ -167,9 +164,9 @@ export default function MobileBottomNav({ onOpenAiSearch, onScanCard, onQuickAdd
       {sheet === 'add' && (
         <Sheet title="Add New" onClose={() => setSheet(null)}>
           <button type="button" className="mnav-scan-banner" onClick={() => { setSheet(null); onScanCard(); }}>
-            <span className="mnav-scan-banner-icon"><ScanLine /></span>
+            <span className="mnav-scan-banner-icon"><SvcIcon name="scan-line" /></span>
             <span className="txt"><strong>拍卡片自動入庫</strong><span>用鏡頭掃描名片，AI 自動識別並存為聯絡人</span></span>
-            <ChevronRight className="chev" />
+            <SvcIcon name="chevron-right" className="chev" />
           </button>
           <div className="mnav-section-label">Quick Create</div>
           <div className="mnav-add-grid">
@@ -193,15 +190,15 @@ export default function MobileBottomNav({ onOpenAiSearch, onScanCard, onQuickAdd
               <strong>{user?.displayName || user?.email || ''}</strong>
               <span style={{ display: 'block' }}>{user?.email || ''}</span>
             </span>
-            <ChevronRight className="mnav-row-chev" />
+            <SvcIcon name="chevron-right" className="mnav-row-chev" />
           </button>
 
           {/* 通知（top bar bell） */}
           <div className="mnav-section-label">通知</div>
           <button type="button" className="mnav-org-row" onClick={() => go('/notifications')}>
-            <Bell /><span>通知</span>
+            <SvcIcon name="bell" /><span>通知</span>
             {unreadCount > 0 && <span className="mnav-notif-count">{unreadCount} 則新</span>}
-            <ChevronRight className="chev" />
+            <SvcIcon name="chevron-right" className="chev" />
           </button>
           {notifications.length > 0 && (
             <div className="mnav-notif-list">
@@ -218,40 +215,40 @@ export default function MobileBottomNav({ onOpenAiSearch, onScanCard, onQuickAdd
           <div className="mnav-section-label">Organization</div>
           {settingsItems.map(item => (
             <button key={item.to} type="button" className="mnav-org-row" onClick={() => go(item.to)}>
-              <item.icon /><span>{item.label}</span><ChevronRight className="chev" />
+              <item.icon /><span>{item.label}</span><SvcIcon name="chevron-right" className="chev" />
             </button>
           ))}
 
           {/* v6.94: AI 管家設定 4 開關 */}
           <div className="mnav-section-label">AI 管家</div>
           <button type="button" className="mnav-org-row" onClick={toggleBriefing}>
-            <Sparkles /><span>每日 Briefing</span>
+            <SvcIcon name="sparkles" /><span>每日 Briefing</span>
             <span className={`mnav-switch ${briefingOn ? 'on' : ''}`} onClick={e => { e.stopPropagation(); toggleBriefing(); }} />
           </button>
           <button type="button" className="mnav-org-row" onClick={toggleCalAwareness}>
-            <Calendar /><span>行事曆主動提問</span>
+            <SvcIcon name="calendar" /><span>行事曆主動提問</span>
             <span className={`mnav-switch ${secSettings?.calendar_awareness ? 'on' : ''}`} onClick={e => { e.stopPropagation(); toggleCalAwareness(); }} />
           </button>
           <button type="button" className="mnav-org-row" onClick={toggleWeekendMute}>
-            <Moon /><span>週末靜音</span>
+            <SvcIcon name="moon" /><span>週末靜音</span>
             <span className={`mnav-switch ${secSettings?.weekend_mute ? 'on' : ''}`} onClick={e => { e.stopPropagation(); toggleWeekendMute(); }} />
           </button>
           <button type="button" className="mnav-org-row" onClick={toggleStrictSilence}>
-            <Bell /><span>嚴格靜音</span>
+            <SvcIcon name="bell" /><span>嚴格靜音</span>
             <span className={`mnav-switch ${secSettings?.strict_silence ? 'on' : ''}`} onClick={e => { e.stopPropagation(); toggleStrictSilence(); }} />
           </button>
 
           {/* 外觀（top bar 黑白轉） */}
           <div className="mnav-section-label">外觀</div>
           <button type="button" className="mnav-org-row" onClick={toggleTheme}>
-            <Moon /><span>Dark Mode</span>
+            <SvcIcon name="moon" /><span>Dark Mode</span>
             <span className={`mnav-switch ${dark ? 'on' : ''}`} onClick={e => e.stopPropagation()} />
           </button>
 
           {/* 帳戶 */}
           <div className="mnav-section-label">帳戶</div>
           <button type="button" className="mnav-org-row" onClick={() => { setSheet(null); logout(); }}>
-            <LogOut /><span style={{ color: 'var(--color-error)' }}>登出</span>
+            <SvcIcon name="log-out" /><span style={{ color: 'var(--color-error)' }}>登出</span>
           </button>
         </Sheet>
       )}
@@ -292,7 +289,7 @@ function Sheet({ title, onClose, children, tall = false }: { title: string; onCl
         <div className="mnav-sheet-handle" />
         <div className="mnav-sheet-head">
           <h3>{title}</h3>
-          <button type="button" className="mnav-sheet-close" onClick={handleClose} aria-label="Close"><X /></button>
+          <button type="button" className="mnav-sheet-close" onClick={handleClose} aria-label="Close"><SvcIcon name="x" /></button>
         </div>
         <div className="mnav-sheet-body">{children}</div>
       </div>

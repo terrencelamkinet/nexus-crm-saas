@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { X, ChevronLeft } from 'lucide-react'
+import SvcIcon from '../components/SvcIcon'
 
 interface SlideDrawerProps {
   open: boolean
@@ -71,11 +71,11 @@ export default function SlideDrawer({ open, onClose, title, children, width, clo
         <div className={`slide-drawer-header ${closeOnLeft ? 'close-left' : ''}`}>
           {closeOnLeft ? (
             <button className="slide-drawer-close slide-drawer-close--left" onClick={onClose} aria-label="Go back">
-              <ChevronLeft className="icon-16" />
+              <SvcIcon name="chevron-left" className="icon-16" />
             </button>
           ) : (
             <button className="slide-drawer-close" onClick={onClose} aria-label="Close">
-              <X className="icon-16" />
+              <SvcIcon name="x" className="icon-16" />
             </button>
           )}
           <h3 className="slide-drawer-title">{title || ''}</h3>

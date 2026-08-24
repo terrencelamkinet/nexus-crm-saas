@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, PackageOpen } from 'lucide-react';
+import SvcIcon from '../components/SvcIcon';
 import { integrations, integrationTypes } from '../data/integrations';
 import { fetchIntegrations, disconnectIntegration } from '../lib/integration-api';
 import type { IntegrationRecord } from '../lib/integration-api';
@@ -104,7 +104,7 @@ export default function MarketplacePage() {
     <div className="mkt-page">
       <div className="mkt-search-wrap">
         <div className="mkt-search">
-          <Search size={18} />
+          <SvcIcon name="search" size={18} />
           <input
             type="text"
             placeholder="Search integrations..."
@@ -133,7 +133,7 @@ export default function MarketplacePage() {
         <div className="mkt-empty"><p>Loading integrations...</p></div>
       ) : filtered.length === 0 ? (
         <div className="mkt-empty">
-          <PackageOpen />
+          <SvcIcon name="package-open" />
           <p>No integrations found</p>
         </div>
       ) : (

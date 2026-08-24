@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { apiClient } from '../lib/api'
 import { useAuth } from '../lib/AuthContext'
 import { useSecretarySettings, isInWorkingHours, enabledModuleKeys } from '../hooks/useSecretarySettings'
-import { Sparkles, X, ChevronDown, Send, RefreshCw, AlertTriangle, CheckSquare, Calendar, History } from 'lucide-react'
+import SvcIcon from '../components/SvcIcon'
 
 // ─────────────────────────────────────────────────────────────
 // Types
@@ -479,7 +479,7 @@ export default function AIBriefingDrawer() {
         <div className="ab-orb-wrap">
           <div className="ab-orb-pulse" />
           <div className="ab-orb-core">
-            <Sparkles size={13} className="ab-orb-sparkles" />
+            <SvcIcon name="sparkles" size={13} className="ab-orb-sparkles" />
           </div>
         </div>
         <div className="ab-trigger-text">
@@ -491,7 +491,7 @@ export default function AIBriefingDrawer() {
           </div>
         </div>
         <span className="ab-trigger-pill">
-          {expanded ? t('pages.briefing.collapse') : t('pages.briefing.more')} <ChevronDown size={13} className="ab-chevron" style={{ transform: expanded ? 'rotate(180deg)' : 'none' }} />
+          {expanded ? t('pages.briefing.collapse') : t('pages.briefing.more')} <SvcIcon name="chevron-down" size={13} className="ab-chevron" style={{ transform: expanded ? 'rotate(180deg)' : 'none' }} />
         </span>
       </div>
 
@@ -529,7 +529,7 @@ export default function AIBriefingDrawer() {
               onMouseEnter={e => { e.currentTarget.style.background = 'var(--color-divider)'; e.currentTarget.style.color = 'var(--color-text)' }}
               onMouseLeave={e => { e.currentTarget.style.background = 'var(--color-surface-offset)'; e.currentTarget.style.color = 'var(--color-text-faint)' }}
             >
-              <X size={14} />
+              <SvcIcon name="x" size={14} />
             </button>
           </div>
 
@@ -565,7 +565,7 @@ export default function AIBriefingDrawer() {
               {/* ── High-risk deals ── */}
               {payload.risks.length > 0 && (
                 <InsightSection
-                  icon={<AlertTriangle size={14} className="ab-ic-notification" />}
+                  icon={<SvcIcon name="alert-triangle" size={14} className="ab-ic-notification" />}
                   title={t('pages.briefing.riskSection', { count: payload.riskCount })}
                   badge={t('pages.briefing.riskBadge')}
                   badgeColor="var(--color-notification)"
@@ -598,7 +598,7 @@ export default function AIBriefingDrawer() {
                           <div className="ab-editor-head">
                             {sentOk ? t('pages.briefing.sentRecorded') : drafting ? t('pages.briefing.aiDrafting') : t('pages.briefing.draftReady')}
                             <button onClick={cancelDraft} className="ab-editor-close">
-                              <X size={13} />
+                              <SvcIcon name="x" size={13} />
                             </button>
                           </div>
                           <textarea
@@ -622,7 +622,7 @@ export default function AIBriefingDrawer() {
                                 className="ab-btn-send"
                                 style={{ opacity: drafting || draftText.trim() === '' ? 0.5 : 1 }}
                               >
-                                <Send size={12} /> {t('pages.briefing.sendEmail')}
+                                <SvcIcon name="send" size={12} /> {t('pages.briefing.sendEmail')}
                               </button>
                             </div>
                           )}
@@ -636,7 +636,7 @@ export default function AIBriefingDrawer() {
               {/* ── Overdue tasks ── */}
               {payload.overdueTasks.length > 0 && (
                 <SectionRow
-                  icon={<CheckSquare size={14} className="ab-ic-warning" />}
+                  icon={<SvcIcon name="check-square" size={14} className="ab-ic-warning" />}
                   label={t('pages.briefing.taskSection', { count: payload.taskCount })}
                 >
                   {payload.overdueTasks.map(task => (
@@ -660,7 +660,7 @@ export default function AIBriefingDrawer() {
               {/* ── Today's events ── */}
               {payload.todayEvents.length > 0 && (
                 <SectionRow
-                  icon={<Calendar size={14} className="ab-ic-blue" />}
+                  icon={<SvcIcon name="calendar" size={14} className="ab-ic-blue" />}
                   label={t('pages.briefing.eventSection', { count: payload.eventCount })}
                 >
                   {payload.todayEvents.map(ev => (
@@ -698,7 +698,7 @@ export default function AIBriefingDrawer() {
               {/* ── Schedule conflicts ── */}
               {payload.conflicts.length > 0 && (
                 <SectionRow
-                  icon={<AlertTriangle size={14} className="ab-ic-notification" />}
+                  icon={<SvcIcon name="alert-triangle" size={14} className="ab-ic-notification" />}
                   label={t('pages.briefing.conflictSection')}
                 >
                   {payload.conflicts.map((c: any, i: number) => (
@@ -863,14 +863,14 @@ export default function AIBriefingDrawer() {
 
               {/* Footer */}
               <div className="ab-footer">
-                <History size={11} />
+                <SvcIcon name="history" size={11} />
                 <span>{t('pages.briefing.footer')}</span>
                 <button
                   onClick={loadBriefing}
                   disabled={loading}
                   className="ab-refresh-btn"
                 >
-                  <RefreshCw size={11} style={{ animation: loading ? 'ai-spin 1s linear infinite' : 'none' }} /> {t('pages.briefing.refresh')}
+                  <SvcIcon name="refresh-cw" size={11} style={{ animation: loading ? 'ai-spin 1s linear infinite' : 'none' }} /> {t('pages.briefing.refresh')}
                 </button>
               </div>
             </div>
@@ -950,7 +950,7 @@ function InsightSection({
         >
           {badge}
         </span>
-        <ChevronDown size={14} className="ab-section-chevron" style={{ transform: open ? 'rotate(180deg)' : 'none' }} />
+        <SvcIcon name="chevron-down" size={14} className="ab-section-chevron" style={{ transform: open ? 'rotate(180deg)' : 'none' }} />
       </button>
       {open && (
         <div className="ab-section-body">

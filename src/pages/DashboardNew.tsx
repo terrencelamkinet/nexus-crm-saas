@@ -4,13 +4,8 @@ import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { apiClient } from '../lib/api'
 import { useAuth } from '../lib/AuthContext'
-import {
-  LayoutDashboard, Users, Building2, TrendingUp, FolderKanban,
-  CheckSquare, Truck, UsersRound,
-  Plus, Sparkles, X,
-  Activity, DollarSign, Layout, Calendar,
-  Phone, Mail, MessageCircle, ExternalLink,
-} from 'lucide-react'
+import { Truck, UsersRound, DollarSign, Layout, Activity, Building2, Calendar, CheckSquare, FolderKanban, LayoutDashboard, Sparkles, TrendingUp, Users } from 'lucide-react'
+import SvcIcon from '../components/SvcIcon'
 import SlideDrawer from '../components/SlideDrawer'
 import AIBriefingDrawer, { hktNow } from '../components/AIBriefingDrawer'
 import WidgetAskAI from '../components/WidgetAskAI'
@@ -531,17 +526,17 @@ export default function DashboardNew() {
       <div className="quick-actions">
         {contact.phone && (
           <a href={`tel:${String(contact.phone).replace(/[^\d+]/g, '')}`} className="btn-secondary">
-            <Phone className="w-3.5 h-3.5" /> {t('common.call')}
+            <SvcIcon name="phone" className="w-3.5 h-3.5" /> {t('common.call')}
           </a>
         )}
         {contact.email && (
           <a href={`mailto:${contact.email}`} className="btn-secondary">
-            <Mail className="w-3.5 h-3.5" /> {t('common.email')}
+            <SvcIcon name="mail" className="w-3.5 h-3.5" /> {t('common.email')}
           </a>
         )}
         {contact.phone && (
           <a href={`https://wa.me/${String(contact.phone).replace(/[^\d]/g, '')}`} target="_blank" rel="noopener noreferrer" className="btn-secondary">
-            <MessageCircle className="w-3.5 h-3.5" /> {t('common.message')}
+            <SvcIcon name="message-circle" className="w-3.5 h-3.5" /> {t('common.message')}
           </a>
         )}
       </div>
@@ -576,7 +571,7 @@ export default function DashboardNew() {
 
       {/* Full profile link */}
       <button className="btn-secondary" style={{marginTop:8}} onClick={() => { setDetailDrawer(false); navigate(`/contacts/${contact.id}`) }}>
-        <ExternalLink className="w-3.5 h-3.5" /> {t('common.viewFullProfile')}
+        <SvcIcon name="external-link" className="w-3.5 h-3.5" /> {t('common.viewFullProfile')}
       </button>
     </div>
   )
@@ -659,7 +654,7 @@ export default function DashboardNew() {
     // ── Legacy widgets (real data) ──
     kpi_contacts: () => (
       <div style={{display:'flex',alignItems:'flex-start',justifyContent:'center',flexDirection:'column',gap:6,height:'100%',paddingLeft:8}}>
-        <span className="kpi-val" style={{fontSize:isCompact ? 48 : 36,color:'var(--color-blue)',cursor:'pointer'}} onClick={() => openDrawer(t('contacts.title'), <div>{contacts.map(c => <div key={c.id} className="list-row" style={{cursor:'pointer'}} onClick={() => openDrawer(c.name, buildContactDetail(c))}><Users size={14} style={{color:'var(--color-blue)',flexShrink:0}} /><span className="name">{c.name}</span><span className="meta">{c.company?.name||''}</span></div>)}</div>)}>{stats.contacts}</span>
+        <span className="kpi-val" style={{fontSize:isCompact ? 48 : 36,color:'var(--color-blue)',cursor:'pointer'}} onClick={() => openDrawer(t('contacts.title'), <div>{contacts.map(c => <div key={c.id} className="list-row" style={{cursor:'pointer'}} onClick={() => openDrawer(c.name, buildContactDetail(c))}><SvcIcon name="users" size={14} style={{color:'var(--color-blue)',flexShrink:0}} /><span className="name">{c.name}</span><span className="meta">{c.company?.name||''}</span></div>)}</div>)}>{stats.contacts}</span>
         <span style={{fontSize:13.5,color:'var(--color-text-muted)',fontWeight:500}}>{t(widgetLabelKey.kpi_contacts)}</span>
       </div>
     ),
@@ -668,7 +663,7 @@ export default function DashboardNew() {
         ? <div style={{padding:'16px 20px',fontSize:12,color:'var(--color-text-faint)'}}>{t('companies.empty')}</div>
         : companyList.map(c => (
             <div key={c.id} className="list-row" style={{cursor:'pointer'}} onClick={() => { navigate(`/companies/${c.id}`); setDetailDrawer(false) }}>
-              <Building2 size={14} style={{color:'var(--color-purple)',flexShrink:0}} />
+              <SvcIcon name="building-2" size={14} style={{color:'var(--color-purple)',flexShrink:0}} />
               <span className="name">{c.name}</span>
               <span className="meta">{c.industry || c.category || '—'}</span>
             </div>
@@ -680,13 +675,13 @@ export default function DashboardNew() {
     ),
     kpi_deals: () => (
       <div style={{display:'flex',alignItems:'flex-start',justifyContent:'center',flexDirection:'column',gap:6,height:'100%',paddingLeft:8}}>
-        <span className="kpi-val" style={{fontSize:isCompact ? 48 : 36,color:'var(--color-primary)',cursor:'pointer'}} onClick={() => openDrawer(t('deals.title'), <div>{deals.map(d => <div key={d.id} className="list-row" style={{cursor:'pointer'}} onClick={() => openDrawer(d.name, buildDealDetail(d))}><TrendingUp size={14} style={{color:'var(--color-primary)',flexShrink:0}} /><span className="name">{d.name}</span><span className="meta">${d.amount?.toLocaleString()||''}</span></div>)}</div>)}>{stats.deals}</span>
+        <span className="kpi-val" style={{fontSize:isCompact ? 48 : 36,color:'var(--color-primary)',cursor:'pointer'}} onClick={() => openDrawer(t('deals.title'), <div>{deals.map(d => <div key={d.id} className="list-row" style={{cursor:'pointer'}} onClick={() => openDrawer(d.name, buildDealDetail(d))}><SvcIcon name="trending-up" size={14} style={{color:'var(--color-primary)',flexShrink:0}} /><span className="name">{d.name}</span><span className="meta">${d.amount?.toLocaleString()||''}</span></div>)}</div>)}>{stats.deals}</span>
         <span style={{fontSize:13.5,color:'var(--color-text-muted)',fontWeight:500}}>{t(widgetLabelKey.kpi_deals)}</span>
       </div>
     ),
     kpi_tasks: () => (
       <div style={{display:'flex',alignItems:'flex-start',justifyContent:'center',flexDirection:'column',gap:6,height:'100%',paddingLeft:8}}>
-        <span className="kpi-val" style={{fontSize:isCompact ? 48 : 36,color:'var(--color-warning)',cursor:'pointer'}} onClick={() => openDrawer(t('tasks.title'), <div>{tasks.map(t => <div key={t.id} className="list-row" style={{cursor:'pointer'}} onClick={() => openDrawer(t.title, buildTaskDetail(t))}><CheckSquare size={14} style={{color:'var(--color-warning)',flexShrink:0}} /><span className="name">{t.title}</span><span className="meta">{t.priority||''}</span></div>)}</div>)}>{stats.tasks}</span>
+        <span className="kpi-val" style={{fontSize:isCompact ? 48 : 36,color:'var(--color-warning)',cursor:'pointer'}} onClick={() => openDrawer(t('tasks.title'), <div>{tasks.map(t => <div key={t.id} className="list-row" style={{cursor:'pointer'}} onClick={() => openDrawer(t.title, buildTaskDetail(t))}><SvcIcon name="check-square" size={14} style={{color:'var(--color-warning)',flexShrink:0}} /><span className="name">{t.title}</span><span className="meta">{t.priority||''}</span></div>)}</div>)}>{stats.tasks}</span>
         <span style={{fontSize:13.5,color:'var(--color-text-muted)',fontWeight:500}}>{t(widgetLabelKey.kpi_tasks)}</span>
       </div>
     ),
@@ -706,7 +701,7 @@ export default function DashboardNew() {
           ? <div style={{padding:'16px 0',fontSize:12,color:'var(--color-text-faint)'}}>{t('pages.tasks.empty')}</div>
           : <>{tasks.slice(0,5).map(task => (
               <div key={task.id} className="list-row" onClick={() => openDrawer(task.title, buildTaskDetail(task))} style={{cursor:'pointer'}}>
-                <CheckSquare size={14} style={{color:'var(--color-text-muted)',flexShrink:0}} />
+                <SvcIcon name="check-square" size={14} style={{color:'var(--color-text-muted)',flexShrink:0}} />
                 {areaSymbol(task.area)}
                 <span className="name">{task.title}</span>
                 {isOverdue(task) && <span className="badge" style={{background:'color-mix(in oklch,var(--color-notification)18%,var(--color-surface))',color:'var(--color-notification)',marginLeft:4,flexShrink:0}}>{t('dashboard.widgets.overdue')}</span>}
@@ -723,7 +718,7 @@ export default function DashboardNew() {
         ? <div style={{padding:'16px 0',fontSize:12,color:'var(--color-text-faint)'}}>{t('common.noResults')}</div>
         : <>{touchpoints.map(tp => (
             <div key={tp.id} className="list-row" onClick={() => openDrawer(tp.title, buildTouchpointDetail(tp))} style={{cursor:'pointer'}}>
-              <Activity size={14} style={{color:'var(--color-text-muted)',flexShrink:0}} />
+              <SvcIcon name="activity" size={14} style={{color:'var(--color-text-muted)',flexShrink:0}} />
               <span className="name">{tp.title}</span>
               <span className="meta">{tp.company?.name||''}</span>
             </div>
@@ -733,7 +728,7 @@ export default function DashboardNew() {
       <>{pipeline.map(p => (
         <div key={p.key} className="stage-row" style={{cursor:'pointer'}} onClick={() => {
           const filtered = deals.filter(d => d.stage_id === p.key)
-          openDrawer(p.label, <div>{filtered.map(d => <div key={d.id} className="list-row" style={{cursor:'pointer'}} onClick={() => openDrawer(d.name, buildDealDetail(d))}><TrendingUp size={14} style={{color:p.color,flexShrink:0}} /><span className="name">{d.name}</span><span className="meta">${d.amount?.toLocaleString()||''}</span></div>)}</div>)
+          openDrawer(p.label, <div>{filtered.map(d => <div key={d.id} className="list-row" style={{cursor:'pointer'}} onClick={() => openDrawer(d.name, buildDealDetail(d))}><SvcIcon name="trending-up" size={14} style={{color:p.color,flexShrink:0}} /><span className="name">{d.name}</span><span className="meta">${d.amount?.toLocaleString()||''}</span></div>)}</div>)
         }}>
           <div className="stage-label">
             <span>{p.label}</span>
@@ -748,7 +743,7 @@ export default function DashboardNew() {
     dealvalue: () => (
       <><div className="kpi-val" style={{fontSize:26,color:'var(--color-primary)',cursor:'pointer'}} onClick={() => {
         const closedWon = deals.filter(d => d.stage_id === 'closed_won')
-        openDrawer(t('pages.deals.won') + ' ' + t('deals.title'), <div>{closedWon.map(d => <div key={d.id} className="list-row" style={{cursor:'pointer'}} onClick={() => openDrawer(d.name, buildDealDetail(d))}><TrendingUp size={14} style={{color:'var(--color-success)',flexShrink:0}} /><span className="name">{d.name}</span><span className="meta">${d.amount?.toLocaleString()||''}</span></div>)}</div>)
+        openDrawer(t('pages.deals.won') + ' ' + t('deals.title'), <div>{closedWon.map(d => <div key={d.id} className="list-row" style={{cursor:'pointer'}} onClick={() => openDrawer(d.name, buildDealDetail(d))}><SvcIcon name="trending-up" size={14} style={{color:'var(--color-success)',flexShrink:0}} /><span className="name">{d.name}</span><span className="meta">${d.amount?.toLocaleString()||''}</span></div>)}</div>)
       }}>{stats.dealValue||'—'}</div>
       <div className="kpi-delta" style={{color:'var(--color-success)'}}>↑ {deals.filter(d=>d.stage_id==='closed_won').length} {t('status.won')}</div></>
     ),
@@ -814,9 +809,9 @@ export default function DashboardNew() {
       )
     },
     c2: () => (
-      <><div className="list-row"><CheckSquare size={14} style={{color:'var(--color-warning)',flexShrink:0}} /><span className="name">旭輝空運 — 跟進續約</span><span className="badge warn">{t('priority.urgent')}</span></div>
-      <div className="list-row"><CheckSquare size={14} style={{color:'var(--color-text-muted)',flexShrink:0}} /><span className="name">深圳華良物流 — 報價回覆</span></div>
-      <div className="list-row"><CheckSquare size={14} style={{color:'var(--color-text-muted)',flexShrink:0}} /><span className="name">林海珊 — 會議跟進</span></div></>
+      <><div className="list-row"><SvcIcon name="check-square" size={14} style={{color:'var(--color-warning)',flexShrink:0}} /><span className="name">旭輝空運 — 跟進續約</span><span className="badge warn">{t('priority.urgent')}</span></div>
+      <div className="list-row"><SvcIcon name="check-square" size={14} style={{color:'var(--color-text-muted)',flexShrink:0}} /><span className="name">深圳華良物流 — 報價回覆</span></div>
+      <div className="list-row"><SvcIcon name="check-square" size={14} style={{color:'var(--color-text-muted)',flexShrink:0}} /><span className="name">林海珊 — 會議跟進</span></div></>
     ),
     c3: () => (
       <div style={{display:'flex',flexDirection:'column',gap:10}}>
@@ -1023,7 +1018,7 @@ export default function DashboardNew() {
         ? <div style={{padding:'16px 0',fontSize:12,color:'var(--color-text-faint)'}}>{t('tasks.empty')}</div>
         : <>{todayTasks.map(t => (
             <div key={t.id} className="list-row" style={{cursor:'pointer'}} onClick={() => navigate(`/tasks/${t.id}`)}>
-              <CheckSquare size={14} style={{color:t.status==='done'?'var(--color-success)':'var(--color-text-muted)',flexShrink:0}} />
+              <SvcIcon name="check-square" size={14} style={{color:t.status==='done'?'var(--color-success)':'var(--color-text-muted)',flexShrink:0}} />
               <span className="name">{t.title}</span>
               <span className="badge" style={{
                 background: t.priority==='P0'?'color-mix(in oklch,var(--color-notification)18%,var(--color-surface))':t.priority==='P1'?'color-mix(in oklch,var(--color-warning)18%,var(--color-surface))':'color-mix(in oklch,var(--color-success)18%,var(--color-surface))',
@@ -1099,7 +1094,7 @@ export default function DashboardNew() {
       }
       return (
         <>{evts.map((e: any, i: number) => (
-          <div className="list-row" key={i}><Calendar size={14} style={{color:'var(--color-text-muted)',flexShrink:0}} /><span className="name">{fmtTime(e.start)} {e.title}</span><span className="meta">{e.event_type || ''}</span></div>
+          <div className="list-row" key={i}><SvcIcon name="calendar" size={14} style={{color:'var(--color-text-muted)',flexShrink:0}} /><span className="name">{fmtTime(e.start)} {e.title}</span><span className="meta">{e.event_type || ''}</span></div>
         ))}</>
       )
     },
@@ -1244,21 +1239,21 @@ export default function DashboardNew() {
         <div style={{display:'flex',alignItems:'center',gap:8}}>
           <div className="new-menu-wrap" ref={newRef} style={{position:'relative'}}>
             <button className="new-btn" aria-label="Create new" onClick={() => setNewOpen(!newOpen)}>
-              <Plus size={20} />
+              <SvcIcon name="plus" size={20} />
             </button>
             {newOpen && (
               <div style={{position:'absolute',top:'calc(100% + 8px)',right:0,width:200,background:'var(--color-surface-2)',border:'1px solid var(--color-border)',borderRadius:'var(--radius-lg)',boxShadow:'var(--shadow-lg)',padding:6,zIndex:50}}>
                 <button className="new-dropdown-item" onClick={() => { setNewOpen(false); navigate('/tasks') }}
                   style={{display:'flex',alignItems:'center',gap:10,padding:'9px 10px',borderRadius:'var(--radius-sm)',fontSize:13.5,fontWeight:500,width:'100%',textAlign:'left',color:'var(--color-text)',background:'none',border:'none',cursor:'pointer'}}>
-                  <CheckSquare size={16} style={{color:'var(--color-text-muted)'}} />{t('tasks.new')}
+                  <SvcIcon name="check-square" size={16} style={{color:'var(--color-text-muted)'}} />{t('tasks.new')}
                 </button>
                 <button className="new-dropdown-item" onClick={() => { setNewOpen(false); navigate('/contacts') }}
                   style={{display:'flex',alignItems:'center',gap:10,padding:'9px 10px',borderRadius:'var(--radius-sm)',fontSize:13.5,fontWeight:500,width:'100%',textAlign:'left',color:'var(--color-text)',background:'none',border:'none',cursor:'pointer'}}>
-                  <Users size={16} style={{color:'var(--color-text-muted)'}} />{t('contacts.new')}
+                  <SvcIcon name="users" size={16} style={{color:'var(--color-text-muted)'}} />{t('contacts.new')}
                 </button>
                 <button className="new-dropdown-item" onClick={() => { setNewOpen(false); navigate('/companies') }}
                   style={{display:'flex',alignItems:'center',gap:10,padding:'9px 10px',borderRadius:'var(--radius-sm)',fontSize:13.5,fontWeight:500,width:'100%',textAlign:'left',color:'var(--color-text)',background:'none',border:'none',cursor:'pointer'}}>
-                  <Building2 size={16} style={{color:'var(--color-text-muted)'}} />{t('companies.new')}
+                  <SvcIcon name="building-2" size={16} style={{color:'var(--color-text-muted)'}} />{t('companies.new')}
                 </button>
               </div>
             )}
@@ -1320,8 +1315,8 @@ export default function DashboardNew() {
                    k === 'touchpoints' ? t('touchpoint.title') :
                    k === 'pipeline' ? t('dashboard.widgets.pipeline') :
                    k === 'dealvalue' ? <><DollarSign size={15} style={{color:'var(--color-text-muted)'}} /> {t('dashboard.widgets.dealTotal')}</> :
-                   k === 'aiinsight' ? <><Sparkles size={15} style={{color:'var(--color-purple)'}} /> AI Insight</> :
-                   k === 'activity_feed' ? <><Activity size={15} style={{color:'var(--color-text-muted)'}} /> {t('dashboard.widgets.recentActivity')}</> :
+                   k === 'aiinsight' ? <><SvcIcon name="sparkles" size={15} style={{color:'var(--color-purple)'}} /> AI Insight</> :
+                   k === 'activity_feed' ? <><SvcIcon name="activity" size={15} style={{color:'var(--color-text-muted)'}} /> {t('dashboard.widgets.recentActivity')}</> :
                    widgetLabelKey[k] ? t(widgetLabelKey[k]) : def.label}
                 </h3>
                 {editing && (
@@ -1336,7 +1331,7 @@ export default function DashboardNew() {
                       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="9" cy="6" r="1"/><circle cx="9" cy="12" r="1"/><circle cx="9" cy="18" r="1"/><circle cx="15" cy="6" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="15" cy="18" r="1"/></svg>
                     </button>
                     <button aria-label={t('greeting.remove')} onClick={(e) => { e.stopPropagation(); removeW(k) }} className="widget-icon-btn" title={t('greeting.remove')}>
-                      <X size={14} />
+                      <SvcIcon name="x" size={14} />
                     </button>
                   </div>
                 )}
@@ -1349,7 +1344,7 @@ export default function DashboardNew() {
               {(k === 'c1' || k === 'co3' || k === 't2' || k === 's2' || k === 'te1') && aiOn && (
                 <button className="ai-tag" style={{display:'inline-flex',alignItems:'center',gap:5,padding:'5px 10px',borderRadius:'999px',background:'var(--color-purple-highlight)',color:'var(--color-purple)',fontSize:11.5,fontWeight:700,marginTop:8,border:'none',cursor:'pointer'}}
                   onClick={() => window.dispatchEvent(new CustomEvent('toggle-ai-chat'))}>
-                  <Sparkles size={12} />AI advise
+                  <SvcIcon name="sparkles" size={12} />AI advise
                 </button>
               )}
               {editing && (
@@ -1421,7 +1416,7 @@ export default function DashboardNew() {
           <div className="add-widget-tile"
             style={{gridColumn:'span 4',border:'1.5px dashed var(--color-border)',borderRadius:'var(--radius-lg)',minHeight:160,display:'flex',alignItems:'center',justifyContent:'center',flexDirection:'column',gap:8,color:'var(--color-text-muted)',cursor:'pointer'}}
             onClick={() => setDrawerOpen(true)}>
-            <Plus size={24} />
+            <SvcIcon name="plus" size={24} />
             <span style={{fontSize:13,fontWeight:600}}>{t('dashboard.addWidget')}</span>
           </div>
         )}
@@ -1430,7 +1425,7 @@ export default function DashboardNew() {
 
       {aiOn && (
         <div className="ai-tag" onClick={() => window.dispatchEvent(new CustomEvent('toggle-ai-chat'))} style={{display:'inline-flex',alignItems:'center',gap:5,padding:'5px 10px',borderRadius:'999px',background:'var(--color-purple-highlight)',color:'var(--color-purple)',fontSize:11.5,fontWeight:700,marginTop:10,border:'none',cursor:'pointer'}}>
-          <Sparkles size={12} /> {t('chat.title')}
+          <SvcIcon name="sparkles" size={12} /> {t('chat.title')}
         </div>
       )}
 
@@ -1440,7 +1435,7 @@ export default function DashboardNew() {
       <aside className={`drawer${drawerOpen ? ' show' : ''}`}>
         <div className="drawer-head">
           <h3>{t('dashboard.addWidget')}</h3>
-          <button className="icon-btn" onClick={() => setDrawerOpen(false)}><X size={19} /></button>
+          <button className="icon-btn" onClick={() => setDrawerOpen(false)}><SvcIcon name="x" size={19} /></button>
         </div>
         <div className="drawer-search">
           <input type="text" placeholder={t('common.search') + '...'} value={widgetSearch}
@@ -1472,7 +1467,7 @@ export default function DashboardNew() {
                     }}>
                       <div className="wo-icon"><IconComp size={15} /></div>
                       <div className="wo-text"><strong>{widgetLabelKey[w.key] ? t(widgetLabelKey[w.key]) : w.name}</strong><span>{t('dashboard.noData')}</span></div>
-                      <div className="wo-add"><Plus size={14} /></div>
+                      <div className="wo-add"><SvcIcon name="plus" size={14} /></div>
                     </div>
                   )
                 })}

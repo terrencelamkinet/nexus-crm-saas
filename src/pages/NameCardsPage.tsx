@@ -1,5 +1,5 @@
 import { useRef, useState, useEffect } from 'react';
-import { ChevronRight, Upload, X, Loader2, Link2, UserPlus, FileWarning, Trash2, Check, Wand2, ZoomIn } from 'lucide-react';
+import SvcIcon from '../components/SvcIcon';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useApi, CardSkeleton, ErrorBox } from '../lib/useApi';
@@ -31,10 +31,10 @@ interface NameCardListResponse {
 }
 
 const STATUS_META: Record<string, { icon: React.ReactNode; label: string; color: string }> = {
-  created: { icon: <UserPlus size={13} />, label: '已建立聯絡人', color: 'var(--color-success)' },
-  matched: { icon: <Link2 size={13} />, label: '已連結聯絡人', color: 'var(--color-primary)' },
-  review: { icon: <FileWarning size={13} />, label: '⚠️ 待確認', color: 'var(--color-warning, #b58a2a)' },
-  pending: { icon: <FileWarning size={13} />, label: '待處理', color: 'var(--color-warning, #b58a2a)' },
+  created: { icon: <SvcIcon name="user-plus" size={13} />, label: '已建立聯絡人', color: 'var(--color-success)' },
+  matched: { icon: <SvcIcon name="link-2" size={13} />, label: '已連結聯絡人', color: 'var(--color-primary)' },
+  review: { icon: <SvcIcon name="file-warning" size={13} />, label: '⚠️ 待確認', color: 'var(--color-warning, #b58a2a)' },
+  pending: { icon: <SvcIcon name="file-warning" size={13} />, label: '待處理', color: 'var(--color-warning, #b58a2a)' },
 };
 
 export default function NameCardsPage() {
@@ -180,7 +180,7 @@ export default function NameCardsPage() {
     <div className="page-content">
       <div className="breadcrumb">
         <span className="breadcrumb-link" onClick={() => navigate('/dashboard')}>Home</span>
-        <ChevronRight />
+        <SvcIcon name="chevron-right" />
         <span className="breadcrumb-current">Name Cards</span>
       </div>
 
@@ -190,7 +190,7 @@ export default function NameCardsPage() {
           <p>{t('nameCard.scannedCount', { count: total })}</p>
         </div>
         <button className="btn-primary" style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }} onClick={() => setUploadOpen(true)}>
-          <Upload size={15} /> 新增卡片
+          <SvcIcon name="upload" size={15} /> 新增卡片
         </button>
       </div>
 
@@ -200,7 +200,7 @@ export default function NameCardsPage() {
           <div className="modal" style={{ maxWidth: 460 }} onClick={e => e.stopPropagation()} role="dialog" aria-modal="true">
             <div className="modal-head">
               <h2>上載名片</h2>
-              <button className="modal-x" onClick={() => setUploadOpen(false)} aria-label="Close"><X size={18} /></button>
+              <button className="modal-x" onClick={() => setUploadOpen(false)} aria-label="Close"><SvcIcon name="x" size={18} /></button>
             </div>
             <div className="modal-body">
               <p className="hint" style={{ marginTop: 0 }}>
@@ -216,7 +216,7 @@ export default function NameCardsPage() {
               />
               {uploading && (
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'var(--color-text-muted)', fontSize: 13 }}>
-                  <Loader2 size={15} className="spin" /> OCR 辨識中...
+                  <SvcIcon name="loader-2" size={15} className="spin" /> OCR 辨識中...
                 </div>
               )}
               {uploadError && <p className="asec-error" style={{ color: 'var(--color-error, #ab4b59)' }}>{uploadError}</p>}
@@ -231,7 +231,7 @@ export default function NameCardsPage() {
           <div className="modal" style={{ maxWidth: 560 }} onClick={e => e.stopPropagation()} role="dialog" aria-modal="true">
             <div className="modal-head">
               <h2>{selected.parsed_data?.name || selected.name || '名片詳情'}</h2>
-              <button className="modal-x" onClick={() => setSelected(null)} aria-label="Close"><X size={18} /></button>
+              <button className="modal-x" onClick={() => setSelected(null)} aria-label="Close"><SvcIcon name="x" size={18} /></button>
             </div>
             <div className="modal-body">
               {/* Dual-image viewer: original + cropped side by side */}
@@ -247,11 +247,11 @@ export default function NameCardsPage() {
                           onClick={() => setZoomImage(selected.original_image_url!)}
                         />
                         <span style={{ position: 'absolute', bottom: 6, right: 6, display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 10.5, color: 'var(--color-text-muted)', background: 'rgba(255,255,255,0.75)', borderRadius: 999, padding: '2px 7px' }}>
-                          <ZoomIn size={11} /> 放大
+                          <SvcIcon name="zoom-in" size={11} /> 放大
                         </span>
                         {selected.display_image === 'original' && (
                           <span style={{ position: 'absolute', top: 6, left: 6, display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 11, fontWeight: 600, color: '#fff', background: 'var(--color-success)', borderRadius: 999, padding: '2px 8px' }}>
-                            <Check size={11} /> 預設
+                            <SvcIcon name="check" size={11} /> 預設
                           </span>
                         )}
                       </div>
@@ -262,7 +262,7 @@ export default function NameCardsPage() {
                             <button className="btn-ghost" style={{ fontSize: 11.5, padding: '3px 8px' }} onClick={() => setDefault('original')}>設為預設</button>
                           )}
                           <button className="btn-ghost" style={{ fontSize: 11.5, padding: '3px 8px', color: 'var(--color-error, #ab4b59)' }} onClick={() => deleteImage('original')} aria-label="刪除原裝">
-                            <Trash2 size={13} />
+                            <SvcIcon name="trash-2" size={13} />
                           </button>
                         </div>
                       </div>
@@ -278,11 +278,11 @@ export default function NameCardsPage() {
                           onClick={() => setZoomImage(selected.cropped_image_url!)}
                         />
                         <span style={{ position: 'absolute', bottom: 6, right: 6, display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 10.5, color: 'var(--color-text-muted)', background: 'rgba(255,255,255,0.75)', borderRadius: 999, padding: '2px 7px' }}>
-                          <ZoomIn size={11} /> 放大
+                          <SvcIcon name="zoom-in" size={11} /> 放大
                         </span>
                         {selected.display_image === 'cropped' && (
                           <span style={{ position: 'absolute', top: 6, left: 6, display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 11, fontWeight: 600, color: '#fff', background: 'var(--color-success)', borderRadius: 999, padding: '2px 8px' }}>
-                            <Check size={11} /> 預設
+                            <SvcIcon name="check" size={11} /> 預設
                           </span>
                         )}
                       </div>
@@ -293,7 +293,7 @@ export default function NameCardsPage() {
                             <button className="btn-ghost" style={{ fontSize: 11.5, padding: '3px 8px' }} onClick={() => setDefault('cropped')}>設為預設</button>
                           )}
                           <button className="btn-ghost" style={{ fontSize: 11.5, padding: '3px 8px', color: 'var(--color-error, #ab4b59)' }} onClick={() => deleteImage('cropped')} aria-label="刪除裁剪版">
-                            <Trash2 size={13} />
+                            <SvcIcon name="trash-2" size={13} />
                           </button>
                         </div>
                       </div>
@@ -305,7 +305,7 @@ export default function NameCardsPage() {
               {(selected.original_image_url || selected.image_url) && !selected.cropped_image_url && (
                 <div style={{ textAlign: 'center', marginBottom: 14 }}>
                   <button className="btn-ghost" style={{ fontSize: 12.5 }} onClick={recrop} disabled={busy}>
-                    {busy ? <Loader2 size={13} className="spin" style={{ verticalAlign: -2 }} /> : <Wand2 size={13} style={{ verticalAlign: -2 }} />} 生成裁剪版
+                    {busy ? <SvcIcon name="loader-2" size={13} className="spin" style={{ verticalAlign: -2 }} /> : <SvcIcon name="wand-2" size={13} style={{ verticalAlign: -2 }} />} 生成裁剪版
                   </button>
                 </div>
               )}
@@ -313,7 +313,7 @@ export default function NameCardsPage() {
               {(selected.original_image_url || selected.cropped_image_url) && (
                 <div style={{ textAlign: 'center', marginBottom: 14 }}>
                   <button className="btn-ghost" style={{ fontSize: 12.5, color: 'var(--color-error, #ab4b59)' }} onClick={deleteAllImages}>
-                    <Trash2 size={13} style={{ verticalAlign: -2 }} /> 刪除全部圖片
+                    <SvcIcon name="trash-2" size={13} style={{ verticalAlign: -2 }} /> 刪除全部圖片
                   </button>
                 </div>
               )}
@@ -417,7 +417,7 @@ export default function NameCardsPage() {
             aria-label="關閉"
             style={{ position: 'fixed', top: 14, right: 14, width: 38, height: 38, borderRadius: '50%', border: 'none', background: 'rgba(255,255,255,0.15)', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
           >
-            <X size={20} />
+            <SvcIcon name="x" size={20} />
           </button>
         </div>
       )}

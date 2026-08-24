@@ -13,7 +13,7 @@
 //   9. Click outside → 關閉
 // ═══════════════════════════════════════════════════════
 import { useState, useRef, useEffect, useMemo, useCallback, type ReactNode } from 'react'
-import { X, Check } from 'lucide-react'
+import SvcIcon from '../../components/SvcIcon'
 
 export interface ComboboxOption {
   value: string
@@ -160,7 +160,7 @@ export default function SelectCombobox({
           className="select-clear"
           aria-label="clear"
           onClick={handleClear}
-        ><X size={14} /></button>
+        ><SvcIcon name="x" size={14} /></button>
       )}
       {label != null && <label className="floating-label">{label}</label>}
       {open && (
@@ -175,14 +175,14 @@ export default function SelectCombobox({
             >
               <span className="select-item-label">{o.label}</span>
               <span style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
-                {o.value === value && <Check size={14} className="select-item-check" />}
+                {o.value === value && <SvcIcon name="check" size={14} className="select-item-check" />}
                 {o.isCustom && o.id && onDeleteOption && (
                   <button
                     type="button"
                     className="select-item-delete"
                     aria-label={`delete ${o.label}`}
                     onMouseDown={e => handleDeleteOption(e, o.id!)}
-                  ><X size={12} /></button>
+                  ><SvcIcon name="x" size={12} /></button>
                 )}
               </span>
             </div>

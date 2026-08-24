@@ -1,10 +1,8 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import {
-  Search, Users, Building2, CheckSquare, FolderKanban, Activity,
-  FileText, Sparkles, Command, ArrowRight, Clock, Zap, ScanLine, Calendar, X,
-} from 'lucide-react'
+import { Command, Zap, Activity, Building2, Calendar, CheckSquare, FileText, FolderKanban, ScanLine, Sparkles, Users } from 'lucide-react'
+import SvcIcon from '../../components/SvcIcon'
 import { apiClient } from '../../lib/api'
 
 /* ═══════════════════════════════════════════════════════════
@@ -121,21 +119,21 @@ export default function CommandPalette({ open, onClose }: { open: boolean; onClo
     <div className="cmdp-overlay" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose() }}>
       <div className="cmdp-panel" role="dialog" aria-modal="true">
         <div className="cmdp-input-row">
-          <Search size={17} className="cmdp-search-icon" />
+          <SvcIcon name="search" size={17} className="cmdp-search-icon" />
           <input
             ref={inputRef} className="cmdp-input" value={query}
             placeholder={t('search.placeholder', { defaultValue: '搜尋聯絡人、公司、商機… 或輸入問題問 AI（例如：邊個客戶最耐冇聯絡？）' })}
             onChange={(e) => { setQuery(e.target.value); setActiveIndex(0) }}
             onKeyDown={handleKeyDown}
           />
-          {query && <button className="cmdp-clear" onClick={() => setQuery('')}><X size={14} /></button>}
+          {query && <button className="cmdp-clear" onClick={() => setQuery('')}><SvcIcon name="x" size={14} /></button>}
           <kbd className="cmdp-esc">ESC</kbd>
         </div>
 
         <div className="cmdp-body">
           {(aiLoading || aiAnswer) && (
             <div className="cmdp-ai-block">
-              <div className="cmdp-ai-header"><Sparkles size={14} /> {t('search.aiAnswer', { defaultValue: 'AI 回應' })}</div>
+              <div className="cmdp-ai-header"><SvcIcon name="sparkles" size={14} /> {t('search.aiAnswer', { defaultValue: 'AI 回應' })}</div>
               {aiLoading ? (
                 <div className="cmdp-ai-thinking"><span className="cmdp-dot" /><span className="cmdp-dot" /><span className="cmdp-dot" /></div>
               ) : <div className="cmdp-ai-text">{aiAnswer}</div>}
@@ -144,7 +142,7 @@ export default function CommandPalette({ open, onClose }: { open: boolean; onClo
 
           {!query.trim() && recent.length > 0 && (
             <div className="cmdp-section">
-              <div className="cmdp-section-label"><Clock size={12} /> {t('search.recent', { defaultValue: '最近搜尋' })}</div>
+              <div className="cmdp-section-label"><SvcIcon name="clock" size={12} /> {t('search.recent', { defaultValue: '最近搜尋' })}</div>
               {recent.map((r, i) => <div key={i} className="cmdp-recent-item" onClick={() => setQuery(r)}>{r}</div>)}
             </div>
           )}
@@ -172,7 +170,7 @@ export default function CommandPalette({ open, onClose }: { open: boolean; onClo
                       <div className="cmdp-item-sub">{r.sub}</div>
                     </div>
                     <span className="cmdp-item-type">{t(`entityType.${r.type}`, { defaultValue: r.type })}</span>
-                    <ArrowRight size={13} className="cmdp-item-arrow" />
+                    <SvcIcon name="arrow-right" size={13} className="cmdp-item-arrow" />
                   </div>
                 )
               }
@@ -184,7 +182,7 @@ export default function CommandPalette({ open, onClose }: { open: boolean; onClo
                   <div className="cmdp-item-icon accent"><Icon size={15} /></div>
                   <div className="cmdp-item-body"><div className="cmdp-item-label">{a.label}</div></div>
                   {a.hint && <kbd className="cmdp-item-hint">{a.hint}</kbd>}
-                  <ArrowRight size={13} className="cmdp-item-arrow" />
+                  <SvcIcon name="arrow-right" size={13} className="cmdp-item-arrow" />
                 </div>
               )
             })}

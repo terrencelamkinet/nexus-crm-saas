@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { NavLink } from 'react-router-dom';
-import { LayoutDashboard, Users, Building2, TrendingUp, CheckSquare, Activity, ScanLine, Settings, BarChart3, Sparkles, UserCog, FolderKanban, Bell, Calendar, Puzzle } from 'lucide-react';
+import SvcIcon from '../components/SvcIcon';
+import { Activity, BarChart3, Building2, Calendar, CheckSquare, FolderKanban, LayoutDashboard, ScanLine, Sparkles, TrendingUp, UserCog, Users } from 'lucide-react'
 import { apiClient } from '../lib/api';
 
 export interface ModuleSetting {
@@ -98,16 +99,16 @@ export default function Sidebar() {
           </NavLink>
         ))}
         <NavLink to="/notifications" onClick={closeMobileMenu} className={({ isActive }) => `nav-item${isActive ? ' active' : ''}`}>
-          <Bell />
+          <SvcIcon name="bell" />
           <span>{t('nav.notifications')}</span>
         </NavLink>
         <NavLink to="/marketplace" onClick={closeMobileMenu} className={({ isActive }) => `nav-item${isActive ? ' active' : ''}`}>
-          <Puzzle />
+          <SvcIcon name="puzzle" />
           <span>{t('nav.marketplace')}</span>
         </NavLink>
         <NavLink to="/settings" onClick={closeMobileMenu} className={({ isActive }) => `nav-item${isActive ? ' active' : ''}`}
           style={{ marginTop: 'var(--space-4)' }}>
-          <Settings />
+          <SvcIcon name="settings" />
           <span>{t('nav.settings')}</span>
         </NavLink>
       </nav>

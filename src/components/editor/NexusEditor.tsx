@@ -15,14 +15,8 @@ import Color from '@tiptap/extension-color'
 import TextStyle from '@tiptap/extension-text-style'
 import CharacterCount from '@tiptap/extension-character-count'
 import Dropcursor from '@tiptap/extension-dropcursor'
-import {
-  Bold, Italic, Strikethrough, Code, Heading1, Heading2, Heading3,
-  List, ListOrdered, ListChecks, Quote, Minus, Link as LinkIcon,
-  Image as ImageIcon, Table as TableIcon, Undo2, Redo2, Sparkles,
-  ChevronDown, Wand2, ListPlus, ScissorsLineDashed, Languages,
-  SpellCheck2, X, GripVertical, Plus, Trash2, Copy, Palette,
-  ArrowRightLeft, Link2, Keyboard, Highlighter, Check,
-} from 'lucide-react'
+import { Bold, Italic, Strikethrough, Code, Heading1, Heading2, Heading3, ListOrdered, ListChecks, Quote, Minus, Link as LinkIcon, Table as TableIcon, Undo2, Redo2, ListPlus, ScissorsLineDashed, Languages, SpellCheck2, Palette, ArrowRightLeft, Keyboard, Highlighter, ImageIcon, List, Sparkles, Wand2 } from 'lucide-react'
+import SvcIcon from '../../components/SvcIcon'
 import { apiClient } from '../../lib/api'
 import { useToast } from '../v4/useToast'
 import { SlashCommand, executeSlashCommand, SLASH_ITEMS } from './SlashCommand'
@@ -526,7 +520,7 @@ export default function NexusEditor({
             </button>
           </div>
           <div className="nxe-tb-group">
-            <button className={`nxe-tb-btn ${editor.isActive('bulletList') ? 'active' : ''}`} onClick={() => editor.chain().focus().toggleBulletList().run()}><List size={15} /></button>
+            <button className={`nxe-tb-btn ${editor.isActive('bulletList') ? 'active' : ''}`} onClick={() => editor.chain().focus().toggleBulletList().run()}><SvcIcon name="list" size={15} /></button>
             <button className={`nxe-tb-btn ${editor.isActive('orderedList') ? 'active' : ''}`} onClick={() => editor.chain().focus().toggleOrderedList().run()}><ListOrdered size={15} /></button>
             <button className={`nxe-tb-btn ${editor.isActive('taskList') ? 'active' : ''}`} onClick={() => editor.chain().focus().toggleTaskList().run()}><ListChecks size={15} /></button>
             <button className={`nxe-tb-btn ${editor.isActive('blockquote') ? 'active' : ''}`} onClick={() => editor.chain().focus().toggleBlockquote().run()}><Quote size={15} /></button>
@@ -536,7 +530,7 @@ export default function NexusEditor({
             <button className={`nxe-tb-btn ${editor.isActive('link') ? 'active' : ''}`} onClick={openLinkPopover}>
               <LinkIcon size={15} /><span className="nxe-kbd-tip">Link <kbd>⌘K</kbd></span>
             </button>
-            <button className="nxe-tb-btn" onClick={insertImage}><ImageIcon size={15} /></button>
+            <button className="nxe-tb-btn" onClick={insertImage}><SvcIcon name="image" size={15} /></button>
             <button className="nxe-tb-btn" onClick={insertTable}><TableIcon size={15} /></button>
           </div>
 
@@ -548,7 +542,7 @@ export default function NexusEditor({
 
           <div style={{ position: 'relative' }} ref={aiMenuRef}>
             <button className="nxe-ai-btn" onClick={() => setAiMenuOpen(v => !v)}>
-              <Sparkles size={13} /> AI 助手 <ChevronDown size={12} />
+              <SvcIcon name="sparkles" size={13} /> AI 助手 <SvcIcon name="chevron-down" size={12} />
             </button>
             {aiMenuOpen && (
               <div className="nxe-ai-menu" style={{ right: 0 }}>
@@ -577,7 +571,7 @@ export default function NexusEditor({
           <button className={`nxe-bubble-btn ${editor.isActive('highlight') ? 'active' : ''}`} title="Highlight 顏色" onClick={openHlRadial}><Highlighter size={13} /></button>
           <button className="nxe-bubble-btn" onClick={openLinkPopover}><LinkIcon size={13} /></button>
           <div className="nxe-tb-divider" />
-          <button className="nxe-bubble-ai-btn" onClick={() => setAiBubbleOpen(v => !v)}><Sparkles size={12} /> AI</button>
+          <button className="nxe-bubble-ai-btn" onClick={() => setAiBubbleOpen(v => !v)}><SvcIcon name="sparkles" size={12} /> AI</button>
           {aiBubbleOpen && (
             <div className="nxe-ai-menu" style={{ top: '110%', left: 0 }}>
               {AI_ACTIONS.slice(0, 4).map(a => {
@@ -618,8 +612,8 @@ export default function NexusEditor({
         <div ref={contentAreaRef} className="nxe-content" style={{ minHeight }} onMouseMove={handleContentMouseMove}>
           {!useMobileUI && blockHandlePos !== null && (
             <div className="nxe-block-handle visible" style={{ top: 16 }}>
-              <button className="nxe-handle-btn" onClick={() => editor.chain().focus().insertContentAt(blockHandlePos, '<p></p>').run()}><Plus size={14} /></button>
-              <button className="nxe-handle-btn grip" onClick={openBlockMenu}><GripVertical size={14} /></button>
+              <button className="nxe-handle-btn" onClick={() => editor.chain().focus().insertContentAt(blockHandlePos, '<p></p>').run()}><SvcIcon name="plus" size={14} /></button>
+              <button className="nxe-handle-btn grip" onClick={openBlockMenu}><SvcIcon name="grip-vertical" size={14} /></button>
             </div>
           )}
           <EditorContent editor={editor} />
@@ -630,14 +624,14 @@ export default function NexusEditor({
             <input className="nxe-link-input" autoFocus value={linkValue} onChange={(e) => setLinkValue(e.target.value)}
               placeholder="https://…" onKeyDown={(e) => e.key === 'Enter' && applyLink()} />
             <button className="nxe-link-go" onClick={applyLink}><LinkIcon size={13} /></button>
-            <button className="nxe-bubble-btn" onClick={() => setLinkPopover(null)}><X size={13} /></button>
+            <button className="nxe-bubble-btn" onClick={() => setLinkPopover(null)}><SvcIcon name="x" size={13} /></button>
           </div>
         )}
 
         {blockMenuOpen && (
           <div className="nxe-block-context-menu" ref={blockMenuRef} style={{ left: 46, top: 40 }}>
-            <div className="nxe-bcm-item" onClick={duplicateBlock}><Copy size={14} /> 複製區塊</div>
-            <div className="nxe-bcm-item" onClick={copyBlockLink}><Link2 size={14} /> 複製連結</div>
+            <div className="nxe-bcm-item" onClick={duplicateBlock}><SvcIcon name="copy" size={14} /> 複製區塊</div>
+            <div className="nxe-bcm-item" onClick={copyBlockLink}><SvcIcon name="link-2" size={14} /> 複製連結</div>
             <div className="nxe-bcm-sep" />
             <div className="nxe-bcm-item" onClick={() => turnBlockInto('paragraph')}><ArrowRightLeft size={14} /> 轉為段落</div>
             <div className="nxe-bcm-item" onClick={() => turnBlockInto('heading1')}><Heading1 size={14} /> 轉為大標題</div>
@@ -649,7 +643,7 @@ export default function NexusEditor({
               </div>
             )}
             <div className="nxe-bcm-sep" />
-            <div className="nxe-bcm-item danger" onClick={deleteBlock}><Trash2 size={14} /> 刪除區塊</div>
+            <div className="nxe-bcm-item danger" onClick={deleteBlock}><SvcIcon name="trash-2" size={14} /> 刪除區塊</div>
           </div>
         )}
       </div>
@@ -657,17 +651,17 @@ export default function NexusEditor({
       {/* ═══ MOBILE TOOLBAR — docked above on-screen keyboard ═══ */}
       {useMobileUI && (
         <div className="nxe-mobile-toolbar">
-          <button className="nxe-mtb-btn" onClick={() => setMobileSheetOpen(true)}><Plus size={19} /></button>
+          <button className="nxe-mtb-btn" onClick={() => setMobileSheetOpen(true)}><SvcIcon name="plus" size={19} /></button>
           <div className="nxe-mtb-divider" />
           <button className={`nxe-mtb-btn ${editor.isActive('bold') ? 'active' : ''}`} onClick={() => editor.chain().focus().toggleBold().run()}><Bold size={18} /></button>
           <button className={`nxe-mtb-btn ${editor.isActive('italic') ? 'active' : ''}`} onClick={() => editor.chain().focus().toggleItalic().run()}><Italic size={18} /></button>
           <button className={`nxe-mtb-btn ${editor.isActive('highlight') ? 'active' : ''}`} onClick={openHlRadial}><Highlighter size={18} /></button>
           <button className={`nxe-mtb-btn ${editor.isActive('link') ? 'active' : ''}`} onClick={openLinkPopover}><LinkIcon size={18} /></button>
-          <button className={`nxe-mtb-btn ${editor.isActive('bulletList') ? 'active' : ''}`} onClick={() => editor.chain().focus().toggleBulletList().run()}><List size={18} /></button>
+          <button className={`nxe-mtb-btn ${editor.isActive('bulletList') ? 'active' : ''}`} onClick={() => editor.chain().focus().toggleBulletList().run()}><SvcIcon name="list" size={18} /></button>
           <button className={`nxe-mtb-btn ${editor.isActive('taskList') ? 'active' : ''}`} onClick={() => editor.chain().focus().toggleTaskList().run()}><ListChecks size={18} /></button>
           <div className="nxe-mtb-divider" />
-          <button className="nxe-mtb-ai" onClick={() => setAiMenuOpen(true)}><Sparkles size={14} /> AI</button>
-          <button className="nxe-mtb-kbd-dismiss" onClick={() => (document.activeElement as HTMLElement)?.blur()}><ChevronDown size={18} /></button>
+          <button className="nxe-mtb-ai" onClick={() => setAiMenuOpen(true)}><SvcIcon name="sparkles" size={14} /> AI</button>
+          <button className="nxe-mtb-kbd-dismiss" onClick={() => (document.activeElement as HTMLElement)?.blur()}><SvcIcon name="chevron-down" size={18} /></button>
         </div>
       )}
 
@@ -700,7 +694,7 @@ export default function NexusEditor({
               style={{ position: 'fixed', left: cx, top: cy, zIndex: 60 }}
               onMouseDown={(e) => e.stopPropagation()}>
               {/* 中心：移除 highlight */}
-              <button className="nxe-hl-center" title="移除 Highlight" onClick={clearHl}><X size={13} /></button>
+              <button className="nxe-hl-center" title="移除 Highlight" onClick={clearHl}><SvcIcon name="x" size={13} /></button>
               {/* 8 格環：7 色 + edit */}
               {Array.from({ length: HL_RADIAL_SLOTS }).map((_, i) => {
                 const angle = -Math.PI / 2 + (i * 2 * Math.PI) / HL_RADIAL_SLOTS
@@ -739,7 +733,7 @@ export default function NexusEditor({
               {hlEditOpen && (
                 <div className="nxe-hl-edit-pop" onClick={(e) => e.stopPropagation()}>
                   <input type="color" value={hlNewColor} onChange={(e) => setHlNewColor(e.target.value)} />
-                  <button className="nxe-hl-edit-add" onClick={addCustomHlColor}><Check size={12} /> 加入</button>
+                  <button className="nxe-hl-edit-add" onClick={addCustomHlColor}><SvcIcon name="check" size={12} /> 加入</button>
                 </div>
               )}
             </div>

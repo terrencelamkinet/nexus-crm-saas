@@ -1,9 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import {
-  ArrowLeft, Phone, Mail, Building2, Edit3, Plus, X,
-  Activity, Trash2, User, Clock
-} from 'lucide-react';
+import SvcIcon from '../components/SvcIcon';
 import { useTranslation } from 'react-i18next';
 import { apiClient } from '../lib/api'
 import NexusEditor from '../components/editor/NexusEditor';
@@ -326,7 +323,7 @@ export default function ContactDetailPage() {
       <div className="contact-detail-page">
         <button onClick={() => navigate('/contacts')}
           className="flex items-center gap-1 text-sm hover:underline mb-4 back-link">
-          <ArrowLeft className="w-4 h-4" /> Back to Contacts
+          <SvcIcon name="arrow-left" className="w-4 h-4" /> Back to Contacts
         </button>
         <div className="error-box">
           <span className="error-text">{error || 'Contact not found'}</span>
@@ -393,7 +390,7 @@ export default function ContactDetailPage() {
       <div className="page-header">
         <div className="title-row">
           <button onClick={() => navigate('/contacts')} className="back-btn" aria-label="Back to contacts">
-            <ArrowLeft className="w-4 h-4" />
+            <SvcIcon name="arrow-left" className="w-4 h-4" />
           </button>
           <h1>{contact.name}</h1>
         </div>
@@ -414,13 +411,13 @@ export default function ContactDetailPage() {
                 setLogActivityForm({ action: '', description: '' });
                 setLogActivityOpen(true);
               }} className="btn-secondary">
-                <Plus className="icon-16" /> {t('pages.contacts.detail.logActivity')}
+                <SvcIcon name="plus" className="icon-16" /> {t('pages.contacts.detail.logActivity')}
               </button>
               <button onClick={handleDeleteClick} className="btn-danger">
-                <Trash2 className="icon-16" /> {t('common.delete')}
+                <SvcIcon name="trash-2" className="icon-16" /> {t('common.delete')}
               </button>
               <button onClick={openEdit} className="btn-primary">
-                <Edit3 className="icon-16" /> {t('common.edit')}
+                <SvcIcon name="edit-3" className="icon-16" /> {t('common.edit')}
               </button>
             </>
           )}
@@ -450,30 +447,30 @@ export default function ContactDetailPage() {
             <div className="tal">
             {/* Email */}
             <div className="profile-field">
-              <Mail className="w-3.5 h-3.5" />
+              <SvcIcon name="mail" className="w-3.5 h-3.5" />
               <span>{contact.email || '—'}</span>
             </div>
 
             {/* Phone */}
             <div className="profile-field">
-              <Phone className="w-3.5 h-3.5" />
+              <SvcIcon name="phone" className="w-3.5 h-3.5" />
               <span>{contact.phone || '—'}</span>
             </div>
 
             {/* Owner / Assignee */}
             <div className="profile-field">
-              <User className="w-3.5 h-3.5" /> {t('pages.contacts.detail.owner')}: {contact.contact_type || t('pages.contacts.detail.unassigned')}
+              <SvcIcon name="user" className="w-3.5 h-3.5" /> {t('pages.contacts.detail.owner')}: {contact.contact_type || t('pages.contacts.detail.unassigned')}
             </div>
 
             {/* Last Touch Date */}
             <div className="profile-field">
-              <Clock className="w-3.5 h-3.5" /> {t('pages.contacts.detail.lastTouch')}: {lastTouchDate}
+              <SvcIcon name="clock" className="w-3.5 h-3.5" /> {t('pages.contacts.detail.lastTouch')}: {lastTouchDate}
             </div>
 
             {/* Company */}
             {contact.company && (
               <div className="profile-field">
-                <Building2 className="w-3.5 h-3.5" />
+                <SvcIcon name="building-2" className="w-3.5 h-3.5" />
                 <span>{contact.company.name}</span>
               </div>
             )}
@@ -515,7 +512,7 @@ export default function ContactDetailPage() {
                 {/* Left: Contact Information Form */}
                 <div className="panel panel-detail">  {/* was: style={{ padding: '24px' }} */}
                   <h3 style={{ fontSize: '16px', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <User className="w-4 h-4" /> {t('pages.contacts.detail.contactInformation')}
+                    <SvcIcon name="user" className="w-4 h-4" /> {t('pages.contacts.detail.contactInformation')}
                   </h3>
                   <div className="detail-form-grid">
                     {/* 1. Client Name */}
@@ -828,7 +825,7 @@ export default function ContactDetailPage() {
                   {touchpoints.map(tp => (
                     <div key={tp.id} className="list-row">
                       <div className="list-icon">
-                        <Activity />
+                        <SvcIcon name="activity" />
                       </div>
                       <div className="list-main">
                         <div className="list-title">{tp.title}</div>
@@ -917,7 +914,7 @@ export default function ContactDetailPage() {
                             fetchContact();
                           } catch (e: any) { alert(e.detail || e.message); }
                         }} className="icon-btn text-notification" title={t('pages.contacts.detail.remove')}>
-                          <Trash2 className="icon-16" />
+                          <SvcIcon name="trash-2" className="icon-16" />
                         </button>
                       </div>
                     </div>
@@ -936,7 +933,7 @@ export default function ContactDetailPage() {
           <div className="modal modal-sm">
             <div className="delete-body">
               <div className="delete-icon-wrap">
-                <Trash2 />
+                <SvcIcon name="trash-2" />
               </div>
               <h3 className="delete-heading">{t('pages.contacts.detail.deleteConfirm', { name: contact.name })}</h3>
               <p className="delete-text">
@@ -963,7 +960,7 @@ export default function ContactDetailPage() {
           <div className="modal">
             <div className="modal-head">
               <h2>{t('pages.contacts.detail.logActivity')}</h2>
-              <button onClick={() => setLogActivityOpen(false)} className="modal-x"><X className="icon-16" /></button>
+              <button onClick={() => setLogActivityOpen(false)} className="modal-x"><SvcIcon name="x" className="icon-16" /></button>
             </div>
             <div className="modal-body form-body">
               <div className="form-row-1">
@@ -1004,7 +1001,7 @@ export default function ContactDetailPage() {
           <div className="modal">
             <div className="modal-head">
               <h2>{t('pages.contacts.detail.addTouchpoint')}</h2>
-              <button onClick={() => setTpOpen(false)} className="modal-x"><X className="icon-16" /></button>
+              <button onClick={() => setTpOpen(false)} className="modal-x"><SvcIcon name="x" className="icon-16" /></button>
             </div>
             <div className="modal-body form-body">
               <div className="form-row-1">
@@ -1058,7 +1055,7 @@ export default function ContactDetailPage() {
           <div className="modal">
             <div className="modal-head">
               <h2>{t('pages.contacts.detail.addNote')}</h2>
-              <button onClick={() => setNoteOpen(false)} className="modal-x"><X className="icon-16" /></button>
+              <button onClick={() => setNoteOpen(false)} className="modal-x"><SvcIcon name="x" className="icon-16" /></button>
             </div>
             <div className="modal-body form-body">
               <div className="form-row-1">
@@ -1101,7 +1098,7 @@ export default function ContactDetailPage() {
           <div className="modal">
             <div className="modal-head">
               <h2>{t('pages.contacts.detail.linkProject')}</h2>
-              <button onClick={() => setProjectOpen(false)} className="modal-x"><X className="icon-16" /></button>
+              <button onClick={() => setProjectOpen(false)} className="modal-x"><SvcIcon name="x" className="icon-16" /></button>
             </div>
             <div className="modal-body form-body">
               <div className="form-row-1">

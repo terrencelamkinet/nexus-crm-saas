@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Activity, Trash2, X } from 'lucide-react'
+import SvcIcon from '../../components/SvcIcon'
 import { apiClient } from '../../lib/api'
 import i18n from '../../i18n/config'
 import type { EntityRecord, ModuleConfig } from '../module-types'
@@ -157,7 +157,7 @@ export function TimelineTab({ entity, refresh }: { entity: EntityRecord; moduleC
           <div className="modal">
             <div className="modal-head">
               <h2>{t('pages.contacts.detail.modalLogActivity')}</h2>
-              <button onClick={() => setOpen(false)} className="modal-x"><X className="icon-16" /></button>
+              <button onClick={() => setOpen(false)} className="modal-x"><SvcIcon name="x" className="icon-16" /></button>
             </div>
             <div className="modal-body form-body">
               <div className="form-row-1">
@@ -261,7 +261,7 @@ export function TouchpointsTab({ entity, refresh }: { entity: EntityRecord; modu
           <div className="flex-col">
             {touchpoints.map(tp => (
               <div key={tp.id} className="list-row">
-                <div className="list-icon"><Activity /></div>
+                <div className="list-icon"><SvcIcon name="activity" /></div>
                 <div className="list-main">
                   <div className="list-title">{tp.title}</div>
                   <div className="list-sub">{tp.description || '—'}</div>
@@ -282,7 +282,7 @@ export function TouchpointsTab({ entity, refresh }: { entity: EntityRecord; modu
           <div className="modal">
             <div className="modal-head">
               <h2>{t('pages.contacts.detail.modalAddTouchpoint')}</h2>
-              <button onClick={() => setOpen(false)} className="modal-x"><X className="icon-16" /></button>
+              <button onClick={() => setOpen(false)} className="modal-x"><SvcIcon name="x" className="icon-16" /></button>
             </div>
             <div className="modal-body form-body">
               <div className="form-row-1">
@@ -374,7 +374,7 @@ export function NotesTab({ entity, refresh }: { entity: EntityRecord; moduleConf
           <div className="modal">
             <div className="modal-head">
               <h2>{t('pages.contacts.detail.modalAddNote')}</h2>
-              <button onClick={() => setOpen(false)} className="modal-x"><X className="icon-16" /></button>
+              <button onClick={() => setOpen(false)} className="modal-x"><SvcIcon name="x" className="icon-16" /></button>
             </div>
             <div className="modal-body form-body">
               <div className="form-row-1">
@@ -463,7 +463,7 @@ export function ProjectsTab({ entity, refresh }: { entity: EntityRecord; moduleC
                     <div className="list-sub">{p.probability ?? 0}%</div>
                   </div>
                   <button onClick={() => handleRemove(p.id)} className="icon-btn text-notification" title={t('common.delete')}>
-                    <Trash2 className="icon-16" />
+                    <SvcIcon name="trash-2" className="icon-16" />
                   </button>
                 </div>
               </div>
@@ -477,7 +477,7 @@ export function ProjectsTab({ entity, refresh }: { entity: EntityRecord; moduleC
           <div className="modal">
             <div className="modal-head">
               <h2>{t('pages.contacts.detail.modalLinkProject')}</h2>
-              <button onClick={() => setOpen(false)} className="modal-x"><X className="icon-16" /></button>
+              <button onClick={() => setOpen(false)} className="modal-x"><SvcIcon name="x" className="icon-16" /></button>
             </div>
             <div className="modal-body form-body">
               <div className="form-row-1">

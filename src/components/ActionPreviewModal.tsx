@@ -7,7 +7,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 import { createPortal } from 'react-dom'
-import { X, Loader2, CheckCircle, AlertCircle, ArrowRight } from 'lucide-react'
+import SvcIcon from '../components/SvcIcon'
 
 interface PreviewData {
   tool_key: string
@@ -162,7 +162,7 @@ export default function ActionPreviewModal({
             disabled={status === 'executing'}
             aria-label={t('common.close')}
           >
-            <X className="w-4 h-4" />
+            <SvcIcon name="x" className="w-4 h-4" />
           </button>
         </div>
 
@@ -247,9 +247,9 @@ export default function ActionPreviewModal({
               }}
             >
               {status === 'success' ? (
-                <CheckCircle className="w-4 h-4 shrink-0" />
+                <SvcIcon name="check-circle" className="w-4 h-4 shrink-0" />
               ) : (
-                <AlertCircle className="w-4 h-4 shrink-0" />
+                <SvcIcon name="alert-circle" className="w-4 h-4 shrink-0" />
               )}
               <span>{feedback}</span>
             </div>
@@ -272,13 +272,13 @@ export default function ActionPreviewModal({
           >
             {status === 'executing' ? (
               <>
-                <Loader2 className="w-4 h-4 animate-spin" />
+                <SvcIcon name="loader-2" className="w-4 h-4 animate-spin" />
                 {t('actionPreview.executing')}
               </>
             ) : (
               <>
                 {t('actionPreview.execute')}
-                <ArrowRight className="w-4 h-4" />
+                <SvcIcon name="arrow-right" className="w-4 h-4" />
               </>
             )}
           </button>

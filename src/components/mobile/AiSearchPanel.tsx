@@ -4,9 +4,8 @@ import { useNavigate } from 'react-router-dom';
 import { apiClient, getStoredAuth } from '../../lib/api';
 import FollowUpChips from '../ai/chat/core/FollowUpChips';
 import MarkdownMessage from '../MarkdownRenderer';
-import {
-  Search, Plus, PencilLine, Trash2, CalendarClock, Camera, Mic, ArrowUp, X, Sparkles, Maximize2,
-} from 'lucide-react';
+import { PencilLine, CalendarClock, Maximize2, Plus, Trash2 } from 'lucide-react'
+import SvcIcon from '../../components/SvcIcon';
 
 /**
  * AI & Search dual panel — center nav button（v6.71）
@@ -296,15 +295,15 @@ export default function AiSearchPanel({ open, onClose, onScanCard }: Props) {
           {/* v6.87: tabs 搬入標題行 — 慳返成條 tab 欄，button 收窄做 pills */}
           <div className="aisp-tabs">
             <button type="button" className={`aisp-tab ${mode === 'ai' ? 'active' : ''}`} onClick={() => setMode('ai')}>
-              <Sparkles className="aisp-tab-icon" /> 問 AI
+              <SvcIcon name="sparkles" className="aisp-tab-icon" /> 問 AI
             </button>
             <button type="button" className={`aisp-tab ${mode === 'search' ? 'active' : ''}`} onClick={() => setMode('search')}>
-              <Search className="aisp-tab-icon" /> 搜尋
+              <SvcIcon name="search" className="aisp-tab-icon" /> 搜尋
             </button>
           </div>
           <div className="aisp-head-actions">
             <button type="button" className="aisp-close" onClick={openFullscreen} aria-label="全螢幕搜尋"><Maximize2 /></button>
-            <button type="button" className="aisp-close" onClick={handleClose} aria-label="Close"><X /></button>
+            <button type="button" className="aisp-close" onClick={handleClose} aria-label="Close"><SvcIcon name="x" /></button>
           </div>
         </div>
 
@@ -313,7 +312,7 @@ export default function AiSearchPanel({ open, onClose, onScanCard }: Props) {
             {/* Session bar */}
             <div className="aisp-session-bar">
               <button type="button" className={`aisp-session-chip ${!sessionId ? 'active' : ''}`} onClick={createNewSession}>
-                <Plus /> 新對話
+                <SvcIcon name="plus" /> 新對話
               </button>
               {sessionList.slice(0, 8).map(s => (
                 <button
@@ -344,7 +343,7 @@ export default function AiSearchPanel({ open, onClose, onScanCard }: Props) {
                   <div className="aisp-chip-row">
                     {QUICK_CHIPS.map(chip => (
                       <button key={chip} type="button" className="aisp-chip" onClick={() => setInput(chip)}>
-                        <Sparkles />{chip}
+                        <SvcIcon name="sparkles" />{chip}
                       </button>
                     ))}
                   </div>
@@ -411,13 +410,13 @@ export default function AiSearchPanel({ open, onClose, onScanCard }: Props) {
                 onKeyDown={e => { if (e.key === 'Enter') sendMessage(); }}
               />
               <button type="button" className="aisp-icon-btn cam" onClick={() => { handleClose(); onScanCard(); }} aria-label="拍卡片">
-                <Camera />
+                <SvcIcon name="camera" />
               </button>
               <button type="button" className="aisp-icon-btn mic" onClick={() => setInput(prev => prev + '（語音輸入即將推出）')} aria-label="語音輸入">
-                <Mic />
+                <SvcIcon name="mic" />
               </button>
               <button type="button" className="aisp-icon-btn send" onClick={() => sendMessage()} disabled={isLoading || isStreaming || !input.trim()} aria-label="送出">
-                <ArrowUp />
+                <SvcIcon name="arrow-up" />
               </button>
             </div>
           </div>
@@ -426,7 +425,7 @@ export default function AiSearchPanel({ open, onClose, onScanCard }: Props) {
         {mode === 'search' && (
           <div className="aisp-search-col">
             <div className="aisp-input-row">
-              <Search />
+              <SvcIcon name="search" />
               <input
                 className="aisp-input"
                 placeholder="搜尋聯絡人、公司、專案、任務…"

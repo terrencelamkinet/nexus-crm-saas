@@ -1,6 +1,6 @@
 import { useParams, Link } from 'react-router-dom';
 import { useEffect, useState, useCallback } from 'react';
-import { Check, AlertCircle, RefreshCw } from 'lucide-react';
+import SvcIcon from '../components/SvcIcon';
 import { integrations } from '../data/integrations';
 import {
   fetchIntegrations,
@@ -239,7 +239,7 @@ export default function IntegrationDetailPage() {
         <div className="mkt-detail-features">
           {integration.features.map((feat, i) => (
             <div key={i} className="mkt-detail-feat">
-              <Check />
+              <SvcIcon name="check" />
               <span>{feat}</span>
             </div>
           ))}
@@ -261,7 +261,7 @@ export default function IntegrationDetailPage() {
         </div>
         {lastSync && (
           <div className="mkt-detail-status" style={{ marginTop: 8 }}>
-            <RefreshCw size={14} style={{ marginRight: 8, color: 'var(--color-text-muted)' }} />
+            <SvcIcon name="refresh-cw" size={14} style={{ marginRight: 8, color: 'var(--color-text-muted)' }} />
             <span style={{ fontSize: 13, color: 'var(--color-text-muted)' }}>
               Last synced: {lastSync}
             </span>
@@ -269,7 +269,7 @@ export default function IntegrationDetailPage() {
         )}
         {connection?.status === 'error' && (
           <div className="mkt-detail-status" style={{ color: '#ef4444', marginTop: 8 }}>
-            <AlertCircle size={14} style={{ marginRight: 8 }} />
+            <SvcIcon name="alert-circle" size={14} style={{ marginRight: 8 }} />
             <span>Connection error — re-connect or check provider status</span>
           </div>
         )}
@@ -285,7 +285,7 @@ export default function IntegrationDetailPage() {
 
           {calLoading ? (
             <div className="mkt-detail-status" style={{ color: 'var(--color-text-muted)' }}>
-              <RefreshCw size={14} className="spin" style={{ marginRight: 8 }} />
+              <SvcIcon name="refresh-cw" size={14} className="spin" style={{ marginRight: 8 }} />
               <span>Loading your calendars…</span>
             </div>
           ) : (
@@ -329,7 +329,7 @@ export default function IntegrationDetailPage() {
                 {calSaving && <span style={{ color: 'var(--color-text-muted)' }}>Saving…</span>}
                 {calSaved && !calSaving && (
                   <span style={{ color: 'var(--color-success)' }}>
-                    <Check size={13} style={{ verticalAlign: -2, marginRight: 4 }} />
+                    <SvcIcon name="check" size={13} style={{ verticalAlign: -2, marginRight: 4 }} />
                     Calendars updated & synced — check the Calendar page
                   </span>
                 )}

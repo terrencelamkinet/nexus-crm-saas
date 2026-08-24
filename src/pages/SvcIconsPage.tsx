@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Search } from 'lucide-react';
+import SvcIcon from '../components/SvcIcon';
 
 /**
  * SVC Icons 檢閱頁 (/newicon) — 臨時頁面，顯示全部 137 個 SVC SVG icons 做網格檢閱。
@@ -45,7 +45,7 @@ export default function SvcIconsPage() {
       <div className="flex flex-wrap items-center gap-4 mb-6">
         <h1 className="text-2xl font-bold text-slate-900">SVC Icons ({entries.length})</h1>
         <div className="relative">
-          <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+          <SvcIcon name="search" className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
           <input
             type="text"
             value={query}

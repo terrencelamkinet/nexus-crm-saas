@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Plus, Mic, ArrowUp, Sparkles } from 'lucide-react';
+import SvcIcon from '../components/SvcIcon';
 import { apiClient, getStoredAuth } from '../lib/api';
 import FollowUpChips from '../components/ai/chat/core/FollowUpChips';
 import MarkdownMessage from '../components/MarkdownRenderer';
@@ -180,7 +180,7 @@ export default function AiPage() {
     <div className="aipage-page">
       <header className="aipage-head">
         <button type="button" className="aipage-back" onClick={() => navigate(-1)} aria-label="返回">
-          <ArrowLeft />
+          <SvcIcon name="arrow-left" />
         </button>
         <h3>AI 管家秘書</h3>
       </header>
@@ -189,7 +189,7 @@ export default function AiPage() {
         {/* Session bar */}
         <div className="aisp-session-bar">
           <button type="button" className={`aisp-session-chip ${!sessionId ? 'active' : ''}`} onClick={createNewSession}>
-            <Plus /> 新對話
+            <SvcIcon name="plus" /> 新對話
           </button>
           {sessionList.slice(0, 10).map(s => (
             <button
@@ -213,7 +213,7 @@ export default function AiPage() {
               <div className="aisp-chip-row">
                 {QUICK_CHIPS.map(chip => (
                   <button key={chip} type="button" className="aisp-chip" onClick={() => setInput(chip)}>
-                    <Sparkles />{chip}
+                    <SvcIcon name="sparkles" />{chip}
                   </button>
                 ))}
               </div>
@@ -280,10 +280,10 @@ export default function AiPage() {
             onKeyDown={e => { if (e.key === 'Enter') sendMessage(); }}
           />
           <button type="button" className="aisp-icon-btn mic" onClick={() => setInput(prev => prev + '（語音輸入即將推出）')} aria-label="語音輸入">
-            <Mic />
+            <SvcIcon name="mic" />
           </button>
           <button type="button" className="aisp-icon-btn send" onClick={() => sendMessage()} disabled={isLoading || isStreaming || !input.trim()} aria-label="送出">
-            <ArrowUp />
+            <SvcIcon name="arrow-up" />
           </button>
         </div>
       </div>

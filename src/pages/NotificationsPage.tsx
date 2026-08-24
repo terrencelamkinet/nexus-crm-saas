@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Bell, CheckCheck, RefreshCw } from 'lucide-react';
+import SvcIcon from '../components/SvcIcon';
 import { useTranslation } from 'react-i18next';
 import { apiClient } from '../lib/api';
 
@@ -84,7 +84,7 @@ export default function NotificationsPage() {
             <span className="breadcrumb-current">{t('nav.notifications')}</span>
           </div>
           <h1 style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <Bell /> {t('pages.notifications.title')}
+            <SvcIcon name="bell" /> {t('pages.notifications.title')}
             {unreadCount > 0 && <span className="notif-badge" style={{ position: 'static', border: 'none' }}>{unreadCount}</span>}
           </h1>
           <p>{t('pages.notifications.summary', { total, unread: unreadCount })}</p>
@@ -92,11 +92,11 @@ export default function NotificationsPage() {
         <div className="header-actions">
           {unreadCount > 0 && (
             <button onClick={handleMarkAllRead} className="btn-secondary">
-              <CheckCheck className="w-4 h-4" /> {t('pages.notifications.markAllRead')}
+              <SvcIcon name="check-check" className="w-4 h-4" /> {t('pages.notifications.markAllRead')}
             </button>
           )}
           <button onClick={() => fetchData(page, filter, moduleFilter)} className="btn-secondary">
-            <RefreshCw className="w-4 h-4" />
+            <SvcIcon name="refresh-cw" className="w-4 h-4" />
           </button>
         </div>
       </div>
@@ -126,7 +126,7 @@ export default function NotificationsPage() {
         <div style={{ padding: 40, textAlign: 'center', color: 'var(--color-text-faint)' }}>{t('common.loading')}</div>
       ) : items.length === 0 ? (
         <div className="panel" style={{ padding: 48, textAlign: 'center' }}>
-          <Bell className="w-8 h-8" style={{ color: 'var(--color-text-faint)', margin: '0 auto 12px' }} />
+          <SvcIcon name="bell" className="w-8 h-8" style={{ color: 'var(--color-text-faint)', margin: '0 auto 12px' }} />
           <p style={{ color: 'var(--color-text-muted)', fontSize: 14 }}>{t('pages.notifications.empty')}</p>
         </div>
       ) : (

@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
-import { Users, CreditCard, Puzzle, Monitor, ChevronRight, Bell } from 'lucide-react'
+import SvcIcon from '../components/SvcIcon'
+import { CreditCard, Monitor, Puzzle, Users } from 'lucide-react'
 import { apiClient } from '../lib/api'
 import LanguageSwitcher from '../i18n/LanguageSwitcher';
 
@@ -117,7 +118,7 @@ export default function SettingsPage() {
     <div className="stg-page">
       <div className="breadcrumb">
         <span className="breadcrumb-link" onClick={() => navigate('/dashboard')}>Home</span>
-        <ChevronRight />
+        <SvcIcon name="chevron-right" />
         <span className="breadcrumb-current">{t('settings.title')}</span>
       </div>
       <div className="page-header">
@@ -190,7 +191,7 @@ export default function SettingsPage() {
                   </div>
                 ))}
               </div>
-              <button className="btn-secondary"><Users className="w-4 h-4" /> Invite Member</button>
+              <button className="btn-secondary"><SvcIcon name="users" className="w-4 h-4" /> Invite Member</button>
             </div>
           )}
 
@@ -239,7 +240,7 @@ export default function SettingsPage() {
 
           {active === 'preferences' && (
             <div className="stg-panel">
-              <h2><Bell className="w-4 h-4" style={{ verticalAlign: -3, marginRight: 6 }} />通知偏好</h2>
+              <h2><SvcIcon name="bell" className="w-4 h-4" style={{ verticalAlign: -3, marginRight: 6 }} />通知偏好</h2>
               <p className="stg-subtitle">選擇每個模組嘅網內通知開關。關閉後該模組嘅通知唔會再彈出。</p>
               {notifLoading ? (
                 <div className="stg-loading">{t('settings.loading')}</div>

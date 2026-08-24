@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import SvcIcon from '../../../components/SvcIcon';
 import {
   getWeekDatesMonFri,
   getWeekDates,
@@ -193,10 +193,10 @@ export default function WeekView({ events, date, onDateChange, showWeekends, onE
         <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
           <div className="week-range-nav">
             <button onClick={handlePrev} aria-label="Previous">
-              <ChevronLeft className="w-3.5 h-3.5" />
+              <SvcIcon name="chevron-left" className="w-3.5 h-3.5" />
             </button>
             <button onClick={handleNext} aria-label="Next">
-              <ChevronRight className="w-3.5 h-3.5" />
+              <SvcIcon name="chevron-right" className="w-3.5 h-3.5" />
             </button>
           </div>
           <div className="range-toggle">

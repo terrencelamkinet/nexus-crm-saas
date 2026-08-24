@@ -1,17 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
-import {
-  ChevronLeft,
-  ChevronRight,
-  ChevronDown,
-  LayoutGrid,
-  Presentation,
-  Calendar,
-  List,
-  RefreshCw,
-  CalendarDays,
-  Plus,
-  X,
-} from 'lucide-react';
+import { Presentation, Calendar, LayoutGrid, List } from 'lucide-react'
+import SvcIcon from '../../../components/SvcIcon';
 import type { CalendarViewType, CalendarEventFormatted } from './types';
 import { formatMonthYear } from './calendar-utils';
 import MonthView from './MonthView';
@@ -149,7 +138,7 @@ export default function CalendarViews({ events, loading, onRefresh }: CalendarVi
       <div className="flex items-center gap-1">
         <button onClick={handlePrev}
           className="px-3 py-1.5 rounded-lg text-xs font-medium text-[var(--color-text-muted)] hover:bg-[var(--color-surface-offset)] transition-colors min-h-[36px] min-w-[36px] flex items-center justify-center">
-          <ChevronLeft className="w-4 h-4" />
+          <SvcIcon name="chevron-left" className="w-4 h-4" />
         </button>
         <button onClick={handleToday}
           className="px-3 py-1.5 rounded-lg text-xs font-medium text-[var(--color-primary)] hover:bg-[var(--color-primary-highlight)] transition-colors min-h-[36px]">
@@ -157,7 +146,7 @@ export default function CalendarViews({ events, loading, onRefresh }: CalendarVi
         </button>
         <button onClick={handleNext}
           className="px-3 py-1.5 rounded-lg text-xs font-medium text-[var(--color-text-muted)] hover:bg-[var(--color-surface-offset)] transition-colors min-h-[36px] min-w-[36px] flex items-center justify-center">
-          <ChevronRight className="w-4 h-4" />
+          <SvcIcon name="chevron-right" className="w-4 h-4" />
         </button>
         <span className="text-sm font-semibold text-[var(--color-text)] px-3 select-none font-[var(--font-display)]">
           {formatMonthYear(date)}
@@ -175,7 +164,7 @@ export default function CalendarViews({ events, loading, onRefresh }: CalendarVi
           >
             <currentView.Icon className="w-3.5 h-3.5" />
             <span>{currentView.label}</span>
-            <ChevronDown className={`w-3.5 h-3.5 cv-view-chevron${viewMenuOpen ? ' open' : ''}`} />
+            <SvcIcon name="chevron-down" className={`w-3.5 h-3.5 cv-view-chevron${viewMenuOpen ? ' open' : ''}`} />
           </button>
 
           {viewMenuOpen && (
@@ -200,14 +189,14 @@ export default function CalendarViews({ events, loading, onRefresh }: CalendarVi
         <button onClick={() => setCreating(new Date())}
           className="px-3 py-1.5 rounded-lg text-xs font-medium text-[var(--color-text-muted)] hover:bg-[var(--color-surface-offset)] transition-colors min-h-[36px] min-w-[36px] flex items-center justify-center"
           title="New event">
-          <Plus className="w-3.5 h-3.5" />
+          <SvcIcon name="plus" className="w-3.5 h-3.5" />
         </button>
 
         {/* Refresh */}
         <button onClick={onRefresh}
           className="px-3 py-1.5 rounded-lg text-xs font-medium text-[var(--color-text-muted)] hover:bg-[var(--color-surface-offset)] transition-colors min-h-[36px] min-w-[36px] flex items-center justify-center"
           title="Refresh">
-          <RefreshCw className="w-4 h-4" />
+          <SvcIcon name="refresh-cw" className="w-4 h-4" />
         </button>
       </div>
     </div>
@@ -215,7 +204,7 @@ export default function CalendarViews({ events, loading, onRefresh }: CalendarVi
 
   const emptyState = (
     <div className="calendar-empty">
-      <CalendarDays />
+      <SvcIcon name="calendar-days" />
       <p>No events</p>
     </div>
   );
@@ -224,7 +213,7 @@ export default function CalendarViews({ events, loading, onRefresh }: CalendarVi
     <div className="space-y-4">
       {loading && (
         <div className="flex items-center justify-center py-20 text-[var(--color-text-faint)] border border-[var(--color-divider)] rounded-xl bg-[var(--color-surface)]">
-          <RefreshCw className="w-5 h-5 mr-2 animate-spin" />
+          <SvcIcon name="refresh-cw" className="w-5 h-5 mr-2 animate-spin" />
           <p className="text-sm font-medium">Loading calendar...</p>
         </div>
       )}
@@ -249,7 +238,7 @@ export default function CalendarViews({ events, loading, onRefresh }: CalendarVi
                 {morePopup.date.toLocaleDateString('en-US', { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' })}
               </span>
               <button className="month-more-close" onClick={handleMoreClose} aria-label="Close">
-                <X className="w-4 h-4" />
+                <SvcIcon name="x" className="w-4 h-4" />
               </button>
             </div>
             <div className="month-more-list">

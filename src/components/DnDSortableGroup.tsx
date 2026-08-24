@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback, type ReactNode } from 'react';
-import { GripVertical } from 'lucide-react';
+import SvcIcon from '../components/SvcIcon';
 
 interface Props<T extends string> {
   items: T[];
@@ -137,7 +137,7 @@ export default function DnDSortableGroup<T extends string>({ items, onChange, ch
           className={`dnd-item${dragging === id ? ' dragging' : ''}${overIdx === idx ? ' drop-target' : ''}`}
         >
           <div className="dnd-handle" onPointerDown={e => handlePointerDown(e, id)}>
-            <GripVertical size={14} />
+            <SvcIcon name="grip-vertical" size={14} />
           </div>
           <div className="dnd-body">
             {children(id)}

@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Tag as TagIcon, Plus, Pencil, Trash2, Merge, Sparkles, Search, X, Check } from 'lucide-react'
+import SvcIcon from '../components/SvcIcon'
 import { apiClient } from '../lib/api'
 import type { NameCardTagDef } from './module-types'
 
@@ -115,11 +115,11 @@ export default function TagManagementPage() {
             <>
               <button className="nx-btn nx-btn-secondary" onClick={() => { setMergeMode(false); setMergeSelection(new Set()) }}
                 title={t('common.cancel', { defaultValue: '取消' })}>
-                <X size={14} /> <span className="nc-btn-label">{t('common.cancel', { defaultValue: '取消' })}</span>
+                <SvcIcon name="x" size={14} /> <span className="nc-btn-label">{t('common.cancel', { defaultValue: '取消' })}</span>
               </button>
               <button className="nx-btn nx-btn-primary" disabled={mergeSelection.size < 2} onClick={handleManualMerge}
                 title={t('tags.mergeSelected', { defaultValue: '合併已選' })}>
-                <Merge size={14} /> <span className="nc-btn-label">{t('tags.mergeSelected', { defaultValue: '合併已選' })}</span>
+                <SvcIcon name="merge" size={14} /> <span className="nc-btn-label">{t('tags.mergeSelected', { defaultValue: '合併已選' })}</span>
                 <span className="nc-btn-label"> ({mergeSelection.size})</span>
               </button>
             </>
@@ -127,11 +127,11 @@ export default function TagManagementPage() {
             <>
               <button className="nx-btn nx-btn-secondary" onClick={() => setMergeMode(true)}
                 title={t('tags.mergeMode', { defaultValue: '合併模式' })}>
-                <Merge size={14} /> <span className="nc-btn-label">{t('tags.mergeMode', { defaultValue: '合併模式' })}</span>
+                <SvcIcon name="merge" size={14} /> <span className="nc-btn-label">{t('tags.mergeMode', { defaultValue: '合併模式' })}</span>
               </button>
               <button className="nx-btn nx-btn-primary" onClick={() => setNewTagOpen(true)}
                 title={t('tags.newTag', { defaultValue: '新增 Tag' })}>
-                <Plus size={14} /> <span className="nc-btn-label">{t('tags.newTag', { defaultValue: '新增 Tag' })}</span>
+                <SvcIcon name="plus" size={14} /> <span className="nc-btn-label">{t('tags.newTag', { defaultValue: '新增 Tag' })}</span>
               </button>
             </>
           )}
@@ -141,14 +141,14 @@ export default function TagManagementPage() {
       {/* ═══ AI Cleanup Card — 2026-era proactive suggestion pattern ═══ */}
       <div className="tg-ai-card">
         <div className="tg-ai-card-header">
-          <div className="tg-ai-icon"><Sparkles size={16} /></div>
+          <div className="tg-ai-icon"><SvcIcon name="sparkles" size={16} /></div>
           <div style={{ flex: 1 }}>
             <div className="tg-ai-title">{t('tags.aiCleanupTitle', { defaultValue: 'AI Tag 整理建議' })}</div>
             <div className="tg-ai-sub">{t('tags.aiCleanupSub', { defaultValue: '偵測相似或重複嘅 Tag（例如「物流」同「物流業」），建議合併' })}</div>
           </div>
           <button className="nx-btn nx-btn-secondary" onClick={runAiCleanupScan} disabled={aiScanLoading}
             title={t('tags.scanNow', { defaultValue: '立即掃描' })}>
-            <Sparkles size={14} /> <span className="nc-btn-label">{aiScanLoading ? t('tags.scanning', { defaultValue: '掃描中…' }) : t('tags.scanNow', { defaultValue: '立即掃描' })}</span>
+            <SvcIcon name="sparkles" size={14} /> <span className="nc-btn-label">{aiScanLoading ? t('tags.scanning', { defaultValue: '掃描中…' }) : t('tags.scanNow', { defaultValue: '立即掃描' })}</span>
           </button>
         </div>
         {aiSuggestions.length > 0 && (
@@ -166,7 +166,7 @@ export default function TagManagementPage() {
                 <div className="tg-ai-suggestion-reason">{g.reason}</div>
                 <button className="nx-btn nx-btn-primary" style={{ height: 30, fontSize: 12 }} onClick={() => acceptMergeSuggestion(g)}
                   title={t('tags.acceptMerge', { defaultValue: '採用' })}>
-                  <Check size={12} /> <span className="nc-btn-label">{t('tags.acceptMerge', { defaultValue: '採用' })}</span>
+                  <SvcIcon name="check" size={12} /> <span className="nc-btn-label">{t('tags.acceptMerge', { defaultValue: '採用' })}</span>
                 </button>
                 <button className="nx-btn nx-btn-secondary" style={{ height: 30, fontSize: 12 }}
                   onClick={() => setAiSuggestions(s => s.filter(x => x !== g))}>
@@ -180,7 +180,7 @@ export default function TagManagementPage() {
 
       {/* ═══ Search ═══ */}
       <div style={{ position: 'relative', marginBottom: 16 }}>
-        <Search size={14} style={{ position: 'absolute', left: 12, top: 12, color: 'var(--color-text-secondary)' }} />
+        <SvcIcon name="search" size={14} style={{ position: 'absolute', left: 12, top: 12, color: 'var(--color-text-secondary)' }} />
         <input
           className="nc-search-input" style={{ width: '100%', paddingLeft: 34 }}
           placeholder={t('tags.searchPlaceholder', { defaultValue: '搜尋 Tag 名稱…' })}
@@ -203,7 +203,7 @@ export default function TagManagementPage() {
             ))}
           </div>
           <button className="nx-btn nx-btn-primary" onClick={handleCreate}>{t('common.create', { defaultValue: '建立' })}</button>
-          <button className="nx-btn nx-btn-secondary" onClick={() => setNewTagOpen(false)}><X size={14} /></button>
+          <button className="nx-btn nx-btn-secondary" onClick={() => setNewTagOpen(false)}><SvcIcon name="x" size={14} /></button>
         </div>
       )}
 
@@ -212,7 +212,7 @@ export default function TagManagementPage() {
         <div className="nc-empty">{t('common.loading')}</div>
       ) : filtered.length === 0 ? (
         <div className="nc-empty">
-          <div className="nc-empty-icon"><TagIcon size={26} /></div>
+          <div className="nc-empty-icon"><SvcIcon name="tags" size={26} /></div>
           <div style={{ fontWeight: 600 }}>{t('tags.emptyTitle', { defaultValue: '暫無分類 Tag' })}</div>
         </div>
       ) : (
@@ -242,8 +242,8 @@ export default function TagManagementPage() {
                         style={{ background: c.hex }} onClick={(e) => { e.stopPropagation(); handleColorChange(tg.id, c.hex) }} />
                     ))}
                   </div>
-                  <div className="nc-card-quick-btn" onClick={(e) => { e.stopPropagation(); setEditingId(tg.id) }}><Pencil size={13} /></div>
-                  <div className="nc-card-quick-btn" onClick={(e) => { e.stopPropagation(); handleDelete(tg) }}><Trash2 size={13} /></div>
+                  <div className="nc-card-quick-btn" onClick={(e) => { e.stopPropagation(); setEditingId(tg.id) }}><SvcIcon name="pencil" size={13} /></div>
+                  <div className="nc-card-quick-btn" onClick={(e) => { e.stopPropagation(); handleDelete(tg) }}><SvcIcon name="trash-2" size={13} /></div>
                 </div>
               )}
             </div>

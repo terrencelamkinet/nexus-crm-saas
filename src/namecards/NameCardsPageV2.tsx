@@ -1,7 +1,7 @@
 import { useState, useRef, useCallback, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useDropzone } from 'react-dropzone'
-import { Camera, Image as ImageIcon, Clipboard, UploadCloud, Grid3x3, List, Plus, AlertTriangle, Check, Copy, Trash2, Pencil, Search } from 'lucide-react'
+import SvcIcon from '../components/SvcIcon'
 import { apiClient } from '../lib/api'
 import { NameCardDetailModal } from './NameCardDetailModal'
 import type { NameCardRecord, NameCardTag } from './module-types'
@@ -141,11 +141,11 @@ export default function NameCardsPageV2() {
           </h1>
           <div className="nc-header-actions">
             <div className="nc-view-toggle">
-              <div className={`nc-view-btn ${view === 'grid' ? 'active' : ''}`} onClick={() => setView('grid')}><Grid3x3 size={16} /></div>
-              <div className={`nc-view-btn ${view === 'list' ? 'active' : ''}`} onClick={() => setView('list')}><List size={16} /></div>
+              <div className={`nc-view-btn ${view === 'grid' ? 'active' : ''}`} onClick={() => setView('grid')}><SvcIcon name="grid-3x3" size={16} /></div>
+              <div className={`nc-view-btn ${view === 'list' ? 'active' : ''}`} onClick={() => setView('list')}><SvcIcon name="list" size={16} /></div>
             </div>
             <button className="nx-btn nx-btn-primary" onClick={() => galleryInputRef.current?.click()}>
-              <Plus size={14} /> {t('nameCard.addNew', { defaultValue: '新增名片' })}
+              <SvcIcon name="plus" size={14} /> {t('nameCard.addNew', { defaultValue: '新增名片' })}
             </button>
           </div>
         </div>
@@ -153,7 +153,7 @@ export default function NameCardsPageV2() {
         {/* Quick upload dropzone */}
         <div className={`nc-dropzone ${isDragActive ? 'drag-active' : ''}`} style={{ marginBottom: 16 }}>
           <div className="nc-dropzone-icon">
-            {uploading ? <span className="nx-spinner" /> : <UploadCloud size={20} />}
+            {uploading ? <span className="nx-spinner" /> : <SvcIcon name="upload-cloud" size={20} />}
           </div>
           <div className="nc-dropzone-title">
             {uploading
@@ -164,16 +164,16 @@ export default function NameCardsPageV2() {
           {uploadError && <div style={{ color: 'var(--color-danger)', fontSize: 12, marginTop: 8 }}>{uploadError}</div>}
           <div className="nc-dropzone-methods">
             <div className="nc-quick-btn" title={t('nameCard.takePhoto', { defaultValue: '拍照上載' })} onClick={() => cameraInputRef.current?.click()}>
-              <Camera size={14} /> <span className="nc-quick-label">{t('nameCard.takePhoto', { defaultValue: '拍照上載' })}</span>
+              <SvcIcon name="camera" size={14} /> <span className="nc-quick-label">{t('nameCard.takePhoto', { defaultValue: '拍照上載' })}</span>
             </div>
             <div className="nc-quick-btn" title={t('nameCard.pickGallery', { defaultValue: '相簿選取' })} onClick={() => galleryInputRef.current?.click()}>
-              <ImageIcon size={14} /> <span className="nc-quick-label">{t('nameCard.pickGallery', { defaultValue: '相簿選取' })}</span>
+              <SvcIcon name="image" size={14} /> <span className="nc-quick-label">{t('nameCard.pickGallery', { defaultValue: '相簿選取' })}</span>
             </div>
             <div className="nc-quick-btn" title={t('nameCard.pasteImage', { defaultValue: '貼上圖片 (Ctrl+V)' })}>
-              <Clipboard size={14} /> <span className="nc-quick-label">{t('nameCard.pasteImage', { defaultValue: '貼上圖片 (Ctrl+V)' })}</span>
+              <SvcIcon name="clipboard" size={14} /> <span className="nc-quick-label">{t('nameCard.pasteImage', { defaultValue: '貼上圖片 (Ctrl+V)' })}</span>
             </div>
             <div className="nc-quick-btn" title={t('nameCard.bulkUpload', { defaultValue: '批量上載' })} onClick={() => bulkInputRef.current?.click()}>
-              <UploadCloud size={14} /> <span className="nc-quick-label">{t('nameCard.bulkUpload', { defaultValue: '批量上載' })}</span>
+              <SvcIcon name="upload-cloud" size={14} /> <span className="nc-quick-label">{t('nameCard.bulkUpload', { defaultValue: '批量上載' })}</span>
             </div>
           </div>
           <input ref={cameraInputRef} type="file" accept="image/*" capture="environment" hidden
@@ -187,7 +187,7 @@ export default function NameCardsPageV2() {
         {/* Search + tag filter */}
         <div className="nc-filter-row">
           <div style={{ position: 'relative', flex: 1, minWidth: 200 }}>
-            <Search size={14} style={{ position: 'absolute', left: 12, top: 12, color: 'var(--color-text-secondary)' }} />
+            <SvcIcon name="search" size={14} style={{ position: 'absolute', left: 12, top: 12, color: 'var(--color-text-secondary)' }} />
             <input
               className="nc-search-input" style={{ paddingLeft: 34 }}
               placeholder={t('nameCard.searchPlaceholder', { defaultValue: '搜尋姓名、公司、職位…' })}
@@ -204,7 +204,7 @@ export default function NameCardsPageV2() {
               </span>
             ))}
             <span className={`nc-tag-chip ${activeTag === 'unlinked' ? 'active' : ''}`} onClick={() => setActiveTag('unlinked')}>
-              <AlertTriangle size={11} /> {t('nameCard.unlinked', { defaultValue: '未連結' })}
+              <SvcIcon name="alert-triangle" size={11} /> {t('nameCard.unlinked', { defaultValue: '未連結' })}
             </span>
           </div>
         </div>
@@ -215,7 +215,7 @@ export default function NameCardsPageV2() {
           <div className="nc-empty">{t('common.loading')}</div>
         ) : filteredCards.length === 0 ? (
           <div className="nc-empty">
-            <div className="nc-empty-icon"><ImageIcon size={28} /></div>
+            <div className="nc-empty-icon"><SvcIcon name="image" size={28} /></div>
             <div style={{ fontWeight: 600, marginBottom: 4 }}>{t('nameCard.emptyTitle', { defaultValue: '暫無名片' })}</div>
             <div style={{ fontSize: 12.5, color: 'var(--color-text-secondary)' }}>{t('nameCard.emptyDesc', { defaultValue: '上載第一張名片，AI 會自動辨識並建立聯絡人' })}</div>
           </div>
@@ -240,11 +240,11 @@ export default function NameCardsPageV2() {
                         {t('nameCard.noImage', { defaultValue: '名片圖片' })}
                       </div>
                     )}
-                    {isDup && <div className="nc-card-dup-badge"><AlertTriangle size={10} /> {t('nameCard.possibleDup', { defaultValue: '疑似重複' })}</div>}
+                    {isDup && <div className="nc-card-dup-badge"><SvcIcon name="alert-triangle" size={10} /> {t('nameCard.possibleDup', { defaultValue: '疑似重複' })}</div>}
                     <div className="nc-card-quick-actions">
-                      <div className="nc-card-quick-btn" onClick={(e) => { e.stopPropagation(); setDetailCard(card) }}><Pencil size={13} /></div>
-                      <div className="nc-card-quick-btn" onClick={(e) => handleDuplicate(card, e)}><Copy size={13} /></div>
-                      <div className="nc-card-quick-btn" onClick={(e) => handleDelete(card, e)}><Trash2 size={13} /></div>
+                      <div className="nc-card-quick-btn" onClick={(e) => { e.stopPropagation(); setDetailCard(card) }}><SvcIcon name="pencil" size={13} /></div>
+                      <div className="nc-card-quick-btn" onClick={(e) => handleDuplicate(card, e)}><SvcIcon name="copy" size={13} /></div>
+                      <div className="nc-card-quick-btn" onClick={(e) => handleDelete(card, e)}><SvcIcon name="trash-2" size={13} /></div>
                     </div>
                   </div>
                   <div className="nc-card-body">
@@ -254,7 +254,7 @@ export default function NameCardsPageV2() {
                       <div className="nc-card-tags">{card.tags!.map(tg => <span className="nc-card-tag" key={tg}>{tg}</span>)}</div>
                     )}
                     {card.contact_id
-                      ? <div className="nc-card-linked"><Check size={11} /> {t('nameCard.linked', { defaultValue: '已連結聯絡人' })}</div>
+                      ? <div className="nc-card-linked"><SvcIcon name="check" size={11} /> {t('nameCard.linked', { defaultValue: '已連結聯絡人' })}</div>
                       : <div className="nc-card-unlinked">○ {t('nameCard.notLinked', { defaultValue: '未連結' })}</div>}
                   </div>
                 </div>
@@ -269,7 +269,7 @@ export default function NameCardsPageV2() {
           <span className="nc-bulk-count">{t('nameCard.selectedCount', { count: selected.size, defaultValue: `已選 ${selected.size} 張` })}</span>
           <button className="nx-btn nx-btn-secondary" style={{ height: 32 }}>{t('nameCard.addTagBulk', { defaultValue: '加 Tag' })}</button>
           <button className="nx-btn nc-btn-danger-ghost" style={{ height: 32, marginLeft: 'auto' }} onClick={handleBulkDelete}>
-            <Trash2 size={13} /> {t('common.delete', { defaultValue: '刪除' })}
+            <SvcIcon name="trash-2" size={13} /> {t('common.delete', { defaultValue: '刪除' })}
           </button>
         </div>
       )}

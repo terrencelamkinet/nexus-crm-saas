@@ -1,13 +1,8 @@
 import { useState, useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
-import {
-  TrendingUp, Users, Building2, CheckSquare, Calendar, Activity, Sparkles,
-  AlertTriangle, Plus, LayoutGrid, CloudSun, ChevronRight,
-  X, GripVertical, Check, Phone, Mail, MessageSquare, Clock, ChevronDown,
-  FolderKanban, Truck, Tags,
-  Percent,
-} from 'lucide-react'
+import { CloudSun, MessageSquare, Truck, Percent } from 'lucide-react'
+import SvcIcon from '../../components/SvcIcon'
 import { apiClient } from '../../lib/api'
 import { useToast } from './useToast'
 import { sectionIcon, sectionRouteWithItemFallback } from './briefingRoutes'
@@ -651,7 +646,7 @@ export default function DashboardV2() {
       data-wid={wid}
       onPointerDown={(e) => startDrag(e, wid)}
       aria-label="拖曳調整順序"
-    ><GripVertical size={14} /></span>
+    ><SvcIcon name="grip-vertical" size={14} /></span>
   ) : null
 
   const widgetCls = (wid: string) => {
@@ -763,10 +758,10 @@ export default function DashboardV2() {
     if (wid.startsWith('stats:')) {
       const i = Number(wid.split(':')[1])
       const cards = [
-        { icon: <Users size={15} />, label: t('dashboard.widgets.totalCustomers', { defaultValue: '累計聯絡人' }), value: stats.contacts, color: 'var(--color-primary)', onClick: () => navigate('/contacts') },
-        { icon: <Building2 size={15} />, label: t('dashboard.widgets.totalCompanies', { defaultValue: '總公司數' }), value: stats.companies, color: 'var(--color-purple, #7c3aed)', onClick: () => navigate('/companies') },
-        { icon: <CheckSquare size={15} />, label: t('dashboard.widgets.tasksDue', { defaultValue: '待辦任務' }), value: stats.tasksDue, color: 'var(--color-amber, #d97706)', accent: true, onClick: () => navigate('/tasks') },
-        { icon: <FolderKanban size={15} />, label: t('dashboard.widgets.activeProjects', { defaultValue: '進行中專案' }), value: projectsTotal, color: 'var(--color-green, #16a34a)', onClick: () => navigate('/projects') },
+        { icon: <SvcIcon name="users" size={15} />, label: t('dashboard.widgets.totalCustomers', { defaultValue: '累計聯絡人' }), value: stats.contacts, color: 'var(--color-primary)', onClick: () => navigate('/contacts') },
+        { icon: <SvcIcon name="building-2" size={15} />, label: t('dashboard.widgets.totalCompanies', { defaultValue: '總公司數' }), value: stats.companies, color: 'var(--color-purple, #7c3aed)', onClick: () => navigate('/companies') },
+        { icon: <SvcIcon name="check-square" size={15} />, label: t('dashboard.widgets.tasksDue', { defaultValue: '待辦任務' }), value: stats.tasksDue, color: 'var(--color-amber, #d97706)', accent: true, onClick: () => navigate('/tasks') },
+        { icon: <SvcIcon name="folder-kanban" size={15} />, label: t('dashboard.widgets.activeProjects', { defaultValue: '進行中專案' }), value: projectsTotal, color: 'var(--color-green, #16a34a)', onClick: () => navigate('/projects') },
       ]
       const c = cards[i]
       if (!c) return null
@@ -793,14 +788,14 @@ export default function DashboardV2() {
             aria-expanded={aiExpanded}
             title={aiExpanded ? '收起 AI 洞察' : '展開 AI 洞察詳情'}
           >
-            <div className="dv2-widget-title"><Sparkles size={15} className="dv2-ai-spark" /> {t('dashboard.aiInsight', { defaultValue: 'AI 洞察摘要' })}</div>
+            <div className="dv2-widget-title"><SvcIcon name="sparkles" size={15} className="dv2-ai-spark" /> {t('dashboard.aiInsight', { defaultValue: 'AI 洞察摘要' })}</div>
             <span className="dv2-ai-toggle-right">
               <span className="dv2-widget-badge">
                 {aiGenAt
                   ? `🕐 ${new Date(aiGenAt).toLocaleTimeString(i18n.language, { hour: '2-digit', minute: '2-digit' })}`
                   : t('dashboard.aiUpdated', { defaultValue: 'AI 更新' })}
               </span>
-              <ChevronDown size={16} className={`dv2-ai-chevron ${aiExpanded ? 'open' : ''}`} />
+              <SvcIcon name="chevron-down" size={16} className={`dv2-ai-chevron ${aiExpanded ? 'open' : ''}`} />
             </span>
           </button>
           {!aiExpanded && aiSummary && (
@@ -855,7 +850,7 @@ export default function DashboardV2() {
                                       title={`前往${sec.header}`}
                                     >
                                       <span>{it}</span>
-                                      <ChevronRight size={13} className="dv2-ai-section-go" />
+                                      <SvcIcon name="chevron-right" size={13} className="dv2-ai-section-go" />
                                     </button>
                                   ) : (
                                     <div key={ii} className="dv2-ai-section-item">{it}</div>
@@ -889,14 +884,14 @@ export default function DashboardV2() {
                                         {dragHandle(wid)}
                                         {resizeGrip(wid)}
           <div className="dv2-widget-header">
-            <div className="dv2-widget-title"><CheckSquare size={15} /> {t('dashboard.widgets.todaysTodos', { defaultValue: '今日待辦' })}</div>
+            <div className="dv2-widget-title"><SvcIcon name="check-square" size={15} /> {t('dashboard.widgets.todaysTodos', { defaultValue: '今日待辦' })}</div>
             <button className="dv2-widget-action" onClick={() => handleViewAll('todos')}>{todosExpanded ? '收起' : t('common.viewAll', { defaultValue: '查看全部' })}</button>
           </div>
           <div className="dv2-widget-body dv2-list-body">
             {todos.length === 0 ? <div className="dv2-empty-mini">{t('dashboard.noTasksYet', { defaultValue: '暫無任務' })}</div> :
               (todosExpanded ? todos.filter(td => !td.done) : todos.slice(0, 4).filter(td => !td.done)).map((td) => (
                 <button key={td.id} className="dv2-list-row dv2-list-row-btn" onClick={() => toggleTodo(td.id)}>
-                  <span className={`dv2-checkbox ${td.done ? 'checked' : ''}`}>{td.done && <Check size={11} />}</span>
+                  <span className={`dv2-checkbox ${td.done ? 'checked' : ''}`}>{td.done && <SvcIcon name="check" size={11} />}</span>
                   <span className={`dv2-list-row-title ${td.done ? 'done' : ''}`}>{td.title}</span>
                   <span className="dv2-list-row-meta">{td.due_time || ''}</span>
                 </button>
@@ -911,14 +906,14 @@ export default function DashboardV2() {
                                         {dragHandle(wid)}
                                         {resizeGrip(wid)}
           <div className="dv2-widget-header">
-            <div className="dv2-widget-title"><Calendar size={15} /> {t('dashboard.widgets.upcomingEvents', { defaultValue: '即將舉行' })}</div>
+            <div className="dv2-widget-title"><SvcIcon name="calendar" size={15} /> {t('dashboard.widgets.upcomingEvents', { defaultValue: '即將舉行' })}</div>
             <button className="dv2-widget-action" onClick={() => handleViewAll('events')}>{t('common.viewAll', { defaultValue: '查看全部' })}</button>
           </div>
           <div className="dv2-widget-body dv2-list-body">
             {events.length === 0 ? <div className="dv2-empty-mini">{t('dashboard.noEvents', { defaultValue: '暫無活動' })}</div> :
               events.slice(0, 4).map((ev) => (
                 <button key={ev.id} className="dv2-list-row dv2-list-row-btn" onClick={() => navigate('/calendar')}>
-                  <Calendar size={13} className="dv2-list-row-icon" />
+                  <SvcIcon name="calendar" size={13} className="dv2-list-row-icon" />
                   <span className="dv2-list-row-title">{ev.time} {ev.title}</span>
                   <span className="dv2-list-row-tag">{ev.type}</span>
                 </button>
@@ -933,13 +928,13 @@ export default function DashboardV2() {
                                         {dragHandle(wid)}
                                         {resizeGrip(wid)}
           <div className="dv2-widget-header">
-            <div className="dv2-widget-title"><Activity size={15} /> {t('dashboard.widgets.recentInteractions', { defaultValue: '近期互動' })}</div>
+            <div className="dv2-widget-title"><SvcIcon name="activity" size={15} /> {t('dashboard.widgets.recentInteractions', { defaultValue: '近期互動' })}</div>
             <button className="dv2-widget-action" onClick={() => handleViewAll('interactions')}>{t('common.viewAll', { defaultValue: '查看全部' })}</button>
           </div>
           <div className="dv2-widget-body dv2-list-body">
             {activity.slice(0, 4).map((tp) => (
               <button key={tp.id} className="dv2-list-row dv2-list-row-btn" onClick={() => openTaskRow(tp)}>
-                {tp.channel === 'call' ? <Phone size={13} className="dv2-list-row-icon" /> : tp.channel === 'email' ? <Mail size={13} className="dv2-list-row-icon" /> : <MessageSquare size={13} className="dv2-list-row-icon" />}
+                {tp.channel === 'call' ? <SvcIcon name="phone" size={13} className="dv2-list-row-icon" /> : tp.channel === 'email' ? <SvcIcon name="mail" size={13} className="dv2-list-row-icon" /> : <MessageSquare size={13} className="dv2-list-row-icon" />}
                 <span className="dv2-list-row-title">{tp.title}</span>
                 <span className="dv2-list-row-tag">{tp.type}</span>
               </button>
@@ -955,7 +950,7 @@ export default function DashboardV2() {
                                         {dragHandle(wid)}
                                         {resizeGrip(wid)}
           <div className="dv2-widget-header">
-            <div className="dv2-widget-title"><Activity size={15} /> {t('dashboard.widgets.recentActivity', { defaultValue: '最近活動' })}</div>
+            <div className="dv2-widget-title"><SvcIcon name="activity" size={15} /> {t('dashboard.widgets.recentActivity', { defaultValue: '最近活動' })}</div>
             <button className="dv2-widget-action" onClick={() => handleViewAll('activity')}>{t('common.viewAll', { defaultValue: '查看全部' })}</button>
           </div>
           <div className="dv2-widget-body dv2-table-body">
@@ -984,7 +979,7 @@ export default function DashboardV2() {
                                         {dragHandle(wid)}
                                         {resizeGrip(wid)}
           <div className="dv2-widget-header">
-            <div className="dv2-widget-title"><Sparkles size={15} /> Ask AI</div>
+            <div className="dv2-widget-title"><SvcIcon name="sparkles" size={15} /> Ask AI</div>
           </div>
           <div className="dv2-widget-body dv2-list-body" style={{ maxHeight: 260 }}>
             <WidgetAskAI />
@@ -998,14 +993,14 @@ export default function DashboardV2() {
                                         {dragHandle(wid)}
                                         {resizeGrip(wid)}
           <div className="dv2-widget-header">
-            <div className="dv2-widget-title"><Users size={15} /> {t('dashboard.widgets.pendingContacts', { defaultValue: '待處理聯絡人' })}</div>
+            <div className="dv2-widget-title"><SvcIcon name="users" size={15} /> {t('dashboard.widgets.pendingContacts', { defaultValue: '待處理聯絡人' })}</div>
             <button className="dv2-widget-action" onClick={() => navigate('/contacts')}>{t('common.viewAll', { defaultValue: '查看全部' })}</button>
           </div>
           <div className="dv2-widget-body dv2-list-body">
             {pendingContacts.length === 0 ? <div className="dv2-empty-mini">{t('dashboard.noContacts', { defaultValue: '暫無待處理聯絡人' })}</div> :
               pendingContacts.slice(0, 5).map((c) => (
                 <button key={c.id} className="dv2-list-row dv2-list-row-btn" onClick={() => navigate('/contacts')}>
-                  <Users size={13} className="dv2-list-row-icon" />
+                  <SvcIcon name="users" size={13} className="dv2-list-row-icon" />
                   <span className="dv2-list-row-title">{c.name}</span>
                   <span className="dv2-list-row-meta">{c.company?.name || c.company || ''}</span>
                 </button>
@@ -1020,14 +1015,14 @@ export default function DashboardV2() {
                                         {dragHandle(wid)}
                                         {resizeGrip(wid)}
           <div className="dv2-widget-header">
-            <div className="dv2-widget-title"><Building2 size={15} /> {t('dashboard.widgets.renewalReminders', { defaultValue: '續約提醒' })}</div>
+            <div className="dv2-widget-title"><SvcIcon name="building-2" size={15} /> {t('dashboard.widgets.renewalReminders', { defaultValue: '續約提醒' })}</div>
             <button className="dv2-widget-action" onClick={() => navigate('/companies')}>{t('common.viewAll', { defaultValue: '查看全部' })}</button>
           </div>
           <div className="dv2-widget-body dv2-list-body">
             {companies3.length === 0 ? <div className="dv2-empty-mini">{t('dashboard.noCompanies', { defaultValue: '暫無公司' })}</div> :
               companies3.map((co) => (
                 <button key={co.id} className="dv2-list-row dv2-list-row-btn" onClick={() => navigate('/companies')}>
-                  <Building2 size={13} className="dv2-list-row-icon" />
+                  <SvcIcon name="building-2" size={13} className="dv2-list-row-icon" />
                   <span className="dv2-list-row-title">{co.name}</span>
                   <span className="dv2-list-row-tag">{co.industry || co.category || ''}</span>
                 </button>
@@ -1042,13 +1037,13 @@ export default function DashboardV2() {
                                         {dragHandle(wid)}
                                         {resizeGrip(wid)}
           <div className="dv2-widget-header">
-            <div className="dv2-widget-title"><Users size={15} /> {t('dashboard.widgets.onlineStatus', { defaultValue: '在線狀態' })}</div>
+            <div className="dv2-widget-title"><SvcIcon name="users" size={15} /> {t('dashboard.widgets.onlineStatus', { defaultValue: '在線狀態' })}</div>
           </div>
           <div className="dv2-widget-body dv2-list-body">
             {teamUsers.length === 0 ? <div className="dv2-empty-mini">{t('dashboard.noTeamUsers', { defaultValue: '暫無團隊成員' })}</div> :
               teamUsers.slice(0, 6).map((u) => (
                 <div key={u.id} className="dv2-list-row">
-                  <Users size={13} className="dv2-list-row-icon" />
+                  <SvcIcon name="users" size={13} className="dv2-list-row-icon" />
                   <span className="dv2-list-row-title">{u.display_name || u.email}</span>
                   <span className="dv2-list-row-meta">{teamUsers.length} 人</span>
                 </div>
@@ -1058,26 +1053,26 @@ export default function DashboardV2() {
       )
     }
     // ── Legacy KPI widgets ──
-    if (wid === 'c1') return kpiCard(<Users size={15} />, t('dashboard.widgets.newContacts', { defaultValue: '新增聯絡人' }), stats.contacts, 'var(--color-primary)', () => navigate('/contacts'))
-    if (wid === 'co1') return kpiCard(<Building2 size={15} />, t('dashboard.widgets.totalCompanies', { defaultValue: '公司總數' }), stats.companies, 'var(--color-purple, #7c3aed)', () => navigate('/companies'))
-    if (wid === 'p1') return kpiCard(<FolderKanban size={15} />, t('dashboard.widgets.activeProjects', { defaultValue: '進行中專案' }), projectsTotal, 'var(--color-amber, #d97706)', () => navigate('/projects'))
+    if (wid === 'c1') return kpiCard(<SvcIcon name="users" size={15} />, t('dashboard.widgets.newContacts', { defaultValue: '新增聯絡人' }), stats.contacts, 'var(--color-primary)', () => navigate('/contacts'))
+    if (wid === 'co1') return kpiCard(<SvcIcon name="building-2" size={15} />, t('dashboard.widgets.totalCompanies', { defaultValue: '公司總數' }), stats.companies, 'var(--color-purple, #7c3aed)', () => navigate('/companies'))
+    if (wid === 'p1') return kpiCard(<SvcIcon name="folder-kanban" size={15} />, t('dashboard.widgets.activeProjects', { defaultValue: '進行中專案' }), projectsTotal, 'var(--color-amber, #d97706)', () => navigate('/projects'))
 
     // ── Legacy list / bar widgets ──
     if (wid === 'touchpoints') {
       return listWidget(t('dashboard.widgets.recentActivity', { defaultValue: '近期互動' }), () => navigate('/touchpoints'), t('dashboard.noActivity', { defaultValue: '暫無活動記錄' }),
         activity.slice(0, 5).map((tp) => (
           <button key={tp.id} className="dv2-list-row dv2-list-row-btn" onClick={() => openTaskRow(tp)}>
-            {tp.channel === 'call' ? <Phone size={13} className="dv2-list-row-icon" /> : tp.channel === 'email' ? <Mail size={13} className="dv2-list-row-icon" /> : <MessageSquare size={13} className="dv2-list-row-icon" />}
+            {tp.channel === 'call' ? <SvcIcon name="phone" size={13} className="dv2-list-row-icon" /> : tp.channel === 'email' ? <SvcIcon name="mail" size={13} className="dv2-list-row-icon" /> : <MessageSquare size={13} className="dv2-list-row-icon" />}
             <span className="dv2-list-row-title">{tp.title}</span>
             <span className="dv2-list-row-tag">{tp.type}</span>
           </button>
-        )), <Activity size={15} />)
+        )), <SvcIcon name="activity" size={15} />)
     }
     if (wid === 'c3') {
       const pct = allCompanies.length ? allCompanies[0]?.data_completeness_pct : undefined
       const val = typeof pct === 'number' ? pct : '—'
       return listWidget(t('dashboard.widgets.dataCompleteness', { defaultValue: '資料完整度' }), () => navigate('/companies'), '—',
-        <div className="dv2-bar-stack">{barRow(t('dashboard.widgets.dataCompleteness', { defaultValue: '資料完整度' }), typeof val === 'number' ? val : 0, 100, 'var(--color-blue, #2563eb)', `${val}%`)}</div>, <Tags size={15} />)
+        <div className="dv2-bar-stack">{barRow(t('dashboard.widgets.dataCompleteness', { defaultValue: '資料完整度' }), typeof val === 'number' ? val : 0, 100, 'var(--color-blue, #2563eb)', `${val}%`)}</div>, <SvcIcon name="tags" size={15} />)
     }
     if (wid === 'c5') {
       const colors = ['var(--color-blue, #2563eb)', 'var(--color-purple, #7c3aed)', 'var(--color-success, #16a34a)', 'var(--color-amber, #d97706)']
@@ -1089,7 +1084,7 @@ export default function DashboardV2() {
       return listWidget(t('dashboard.widgets.sourceDistribution', { defaultValue: '來源分佈' }), () => navigate('/contacts'), t('dashboard.noContactsData', { defaultValue: '暫無聯絡人數據' }),
         top.length === 0 ? null : (
           <div className="dv2-bar-stack">{top.map(([k, n], i) => barRow(k, n, total, colors[i % colors.length]))}</div>
-        ), <Tags size={15} />)
+        ), <SvcIcon name="tags" size={15} />)
     }
     if (wid === 'co2') {
       const g = (k?: string) => k || '未分類'
@@ -1100,7 +1095,7 @@ export default function DashboardV2() {
       return listWidget(t('dashboard.widgets.clientTier', { defaultValue: '公司分級' }), () => navigate('/companies'), t('dashboard.noCompanies', { defaultValue: '暫無公司' }),
         top.length === 0 ? null : (
           <div className="dv2-bar-stack">{top.map(([k, n]) => barRow(k, n, total, 'var(--color-purple, #7c3aed)'))}</div>
-        ), <Building2 size={15} />)
+        ), <SvcIcon name="building-2" size={15} />)
     }
     if (wid === 'co4') {
       const items = allCompanies
@@ -1111,7 +1106,7 @@ export default function DashboardV2() {
       return listWidget(t('dashboard.widgets.healthScore', { defaultValue: '健康分數' }), () => navigate('/companies'), '—',
         items.length === 0 ? null : items.map((c) => (
           <div key={c.name} className="dv2-list-row"><span className="dv2-list-row-title">{c.name}</span><span className="dv2-list-row-meta">{c.pct}分</span></div>
-        )), <Building2 size={15} />)
+        )), <SvcIcon name="building-2" size={15} />)
     }
     if (wid === 'co5') {
       const g = (k?: string) => k || '未分類'
@@ -1122,7 +1117,7 @@ export default function DashboardV2() {
       return listWidget(t('dashboard.widgets.industryDistribution', { defaultValue: '行業分佈' }), () => navigate('/companies'), t('dashboard.noCompanies', { defaultValue: '暫無公司' }),
         top.length === 0 ? null : (
           <div className="dv2-bar-stack">{top.map(([k, n], i) => barRow(k, n, total, i === 0 ? 'var(--color-purple, #7c3aed)' : 'var(--color-blue, #2563eb)'))}</div>
-        ), <Tags size={15} />)
+        ), <SvcIcon name="tags" size={15} />)
     }
     if (wid === 'p2' || wid === 'p3' || wid === 'p4') {
       const label = wid === 'p2' ? t('dashboard.widgets.milestoneTracking', { defaultValue: '里程碑追蹤' })
@@ -1132,18 +1127,18 @@ export default function DashboardV2() {
       return listWidget(label, () => navigate('/projects'), t('dashboard.noProjects', { defaultValue: '暫無專案' }),
         items.length === 0 ? null : items.map((p) => (
           <button key={p.id} className="dv2-list-row dv2-list-row-btn" onClick={() => navigate('/projects')}>
-            <FolderKanban size={13} className="dv2-list-row-icon" />
+            <SvcIcon name="folder-kanban" size={13} className="dv2-list-row-icon" />
             <span className="dv2-list-row-title">{p.name}</span>
             <span className="dv2-list-row-tag">{p.status || p.priority || ''}</span>
           </button>
-        )), <FolderKanban size={15} />)
+        )), <SvcIcon name="folder-kanban" size={15} />)
     }
     if (wid === 't2') {
       return listWidget(t('dashboard.widgets.overdueTasks', { defaultValue: '逾期待辦' }), () => navigate('/tasks'), t('dashboard.noOverdue', { defaultValue: '暫無逾期待辦' }),
         overdueTasks.length === 0 ? null : overdueTasks.slice(0, 5).map((td) => {
           const days = Math.max(1, Math.ceil((Date.now() - new Date(td.due_date).getTime()) / 86400000))
           return <div key={td.id} className="dv2-list-row"><span className="dv2-list-row-title">{td.title}</span><span className="dv2-list-row-meta">{days}日逾期</span></div>
-        }), <Clock size={15} />)
+        }), <SvcIcon name="clock" size={15} />)
     }
     if (wid === 't3') {
       const sorted = [...todos]
@@ -1153,7 +1148,7 @@ export default function DashboardV2() {
       return listWidget(t('dashboard.widgets.priorityList', { defaultValue: '優先級列表' }), () => navigate('/tasks'), t('dashboard.noTasksYet', { defaultValue: '暫無任務' }),
         sorted.length === 0 ? null : sorted.map((td) => (
           <div key={td.id} className="dv2-list-row"><span className="dv2-list-row-title">{td.title}</span><span className="dv2-list-row-tag">{td.priority || ''}</span></div>
-        )), <CheckSquare size={15} />)
+        )), <SvcIcon name="check-square" size={15} />)
     }
     if (wid === 't4') {
       const pct = taskTotal > 0 ? Math.round((doneTaskTotal / taskTotal) * 100) : 0
@@ -1177,13 +1172,13 @@ export default function DashboardV2() {
       return listWidget(t('dashboard.widgets.meetingDensity', { defaultValue: '會議密度' }), () => navigate('/calendar'), t('dashboard.noEvents', { defaultValue: '暫無活動' }),
         rows.length === 0 ? null : (
           <div className="dv2-bar-stack">{rows.map(([k, n]) => barRow(k, n, maxN, 'var(--color-primary)', `${n} 場`))}</div>
-        ), <Calendar size={15} />)
+        ), <SvcIcon name="calendar" size={15} />)
     }
     if (wid === 'cal3') {
       return listWidget(t('dashboard.widgets.visitSchedule', { defaultValue: '拜訪行程' }), () => navigate('/calendar'), t('dashboard.noEvents', { defaultValue: '暫無活動' }),
         events.slice(0, 3).map((ev) => (
-          <div key={ev.id} className="dv2-list-row"><Calendar size={13} className="dv2-list-row-icon" /><span className="dv2-list-row-title">{ev.time || ''} {ev.title}</span><span className="dv2-list-row-tag">{ev.event_type || ev.type || ''}</span></div>
-        )), <Calendar size={15} />)
+          <div key={ev.id} className="dv2-list-row"><SvcIcon name="calendar" size={13} className="dv2-list-row-icon" /><span className="dv2-list-row-title">{ev.time || ''} {ev.title}</span><span className="dv2-list-row-tag">{ev.event_type || ev.type || ''}</span></div>
+        )), <SvcIcon name="calendar" size={15} />)
     }
     if (wid === 's5') {
       // 唯一例外：系統冇成本數據源，允許 hardcode（用戶明示）
@@ -1211,10 +1206,10 @@ export default function DashboardV2() {
             className={`dv2-btn ${customizeMode ? 'dv2-btn-active' : 'dv2-btn-secondary'}`}
             onClick={() => { setCustomizeMode(v => !v); showToast(customizeMode ? '已退出自訂模式' : '自訂版面模式已開啟，拖曳可調整排序') }}
           >
-            <LayoutGrid size={14} /> {customizeMode ? t('dashboard.doneCustomizing', { defaultValue: '完成自訂' }) : t('dashboard.customize', { defaultValue: '自訂版面' })}
+            <SvcIcon name="layout-grid" size={14} /> {customizeMode ? t('dashboard.doneCustomizing', { defaultValue: '完成自訂' }) : t('dashboard.customize', { defaultValue: '自訂版面' })}
           </button>
           <button className="dv2-btn dv2-btn-primary" onClick={() => { setWidgetSearch(''); setAddWidgetOpen(true) }}>
-            <Plus size={14} /> {t('dashboard.addWidget', { defaultValue: '新增小工具' })}
+            <SvcIcon name="plus" size={14} /> {t('dashboard.addWidget', { defaultValue: '新增小工具' })}
           </button>
         </div>
       </div>
@@ -1241,7 +1236,7 @@ export default function DashboardV2() {
           <div className="dv2-modal">
             <div className="dv2-modal-head">
               <h3>{t('dashboard.manageWidgets', { defaultValue: '管理小工具' })}</h3>
-              <button className="dv2-modal-x" onClick={() => setAddWidgetOpen(false)}><X size={16} /></button>
+              <button className="dv2-modal-x" onClick={() => setAddWidgetOpen(false)}><SvcIcon name="x" size={16} /></button>
             </div>
             <div className="dv2-modal-body">
               <input
@@ -1281,12 +1276,12 @@ export default function DashboardV2() {
           <div className="dv2-drawer">
             <div className="dv2-modal-head">
               <h3>{activityDrawer.title}</h3>
-              <button className="dv2-modal-x" onClick={() => setActivityDrawer(null)}><X size={16} /></button>
+              <button className="dv2-modal-x" onClick={() => setActivityDrawer(null)}><SvcIcon name="x" size={16} /></button>
             </div>
             <div className="dv2-modal-body">
-              <div className="dv2-drawer-row"><Clock size={14} /><span>{activityDrawer.created_at || '—'}</span></div>
-              <div className="dv2-drawer-row"><Building2 size={14} /><span>{activityDrawer.company?.name || '—'}</span></div>
-              <div className="dv2-drawer-row"><Activity size={14} /><span className="dv2-table-type-tag">{activityDrawer.type}</span></div>
+              <div className="dv2-drawer-row"><SvcIcon name="clock" size={14} /><span>{activityDrawer.created_at || '—'}</span></div>
+              <div className="dv2-drawer-row"><SvcIcon name="building-2" size={14} /><span>{activityDrawer.company?.name || '—'}</span></div>
+              <div className="dv2-drawer-row"><SvcIcon name="activity" size={14} /><span className="dv2-table-type-tag">{activityDrawer.type}</span></div>
               <p className="dv2-drawer-desc">{activityDrawer.description || '暫無詳細備註。'}</p>
             </div>
             <div className="dv2-modal-foot">
@@ -1308,11 +1303,11 @@ function SectionIcon({ kind }: { kind: string }) {
   const s = 13
   switch (kind) {
     case 'weather': return <CloudSun size={s} style={{ color: 'var(--color-amber, #d97706)' }} />
-    case 'calendar': return <Calendar size={s} style={{ color: 'var(--color-primary)' }} />
-    case 'tasks': return <CheckSquare size={s} style={{ color: 'var(--color-amber, #d97706)' }} />
-    case 'risk': return <AlertTriangle size={s} style={{ color: 'var(--color-danger, #dc2626)' }} />
-    case 'opp': return <TrendingUp size={s} style={{ color: 'var(--color-green, #16a34a)' }} />
-    case 'crm': return <Building2 size={s} style={{ color: 'var(--color-purple, #7c3aed)' }} />
-    default: return <Sparkles size={s} style={{ color: 'var(--ai-glow-1)' }} />
+    case 'calendar': return <SvcIcon name="calendar" size={s} style={{ color: 'var(--color-primary)' }} />
+    case 'tasks': return <SvcIcon name="check-square" size={s} style={{ color: 'var(--color-amber, #d97706)' }} />
+    case 'risk': return <SvcIcon name="alert-triangle" size={s} style={{ color: 'var(--color-danger, #dc2626)' }} />
+    case 'opp': return <SvcIcon name="trending-up" size={s} style={{ color: 'var(--color-green, #16a34a)' }} />
+    case 'crm': return <SvcIcon name="building-2" size={s} style={{ color: 'var(--color-purple, #7c3aed)' }} />
+    default: return <SvcIcon name="sparkles" size={s} style={{ color: 'var(--ai-glow-1)' }} />
   }
 }

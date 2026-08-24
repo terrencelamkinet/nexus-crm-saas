@@ -2,10 +2,8 @@ import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { useEscapeKey } from '../lib/useEscapeKey';
-import {
-  Search, Users, Building2, TrendingUp, CheckSquare,
-  FolderKanban, Activity, FileText, X,
-} from 'lucide-react';
+import SvcIcon from '../components/SvcIcon';
+import { Activity, Building2, CheckSquare, FileText, FolderKanban, TrendingUp, Users } from 'lucide-react'
 import { apiClient } from '../lib/api';
 
 interface SearchResult {
@@ -126,7 +124,7 @@ export default function MobileSearchSheet({ open, onClose }: Props) {
         <div className="ms-results">
           {!query.trim() && (
             <div className="ms-hint">
-              <Search size={22} />
+              <SvcIcon name="search" size={22} />
               <p>{t('header.searchPlaceholder')}</p>
             </div>
           )}
@@ -155,7 +153,7 @@ export default function MobileSearchSheet({ open, onClose }: Props) {
 
         {/* Search bar — pinned at the very bottom */}
         <div className="ms-searchbar">
-          <Search size={17} />
+          <SvcIcon name="search" size={17} />
           <input
             ref={inputRef}
             type="text"
@@ -166,7 +164,7 @@ export default function MobileSearchSheet({ open, onClose }: Props) {
           />
           {query && (
             <button className="ms-clear" onClick={() => { setQuery(''); inputRef.current?.focus(); }} aria-label="Clear">
-              <X size={15} />
+              <SvcIcon name="x" size={15} />
             </button>
           )}
         </div>

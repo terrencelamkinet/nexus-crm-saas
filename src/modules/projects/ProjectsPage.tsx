@@ -1,6 +1,6 @@
 import { lazy, useState, Suspense } from 'react'
 import { useTranslation } from 'react-i18next'
-import { CalendarDays, Table2 } from 'lucide-react'
+import SvcIcon from '../../components/SvcIcon'
 import GenericListPage from '../GenericListPage'
 import projectConfig from './config'
 
@@ -20,14 +20,14 @@ export default function ProjectsPage() {
             onClick={() => setShowCalendar(false)}
             className={!showCalendar ? 'active' : ''}
           >
-            <Table2 className="w-3.5 h-3.5" />
+            <SvcIcon name="table-2" className="w-3.5 h-3.5" />
             {t('pages.projects.table')}
           </button>
           <button
             onClick={() => setShowCalendar(true)}
             className={showCalendar ? 'active' : ''}
           >
-            <CalendarDays className="w-3.5 h-3.5" />
+            <SvcIcon name="calendar-days" className="w-3.5 h-3.5" />
             {t('pages.projects.calendar')}
           </button>
         </div>

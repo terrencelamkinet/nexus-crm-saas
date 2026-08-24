@@ -1,7 +1,7 @@
 import { useState, useCallback, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useDropzone } from 'react-dropzone'
-import { UploadCloud, X, Check, AlertTriangle, RotateCw, Tag as TagIcon, ArrowRight } from 'lucide-react'
+import SvcIcon from '../components/SvcIcon'
 import { apiClient } from '../lib/api'
 
 /* ═══════════════════════════════════════════════════════════
@@ -139,7 +139,7 @@ export default function BulkUploadPage() {
       <div {...getRootProps()} className={`nc-bulk-dropzone ${isDragActive ? 'drag-active' : ''}`}>
         <input {...getInputProps()} />
         <div className="nc-dropzone-icon" style={{ width: 56, height: 56, margin: '0 auto 14px' }}>
-          <UploadCloud size={26} />
+          <SvcIcon name="upload-cloud" size={26} />
         </div>
         <div className="nc-dropzone-title" style={{ fontSize: 15 }}>
           {t('nameCard.bulkDropHint', { defaultValue: '拖放多張名片圖片到此處，或點擊選擇' })}
@@ -149,7 +149,7 @@ export default function BulkUploadPage() {
 
       {/* ═══ Batch tag pre-assignment ═══ */}
       <div className="nc-batch-tag-row">
-        <span className="nc-batch-tag-label"><TagIcon size={13} /> {t('nameCard.applyTagsToAll', { defaultValue: '批量套用 Tag' })}</span>
+        <span className="nc-batch-tag-label"><SvcIcon name="tags" size={13} /> {t('nameCard.applyTagsToAll', { defaultValue: '批量套用 Tag' })}</span>
         <div className="nc-detail-tags-edit" style={{ margin: 0 }}>
           {batchTags.map(tg => (
             <span className="nc-tag-editable" key={tg}>
@@ -173,7 +173,7 @@ export default function BulkUploadPage() {
               <div className="nc-queue-info">
                 <div className="nc-queue-name">
                   {item.parsed?.name || item.file.name}
-                  {item.status === 'duplicate' && <span className="nc-queue-dup-tag"><AlertTriangle size={10} /> {t('nameCard.possibleDup', { defaultValue: '疑似重複' })}</span>}
+                  {item.status === 'duplicate' && <span className="nc-queue-dup-tag"><SvcIcon name="alert-triangle" size={10} /> {t('nameCard.possibleDup', { defaultValue: '疑似重複' })}</span>}
                 </div>
                 <div className="nc-queue-meta">
                   {item.status === 'error'
@@ -187,15 +187,15 @@ export default function BulkUploadPage() {
                 )}
               </div>
               <div className="nc-queue-status-icon">
-                {item.status === 'done' && <Check size={16} color="var(--color-success)" />}
-                {item.status === 'duplicate' && <AlertTriangle size={16} color="#f59e0b" />}
+                {item.status === 'done' && <SvcIcon name="check" size={16} color="var(--color-success)" />}
+                {item.status === 'duplicate' && <SvcIcon name="alert-triangle" size={16} color="#f59e0b" />}
                 {item.status === 'error' && (
-                  <div className="nc-card-quick-btn" onClick={() => retryItem(item.id)} title="Retry"><RotateCw size={13} /></div>
+                  <div className="nc-card-quick-btn" onClick={() => retryItem(item.id)} title="Retry"><SvcIcon name="rotate-cw" size={13} /></div>
                 )}
                 {(item.status === 'queued') && <div className="nc-queue-spinner-idle" />}
                 {(item.status === 'uploading' || item.status === 'processing') && <div className="nc-queue-spinner" />}
               </div>
-              <div className="nc-card-quick-btn" onClick={() => removeItem(item.id)}><X size={13} /></div>
+              <div className="nc-card-quick-btn" onClick={() => removeItem(item.id)}><SvcIcon name="x" size={13} /></div>
             </div>
           ))}
         </div>
@@ -206,18 +206,18 @@ export default function BulkUploadPage() {
         {queue.length > 0 && stats.done > 0 && (
           <button className="nx-btn nx-btn-secondary" onClick={clearDone}
             title={t('nameCard.clearDone', { defaultValue: '清除已完成' })}>
-            <Check size={14} /> <span className="nc-btn-label">{t('nameCard.clearDone', { defaultValue: '清除已完成' })}</span>
+            <SvcIcon name="check" size={14} /> <span className="nc-btn-label">{t('nameCard.clearDone', { defaultValue: '清除已完成' })}</span>
           </button>
         )}
         {isProcessing ? (
           <button className="nx-btn nc-btn-danger-ghost" onClick={cancelAll}
             title={t('common.cancel', { defaultValue: '取消上載' })}>
-            <X size={14} /> <span className="nc-btn-label">{t('common.cancel', { defaultValue: '取消上載' })}</span>
+            <SvcIcon name="x" size={14} /> <span className="nc-btn-label">{t('common.cancel', { defaultValue: '取消上載' })}</span>
           </button>
         ) : (
           <button className="nx-btn nx-btn-primary" disabled={stats.pending === 0} onClick={startUpload}
             title={t('nameCard.startUpload', { defaultValue: '開始上載' })}>
-            <ArrowRight size={14} /> <span className="nc-btn-label">{t('nameCard.startUpload', { defaultValue: '開始上載' })}</span>
+            <SvcIcon name="arrow-right" size={14} /> <span className="nc-btn-label">{t('nameCard.startUpload', { defaultValue: '開始上載' })}</span>
             <span className="nc-btn-label"> ({stats.pending})</span>
           </button>
         )}

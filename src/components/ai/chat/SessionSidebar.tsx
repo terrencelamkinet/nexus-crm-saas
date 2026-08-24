@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Plus, Search, Pin, MoreHorizontal, Pencil, Trash2, Download, Clock } from 'lucide-react'
+import SvcIcon from '../../../components/SvcIcon'
 
 export interface SessionItem {
   session_id: string
@@ -82,7 +82,7 @@ export default function SessionSidebar({ sessions, currentSessionId, onSwitch, o
           transition: 'color var(--transition-interactive)',
         }}
       >
-        <Clock size={15} />
+        <SvcIcon name="clock" size={15} />
       </button>
 
       {/* Sidebar overlay */}
@@ -115,7 +115,7 @@ export default function SessionSidebar({ sessions, currentSessionId, onSwitch, o
                   color: '#fff', cursor: 'pointer',
                 }}
               >
-                <Plus size={13} />
+                <SvcIcon name="plus" size={13} />
               </button>
             </div>
 
@@ -126,7 +126,7 @@ export default function SessionSidebar({ sessions, currentSessionId, onSwitch, o
                 background: 'var(--color-surface-offset)', borderRadius: 6,
                 padding: '4px 8px',
               }}>
-                <Search size={13} style={{ color: 'var(--color-text-faint)', flexShrink: 0 }} />
+                <SvcIcon name="search" size={13} style={{ color: 'var(--color-text-faint)', flexShrink: 0 }} />
                 <input value={search}
                   onChange={e => setSearch(e.target.value)}
                   placeholder={t('chat.searchSessions')}
@@ -217,7 +217,7 @@ export default function SessionSidebar({ sessions, currentSessionId, onSwitch, o
                               {sessionName(s)}
                             </span>
                             {s.is_pinned && (
-                              <Pin size={10} style={{ color: 'var(--color-primary)', flexShrink: 0 }} />
+                              <SvcIcon name="pin" size={10} style={{ color: 'var(--color-primary)', flexShrink: 0 }} />
                             )}
                             <button onClick={e => {
                               e.stopPropagation()
@@ -234,7 +234,7 @@ export default function SessionSidebar({ sessions, currentSessionId, onSwitch, o
                               }}
                               className="sidebar-more-btn"
                             >
-                              <MoreHorizontal size={11} />
+                              <SvcIcon name="more-horizontal" size={11} />
                             </button>
                           </div>
                         )}
@@ -269,23 +269,23 @@ export default function SessionSidebar({ sessions, currentSessionId, onSwitch, o
                   setRenameText(contextMenu.session.title)
                   setContextMenu(null)
                 }}>
-                  <Pencil size={12} /> {t('chat.rename')}
+                  <SvcIcon name="pencil" size={12} /> {t('chat.rename')}
                 </CtxBtn>
                 <CtxBtn onClick={() => {
                   onPin(contextMenu.session.session_id, !contextMenu.session.is_pinned)
                   setContextMenu(null)
                 }}>
-                  <Pin size={12} /> {contextMenu.session.is_pinned ? t('chat.unpin') : t('chat.pin')}
+                  <SvcIcon name="pin" size={12} /> {contextMenu.session.is_pinned ? t('chat.unpin') : t('chat.pin')}
                 </CtxBtn>
                 <CtxBtn onClick={() => {
                   onExport(contextMenu.session.session_id)
                   setContextMenu(null)
                 }}>
-                  <Download size={12} /> {t('chat.export')}
+                  <SvcIcon name="download" size={12} /> {t('chat.export')}
                 </CtxBtn>
                 <div style={{ borderTop: '1px solid var(--color-divider)', margin: '4px 0' }} />
                 <CtxBtn danger onClick={() => deleteWithConfirm(contextMenu.session.session_id)}>
-                  <Trash2 size={12} /> {t('chat.delete')}
+                  <SvcIcon name="trash-2" size={12} /> {t('chat.delete')}
                 </CtxBtn>
               </div>
             </>

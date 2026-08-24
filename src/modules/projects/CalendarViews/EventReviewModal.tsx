@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { X, Pencil, Trash2, MapPin, Clock, CalendarDays } from 'lucide-react';
+import SvcIcon from '../../../components/SvcIcon';
 import type { CalendarEventFormatted } from './types';
 import { TYPE_COLORS, SOURCE_LABELS } from './types';
 import { apiClient } from '../../../lib/api';
@@ -119,7 +119,7 @@ export default function EventReviewModal({ event, initialDate, onClose, onSaved 
         <div className="er-header">
           <h3>{editing ? (isCreate ? 'New Event' : 'Edit Event') : 'Event Review'}</h3>
           <button className="er-close" onClick={onClose} aria-label="Close">
-            <X className="w-4 h-4" />
+            <SvcIcon name="x" className="w-4 h-4" />
           </button>
         </div>
 
@@ -223,7 +223,7 @@ export default function EventReviewModal({ event, initialDate, onClose, onSaved 
 
             <div className="er-meta">
               <div className="er-meta-item">
-                <CalendarDays className="w-4 h-4" />
+                <SvcIcon name="calendar-days" className="w-4 h-4" />
                 <span>
                   {formatDateLong(event!.start)}
                   {!event!.allDay && (
@@ -234,13 +234,13 @@ export default function EventReviewModal({ event, initialDate, onClose, onSaved 
               </div>
               {event!.location && (
                 <div className="er-meta-item">
-                  <MapPin className="w-4 h-4" />
+                  <SvcIcon name="map-pin" className="w-4 h-4" />
                   <span>{event!.location}</span>
                 </div>
               )}
               {event!.projectName && (
                 <div className="er-meta-item">
-                  <Clock className="w-4 h-4" />
+                  <SvcIcon name="clock" className="w-4 h-4" />
                   <span>{event!.projectName}</span>
                 </div>
               )}
@@ -276,11 +276,11 @@ export default function EventReviewModal({ event, initialDate, onClose, onSaved 
                 {isEditable && (
                   <>
                     <button className="er-btn ghost danger-ghost" onClick={() => setConfirmDelete(true)} disabled={saving}>
-                      <Trash2 className="w-3.5 h-3.5" />
+                      <SvcIcon name="trash-2" className="w-3.5 h-3.5" />
                       Delete
                     </button>
                     <button className="er-btn primary" onClick={() => setEditing(true)}>
-                      <Pencil className="w-3.5 h-3.5" />
+                      <SvcIcon name="pencil" className="w-3.5 h-3.5" />
                       Edit Event
                     </button>
                   </>

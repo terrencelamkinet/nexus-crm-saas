@@ -1,10 +1,7 @@
 import { NavLink } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import {
-  LayoutDashboard, Users, Calendar, Building2, CheckSquare,
-  Activity, ScanLine, BarChart3, UsersRound, Sparkles, Bell,
-  Store, Settings, ChevronLeft, FolderKanban,
-} from 'lucide-react'
+import { UsersRound, Store, Activity, BarChart3, Bell, Building2, Calendar, CheckSquare, FolderKanban, LayoutDashboard, ScanLine, Settings, Sparkles, Users } from 'lucide-react'
+import SvcIcon from '../../components/SvcIcon'
 
 /* ═══════════════════════════════════════════════════════════
    SidebarV2 — Collapsible navigation rail.
@@ -47,7 +44,7 @@ export default function SidebarV2({ collapsed, onToggleCollapse }: { collapsed: 
       <button className="sbv2-logo-btn" onClick={onToggleCollapse} title={collapsed ? t('sidebar.expand', { defaultValue: '展開側邊欄' }) : t('sidebar.collapse', { defaultValue: '收合側邊欄' })}>
         <svg viewBox="0 0 32 32" className="sbv2-logo-icon" fill="none"><path d="M4 26L16 4L28 26H21L16 16L11 26H4Z" fill="currentColor" /></svg>
         {!collapsed && <span className="sbv2-logo-text">NEXUS CRM</span>}
-        {!collapsed && <ChevronLeft size={15} className="sbv2-collapse-caret" />}
+        {!collapsed && <SvcIcon name="chevron-left" size={15} className="sbv2-collapse-caret" />}
       </button>
 
       <nav className="sbv2-nav">

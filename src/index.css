@@ -2824,3 +2824,6 @@ textarea.input-field{resize:vertical;min-height:60px}
   .gcal-list{max-width:100%}
   .gcal-picker-header{max-width:100%}
 }
+
+/* SVC icons — 統一 blue（跟 theme token，dark mode 自動變淺色） */
+.svc-icon { color: var(--color-blue); }

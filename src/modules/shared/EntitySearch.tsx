@@ -8,7 +8,7 @@
 // ═══════════════════════════════════════════
 
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { Search, X, Plus, Loader2 } from 'lucide-react'
+import SvcIcon from '../../components/SvcIcon'
 import { useTranslation } from 'react-i18next'
 import { apiClient } from '../../lib/api'
 import { useEscapeKey } from '../../lib/useEscapeKey'
@@ -289,7 +289,7 @@ export default function EntitySearch({
                 padding: 0, flexShrink: 0, borderRadius: 4,
                 color: 'var(--color-primary, #6366f1)', opacity: 0.7,
               }}>
-              <X className="w-3 h-3" />
+              <SvcIcon name="x" className="w-3 h-3" />
             </button>
           </span>
 
@@ -320,7 +320,7 @@ export default function EntitySearch({
                 cursor: 'pointer', flexShrink: 0,
                 fontSize: 14, lineHeight: 1, padding: 0,
               }}>
-              <Plus className="w-3 h-3" />
+              <SvcIcon name="plus" className="w-3 h-3" />
             </button>
           )}
         </div>
@@ -345,7 +345,7 @@ export default function EntitySearch({
           background: 'var(--color-surface)',
           transition: 'border-color 0.15s',
         }}>
-        <Search className="w-3.5 h-3.5" style={{ color: 'var(--color-text-faint)', flexShrink: 0 }} />
+        <SvcIcon name="search" className="w-3.5 h-3.5" style={{ color: 'var(--color-text-faint)', flexShrink: 0 }} />
         <input
           ref={inputRef}
           type="text"
@@ -358,9 +358,9 @@ export default function EntitySearch({
           style={{ border: 'none', boxShadow: 'none', padding: '8px 6px', flex: 1, background: 'transparent' }}
         />
         {loading ? (
-          <Loader2 className="w-3.5 h-3.5 animate-spin" style={{ color: 'var(--color-text-faint)', flexShrink: 0 }} />
+          <SvcIcon name="loader-2" className="w-3.5 h-3.5 animate-spin" style={{ color: 'var(--color-text-faint)', flexShrink: 0 }} />
         ) : query ? (
-          <X className="w-3.5 h-3.5" style={{ color: 'var(--color-text-faint)', cursor: 'pointer', flexShrink: 0 }}
+          <SvcIcon name="x" className="w-3.5 h-3.5" style={{ color: 'var(--color-text-faint)', cursor: 'pointer', flexShrink: 0 }}
             onClick={handleClear} />
         ) : null}
         {createLabel && (
@@ -372,7 +372,7 @@ export default function EntitySearch({
               cursor: 'pointer', flexShrink: 0,
               fontSize: 14, lineHeight: 1, padding: 0,
             }}>
-            <Plus className="w-3.5 h-3.5" />
+            <SvcIcon name="plus" className="w-3.5 h-3.5" />
           </button>
         )}
       </div>
@@ -391,7 +391,7 @@ export default function EntitySearch({
           <div className="modal-head">
             <h2>{t('common.create')} {createLabel}</h2>
             <button onClick={() => setShowCreate(false)} className="modal-x">
-              <X className="icon-16" />
+              <SvcIcon name="x" className="icon-16" />
             </button>
           </div>
           <div className="modal-body p-20">

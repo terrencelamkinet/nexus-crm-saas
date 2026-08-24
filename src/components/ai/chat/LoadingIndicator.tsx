@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Sparkles } from 'lucide-react'
+import SvcIcon from '../../../components/SvcIcon'
 
 interface Props {
   isStreaming: boolean
@@ -31,7 +31,7 @@ export default function LoadingIndicator({ isStreaming }: Props) {
         color: '#fff', display: 'grid', placeItems: 'center',
         fontSize: 12, flexShrink: 0, marginTop: 2,
       }}>
-        <Sparkles size={12} />
+        <SvcIcon name="sparkles" size={12} />
       </div>
       <div>
         {isStreaming ? (

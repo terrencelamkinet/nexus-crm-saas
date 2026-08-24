@@ -1,4 +1,5 @@
-import { Phone, Users, Mail, ScanLine, ChevronRight } from 'lucide-react';
+import SvcIcon from '../components/SvcIcon';
+import { Mail, Phone, ScanLine, Users } from 'lucide-react'
 import { useNavigate } from 'react-router-dom';
 import { useApi, ErrorBox } from '../lib/useApi';
 import { useSearch } from '../lib/useApi';
@@ -54,7 +55,7 @@ export default function TouchpointsPage() {
       {/* Breadcrumb */}
       <div className="breadcrumb">
         <span className="breadcrumb-link" onClick={() => navigate('/dashboard')}>Home</span>
-        <ChevronRight />
+        <SvcIcon name="chevron-right" />
         <span className="breadcrumb-current">Touchpoints</span>
       </div>
       <div className="mb-6">

@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
-import { Sparkles, X, Plus, Clock } from 'lucide-react'
+import SvcIcon from '../../../components/SvcIcon'
 import { useTranslation } from 'react-i18next'
 import { apiClient, getStoredAuth } from '../../../lib/api'
 import MarkdownMessage from '../../MarkdownRenderer'
@@ -114,7 +114,7 @@ export function ChatboxToggleButton({ onClick, open }: { onClick: () => void; op
       <span className="cb-fab-icon" style={{
         transform: open ? 'rotate(90deg) scale(0.85)' : 'rotate(0deg) scale(1)',
       }}>
-        {open ? <X size={20} /> : <Sparkles size={22} />}
+        {open ? <SvcIcon name="x" size={20} /> : <SvcIcon name="sparkles" size={22} />}
       </span>
     </button>
   )
@@ -170,7 +170,7 @@ function AiMessageBubble({ msg, prevMsg, hovered, onHover, onCopy, onRetry, onFe
         {/* Avatar */}
         {!prevSameRole && (
           <div className="cb-avatar-ai">
-            <Sparkles size={13} />
+            <SvcIcon name="sparkles" size={13} />
           </div>
         )}
         <div className={`cb-msg-ai-body ai-card${isStreaming ? ' is-thinking' : ''}`}>
@@ -852,7 +852,7 @@ export default function ChatboxPanel() {
               <div className="cb-header-handle" />
             )}
             <div className="cb-header-logo">
-              <Sparkles size={14} />
+              <SvcIcon name="sparkles" size={14} />
             </div>
             <div className="cb-header-titles">
               <div className="cb-header-title">
@@ -884,7 +884,7 @@ export default function ChatboxPanel() {
               onMouseEnter={e => { e.currentTarget.style.background = 'var(--color-surface-offset)' }}
               onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}
             >
-              <Plus size={15} />
+              <SvcIcon name="plus" size={15} />
             </button>
 
             {/* Session history toggle — Clock button on mobile, sidebar toggle on desktop */}
@@ -892,7 +892,7 @@ export default function ChatboxPanel() {
               <button onClick={() => setShowSidebar(v => !v)} aria-label={t('chat.sessionList')} title={t('chat.sessionList')}
                 className="cb-header-btn"
                 style={{ color: showSidebar ? 'var(--color-primary)' : 'var(--color-text-muted)' }}>
-                <Clock size={15} />
+                <SvcIcon name="clock" size={15} />
               </button>
             ) : (
               <SessionSidebar
@@ -914,7 +914,7 @@ export default function ChatboxPanel() {
               onMouseEnter={e => { e.currentTarget.style.background = 'var(--color-surface-offset)' }}
               onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}
             >
-              <X size={16} />
+              <SvcIcon name="x" size={16} />
             </button>
           </div>
         )}
@@ -927,7 +927,7 @@ export default function ChatboxPanel() {
               <span className="nxc-secretary-note">目前非工作時間，AI 仍會即時回覆，但同事可能稍後跟進。</span>
             )}
             <button className="nxc-banner-close" onClick={() => setShowBanner(false)} aria-label={t('common.close')}>
-              <X size={12} />
+              <SvcIcon name="x" size={12} />
             </button>
           </div>
         )}
@@ -1019,7 +1019,7 @@ export default function ChatboxPanel() {
                 {streamingContent && (
                   <div className="cb-streaming-row">
                     <div className="cb-avatar-ai">
-                      <Sparkles size={13} />
+                      <SvcIcon name="sparkles" size={13} />
                     </div>
                     <div className="msg-ai-content cb-msg-ai-body">
                       <MarkdownMessage content={streamingContent} streaming />

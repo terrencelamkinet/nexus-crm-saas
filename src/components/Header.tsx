@@ -1,4 +1,5 @@
-import { Bell, ChevronDown, LogOut, Search, Moon, Sun, Users, Building2, CheckSquare, FolderKanban, Activity, FileText, X } from 'lucide-react';
+import SvcIcon from '../components/SvcIcon';
+import { Activity, Building2, CheckSquare, FileText, FolderKanban, Users } from 'lucide-react'
 import { useAuth } from '../lib/AuthContext';
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -206,10 +207,10 @@ export default function Header() {
       {/* Mobile search icon — opens bottom sheet (design04 pattern) */}
       <button className="topbar-search-icon icon-btn" onClick={() => setSearchOpen(true)}
         aria-label={t('header.searchPlaceholder')}>
-        <Search size={19} />
+        <SvcIcon name="search" size={19} />
       </button>
       <div className="topbar-search" ref={topSearchRef}>
-        <Search />
+        <SvcIcon name="search" />
         <input
           ref={topInputRef}
           type="text"
@@ -224,11 +225,11 @@ export default function Header() {
         />
         {topQuery && (
           <button className="topbar-search-clear" onClick={topSearchClear} aria-label={t('common.clear')}>
-            <X size={14} />
+            <SvcIcon name="x" size={14} />
           </button>
         )}
         <button className="topbar-search-btn" onClick={runTopSearchNow} aria-label={t('common.search')} title={t('common.search')}>
-          <Search size={15} />
+          <SvcIcon name="search" size={15} />
         </button>
         {topOpen && topQuery.trim() && (
           <div className="topbar-search-dropdown">
@@ -258,11 +259,11 @@ export default function Header() {
       </div>
       <div className="topbar-actions">
         <button className="icon-btn" onClick={() => setDark(!dark)} title={t('header.toggleTheme')}>
-          {dark ? <Sun /> : <Moon />}
+          {dark ? <SvcIcon name="sun" /> : <SvcIcon name="moon" />}
         </button>
         <div className="relative" ref={notifRef}>
           <button className="icon-btn" onClick={() => setNotifOpen(!notifOpen)} style={{display:aiEnabled?'':'none'}}>
-            <Bell />
+            <SvcIcon name="bell" />
             {unreadCount > 0 && <span className="notif-badge">{unreadCount > 99 ? '99+' : unreadCount}</span>}
           </button>
           {notifOpen && (
@@ -302,7 +303,7 @@ export default function Header() {
               <p className="text-sm font-medium leading-tight capitalize c-text">{displayName}</p>
               <p className="text-xs leading-tight c-text-muted">{user?.email || ''}</p>
             </div>
-            <ChevronDown className="w-4 h-4 c-text-faint" />
+            <SvcIcon name="chevron-down" className="w-4 h-4 c-text-faint" />
           </button>
           {menuOpen && (
             <div className="absolute right-0 mt-1 w-56 bg-surface border border-border rounded-lg shadow-lg py-1 z-50" style={{boxShadow:'var(--shadow-lg)'}}>
@@ -313,7 +314,7 @@ export default function Header() {
               <button onClick={() => { logout(); window.location.href = '/sign-in'; }}
                 className="w-full flex items-center gap-2 px-4 py-2 text-sm transition-colors"
                 style={{color:'var(--color-notification)'}}>
-                <LogOut className="w-4 h-4" /> {t('nav.signOut')}
+                <SvcIcon name="log-out" className="w-4 h-4" /> {t('nav.signOut')}
               </button>
             </div>
           )}

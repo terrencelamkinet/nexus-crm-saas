@@ -1,8 +1,5 @@
 import { forwardRef, useEffect, useImperativeHandle, useState } from 'react'
-import {
-  Heading1, Heading2, Heading3, List, ListOrdered, ListChecks, Quote,
-  Minus, Table as TableIcon, Image as ImageIcon, Code2, Sparkles, FileText,
-} from 'lucide-react'
+import { Heading1, Heading2, Heading3, ListOrdered, ListChecks, Quote, Minus, Table as TableIcon, Code2, FileText, ImageIcon, List, Sparkles } from 'lucide-react'
 
 export interface SlashItem { id: string; label: string; sub: string; group: string }
 

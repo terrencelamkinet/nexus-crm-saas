@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
-import { Activity, X, ChevronRight } from 'lucide-react'
+import SvcIcon from '../../components/SvcIcon'
 import { apiClient } from '../../lib/api'
 import AutofillButton from '../../components/ai/chat/core/AutofillButton'
 import i18n from '../../i18n/config'
@@ -75,7 +75,7 @@ export function ContactsTab({ entity: company }: { entity: EntityRecord; moduleC
                 <div className="list-title">{c.name}</div>
                 <div className="list-sub">{c.job_title || c.email || '—'}</div>
               </div>
-              <ChevronRight className="w-4 h-4 text-slate-300" />
+              <SvcIcon name="chevron-right" className="w-4 h-4 text-slate-300" />
             </Link>
           ))}
         </div>
@@ -308,7 +308,7 @@ export function TouchpointsTab({ entity: company, refresh }: { entity: EntityRec
           <div className="flex-col">
             {touchpoints.map(tp => (
               <div key={tp.id} className="list-row">
-                <div className="list-icon"><Activity /></div>
+                <div className="list-icon"><SvcIcon name="activity" /></div>
                 <div className="list-main">
                   <div className="list-title">{tp.title}</div>
                   <div className="list-sub">{tp.description || '—'}</div>
@@ -328,7 +328,7 @@ export function TouchpointsTab({ entity: company, refresh }: { entity: EntityRec
           <div className="modal">
             <div className="modal-head">
               <h2>{t('pages.companies.detail.modalAddTouchpoint')}</h2>
-              <button onClick={() => setOpen(false)} className="modal-x"><X className="icon-16" /></button>
+              <button onClick={() => setOpen(false)} className="modal-x"><SvcIcon name="x" className="icon-16" /></button>
             </div>
             <div className="modal-body form-body">
               <div className="form-row-1">
@@ -432,7 +432,7 @@ export function NotesTab({ entity: company, refresh }: { entity: EntityRecord; m
           <div className="modal">
             <div className="modal-head">
               <h2>{t('pages.companies.detail.modalAddNote')}</h2>
-              <button onClick={() => setOpen(false)} className="modal-x"><X className="icon-16" /></button>
+              <button onClick={() => setOpen(false)} className="modal-x"><SvcIcon name="x" className="icon-16" /></button>
             </div>
             <div className="modal-body form-body">
               <div className="form-row-1">
@@ -529,7 +529,7 @@ export function TimelineTab({ entity: company, refresh }: { entity: EntityRecord
           <div className="modal">
             <div className="modal-head">
               <h2>{t('pages.companies.detail.modalLogActivity')}</h2>
-              <button onClick={() => setOpen(false)} className="modal-x"><X className="icon-16" /></button>
+              <button onClick={() => setOpen(false)} className="modal-x"><SvcIcon name="x" className="icon-16" /></button>
             </div>
             <div className="modal-body form-body">
               <div className="form-row-1">

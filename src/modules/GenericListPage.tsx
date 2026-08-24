@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Plus, Search, X, Trash2, Edit3, ChevronRight, MoreHorizontal, Download, ArrowUpDown, Upload } from 'lucide-react'
+import SvcIcon from '../components/SvcIcon'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { apiClient } from '../lib/api'
 import { CellRenderer, FieldsRenderer } from './shared/FieldsRenderer'
@@ -515,7 +515,7 @@ const [filters, setFilters] = useState<Record<string, FilterEntry>>(() => ({ ...
     <div className="glp-root">
       <div className="breadcrumb">
         <span>{t('common.home')}</span>
-        <ChevronRight />
+        <SvcIcon name="chevron-right" />
         <span className="breadcrumb-current">{t('pages.' + filterModuleKey + '.title')}</span>
       </div>
 
@@ -526,13 +526,13 @@ const [filters, setFilters] = useState<Record<string, FilterEntry>>(() => ({ ...
         </div>
         <div className="header-actions">
           <button className="glp-icon-btn glp-header-icon" title={t('common.export')}>
-            <Download className="w-4 h-4" />
+            <SvcIcon name="download" className="w-4 h-4" />
           </button>
           <button className="glp-icon-btn glp-header-icon" title={t('common.upload')}>
-            <Upload className="w-4 h-4" />
+            <SvcIcon name="upload" className="w-4 h-4" />
           </button>
           <button onClick={openCreate} className="glp-icon-btn glp-header-icon glp-header-icon-primary" title={t('pages.' + filterModuleKey + '.new')}>
-            <Plus className="w-4 h-4" />
+            <SvcIcon name="plus" className="w-4 h-4" />
           </button>
         </div>
       </div>
@@ -540,20 +540,20 @@ const [filters, setFilters] = useState<Record<string, FilterEntry>>(() => ({ ...
       <div className="data-table">
         <div className="db-toolbar">
           <div className="db-search">
-            <Search className="w-4 h-4" />
+            <SvcIcon name="search" className="w-4 h-4" />
             <input type="text" placeholder={t('pages.' + filterModuleKey + '.searchPlaceholder') || (t('common.search') + ' ' + t('pages.' + filterModuleKey + '.title').toLowerCase() + '...')}
               value={query} onChange={e => setQuery(e.target.value)} />
           </div>
           <div className="toolbar-actions">
             <button className={`toolbar-btn ${filterCount > 0 ? 'active' : ''}`} title={t('common.filter')}
               onClick={() => setFilterOpen(!filterOpen)}>
-              <Search className="w-4 h-4" />{filterCount > 0 ? ` (${filterCount})` : ''}
+              <SvcIcon name="search" className="w-4 h-4" />{filterCount > 0 ? ` (${filterCount})` : ''}
             </button>
             <button className={`toolbar-btn ${sortBy ? 'active' : ''}`} title={t('filter.sortBy')} onClick={() => {
               setSortField(sortBy)
               setSortOpen(!sortOpen)
             }}>
-              <ArrowUpDown className="w-4 h-4" />{sortBy ? ` ${sortOrder === 'asc' ? '↑' : '↓'}` : ''}
+              <SvcIcon name="arrow-up-down" className="w-4 h-4" />{sortBy ? ` ${sortOrder === 'asc' ? '↑' : '↓'}` : ''}
             </button>
             <div className="toolbar-sep" />
             <div className="pos-relative">
@@ -841,7 +841,7 @@ const [filters, setFilters] = useState<Record<string, FilterEntry>>(() => ({ ...
                     setFilterOpen(true)
                   }}>
                   {field ? localizeFieldLabel(field, t) : k}: {label}
-                  <button onClick={() => removeFilter(k)} className="filter-tag-x"><X className="icon-12" /></button>
+                  <button onClick={() => removeFilter(k)} className="filter-tag-x"><SvcIcon name="x" className="icon-12" /></button>
                 </span>
               )
             })}
@@ -962,14 +962,14 @@ const [filters, setFilters] = useState<Record<string, FilterEntry>>(() => ({ ...
                     <td className="col-menu" onClick={e => e.stopPropagation()}>
                       <div className="menu-wrap">
                         <button className="menu-dots" title={t('common.seeMore')}>
-                          <MoreHorizontal className="w-4 h-4" />
+                          <SvcIcon name="more-horizontal" className="w-4 h-4" />
                         </button>
                         <div className="menu-dropdown">
                           <button className="menu-item" onClick={() => openEdit(item)}>
-                            <Edit3 /> {t('common.edit')}
+                            <SvcIcon name="edit-3" /> {t('common.edit')}
                           </button>
                           <button className="menu-item text-notification" onClick={() => setDeleteTarget(item)}>
-                            <Trash2 /> {t('common.delete')}
+                            <SvcIcon name="trash-2" /> {t('common.delete')}
                           </button>
                         </div>
                       </div>
@@ -990,7 +990,7 @@ const [filters, setFilters] = useState<Record<string, FilterEntry>>(() => ({ ...
                   const first = items.find(i => selectedIds.has(i.id))
                   if (first) setDeleteTarget(first)
                 }}>
-                  <Trash2 className="w-4 h-4" /> {t('common.delete')}
+                  <SvcIcon name="trash-2" className="w-4 h-4" /> {t('common.delete')}
                 </button>
               </div>
             )}
@@ -1030,7 +1030,7 @@ const [filters, setFilters] = useState<Record<string, FilterEntry>>(() => ({ ...
           <div className="modal">
             <div className="modal-head">
               <h2>{t('common.edit')} {t('pages.' + filterModuleKey + '.title')}</h2>
-              <button onClick={() => setEditTarget(null)} className="modal-x"><X className="icon-16" /></button>
+              <button onClick={() => setEditTarget(null)} className="modal-x"><SvcIcon name="x" className="icon-16" /></button>
             </div>
             <div className="modal-body form-body">
               <div className="grid-2col">
@@ -1053,7 +1053,7 @@ const [filters, setFilters] = useState<Record<string, FilterEntry>>(() => ({ ...
         <div className="modal-overlay" onClick={e => { if (e.target === e.currentTarget) setDeleteTarget(null) }}>
           <div className="modal modal-sm">
             <div className="delete-body">
-              <div className="delete-icon-wrap"><Trash2 /></div>
+              <div className="delete-icon-wrap"><SvcIcon name="trash-2" /></div>
               <h2 className="delete-heading">{t('common.delete')} {t('pages.' + filterModuleKey + '.title')}</h2>
               <p className="delete-text">
                 Are you sure you want to delete <strong>{deleteTarget['name'] || deleteTarget.id}</strong>?
@@ -1073,7 +1073,7 @@ const [filters, setFilters] = useState<Record<string, FilterEntry>>(() => ({ ...
           <div className="modal">
             <div className="modal-head">
               <h2>{t('common.bulkUpdate')} {t('pages.' + filterModuleKey + '.title')}</h2>
-              <button onClick={() => setBulkOpen(false)} className="modal-x"><X className="icon-16" /></button>
+              <button onClick={() => setBulkOpen(false)} className="modal-x"><SvcIcon name="x" className="icon-16" /></button>
             </div>
             <div className="modal-body form-body">
               <p className="glp-bulk-note">

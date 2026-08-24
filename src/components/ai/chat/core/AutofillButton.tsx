@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Sparkles, Loader2, Check } from 'lucide-react'
+import SvcIcon from '../../../../components/SvcIcon'
 
 /* ═══════════════════════════════════════════════════════════
    AutofillButton — mirrors Notion AI Database Autofill: reads
@@ -25,9 +25,9 @@ export default function AutofillButton({ mode = 'summary', onRun }: {
 
   return (
     <button className={`nca-autofill-btn ${state}`} onClick={handleClick} disabled={state === 'running'}>
-      {state === 'idle' && <><Sparkles size={12} /> AI 填寫</>}
-      {state === 'running' && <><Loader2 size={12} className="nca-spin" /> 生成中…</>}
-      {state === 'done' && <><Check size={12} /> 已完成</>}
+      {state === 'idle' && <><SvcIcon name="sparkles" size={12} /> AI 填寫</>}
+      {state === 'running' && <><SvcIcon name="loader-2" size={12} className="nca-spin" /> 生成中…</>}
+      {state === 'done' && <><SvcIcon name="check" size={12} /> 已完成</>}
     </button>
   )
 }

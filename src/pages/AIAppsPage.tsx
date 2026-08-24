@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
-import { ChevronRight, Check, RotateCcw, Save, Settings2, X } from 'lucide-react';
+import SvcIcon from '../components/SvcIcon';
 import { apiClient } from '../lib/api';
 import { useEscapeKey } from '../lib/useEscapeKey';
 import {
@@ -370,7 +370,7 @@ export default function AIAppsPage() {
     <div className="stg-page">
       <div className="breadcrumb">
         <span className="breadcrumb-link" onClick={() => navigate('/dashboard')}>Home</span>
-        <ChevronRight />
+        <SvcIcon name="chevron-right" />
         <span className="breadcrumb-current">{t('settings.aiApps.title')}</span>
       </div>
 
@@ -380,7 +380,7 @@ export default function AIAppsPage() {
           <p className="asec-subtitle">{t('settings.aiApps.subtitle')}</p>
         </div>
         <span className={`asec-save-indicator${saved ? ' active' : ''}`}>
-          {saved ? <><Check size={12} /> {t('settings.aiApps.autoSaved')}</>
+          {saved ? <><SvcIcon name="check" size={12} /> {t('settings.aiApps.autoSaved')}</>
             : syncing ? t('settings.aiApps.saving') ?? '…'
             : savedAt ? t('settings.aiApps.savedAt') : t('settings.aiApps.allSaved')}
         </span>
@@ -435,7 +435,7 @@ export default function AIAppsPage() {
                           </div>
                           {!connected && <span className="asec-module-tag">{t('settings.aiApps.soon')}</span>}
                           <span className={`asec-module-check${selected ? ' checked' : ''}`}>
-                            {selected && <Check size={11} />}
+                            {selected && <SvcIcon name="check" size={11} />}
                           </span>
                         </div>
                         {selected && hasOpts && (() => {
@@ -456,7 +456,7 @@ export default function AIAppsPage() {
                                 className="asec-module-settings"
                                 onClick={() => openModuleEditor(m)}
                               >
-                                <Settings2 size={12} /> {t('settings.aiApps.configure')}
+                                <SvcIcon name="settings-2" size={12} /> {t('settings.aiApps.configure')}
                               </button>
                             ) : (
                               <span className="asec-module-foot-spacer" />
@@ -488,7 +488,7 @@ export default function AIAppsPage() {
                   <h3 style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                     <span>{editingModule.icon}</span> {t(editingModule.nameKey)}
                   </h3>
-                  <button className="modal-x" onClick={closeModuleEditor} aria-label="Close"><X size={18} /></button>
+                  <button className="modal-x" onClick={closeModuleEditor} aria-label="Close"><SvcIcon name="x" size={18} /></button>
                 </div>
                 <div className="asec-editor-body">
                   {(editingModule.options ?? []).map(o => {
@@ -609,7 +609,7 @@ export default function AIAppsPage() {
                 <div className="asec-actions" style={{ marginTop: 14 }}>
                   <button className="btn-ghost" onClick={closeModuleEditor}>{t('settings.aiApps.cancel')}</button>
                   <button className="btn-primary" onClick={saveModuleOptions} style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                    <Save size={14} /> {t('settings.aiApps.saveOptions')}
+                    <SvcIcon name="save" size={14} /> {t('settings.aiApps.saveOptions')}
                   </button>
                 </div>
               </div>
@@ -639,10 +639,10 @@ export default function AIAppsPage() {
                 </div>
                 <div className="asec-actions">
                   <button className="btn-ghost" onClick={resetHours} style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
-                    <RotateCcw size={14} /> {t('settings.aiApps.resetDefault')}
+                    <SvcIcon name="rotate-ccw" size={14} /> {t('settings.aiApps.resetDefault')}
                   </button>
                   <button className="btn-primary" onClick={saveHours} style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                    <Save size={14} /> {t('settings.aiApps.saveHours')}
+                    <SvcIcon name="save" size={14} /> {t('settings.aiApps.saveHours')}
                   </button>
                 </div>
               </div>
@@ -672,7 +672,7 @@ export default function AIAppsPage() {
                 </div>
                 <div className="asec-actions">
                   <button className="btn-ghost" onClick={resetGreetings} style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
-                    <RotateCcw size={14} /> {t('settings.aiApps.resetDefault')}
+                    <SvcIcon name="rotate-ccw" size={14} /> {t('settings.aiApps.resetDefault')}
                   </button>
                 </div>
               </div>
@@ -833,7 +833,7 @@ export default function AIAppsPage() {
                   <div className="modal" style={{ maxWidth: 440 }} onClick={e => e.stopPropagation()} role="dialog" aria-modal="true" aria-label={t('settings.aiApps.chTelegram')}>
                     <div className="modal-head">
                       <h2>{t('settings.aiApps.tgBindTitle')}</h2>
-                      <button className="modal-x" onClick={() => setTgBindOpen(false)} aria-label="Close"><X size={18} /></button>
+                      <button className="modal-x" onClick={() => setTgBindOpen(false)} aria-label="Close"><SvcIcon name="x" size={18} /></button>
                     </div>
                     <div className="modal-body">
                       <p className="hint" style={{ marginTop: 0 }}>{t('settings.aiApps.tgBindDesc')}</p>
@@ -932,7 +932,7 @@ export default function AIAppsPage() {
                   style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
                   {aiSaveState === 'idle' && t('settings.aiApps.saveModel')}
                   {aiSaveState === 'saving' && <><span className="btn-spinner" /> {t('settings.aiApps.saving')}</>}
-                  {aiSaveState === 'done' && <><Check size={14} /> {t('settings.aiApps.modelSaved')}</>}
+                  {aiSaveState === 'done' && <><SvcIcon name="check" size={14} /> {t('settings.aiApps.modelSaved')}</>}
                 </button>
               </div>
 

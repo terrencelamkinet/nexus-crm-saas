@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
-import { Sparkles, Pencil, RefreshCw, ChevronRight, AlertTriangle, TrendingUp, Target } from 'lucide-react'
+import SvcIcon from '../../components/SvcIcon'
 import { apiClient } from '../../lib/api'
 import type { EntityRecord, ModuleConfig } from '../module-types'
 
@@ -82,7 +82,7 @@ export function NexusDetailPageV2({
       <div className="nx-detail-header">
         <div className="nx-detail-breadcrumb">
           <Link to={breadcrumbHref}>{breadcrumbLabel}</Link>
-          <ChevronRight size={12} />
+          <SvcIcon name="chevron-right" size={12} />
           <span style={{ color: 'var(--color-text-primary)' }}>{entity.name}</span>
         </div>
 
@@ -116,12 +116,12 @@ export function NexusDetailPageV2({
               <>
                 {onEdit && (
                   <button className="nx-btn nx-btn-secondary" onClick={onEdit}>
-                    <Pencil size={13} /> {t('common.edit')}
+                    <SvcIcon name="pencil" size={13} /> {t('common.edit')}
                   </button>
                 )}
                 {onAskAI && (
                   <button className="nx-btn nx-btn-ai" onClick={onAskAI}>
-                    <Sparkles size={13} /> {t('common.askAI', { defaultValue: 'Ask AI' })}
+                    <SvcIcon name="sparkles" size={13} /> {t('common.askAI', { defaultValue: 'Ask AI' })}
                   </button>
                 )}
               </>
@@ -136,8 +136,8 @@ export function NexusDetailPageV2({
                 <div className="nx-highlight-label">{h.label}</div>
                 <div className={`nx-highlight-value ${h.trend === 'up' ? 'trend-up' : h.trend === 'down' ? 'trend-down' : ''}`}>
                   {h.value}
-                  {h.trend === 'up' && <TrendingUp size={13} />}
-                  {h.trend === 'down' && <AlertTriangle size={13} />}
+                  {h.trend === 'up' && <SvcIcon name="trending-up" size={13} />}
+                  {h.trend === 'down' && <SvcIcon name="alert-triangle" size={13} />}
                 </div>
               </div>
             ))}
@@ -149,11 +149,11 @@ export function NexusDetailPageV2({
       {(aiInsightLoading || (aiInsight && (aiInsight.summary || aiInsight.tags?.length > 0))) && (
         <div className="nx-ai-insight-card">
           <div className="nx-ai-insight-head">
-            <div className="nx-ai-insight-icon"><Sparkles size={14} /></div>
+            <div className="nx-ai-insight-icon"><SvcIcon name="sparkles" size={14} /></div>
             <div className="nx-ai-insight-title">{t('common.aiSummary', { defaultValue: 'AI 客戶摘要' })}</div>
             {onRefreshInsight && (
               <div className="nx-ai-insight-refresh" onClick={onRefreshInsight}>
-                <RefreshCw size={11} />
+                <SvcIcon name="refresh-cw" size={11} />
                 {aiInsight ? new Date(aiInsight.generatedAt).toLocaleTimeString() : t('common.loading')}
               </div>
             )}
@@ -169,8 +169,8 @@ export function NexusDetailPageV2({
                 <div className="nx-ai-insight-tags">
                   {aiInsight!.tags.map((tg, i) => (
                     <span className={`nx-ai-tag ${tg.kind}`} key={i}>
-                      {tg.kind === 'opportunity' && <Target size={11} />}
-                      {tg.kind === 'risk' && <AlertTriangle size={11} />}
+                      {tg.kind === 'opportunity' && <SvcIcon name="target" size={11} />}
+                      {tg.kind === 'risk' && <SvcIcon name="alert-triangle" size={11} />}
                       {tg.label}
                     </span>
                   ))}
@@ -279,7 +279,7 @@ export function UnifiedTimeline({ events }: { events: TimelineEvent[] }) {
             <div className="nx-timeline-title">{ev.title}</div>
             <div className="nx-timeline-meta">{ev.meta}</div>
             {ev.body && <div className="nx-timeline-body">{ev.body}</div>}
-            {ev.aiDetected && <span className="nx-timeline-ai-tag"><Sparkles size={10} /> {ev.aiLabel || 'AI 自動偵測'}</span>}
+            {ev.aiDetected && <span className="nx-timeline-ai-tag"><SvcIcon name="sparkles" size={10} /> {ev.aiLabel || 'AI 自動偵測'}</span>}
           </div>
         </div>
       ))}

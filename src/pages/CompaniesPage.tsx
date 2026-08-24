@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Plus, Search, Building2, X, ChevronRight } from 'lucide-react';
+import SvcIcon from '../components/SvcIcon';
 import { useNavigate } from 'react-router-dom';
 import { useApi, useSearch, useCreateModal, TableSkeleton, ErrorBox } from '../lib/useApi';
 import { apiClient } from '../lib/api';
@@ -65,7 +65,7 @@ export default function CompaniesPage() {
       {/* Breadcrumb */}
       <div className="breadcrumb">
         <span className="breadcrumb-link" onClick={() => navigate('/dashboard')}>Home</span>
-        <ChevronRight />
+        <SvcIcon name="chevron-right" />
         <span className="breadcrumb-current">Companies</span>
       </div>
       {/* Header */}
@@ -79,7 +79,7 @@ export default function CompaniesPage() {
             onClick={create.openModal}
             className="btn-primary"
           >
-            <Plus className="w-4 h-4" /> {t('pages.companies.new')}
+            <SvcIcon name="plus" className="w-4 h-4" /> {t('pages.companies.new')}
           </button>
         </div>
       </div>
@@ -88,7 +88,7 @@ export default function CompaniesPage() {
       <div className="data-table">
         <div className="panel-head">
           <div className="search-box">
-            <Search className="w-4 h-4" />
+            <SvcIcon name="search" className="w-4 h-4" />
             <input
               type="text"
               placeholder="Search companies..."
@@ -120,7 +120,7 @@ export default function CompaniesPage() {
                   <td>
                     <div className="row-name">
                       <div className="list-icon">
-                        <Building2 className="w-4 h-4" />
+                        <SvcIcon name="building-2" className="w-4 h-4" />
                       </div>
                       <span>{c.name}</span>
                     </div>
@@ -145,7 +145,7 @@ export default function CompaniesPage() {
           <div className="modal">
             <div className="modal-head">
               <h2>{t('pages.companies.new')}</h2>
-              <button onClick={create.closeModal} className="modal-x"><X className="w-5 h-5" /></button>
+              <button onClick={create.closeModal} className="modal-x"><SvcIcon name="x" className="w-5 h-5" /></button>
             </div>
             <div className="modal-body">
               <div className="space-y-4">

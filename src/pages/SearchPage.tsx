@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Search, X } from 'lucide-react';
+import SvcIcon from '../components/SvcIcon';
 import { apiClient } from '../lib/api';
 
 /**
@@ -71,10 +71,10 @@ export default function SearchPage() {
     <div className="sp-page">
       <header className="sp-head">
         <button type="button" className="sp-back" onClick={() => navigate(-1)} aria-label="返回">
-          <ArrowLeft />
+          <SvcIcon name="arrow-left" />
         </button>
         <div className="sp-input-wrap">
-          <Search className="sp-input-icon" />
+          <SvcIcon name="search" className="sp-input-icon" />
           <input
             ref={inputRef}
             className="sp-input"
@@ -84,7 +84,7 @@ export default function SearchPage() {
           />
           {query && (
             <button type="button" className="sp-clear" onClick={() => setQuery('')} aria-label="清除">
-              <X />
+              <SvcIcon name="x" />
             </button>
           )}
         </div>

@@ -1,4 +1,4 @@
-import { X } from 'lucide-react'
+import SvcIcon from '../../../components/SvcIcon'
 import { useTranslation } from 'react-i18next'
 
 export interface StreamError {
@@ -54,7 +54,7 @@ export default function ErrorBanner({ error, onDismiss, onRetry }: Props) {
         style={{ border: 'none', background: 'none', cursor: 'pointer', color: c, padding: 4, display: 'grid', placeItems: 'center', borderRadius: 4 }}
         aria-label={t('common.close')}
       >
-        <X size={13} />
+        <SvcIcon name="x" size={13} />
       </button>
     </div>
   )

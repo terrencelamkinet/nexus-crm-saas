@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, Suspense } from 'react'
 import { useParams, useNavigate, useLocation, Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { ArrowLeft, Phone, Mail, Building2, Edit3, Trash2, User, Clock, MessageCircle } from 'lucide-react'
+import SvcIcon from '../components/SvcIcon'
 import { apiClient } from '../lib/api'
 import { FieldsRenderer } from './shared/FieldsRenderer'
 import { buildPayload, formatDate, apiErrorToString } from './shared/field-utils'
@@ -129,7 +129,7 @@ export default function GenericDetailPage({ config, tabRenderers, extraData, act
       <div className="contact-detail-page">
         <button onClick={() => navigate(`/${config.routePrefix || config.name + 's'}`)}
           className="flex items-center gap-1 text-sm hover:underline mb-4 back-link">
-          <ArrowLeft className="w-4 h-4" /> {t('common.backToLabel', { label: localizeResourceLabel(config.name, true, config.labelPlural, t) })}
+          <SvcIcon name="arrow-left" className="w-4 h-4" /> {t('common.backToLabel', { label: localizeResourceLabel(config.name, true, config.labelPlural, t) })}
         </button>
         <div className="error-box">
           <span className="error-text">{error || t('common.notFound', { label: localizeResourceLabel(config.name, false, config.label, t) })}</span>
@@ -189,7 +189,7 @@ export default function GenericDetailPage({ config, tabRenderers, extraData, act
       <div className="page-header">
         <div className="title-row">
           <button onClick={() => navigate(`/${config.routePrefix || config.name + 's'}`)} className="back-btn">
-            <ArrowLeft className="w-4 h-4" />
+            <SvcIcon name="arrow-left" className="w-4 h-4" />
           </button>
           <h1>{entityName}</h1>
         </div>
@@ -205,10 +205,10 @@ export default function GenericDetailPage({ config, tabRenderers, extraData, act
             <>
               {actions}
               <button onClick={handleDeleteClick} className="btn-danger">
-                <Trash2 className="icon-16" /> {t('common.delete')}
+                <SvcIcon name="trash-2" className="icon-16" /> {t('common.delete')}
               </button>
               <button onClick={openEdit} className="btn-primary">
-                <Edit3 className="icon-16" /> {t('common.edit')}
+                <SvcIcon name="edit-3" className="icon-16" /> {t('common.edit')}
               </button>
             </>
           )}
@@ -236,17 +236,17 @@ export default function GenericDetailPage({ config, tabRenderers, extraData, act
               <div className="quick-actions">
                 {entity['phone'] && (
                   <a href={`tel:${String(entity['phone']).replace(/[^\d+]/g, '')}`} className="btn-secondary">
-                    <Phone className="w-3.5 h-3.5" /> {t('common.call')}
+                    <SvcIcon name="phone" className="w-3.5 h-3.5" /> {t('common.call')}
                   </a>
                 )}
                 {entity['email'] && (
                   <a href={`mailto:${entity['email']}`} className="btn-secondary">
-                    <Mail className="w-3.5 h-3.5" /> {t('common.email')}
+                    <SvcIcon name="mail" className="w-3.5 h-3.5" /> {t('common.email')}
                   </a>
                 )}
                 {entity['phone'] && (
                   <a href={`https://wa.me/${String(entity['phone']).replace(/[^\d]/g, '')}`} target="_blank" rel="noopener noreferrer" className="btn-secondary">
-                    <MessageCircle className="w-3.5 h-3.5" /> {t('common.message')}
+                    <SvcIcon name="message-circle" className="w-3.5 h-3.5" /> {t('common.message')}
                   </a>
                 )}
               </div>
@@ -291,25 +291,25 @@ export default function GenericDetailPage({ config, tabRenderers, extraData, act
             <div className="tal">
               {entity['email'] && (
                 <div className="profile-field">
-                  <Mail className="w-3.5 h-3.5" />
+                  <SvcIcon name="mail" className="w-3.5 h-3.5" />
                   <span>{entity['email']}</span>
                 </div>
               )}
               {entity['phone'] && (
                 <div className="profile-field">
-                  <Phone className="w-3.5 h-3.5" />
+                  <SvcIcon name="phone" className="w-3.5 h-3.5" />
                   <span>{entity['phone']}</span>
                 </div>
               )}
               <div className="profile-field">
-                <User className="w-3.5 h-3.5" /> {t('common.ownerLabel', { name: entity['contact_type'] || t('common.unassigned') })}
+                <SvcIcon name="user" className="w-3.5 h-3.5" /> {t('common.ownerLabel', { name: entity['contact_type'] || t('common.unassigned') })}
               </div>
               <div className="profile-field">
-                <Clock className="w-3.5 h-3.5" /> {t('common.lastTouch', { date: lastTouchDate })}
+                <SvcIcon name="clock" className="w-3.5 h-3.5" /> {t('common.lastTouch', { date: lastTouchDate })}
               </div>
               {entity['company'] && (
                 <div className="profile-field">
-                  <Building2 className="w-3.5 h-3.5" />
+                  <SvcIcon name="building-2" className="w-3.5 h-3.5" />
                   <span>{(entity['company'] as any).name}</span>
                 </div>
               )}
@@ -439,7 +439,7 @@ export default function GenericDetailPage({ config, tabRenderers, extraData, act
         <div className="modal-overlay" onClick={e => { if (e.target === e.currentTarget) setDeleteModalOpen(false) }}>
           <div className="modal modal-sm">
             <div className="delete-body">
-              <div className="delete-icon-wrap"><Trash2 /></div>
+              <div className="delete-icon-wrap"><SvcIcon name="trash-2" /></div>
               <h3 className="delete-heading">{t('common.deleteConfirm', { name: entityName })}</h3>
               <p className="delete-text">{t('common.cannotUndo')}</p>
             </div>

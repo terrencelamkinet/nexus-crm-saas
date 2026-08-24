@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { X, Copy, Check } from 'lucide-react';
+import SvcIcon from '../components/SvcIcon';
 import { useEscapeKey } from '../lib/useEscapeKey';
 import type { Integration } from '../data/integrations';
 
@@ -211,7 +211,7 @@ export default function ConnectDialog({ integration, onClose, onConnected }: Pro
               <span style={{ fontSize: 12, color: 'var(--color-text-muted)' }}>{integration.typeIcon} {integration.type}</span>
             </div>
           </div>
-          <button className="dialog-close" onClick={onClose}><X size={18} /></button>
+          <button className="dialog-close" onClick={onClose}><SvcIcon name="x" size={18} /></button>
         </div>
 
         {/* Body */}
@@ -233,7 +233,7 @@ export default function ConnectDialog({ integration, onClose, onConnected }: Pro
               <div className="mkt-url-row">
                 <code className="mkt-url-display">{webhookUrl}</code>
                 <button className="mkt-copy-btn" onClick={() => handleCopy(webhookUrl)}>
-                  {copied ? <Check size={16} /> : <Copy size={16} />}
+                  {copied ? <SvcIcon name="check" size={16} /> : <SvcIcon name="copy" size={16} />}
                 </button>
               </div>
               <p style={{ fontSize: 12, color: 'var(--color-text-muted)', marginTop: 12, lineHeight: 1.5 }}>
