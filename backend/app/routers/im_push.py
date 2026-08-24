@@ -133,33 +133,103 @@ def _deep_link(kind: str, entity_id: str | None = None) -> str:
 
 
 # ── Message composers ────────────────────────────────────────────────
+def _task_emoji(title: str) -> str:
+    """Pick a category emoji from the task title (user's reminder format style)."""
+    t = (title or "").lower()
+    if any(k in t for k in ("書", "圖書", "exam", "考試", "hpe", "h3c", "study", "溫書", "讀", "返還")):
+        return "📚"
+    if any(k in t for k in ("報價", "quote", "email", "電郵", "客戶", "meeting", "會議", "demo",
+                            "moia", "manulife", "sales", "deal", "pipeline", "sit", "diagram", "準備")):
+        return "💼"
+    if any(k in t for k in ("錢", "費用", "發票", "invoice", "expense", "budget", "報銷", "繳")):
+        return "💰"
+    if any(k in t for k in ("屋", "家", "個人", "買", "超市", "水電")):
+        return "🏠"
+    return "📋"
+
+
+def _due_tag(t: dict, now: datetime) -> str:
+    """Inline status tag: 已逾期 (M/D) / 今日到期 / M/D 到期 / ''."""
+    due = _parse_dt(t.get("due_date"))
+    if not due:
+        return ""
+    if due.date() < now.date():
+        return f"已逾期 ({due.month}/{due.day})"
+    if due.date() == now.date():
+        return "今日到期"
+    return f"{due.month}/{due.day} 到期"
+
+
+def _compose_suggestions(
+    remaining: list[dict],
+    tomorrow_tasks: list[dict],
+    now: datetime,
+    horizon_label: str,
+) -> list[str]:
+    """Heuristic priority suggestions — 2-4 items, one line each with a reason.
+
+    Order: overdue first → due-soon → high priority → tomorrow's tasks.
+    """
+    sugg: list[str] = []
+    seen: set[str] = set()
+
+    def _push(title: str, reason: str) -> None:
+        if title in seen:
+            return
+        seen.add(title)
+        sugg.append(f"{title} — {reason}")
+
+    # (task, due_dt) pairs — parse once, avoid repeated optional access
+    parsed: list[tuple[dict, datetime | None]] = [
+        (t, _parse_dt(t.get("due_date"))) for t in remaining
+    ]
+    overdue = [(t, d) for t, d in parsed if d is not None and d.date() < now.date()]
+    due_soon = [(t, d) for t, d in parsed if d is not None and d.date() >= now.date()]
+    due_soon.sort(key=lambda pair: pair[1] or now)
+    high_pri = [t for t in remaining if str(t.get("priority", "")).lower() in ("urgent", "high", "p0", "p1")]
+
+    for t, d in overdue[:2]:
+        _push(t.get("title", ""), f"已逾期 ({d.month}/{d.day})，{horizon_label}優先清")
+    for t, d in due_soon[:2]:
+        _push(t.get("title", ""), f"{d.month}/{d.day} 到期，預早處理")
+    for t in high_pri[:2]:
+        _push(t.get("title", ""), "優先級較高，建議先做")
+    for t in tomorrow_tasks[:2]:
+        d = _parse_dt(t.get("due_date"))
+        label = f"{d.month}/{d.day}" if d else "聽日"
+        _push(t.get("title", ""), f"{label} 到期，可以聽日開頭就處理")
+
+    return sugg[:4]
+
+
 def _compose_morning(events: list[dict], tasks: list[dict], now: datetime) -> str:
     lines: list[str] = ["🤖 [AI 助理] 早安 Briefing", ""]
 
     # Today's events (filtered by caller)
     if events:
-        lines.append("📅 今日焦點行程：")
+        lines.append("📅 今日行程：")
         for e in events[:4]:
             start = _parse_dt(e.get("start"))
             t = start.strftime("%H:%M") if start else "--:--"
             title = e.get("title") or e.get("summary") or "Event"
             loc = f" ({e.get('location')})" if e.get("location") else ""
-            lines.append(f"• {t} - {title}{loc}")
+            lines.append(f"• {t} {title}{loc}")
         lines.append(f"📎 AI 會議準備卡：{_deep_link('m', str(events[0].get('id')))}")
         lines.append("")
 
-    # Deadlines: overdue first, then due today
+    # Deadlines: overdue first, then due today — 一行一項，無 per-task link
     if tasks:
-        lines.append("✅ 待處理死線：")
-        for i, t in enumerate(tasks[:5], 1):
-            due = _parse_dt(t.get("due_date"))
-            if due and due.date() < now.date():
-                tag = "昨日逾期"
-            else:
-                tag = "今日到期"
-            lines.append(f"{i}. {t.get('title', '')} ({tag})")
-            lines.append(f"👉 立即處理或推遲：{_deep_link('t', str(t.get('id')))}")
+        lines.append(f"⏳ 未完成 · {len(tasks[:10])} 項")
+        for t in tasks[:10]:
+            tag = _due_tag(t, now)
+            suffix = f" — {tag}" if tag else ""
+            lines.append(f"• {_task_emoji(t.get('title', ''))} {t.get('title', '')}{suffix}")
         lines.append("")
+        sugg = _compose_suggestions(tasks, [], now, horizon_label="今日")
+        if sugg:
+            lines.append("📌 今日建議")
+            lines.extend(f"• {s}" for s in sugg)
+            lines.append("")
 
     lines.append(f"🌐 完整簡報：{_deep_link('dashboard')}")
     return "\n".join(lines)
@@ -183,7 +253,7 @@ def _compose_noon(
             t = start.strftime("%H:%M") if start else "--:--"
             title = e.get("title") or e.get("summary") or "Event"
             loc = f" ({e.get('location')})" if e.get("location") else ""
-            lines.append(f"• {t} - {title}{loc}")
+            lines.append(f"• {t} {title}{loc}")
             lines.append(f"📎 準備卡：{_deep_link('m', str(e.get('id')))}")
         lines.append("")
 
@@ -195,23 +265,23 @@ def _compose_noon(
             t = start.strftime("%H:%M") if start else "--:--"
             title = e.get("title") or e.get("summary") or "Event"
             loc = f" ({e.get('location')})" if e.get("location") else ""
-            lines.append(f"• {t} - {title}{loc}")
+            lines.append(f"• {t} {title}{loc}")
         lines.append("")
 
-    # Pending deadlines due today
+    # Pending deadlines due today — 一行一項
     if tasks:
-        lines.append("⏳ 今日到期未完成：")
-        for i, t in enumerate(tasks[:5], 1):
-            lines.append(f"{i}. {t.get('title', '')}")
-            lines.append(f"👉 完成或推遲：{_deep_link('t', str(t.get('id')))}")
+        lines.append(f"⏳ 今日到期未完成 · {len(tasks[:8])} 項")
+        for t in tasks[:8]:
+            tag = _due_tag(t, now)
+            suffix = f" — {tag}" if tag else ""
+            lines.append(f"• {_task_emoji(t.get('title', ''))} {t.get('title', '')}{suffix}")
         lines.append("")
 
     # Quick-wins — 微型任務清理 (Phase D)
     if quick_wins:
-        lines.append("⚡ 微型任務 Quick Wins：")
-        for i, t in enumerate(quick_wins[:5], 1):
-            lines.append(f"{i}. {t.get('title', '')}")
-            lines.append(f"👉 快速處理：{_deep_link('t', str(t.get('id')))}")
+        lines.append(f"⚡ 順手清 · {len(quick_wins[:5])} 項")
+        for t in quick_wins[:5]:
+            lines.append(f"• {_task_emoji(t.get('title', ''))} {t.get('title', '')}")
         lines.append("")
 
     if not (soon_events or events or tasks or quick_wins):
@@ -223,7 +293,7 @@ def _compose_noon(
 
 def _compose_evening(
     now: datetime,
-    done_count: int,
+    done_tasks: list[dict],
     remaining: list[dict],
     today_events: list[dict],
     gap_events: list[dict],
@@ -234,16 +304,20 @@ def _compose_evening(
     """Evening slot — wrap-up review + gap alert + auto-rollover + tomorrow preview (Phase D)."""
     lines: list[str] = ["🤖 [AI 助理] 傍晚 Briefing", ""]
 
-    if done_count:
-        lines.append(f"🎉 今日完成 {done_count} 項任務！")
+    # ✅ 今日完成 — 逐項列出（冇就一句）
+    lines.append("✅ 今日完成")
+    if done_tasks:
+        for t in done_tasks[:8]:
+            lines.append(f"• {_task_emoji(t.get('title', ''))} {t.get('title', '')}")
     else:
-        lines.append("📝 今日未標記任何完成任務。")
+        lines.append("• 今日暫無 task 標記完成")
+    lines.append("")
 
     if rollover_count:
         lines.append(f"🔄 {rollover_count} 項到期任務已自動過渡至明日。")
+        lines.append("")
 
     if gap_events:
-        lines.append("")
         lines.append("⚠️ 開咗會未留紀錄：")
         for e in gap_events[:4]:
             start = _parse_dt(e.get("start"))
@@ -253,28 +327,33 @@ def _compose_evening(
             lines.append(f"🎙 語音留底：{_deep_link('note', str(e.get('id')))}")
         lines.append("")
 
+    # ⏳ 未完成 — 一行一項
     if remaining:
+        lines.append(f"⏳ 未完成 · {len(remaining[:10])} 項")
+        for t in remaining[:10]:
+            tag = _due_tag(t, now)
+            suffix = f" — {tag}" if tag else ""
+            lines.append(f"• {_task_emoji(t.get('title', ''))} {t.get('title', '')}{suffix}")
         lines.append("")
-        lines.append("📋 未完成（聽日繼續）：")
-        for i, t in enumerate(remaining[:5], 1):
-            due = _parse_dt(t.get("due_date"))
-            tag = "  ⚠️已逾期" if due and due.date() < now.date() else ""
-            lines.append(f"{i}. {t.get('title', '')}{tag}")
-            lines.append(f"👉 處理：{_deep_link('t', str(t.get('id')))}")
 
     if tomorrow_events or tomorrow_tasks:
-        lines.append("")
         lines.append("🔮 聽日預告：")
         for e in tomorrow_events[:4]:
             start = _parse_dt(e.get("start"))
             t = start.strftime("%H:%M") if start else "全天"
             title = e.get("title") or e.get("summary") or "Event"
-            lines.append(f"• {t} - {title}")
+            lines.append(f"• {t} {title}")
         if tomorrow_tasks:
             lines.append(f"• ⏰ {len(tomorrow_tasks)} 項任務到期")
-            lines.append(f"👉 聽日任務：{_deep_link('t', str(tomorrow_tasks[0].get('id')))}")
+        lines.append("")
 
-    lines.append("")
+    # 📌 聽日建議 — heuristic 排序 + 解釋
+    sugg = _compose_suggestions(remaining, tomorrow_tasks, now, horizon_label="聽日")
+    if sugg:
+        lines.append("📌 聽日建議")
+        lines.extend(f"• {s}" for s in sugg)
+        lines.append("")
+
     lines.append(f"🌐 完整簡報：{_deep_link('dashboard')}")
     return "\n".join(lines)
 
@@ -799,7 +878,7 @@ async def _compose_evening_data(ctx: AISessionContext, db: AsyncSession, now: da
     # Phase D — 今日到期未完成 → 自動過渡明日
     rollover_count = await _rollover_due_today(ctx, db, now)
 
-    done_count = 0
+    done_tasks: list[dict] = []
     remaining: list[dict] = []
     tomorrow_tasks: list[dict] = []
     try:
@@ -808,7 +887,8 @@ async def _compose_evening_data(ctx: AISessionContext, db: AsyncSession, now: da
         for t in done_rows:
             upd = _parse_dt(t.get("updated_at"))
             if upd and upd >= today_start:
-                done_count += 1
+                done_tasks.append(t)
+        done_tasks.sort(key=lambda t: _parse_dt(t.get("updated_at")) or now, reverse=True)
 
         pending = await _list_tasks(ctx, {"status": "pending", "limit": 100}, db)
         for t in pending:
@@ -863,7 +943,7 @@ async def _compose_evening_data(ctx: AISessionContext, db: AsyncSession, now: da
         pass
 
     return {
-        "done_count": done_count,
+        "done_tasks": done_tasks,
         "remaining": remaining,
         "today_events": today_events,
         "gap_events": gap_events,

@@ -194,6 +194,24 @@ async def _collect_modules(ctx: AISessionContext, db: AsyncSession, modules: dic
                 "created_at": lambda t: t.get("created_at") or ""}.get(sort, lambda t: 0)
     out["tasks"] = sorted(tasks, key=sort_key)
 
+    # ── 今日完成 tasks（用戶提醒格式：✅ 今日完成 section）──
+    completed_today: list[dict] = []
+    try:
+        from app.ai.tool_registry import _list_tasks as _lt
+        done_rows = await _lt(ctx, {"status": "completed", "limit": 50}, db)
+        today_start = datetime.now(HKT).replace(hour=0, minute=0, second=0, microsecond=0)
+        for t in done_rows:
+            ca = _parse_dt(t.get("completed_at")) or _parse_dt(t.get("updated_at"))
+            if ca and ca >= today_start:
+                completed_today.append(t)
+        completed_today.sort(
+            key=lambda t: _parse_dt(t.get("completed_at")) or _parse_dt(t.get("updated_at")) or today_start,
+            reverse=True,
+        )
+    except Exception:
+        pass
+    out["completed_today"] = completed_today
+
     # ── meetings 深層選項：range（today/today_tomorrow/week）— schedule 已係 7 日，
     #    過濾今日/聽日；type 嘅 CRM 客戶 vs 內部暫以 title 關鍵字粗略分 ──
     meet_opts = modules.get("meetings") or {}
@@ -262,8 +280,9 @@ def _build_prompt(slot: str, settings: SecretarySettings, data: dict[str, Any]) 
 
     # 壓縮 data：tasks/schedule 用精簡 list；modules data 原樣（但截斷長 list）
     tasks = data.get("tasks", [])[:15]
+    completed = data.get("completed_today", [])[:10]
     schedule = data.get("schedule", [])[:10]
-    modules_summary = {k: v for k, v in data.items() if k not in ("tasks", "schedule", "weather")}
+    modules_summary = {k: v for k, v in data.items() if k not in ("tasks", "schedule", "weather", "completed_today")}
     for k in modules_summary:
         if isinstance(modules_summary[k], list):
             modules_summary[k] = modules_summary[k][:8]
@@ -275,6 +294,7 @@ def _build_prompt(slot: str, settings: SecretarySettings, data: dict[str, Any]) 
         "weather": data.get("weather", {}),
         "schedule": schedule,
         "tasks": tasks,
+        "completed_today": completed,
         "modules": modules_summary,
     }
 
@@ -328,7 +348,17 @@ def _build_prompt(slot: str, settings: SecretarySettings, data: dict[str, Any]) 
         "按以下 4 個類別分節輸出，每個類別用 <<<category:XXX>>> 開頭標記，"
         "XXX 只可以係 notifications / reminders / info / bible：\n"
         "<<<category:notifications>>> 通知（行程衝突、逾期任務、需要立即處理嘅警報）\n"
-        "<<<category:reminders>>> 提醒（今日任務、費用/發票/電郵草稿提醒、到期事項）\n"
+        "<<<category:reminders>>> 提醒 — 今日任務部分必須用以下 3 節固定格式（用戶指定，唔好加減）：\n"
+        "✅ 今日完成\n"
+        "• {今日完成嘅任務 title，逐項}（完全冇就用「• 今日暫無 task 標記完成」）\n"
+        "（空行）\n"
+        "⏳ 未完成 · {N} 項（N = 未完成任務總數）\n"
+        "• {emoji} {title} — {狀態}（狀態：已逾期 (M/D) ／ M/D 到期 ／ 今日到期；冇到期日就淨寫 title，唔好加「— 冇到期日」）\n"
+        "（空行）\n"
+        "📌 聽日建議\n"
+        "• {2-4 條建議，每條一句，解釋優先原因：逾期、臨近死線、前置關係等}\n"
+        "其他提醒（費用/發票/電郵草稿/生日/個人）繼續用 module tag 格式，放喺 3 節之後。\n"
+        "每個任務配相關 emoji 分類：📚 書/考試/溫書、💼 工作/客戶/報價/會議、💰 費用/發票、🏠 個人/家庭、📋 其他。\n"
         "<<<category:info>>> 資訊（天氣、行程、新聞、CRM 概覽等一般資訊）\n"
         "<<<category:bible>>> 聖經（靈修內容）\n"
         "冇內容嘅類別就省略該 tag。每個類別內用 bullet points，高密度。\n"
