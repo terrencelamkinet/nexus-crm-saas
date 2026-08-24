@@ -229,7 +229,9 @@ def _build_prompt(slot: str, settings: SecretarySettings, data: dict[str, Any]) 
         f"以下係已收集嘅數據（用戶喺 AI 應用揀咗 modules：{', '.join(list(modules_summary.keys()) + ['schedule', 'tasks', 'weather']) if modules_summary else 'default'}）：\n"
         f"```json\n{json.dumps(payload, ensure_ascii=False, default=str, indent=1)}\n```\n\n"
     )
-    # Bible 專屬格式規則（有 bible_reading data 時）
+    # Bible 專屬格式規則（有 bible_reading data 時）— 只提供 reference + 連結，
+    # 唔列經文內文（用戶 2026-08-24 明確要求：「經文不需要 list，只要提供
+    # 連結同今日要讀嘅經文」）
     bible_data = data.get("bible_reading") or []
     if bible_data:
         b0 = bible_data[0]
@@ -248,14 +250,26 @@ def _build_prompt(slot: str, settings: SecretarySettings, data: dict[str, Any]) 
             "─── 讀經 ───\n"
             f"📖 打開和合本修訂版（{bc}）\n"
             f"📱 用微讀細讀經文（{wd}）\n"
-            "經文內文逐字呈現（text 欄位，唔可以改寫或節錄）\n"
+            "❌ 嚴禁列出經文內文（text 欄位）—— 用戶會自己開 Bible app 睇，"
+            "只需要 reference + 連結\n"
             "─── Jesus Soaking Worship ───\n"
             "🎵 平靜安穩親近神 1hr（https://www.youtube.com/results?search_query=jesus+soaking+worship+1+hour）\n"
             "🎵 敬拜讚美浸泡 1hr（https://www.youtube.com/results?search_query=worship+music+1+hour）\n"
             "願神的話語成為你今日的力量 ❤️\n"
         )
         user += bible_rule + "\n"
-    user += "輸出格式：第一行用 <summary>...</summary> 包住一段 1-2 句嘅全日整合摘要（用上述語言，簡短精煉，整合下面所有數據嘅重點），跟住先係完整簡報內容（以 emoji title 開頭）。唔好加任何 metadata 或解釋。"
+    user += (
+        "輸出格式：第一行用 <summary>...</summary> 包住一段 1-2 句嘅全日整合摘要"
+        "（用上述語言，簡短精煉，整合下面所有數據嘅重點），跟住將完整簡報內容"
+        "按以下 4 個類別分節輸出，每個類別用 <<<category:XXX>>> 開頭標記，"
+        "XXX 只可以係 notifications / reminders / info / bible：\n"
+        "<<<category:notifications>>> 通知（行程衝突、逾期任務、需要立即處理嘅警報）\n"
+        "<<<category:reminders>>> 提醒（今日任務、費用/發票/電郵草稿提醒、到期事項）\n"
+        "<<<category:info>>> 資訊（天氣、行程、新聞、CRM 概覽等一般資訊）\n"
+        "<<<category:bible>>> 聖經（靈修內容）\n"
+        "冇內容嘅類別就省略該 tag。每個類別內用 bullet points，高密度。\n"
+        "唔好加任何 metadata 或解釋。"
+    )
     return [
         {"role": "system", "content": system},
         {"role": "user", "content": user},
@@ -413,19 +427,47 @@ async def generate_briefing(
     if _m:
         content = _re.sub(r"<summary>.*?</summary>\s*", "", content, flags=_re.S).strip()
 
+    # v7.00: 按類別拆 section（<<<category:XXX>>> tags）— 每類獨立推送用。
+    # Dashboard 讀完整 content（剝走 tags 嘅版本）；categories dict 存 DB 俾
+    # scheduler 分開發送（通知/提醒/資訊/聖經）。
+    CATEGORY_LABELS = {
+        "notifications": "🔔 通知",
+        "reminders": "⏰ 提醒",
+        "info": "📰 資訊",
+        "bible": "📖 聖經",
+    }
+    categories: dict[str, str] = {}
+    cat_m = list(_re.finditer(r"<<<category:(\w+)>>>", content))
+    if cat_m:
+        clean_parts: list[str] = []
+        for i, m in enumerate(cat_m):
+            cat = m.group(1)
+            end = cat_m[i + 1].start() if i + 1 < len(cat_m) else len(content)
+            body = content[m.end():end].strip()
+            if cat in CATEGORY_LABELS and body:
+                categories[cat] = body
+        # content 剝走 category tags → 保留 section headers（dashboard
+        # parseBriefing 用 markdown headers 拆 sections — 唔可以淨刪 tag）
+        content = _re.sub(
+            r"<<<category:(\w+)>>>\s*",
+            lambda m: f"\n### {CATEGORY_LABELS.get(m.group(1), m.group(1))}\n",
+            content,
+        ).strip()
+
     # store to PG (raw SQL — no model boilerplate)
     from sqlalchemy import text as sql_text
     await db.execute(
         sql_text(
             "INSERT INTO nexus_crm.generated_briefings "
-            "(tenant_id, user_id, slot, briefing_date, content, summary, data_snapshot, modules) "
-            "VALUES (:tid, :uid, :slot, :d, :content, :summary, CAST(:snapshot AS jsonb), :modules)"
+            "(tenant_id, user_id, slot, briefing_date, content, summary, categories, data_snapshot, modules) "
+            "VALUES (:tid, :uid, :slot, :d, :content, :summary, CAST(:categories AS jsonb), CAST(:snapshot AS jsonb), :modules)"
         ),
         {
             "tid": tenant_id, "uid": user_id, "slot": slot,
             "d": _now_hkt().date(),
             "content": content,
             "summary": summary or None,
+            "categories": json.dumps(categories, ensure_ascii=False) if categories else None,
             "snapshot": json.dumps({k: v for k, v in data.items() if k in ("weather", "schedule", "tasks")},
                                    ensure_ascii=False, default=str),
             "modules": list(modules.keys()),  # text[] column — module keys
@@ -438,7 +480,8 @@ async def generate_briefing(
         im = await _im_push_if_enabled(db, tenant_id, user_id, slot, content)
     await db.commit()
 
-    return {"user_id": str(user_id), "slot": slot, "status": "published", "im": im, "content": content, "content_len": len(content)}
+    return {"user_id": str(user_id), "slot": slot, "status": "published", "im": im,
+            "content": content, "content_len": len(content), "categories": categories}
 
 
 async def run_for_all_users(db: AsyncSession, slot: str) -> dict[str, Any]:

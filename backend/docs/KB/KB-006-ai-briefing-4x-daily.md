@@ -22,6 +22,13 @@ evening / night → 存 `nexus_crm.generated_briefings` cache），**唔係即�
   - Telegram：時間放最前 header（`🕐 HH:MM · 🌅 早安`）、剝走重複 title、
     壓縮空行（高密度）、`|` table 轉 bullet、截斷 4000 chars
   - WhatsApp：壓空行 + 截斷（寬鬆啲，保留原文）
+- **按類別分開發送（v7.00 確立 — 用戶：「message 一次過太長睇唔到，請按類別做
+  分類發送」）**：LLM 輸出用 `<<<category:XXX>>>` tags 分節（notifications /
+  reminders / info / bible）→ `generate_briefing` parse 成 `categories` jsonb
+  存 DB → scheduler 每類一條 message 推送（`🕐 HH:MM · 🔔 通知 / ⏰ 提醒 /
+  📰 資訊 / 📖 聖經`）。Dashboard 讀完整 content（tags 剝走、保留 section headers）。
+- **聖經唔列經文內文（v7.00 確立）**：只提供 reference + 今日經文連結
+  （bible.com / 微讀）— 用戶會自己開 Bible app 睇
 - scheduler 統一控制推送（`skip_im_push=True` 傳俾 generator）— 避免 double push
 
 ## 成本控制（5 萬人考量）

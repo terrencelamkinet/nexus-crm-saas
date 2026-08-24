@@ -83,11 +83,12 @@ _SLOT_META = {
 _MAX_IM_LEN = 4000
 
 
-def _style_for_channel(content: str, channel: str, slot: str, now: datetime) -> str:
+def _style_for_channel(content: str, channel: str, slot: str, now: datetime, header: str | None = None) -> str:
     """Convert briefing content to the target IM's message style.
 
     Telegram（高密度、時間放最前、少隔行、冇 table — 跟 telegram-mobile-format）：
-      - 第一行加 `🕐 HH:MM · 🌅 早安` header（時間放最前）
+      - 第一行加 `🕐 HH:MM · 🌅 早安` header（時間放最前；`header` 參數可覆蓋，
+        例如分類推送用「🕐 HH:MM · 🔔 通知」）
       - 剝走 content 開頭重複嘅 emoji title（LLM 已出「🌅 早安」）
       - 壓縮連續空行 → 最多 1 個
       - `|` 分隔嘅 table 行 → bullet（Telegram 唔 support table）
@@ -106,14 +107,15 @@ def _style_for_channel(content: str, channel: str, slot: str, now: datetime) -> 
     if channel != "telegram":
         return text[:_MAX_IM_LEN] if len(text) > _MAX_IM_LEN else text
 
-    emoji, label = _SLOT_META.get(slot, ("📋", "簡報"))
-    # 剝走 content 開頭重複嘅 emoji+label title（「🌅 早安」/「🌅早安」）
-    for e2, l2 in _SLOT_META.values():
-        for prefix in (f"{e2} {l2}", f"{e2}{l2}"):
-            if text.startswith(prefix):
-                text = text[len(prefix):].lstrip("\n:： ")
-                break
-    header = f"🕐 {now.strftime('%H:%M')} · {emoji} {label}"
+    if header is None:
+        emoji, label = _SLOT_META.get(slot, ("📋", "簡報"))
+        header = f"🕐 {now.strftime('%H:%M')} · {emoji} {label}"
+        # 剝走 content 開頭重複嘅 emoji+label title（「🌅 早安」/「🌅早安」）
+        for e2, l2 in _SLOT_META.values():
+            for prefix in (f"{e2} {l2}", f"{e2}{l2}"):
+                if text.startswith(prefix):
+                    text = text[len(prefix):].lstrip("\n:： ")
+                    break
     text = f"{header}\n{text}"
     # Telegram 唔 support table — 兩格以上 | 嘅行轉 bullet
     text = "\n".join(
@@ -217,8 +219,20 @@ async def _channel_gate(db, user, channel: str, slot: str) -> str:
     return ""
 
 
-async def _push_telegram(db, user, slot: str, content: str) -> str:
-    """Push via bound Telegram bot. Returns 'sent'|'skipped'|'failed'."""
+_CATEGORY_LABELS = {
+    "notifications": "🔔 通知",
+    "reminders": "⏰ 提醒",
+    "info": "📰 資訊",
+    "bible": "📖 聖經",
+}
+
+
+async def _push_telegram(db, user, slot: str, content: str, categories: dict | None = None) -> str:
+    """Push via bound Telegram bot. Returns 'sent'|'skipped'|'failed'.
+
+    categories 有值時按類別分開 send（每類一條 message — 用戶 2026-08-24：
+    message 一次過太長睇唔到，按類別分類發送）。
+    """
     # ⚠️ Caller（generate_briefing）已經 commit — transaction-local GUC 隨
     # transaction 完結消失，必須重新 set 先讀到 IMDeliveryPref / 寫 push_log
     # （兩者都有 RLS）。唔 set 嘅話 push_log INSERT 會 RLS violation → 永遠
@@ -265,7 +279,24 @@ async def _push_telegram(db, user, slot: str, content: str) -> str:
     if not token:
         return "skipped"
     try:
-        styled = _style_for_channel(content, "telegram", slot, _now_hkt())
+        now = _now_hkt()
+        if categories:
+            # 按類別分開 send — 每類一條 message（🔔通知/⏰提醒/📰資訊/📖聖經）
+            all_ok = True
+            for cat_key in ("notifications", "reminders", "info", "bible"):
+                body = (categories.get(cat_key) or "").strip()
+                if not body:
+                    continue
+                label = _CATEGORY_LABELS.get(cat_key, cat_key)
+                styled = _style_for_channel(
+                    body, "telegram", slot, now,
+                    header=f"🕐 {now.strftime('%H:%M')} · {label}",
+                )
+                result = await telegram_service.send_message(token, str(tg.chat_id), styled)
+                if not (isinstance(result, dict) and result.get("ok")):
+                    all_ok = False
+            return "sent" if all_ok else "failed"
+        styled = _style_for_channel(content, "telegram", slot, now)
         result = await telegram_service.send_message(token, str(tg.chat_id), styled)
         ok = isinstance(result, dict) and result.get("ok")
         return "sent" if ok else "failed"
@@ -273,7 +304,7 @@ async def _push_telegram(db, user, slot: str, content: str) -> str:
         return "failed"
 
 
-async def _push_whatsapp(db, user, slot: str, content: str) -> str:
+async def _push_whatsapp(db, user, slot: str, content: str, categories: dict | None = None) -> str:
     """Fallback channel — only if no active Telegram mapping."""
     # 同 _push_telegram — caller commit 後 GUC 消失，重新 set（RLS）
     try:
@@ -308,8 +339,11 @@ async def _push_whatsapp(db, user, slot: str, content: str) -> str:
         return "failed"
 
 
-async def _generate_content(db, user, slot_key: str) -> str:
+async def _generate_content(db, user, slot_key: str) -> tuple[str, dict]:
     """Compose briefing content via the existing generator.
+
+    Returns (content, categories) — categories = {category_key: body} 俾
+    scheduler 按類別分開發送（通知/提醒/資訊/聖經）。冇分類 tags 時 categories={}。
 
     skip_im_push=True: 推送由 scheduler 統一控制（Telegram primary + WhatsApp
     fallback，各自 channel gate）— 避免 generator 內部 WhatsApp push 同
@@ -324,7 +358,8 @@ async def _generate_content(db, user, slot_key: str) -> str:
         skip_im_push=True,
     )
     content = result.get("content", "") if isinstance(result, dict) else ""
-    return content
+    categories = result.get("categories") or {} if isinstance(result, dict) else {}
+    return content, categories
 
 
 async def run_scheduler(dry_run: bool = False) -> dict:
@@ -381,14 +416,14 @@ async def run_scheduler(dry_run: bool = False) -> dict:
                     if dry_run:
                         stats["details"].append(f"{str(user_id)[:8]} {key}@{start}: DUE (dry)")
                         continue
-                    content = await _generate_content(db, user, key)
+                    content, categories = await _generate_content(db, user, key)
                     if not content:
                         stats["skipped"] += 1
                         stats["details"].append(f"{str(user_id)[:8]} {key}: empty content")
                         continue
-                    status = await _push_telegram(db, user, key, content)
+                    status = await _push_telegram(db, user, key, content, categories)
                     if status == "skipped":
-                        status = await _push_whatsapp(db, user, key, content)
+                        status = await _push_whatsapp(db, user, key, content, categories)
                     db.add(PushLog(
                         tenant_id=tenant_id, user_id=user_id,
                         channel="telegram" if status != "skipped" else "whatsapp",
@@ -422,9 +457,9 @@ async def run_scheduler(dry_run: bool = False) -> dict:
                                     stats["skipped"] += 1
                                     stats["details"].append(f"{str(user_id)[:8]} {b_slot}: empty content")
                                     continue
-                                bstatus = await _push_telegram(db, user, b_slot, bres["content"])
+                                bstatus = await _push_telegram(db, user, b_slot, bres["content"], bres.get("categories") or {})
                                 if bstatus == "skipped":
-                                    bstatus = await _push_whatsapp(db, user, b_slot, bres["content"])
+                                    bstatus = await _push_whatsapp(db, user, b_slot, bres["content"], bres.get("categories") or {})
                                 db.add(PushLog(
                                     tenant_id=tenant_id, user_id=user_id,
                                     channel="telegram" if bstatus != "skipped" else "whatsapp",
