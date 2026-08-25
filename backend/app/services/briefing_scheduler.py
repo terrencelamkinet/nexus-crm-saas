@@ -214,7 +214,10 @@ async def _channel_gate(db, user, channel: str, slot: str) -> str:
             return "slot_off"
         if pref.weekend_mute and _hkt_weekend(now):
             return "weekend_mute"
-        if _in_quiet_hours(now, pref.quiet_hours):
+        # morning slot exempt from quiet_hours — 用戶明示開咗 morning 就係
+        # 想朝早收 briefing，唔應該俾靜音時段（22:00-08:00）擋住
+        # （2026-08-25: morning 05:00 被 quiet_hours 擋 → 用戶投訴收唔到）
+        if _in_quiet_hours(now, pref.quiet_hours) and slot != "morning":
             return "quiet_hours"
     return ""
 
@@ -269,7 +272,13 @@ async def _push_telegram(db, user, slot: str, content: str, categories: dict | N
             )
         )
     ).scalar_one_or_none()
-    token = decrypt_secret(cred.access_token) if cred and cred.access_token else ""
+    token = ""
+    try:
+        token = decrypt_secret(cred.access_token) if cred and cred.access_token else ""
+    except Exception:
+        # decrypt 失敗（key drift / token 損壞）→ fallback 去 mapping 嘅
+        # plaintext bot_token，唔好令 push 靜默失敗（2026-08-25 InvalidTag）
+        token = ""
     if not token:
         # Fallback: legacy plaintext token on the mapping row (credential
         # store may have never been populated for this bot).
