@@ -192,6 +192,8 @@ async def _working_hours_quiet_window(db, user, fallback: dict | None) -> dict:
     用戶 2026-08-25: quiet_hours 應該跟 AI Apps 嘅 Working Hours，
     唔係獨立嘅 hardcoded 22:00-08:00。Work start/end 由
     ai_secretary_settings.work_start / work_end 讀取（Time columns）。
+    strict_silence=False（AI Apps untick Strict Silence Off-Hours）=
+    ignore quiet time，任何時間都推。
     Edge case：工作時段 ≥23h（例如 00:00-23:59）= 幾乎全天工作 →
     冇靜音窗，返回 fallback 但 caller 會見到寬 window 照擋？唔會 —
     呢度直接返回 fallback（保持原行為）。
@@ -208,10 +210,10 @@ async def _working_hours_quiet_window(db, user, fallback: dict | None) -> dict:
         if row and row.work_start and row.work_end:
             start_s = row.work_end.strftime("%H:%M")   # 工作結束 → 靜音開始
             end_s = row.work_start.strftime("%H:%M")   # 工作開始 → 靜音結束
-            return {"start": start_s, "end": end_s}
+            return {"start": start_s, "end": end_s, "strict_silence": bool(row.strict_silence)}
     except Exception:
         pass
-    return fallback or {"start": "22:00", "end": "08:00"}
+    return {"start": "22:00", "end": "08:00", "strict_silence": True}
 
 
 async def _channel_gate(db, user, channel: str, slot: str) -> str:
@@ -244,8 +246,9 @@ async def _channel_gate(db, user, channel: str, slot: str) -> str:
             return "weekend_mute"
         # 靜音時段跟 AI Apps Working Hours（用戶 2026-08-25）：
         # 非工作時段 = 靜音。morning slot 豁免（用戶明示想朝早收 briefing）。
+        # strict_silence=False（AI Apps untick）→ ignore quiet time，照推。
         qh = await _working_hours_quiet_window(db, user, pref.quiet_hours)
-        if _in_quiet_hours(now, qh) and slot != "morning":
+        if qh.get("strict_silence", True) and _in_quiet_hours(now, qh) and slot != "morning":
             return "quiet_hours"
     return ""
 

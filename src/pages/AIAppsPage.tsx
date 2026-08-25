@@ -856,6 +856,80 @@ export default function AIAppsPage() {
                   </div>
                 </div>
               )}
+
+              {/* ── 通知與整合 — AI 每日簡報推送 ── */}
+              <div className="asec-card" style={{ marginTop: 28 }}>
+                <h3>📲 {t('settings.aiApps.notifTitle')}</h3>
+                <p className="asec-card-hint">{t('settings.aiApps.notifDesc')}</p>
+
+                {Object.keys(imChannels).length === 0 && (
+                  <div className="asec-card-hint" style={{ padding: '10px 0' }}>
+                    {t('settings.aiApps.notifEmpty')}
+                  </div>
+                )}
+
+                {Object.entries(imChannels).map(([ch, pref]: [string, any]) => (
+                  <div key={ch} className="asec-channel-card" style={{ marginTop: 10, flexDirection: 'column', alignItems: 'stretch' }}>
+                    <div className="asec-channel-info">
+                      <span className="asec-channel-icon">{ch === 'whatsapp' ? '💬' : '✈️'}</span>
+                      <div>
+                        <strong>{ch === 'whatsapp' ? 'WhatsApp' : 'Telegram'}</strong>
+                        <p className="hint" style={{ fontWeight: 600, color: pref.enabled ? '#34d399' : 'var(--color-text-faint)' }}>
+                          {pref.enabled ? t('settings.aiApps.notifEnabled') : t('settings.aiApps.notifDisabled')}
+                        </p>
+                      </div>
+                      <label className="asec-switch" style={{ marginLeft: 'auto' }}>
+                        <input type="checkbox" checked={!!pref.enabled}
+                          onChange={() => setImChannels({ ...imChannels, [ch]: { ...pref, enabled: !pref.enabled } })} />
+                        <span className="asec-slider" />
+                      </label>
+                    </div>
+
+                    <div className="asec-day-row" style={{ marginTop: 12 }}>
+                      {(['morning', 'noon', 'evening'] as const).map(s => (
+                        <label key={s}
+                          className={`asec-day-chip${pref.slots?.[s] ? ' active' : ''}`}
+                          style={{ cursor: 'pointer' }}>
+                          <input
+                            type="checkbox"
+                            checked={!!pref.slots?.[s]}
+                            onChange={() => setImChannels({
+                              ...imChannels,
+                              [ch]: { ...pref, slots: { ...pref.slots, [s]: !pref.slots?.[s] } },
+                            })}
+                            style={{ display: 'none' }}
+                          />
+                          {s === 'morning' ? '☀️ ' + t('settings.aiApps.slotMorning') : s === 'noon' ? '☕ ' + t('settings.aiApps.slotNoon') : '🌙 ' + t('settings.aiApps.slotEvening')}
+                        </label>
+                      ))}
+                    </div>
+
+                    <label className="asec-toggle-row" style={{ marginTop: 12, cursor: 'pointer' }}>
+                      <input
+                        type="checkbox"
+                        checked={!!pref.weekend_mute}
+                        onChange={() => setImChannels({ ...imChannels, [ch]: { ...pref, weekend_mute: !pref.weekend_mute } })}
+                        style={{ accentColor: 'var(--color-primary)' }}
+                      />
+                      <span style={{ fontSize: 12.5 }}>{t('settings.aiApps.notifWeekendMute')}</span>
+                    </label>
+
+                    <div className="asec-actions" style={{ marginTop: 14 }}>
+                      <button className="btn-primary" onClick={() => saveImPrefs(ch)} disabled={imSaving}
+                        style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12, padding: '7px 14px' }}>
+                        💾 {t('settings.aiApps.notifSave')}
+                      </button>
+                      <button className="btn-ghost" onClick={() => testImPush(ch)} disabled={imTestState === 'sending'}
+                        style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12, padding: '7px 14px' }}>
+                        {imTestState === 'sending' ? t('settings.aiApps.notifSending') + '…' : '📨 ' + t('settings.aiApps.notifTest')}
+                      </button>
+                      {imSaved && <span style={{ fontSize: 12, fontWeight: 600, color: '#34d399' }}>✓ {t('settings.aiApps.notifSaved')}</span>}
+                      {imTestState === 'done' && <span style={{ fontSize: 12, fontWeight: 600, color: '#34d399' }}>✓ {t('settings.aiApps.notifSent')}</span>}
+                      {imTestState === 'error' && <span style={{ fontSize: 12, fontWeight: 600, color: '#f87171' }}>⚠️ {t('settings.aiApps.notifFail')}</span>}
+                    </div>
+                  </div>
+                ))}
+              </div>
             </section>
           )}
 
@@ -936,79 +1010,6 @@ export default function AIAppsPage() {
                 </button>
               </div>
 
-              {/* ── 通知與整合 — AI 每日簡報推送 ── */}
-              <div className="asec-card" style={{ marginTop: 28 }}>
-                <h3>📲 {t('settings.aiApps.notifTitle')}</h3>
-                <p className="asec-card-hint">{t('settings.aiApps.notifDesc')}</p>
-
-                {Object.keys(imChannels).length === 0 && (
-                  <div className="asec-card-hint" style={{ padding: '10px 0' }}>
-                    {t('settings.aiApps.notifEmpty')}
-                  </div>
-                )}
-
-                {Object.entries(imChannels).map(([ch, pref]: [string, any]) => (
-                  <div key={ch} className="asec-channel-card" style={{ marginTop: 10 }}>
-                    <div className="asec-channel-info">
-                      <span className="asec-channel-icon">{ch === 'whatsapp' ? '💬' : '✈️'}</span>
-                      <div>
-                        <strong>{ch === 'whatsapp' ? 'WhatsApp' : 'Telegram'}</strong>
-                        <p className="hint" style={{ fontWeight: 600, color: pref.enabled ? '#34d399' : 'var(--color-text-faint)' }}>
-                          {pref.enabled ? t('settings.aiApps.notifEnabled') : t('settings.aiApps.notifDisabled')}
-                        </p>
-                      </div>
-                      <label className="asec-switch" style={{ marginLeft: 'auto' }}>
-                        <input type="checkbox" checked={!!pref.enabled}
-                          onChange={() => setImChannels({ ...imChannels, [ch]: { ...pref, enabled: !pref.enabled } })} />
-                        <span className="asec-slider" />
-                      </label>
-                    </div>
-
-                    <div className="asec-day-row" style={{ marginTop: 12 }}>
-                      {(['morning', 'noon', 'evening'] as const).map(s => (
-                        <label key={s}
-                          className={`asec-day-chip${pref.slots?.[s] ? ' active' : ''}`}
-                          style={{ cursor: 'pointer' }}>
-                          <input
-                            type="checkbox"
-                            checked={!!pref.slots?.[s]}
-                            onChange={() => setImChannels({
-                              ...imChannels,
-                              [ch]: { ...pref, slots: { ...pref.slots, [s]: !pref.slots?.[s] } },
-                            })}
-                            style={{ display: 'none' }}
-                          />
-                          {s === 'morning' ? '☀️ ' + t('settings.aiApps.slotMorning') : s === 'noon' ? '☕ ' + t('settings.aiApps.slotNoon') : '🌙 ' + t('settings.aiApps.slotEvening')}
-                        </label>
-                      ))}
-                    </div>
-
-                    <label className="asec-toggle-row" style={{ marginTop: 12, cursor: 'pointer' }}>
-                      <input
-                        type="checkbox"
-                        checked={!!pref.weekend_mute}
-                        onChange={() => setImChannels({ ...imChannels, [ch]: { ...pref, weekend_mute: !pref.weekend_mute } })}
-                        style={{ accentColor: 'var(--color-primary)' }}
-                      />
-                      <span style={{ fontSize: 12.5 }}>{t('settings.aiApps.notifWeekendMute')}</span>
-                    </label>
-
-                    <div className="asec-actions" style={{ marginTop: 14 }}>
-                      <button className="btn-primary" onClick={() => saveImPrefs(ch)} disabled={imSaving}
-                        style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12, padding: '7px 14px' }}>
-                        💾 {t('settings.aiApps.notifSave')}
-                      </button>
-                      <button className="btn-ghost" onClick={() => testImPush(ch)} disabled={imTestState === 'sending'}
-                        style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12, padding: '7px 14px' }}>
-                        {imTestState === 'sending' ? t('settings.aiApps.notifSending') + '…' : '📨 ' + t('settings.aiApps.notifTest')}
-                      </button>
-                      {imSaved && <span style={{ fontSize: 12, fontWeight: 600, color: '#34d399' }}>✓ {t('settings.aiApps.notifSaved')}</span>}
-                      {imTestState === 'done' && <span style={{ fontSize: 12, fontWeight: 600, color: '#34d399' }}>✓ {t('settings.aiApps.notifSent')}</span>}
-                      {imTestState === 'error' && <span style={{ fontSize: 12, fontWeight: 600, color: '#f87171' }}>⚠️ {t('settings.aiApps.notifFail')}</span>}
-                    </div>
-                  </div>
-                ))}
-              </div>
             </section>
           )}
         </main>
