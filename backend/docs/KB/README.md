@@ -30,6 +30,7 @@
 | IM AI 回「確認」冇反應、無限重複草稿 | tenant 冇 ai allow_edit / 冇 workspace | [KB-005](./KB-005-tenant-ai-write-flow-infra.md) |
 | Dashboard 顯示「即時更新」但 briefing 係 4 次/日 | briefing 係預生成 cache，唔係即時 | [KB-006](./KB-006-ai-briefing-4x-daily.md) |
 | AI 草稿 confirm 時 500 tasks_workspace_id_fkey | tenant 冇 workspace → sentinel 全零 | [KB-005](./KB-005-tenant-ai-write-flow-infra.md) |
+| 其他帳戶睇到 Terrence 嘅聯絡人/公司 | 跨 tenant data copy（superuser 直寫 + trigger 只 audit 唔 block） | [KB-007](./KB-007-tenant-data-leak-fwd-life.md) |
 
 ---
 
@@ -42,6 +43,7 @@
 | [KB-003](./KB-003-dashboard-widget-save-race.md) | 2026-08-07 | Dashboard widget save: load 重複寫入 + stale GET 靜默 revert | 🟠 High | frontend |
 | [KB-004](./KB-004-dashboard-widget-resize-fallback.md) | 2026-08-07 | Dashboard widget resize: width/height 只改 DOM 唔 save, reload fallback | 🟠 High | frontend |
 | [KB-005](./KB-005-tenant-ai-write-flow-infra.md) | 2026-08-22 | 新 tenant AI write flow 壞：AI 只出草稿、回「確認」無限循環 | 🔴 Critical | backend |
+| [KB-007](./KB-007-tenant-data-leak-fwd-life.md) | 2026-08-25 | Multi-tenant 資料洩漏：Kinetix data 被複製入 FWD Life (Caleb) tenant | 🔴 Critical | backend/DB security |
 
 ---
 
