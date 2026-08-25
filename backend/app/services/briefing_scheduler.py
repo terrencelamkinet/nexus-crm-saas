@@ -186,6 +186,34 @@ def _in_quiet_hours(now: datetime, quiet_hours) -> bool:
         return False
 
 
+async def _working_hours_quiet_window(db, user, fallback: dict | None) -> dict:
+    """Quiet window = outside Working Hours (AI Apps 設定).
+
+    用戶 2026-08-25: quiet_hours 應該跟 AI Apps 嘅 Working Hours，
+    唔係獨立嘅 hardcoded 22:00-08:00。Work start/end 由
+    ai_secretary_settings.work_start / work_end 讀取（Time columns）。
+    Edge case：工作時段 ≥23h（例如 00:00-23:59）= 幾乎全天工作 →
+    冇靜音窗，返回 fallback 但 caller 會見到寬 window 照擋？唔會 —
+    呢度直接返回 fallback（保持原行為）。
+    """
+    try:
+        row = (
+            await db.execute(
+                select(SecretarySettings).where(
+                    SecretarySettings.tenant_id == user.tenant_id,
+                    SecretarySettings.user_id == user.user_id,
+                )
+            )
+        ).scalar_one_or_none()
+        if row and row.work_start and row.work_end:
+            start_s = row.work_end.strftime("%H:%M")   # 工作結束 → 靜音開始
+            end_s = row.work_start.strftime("%H:%M")   # 工作開始 → 靜音結束
+            return {"start": start_s, "end": end_s}
+    except Exception:
+        pass
+    return fallback or {"start": "22:00", "end": "08:00"}
+
+
 async def _channel_gate(db, user, channel: str, slot: str) -> str:
     """Return '' (allow) or a skip reason string when IMDeliveryPref blocks push.
 
@@ -214,10 +242,10 @@ async def _channel_gate(db, user, channel: str, slot: str) -> str:
             return "slot_off"
         if pref.weekend_mute and _hkt_weekend(now):
             return "weekend_mute"
-        # morning slot exempt from quiet_hours — 用戶明示開咗 morning 就係
-        # 想朝早收 briefing，唔應該俾靜音時段（22:00-08:00）擋住
-        # （2026-08-25: morning 05:00 被 quiet_hours 擋 → 用戶投訴收唔到）
-        if _in_quiet_hours(now, pref.quiet_hours) and slot != "morning":
+        # 靜音時段跟 AI Apps Working Hours（用戶 2026-08-25）：
+        # 非工作時段 = 靜音。morning slot 豁免（用戶明示想朝早收 briefing）。
+        qh = await _working_hours_quiet_window(db, user, pref.quiet_hours)
+        if _in_quiet_hours(now, qh) and slot != "morning":
             return "quiet_hours"
     return ""
 
