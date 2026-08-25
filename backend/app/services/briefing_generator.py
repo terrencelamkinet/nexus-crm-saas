@@ -474,6 +474,7 @@ async def generate_briefing(
         user_id=user_id,
         membership_id=uuid.UUID(int=0),
         plan_type="chat",
+        slot=slot,
     )
 
     data = await _collect_modules(ctx, db, modules)

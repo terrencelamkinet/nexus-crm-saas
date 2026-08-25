@@ -37,6 +37,7 @@ from app.models.im_push import PushLog, IMDeliveryPref  # noqa: E402
 from app.services.secret_crypto import decrypt_secret  # noqa: E402
 from app.services import telegram_service, whatsapp_service  # noqa: E402
 from app.models.whatsapp import WhatsAppMapping  # noqa: E402
+from app.models.bible_reading import BibleReadingProgress  # noqa: E402
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker  # noqa: E402
 from app.config import settings  # noqa: E402
 
@@ -251,6 +252,51 @@ async def _channel_gate(db, user, channel: str, slot: str) -> str:
         if qh.get("strict_silence", True) and _in_quiet_hours(now, qh) and slot != "morning":
             return "quiet_hours"
     return ""
+
+
+# greeting slot key → bible time_of_day（SLOT_MAP 反向）
+_GREETING_TO_TOD = {
+    "morning": "morning",
+    "afternoon": "noon",
+    "evening": "evening",
+    "lateNight": "night",
+}
+
+
+async def _advance_bible_progress(db, user, modules_raw, slot_key: str) -> None:
+    """Push 成功後推進讀經進度（每日一章，用戶 2026-08-25）。
+
+    只有 bible_reading 啟用 + 當前 slot 對應 bible time_of_day 先推進：
+    - greeting mode：bible 只喺 time_of_day 指定 slot 出現（briefing_sources
+      filter）→ 嗰個 slot push 成功就推進一次
+    - custom mode（push_time_mode=custom）：bible-only push 成功就推進
+    day_index += 1 + last_completed_at 更新，commit 由 caller（per-member
+    commit）處理。
+    """
+    try:
+        modules = normalize_modules(modules_raw)
+        bopts = modules.get("bible_reading") or {}
+        if not bopts:
+            return
+        tod = bopts.get("time_of_day", "morning")
+        if bopts.get("push_time_mode") != "custom" and _GREETING_TO_TOD.get(slot_key) != tod:
+            return
+        plan = bopts.get("plan", "one_year")
+        row = (
+            await db.execute(
+                select(BibleReadingProgress).where(
+                    BibleReadingProgress.tenant_id == user.tenant_id,
+                    BibleReadingProgress.user_id == user.user_id,
+                    BibleReadingProgress.plan == plan,
+                )
+            )
+        ).scalar_one_or_none()
+        if row is not None:
+            row.day_index += 1
+            row.last_completed_at = datetime.now(timezone.utc)
+            await db.flush()
+    except Exception:
+        pass
 
 
 _CATEGORY_LABELS = {
@@ -472,6 +518,9 @@ async def run_scheduler(dry_run: bool = False) -> dict:
                     ))
                     stats[status] += 1
                     stats["details"].append(f"{str(user_id)[:8]} {key}@{start}: {status}")
+                    # 讀經進度推進：morning greeting push 成功 → 每日一章
+                    if status == "sent":
+                        await _advance_bible_progress(db, user, modules_raw, key)
 
                 # bible_reading custom push time（唔跟 greeting schedule）→ 指定時間推 bible-only
                 try:
@@ -508,6 +557,9 @@ async def run_scheduler(dry_run: bool = False) -> dict:
                                 ))
                                 stats[bstatus] += 1
                                 stats["details"].append(f"{str(user_id)[:8]} {b_slot}@{b_start}: {bstatus}")
+                                # 讀經進度推進：bible-only custom push 成功 → 每日一章
+                                if bstatus == "sent":
+                                    await _advance_bible_progress(db, user, modules_raw, tod)
                             else:
                                 stats["skipped"] += 1
                                 stats["details"].append(f"{str(user_id)[:8]} {b_slot}: {bres.get('status', 'failed')}")

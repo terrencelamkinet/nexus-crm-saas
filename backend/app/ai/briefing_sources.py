@@ -1178,6 +1178,15 @@ async def bible_reading(ctx: AISessionContext, db: AsyncSession, options: dict |
     end_book = opts.get("end_book") or None
     start_chapter = opts.get("start_chapter") or None
     end_chapter = opts.get("end_chapter") or None
+
+    # time_of_day filter（用戶 2026-08-25：「CRM briefing 亂了」）：
+    # 經文只喺指定時段嘅 briefing 出現一次，唔好每個 greeting slot 重複。
+    # greeting mode：ctx.slot 對應 briefing slot（morning/noon/evening/night），
+    # time_of_day 唔 match 就唔出。custom mode：generate_briefing 傳嘅 slot
+    # 就係 time_of_day 本身，自然 match。
+    tod = opts.get("time_of_day", "morning")
+    if getattr(ctx, "slot", None) and tod and ctx.slot != tod:
+        return []
     try:
         start_chapter = int(start_chapter) if start_chapter else None
         end_chapter = int(end_chapter) if end_chapter else None

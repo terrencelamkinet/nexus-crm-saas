@@ -31,6 +31,10 @@ class AISessionContext:
     model_profile_id: Optional[uuid.UUID] = None
     plan_type: str = "chat"
     request_id: str = ""
+    # briefing slot (morning/noon/evening/night) — bible_reading 用嚟決定
+    # 喺邊個 slot 先出經文（time_of_day filter），避免每日 4 個 greeting
+    # slot 重複同一章（用戶 2026-08-25：「CRM briefing 亂了」）
+    slot: Optional[str] = None
 
 
 async def build_ai_session_context(
