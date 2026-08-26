@@ -1153,6 +1153,27 @@ def _resolve_passages_for_day(
     return refs
 
 
+def _bible_config_fingerprint(opts: dict) -> str:
+    """讀經設定 fingerprint — settings 有變（plan/book_selection/start/end/
+    chapters_per_push）→ fingerprint 唔同 → day_index 要 reset 0。
+
+    2026-08-26 事件：用戶期望但以理書 3，但 settings 起點係以西結書 5 —
+    改設定後舊 day_index 冇 reset 會跳章/錯章。fingerprint 解決呢個問題：
+    任何設定變更都會令下次 generate 由頭（day 0）計起。
+    """
+    import hashlib
+    parts = [
+        str(opts.get("plan", "")),
+        str(opts.get("book_selection", "")),
+        str(opts.get("start_book") or ""),
+        str(opts.get("start_chapter") or ""),
+        str(opts.get("end_book") or ""),
+        str(opts.get("end_chapter") or ""),
+        str(opts.get("chapters_per_push", "")),
+    ]
+    return hashlib.md5("|".join(parts).encode()).hexdigest()
+
+
 async def bible_reading(ctx: AISessionContext, db: AsyncSession, options: dict | None = None) -> list[dict[str, Any]]:
     """讀經進度：根據 book_selection + plan + chapters_per_push 計算今日經文。
 
@@ -1195,6 +1216,14 @@ async def bible_reading(ctx: AISessionContext, db: AsyncSession, options: dict |
 
     from app.models.bible_reading import BibleReadingProgress, BibleVerse
 
+    # 讀經設定 fingerprint — settings 有變就 reset day_index（2026-08-26）
+    cfg_fp = _bible_config_fingerprint({
+        "plan": plan, "book_selection": book_selection,
+        "start_book": start_book, "start_chapter": start_chapter,
+        "end_book": end_book, "end_chapter": end_chapter,
+        "chapters_per_push": chapters,
+    })
+
     try:
         progress = (
             await db.execute(
@@ -1213,9 +1242,19 @@ async def bible_reading(ctx: AISessionContext, db: AsyncSession, options: dict |
                 plan=plan,
                 book_selection=book_selection,
                 day_index=0,
+                config_fingerprint=cfg_fp,
                 started_at=datetime.now(_UTC),
             )
             db.add(progress)
+            await db.flush()
+        elif progress.config_fingerprint != cfg_fp:
+            # 用戶改咗讀經設定（plan/book_selection/start/end/chapters）→
+            # 由頭計起，避免舊 day_index 跳章/錯章（2026-08-26 事件）。
+            progress.book_selection = book_selection
+            progress.day_index = 0
+            progress.config_fingerprint = cfg_fp
+            progress.started_at = datetime.now(_UTC)
+            progress.last_completed_at = None
             await db.flush()
 
         passages = _resolve_passages_for_day(

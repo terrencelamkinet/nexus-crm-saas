@@ -22,6 +22,9 @@ class BibleReadingProgress(Base):
     plan = Column(String(32), nullable=False)
     book_selection = Column(String(32), nullable=False)
     day_index = Column(Integer, default=0, nullable=False)
+    # 讀經設定 fingerprint（plan|book_selection|start/end book+chapter|chapters_per_push）
+    # 用戶改設定 → fingerprint 唔同 → day_index reset 0（唔會跳章/錯章）
+    config_fingerprint = Column(String(64), nullable=True)
     started_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
     last_completed_at = Column(DateTime(timezone=True))
 
