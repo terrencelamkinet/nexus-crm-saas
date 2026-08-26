@@ -1070,10 +1070,12 @@ export default function DashboardV2() {
         )), <SvcIcon name="activity" size={15} />)
     }
     if (wid === 'c3') {
-      const pct = allCompanies.length ? allCompanies[0]?.data_completeness_pct : undefined
+      const comp = allCompanies[0]
+      const pct = allCompanies.length ? comp?.data_completeness_pct : undefined
       const val = typeof pct === 'number' ? pct : '—'
+      const barLabel = comp?.name || t('dashboard.widgets.dataCompleteness', { defaultValue: '資料完整度' })
       return listWidget(t('dashboard.widgets.dataCompleteness', { defaultValue: '資料完整度' }), () => navigate('/companies'), '—',
-        <div className="dv2-bar-stack">{barRow(t('dashboard.widgets.dataCompleteness', { defaultValue: '資料完整度' }), typeof val === 'number' ? val : 0, 100, 'var(--color-blue, #2563eb)', `${val}%`)}</div>, <SvcIcon name="tags" size={15} />)
+        <div className="dv2-bar-stack">{barRow(barLabel, typeof val === 'number' ? val : 0, 100, 'var(--color-blue, #2563eb)', `${val}%`)}</div>, <SvcIcon name="tags" size={15} />)
     }
     if (wid === 'c5') {
       const colors = ['var(--color-blue, #2563eb)', 'var(--color-purple, #7c3aed)', 'var(--color-success, #16a34a)', 'var(--color-amber, #d97706)']
