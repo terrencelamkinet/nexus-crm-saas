@@ -156,7 +156,7 @@
 .dv2-ai-toggle-right { display: flex; align-items: center; gap: 8px; }
 .dv2-ai-chevron { color: var(--color-text-faint); transition: transform .2s ease; flex-shrink: 0; }
 .dv2-ai-chevron.open { transform: rotate(180deg); }
-.dv2-ai-caret { color: var(--ai-glow-1, #146EF5); animation: dv2-caret-blink 1s steps(1) infinite; margin-left: 1px; }
+.dv2-ai-caret { color: var(--ai-glow-1, #1B3B4B); animation: dv2-caret-blink 1s steps(1) infinite; margin-left: 1px; }
 @keyframes dv2-caret-blink { 50% { opacity: 0; } }
 /* Portal-style briefing sections (content = same as Telegram, style auto-applied) */
 .dv2-ai-sections { display: flex; flex-direction: column; gap: 8px; }

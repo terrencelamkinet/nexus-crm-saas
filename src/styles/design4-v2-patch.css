@@ -87,11 +87,11 @@
 
 /* Pulse orb — 藍色系 */
 .ab-orb-pulse {
-  background: radial-gradient(circle, #60A5FA, #2563EB);
+  background: radial-gradient(circle, #62C0B0, #1B3B4B);
   box-shadow: 0 0 0 0 rgba(20, 110, 245, .45);
 }
 .ab-orb-sparkles {
-  color: #2563EB;
+  color: #1B3B4B;
 }
 
 /* Trigger pill — 藍色 */

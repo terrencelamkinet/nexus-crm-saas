@@ -7,7 +7,8 @@ import { apiClient, getStoredAuth } from '../../lib/api';
 import FollowUpChips from '../ai/chat/core/FollowUpChips';
 import MarkdownMessage from '../MarkdownRenderer';
 import { PencilLine, CalendarClock, Maximize2, Plus, Trash2 } from 'lucide-react'
-import SvcIcon from '../../components/SvcIcon';
+import SvcIcon from '../../components/SvcIcon'
+import BrandIcon from '../BrandIcon';
 
 /**
  * AI & Search dual panel — center nav button（v6.71）
@@ -294,11 +295,11 @@ export default function AiSearchPanel({ open, onClose, onScanCard }: Props) {
       <div className={`aisp-panel ${closing ? 'closing' : ''}`} onClick={e => e.stopPropagation()}>
         <div className="aisp-handle" />
         <div className="aisp-head">
-          <h3>{t('ai.aiButler', { defaultValue: 'AI 管家秘書' })}</h3>
+          <h3>{t('ai.aiButler', { defaultValue: '企鵝管家' })}</h3>
           {/* v6.87: tabs 搬入標題行 — 慳返成條 tab 欄，button 收窄做 pills */}
           <div className="aisp-tabs">
             <button type="button" className={`aisp-tab ${mode === 'ai' ? 'active' : ''}`} onClick={() => setMode('ai')}>
-              <SvcIcon name="sparkles" className="aisp-tab-icon" /> {t('ai.askAi', { defaultValue: '問 AI' })}
+              <BrandIcon name="robot" size={14} className="aisp-tab-icon" /> {t('ai.askAi', { defaultValue: '問 AI' })}
             </button>
             <button type="button" className={`aisp-tab ${mode === 'search' ? 'active' : ''}`} onClick={() => setMode('search')}>
               <SvcIcon name="search" className="aisp-tab-icon" />{t('ai.tabSearch', { defaultValue: '搜尋' })}

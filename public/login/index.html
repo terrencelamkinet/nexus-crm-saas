@@ -4,21 +4,21 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
 <title>Penguin CRM</title>
-<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+<link rel="icon" type="image/png" href="/assets/logo/logo_square.png" />
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://api.fontshare.com/v2/css?f[]=general-sans@400,500,600,700&f[]=cabinet-grotesk@500,700,800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Poppins:wght@500;600;700;800&family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
 <style>
 :root,[data-theme="light"]{
 --color-bg:#f7f6f2;--color-surface:#fbfaf7;--color-surface-2:#ffffff;--color-surface-offset:#f1eee8;--color-surface-offset-2:#e8e3db;--color-divider:#ddd8d0;--color-border:#d3cec6;
 --color-text:#23211d;--color-text-muted:#69655f;--color-text-faint:#9f9a92;--color-text-inverse:#f9f8f4;
---color-primary:#143D5F;--color-primary-hover:#0f324f;--color-primary-active:#0a2740;--color-primary-highlight:#e2e9f0;
+--color-primary:#1B3B4B;--color-primary-hover:#16303E;--color-primary-active:#112732;--color-primary-highlight:#e2e9f0;
 --color-error:#ab4b59;--color-error-highlight:#f4e1e4;--color-success:#437a22;--color-success-highlight:#dce9d4;
 --radius-sm:.375rem;--radius-md:.625rem;--radius-lg:.95rem;--radius-xl:1.25rem;--radius-full:9999px;
 --shadow-sm:0 1px 2px oklch(0.2 0.01 80 / 0.05);--shadow-md:0 10px 30px oklch(0.2 0.01 80 / 0.08);--shadow-lg:0 24px 60px oklch(0.2 0.01 80 / 0.12);
 --text-xs:clamp(.75rem,.72rem + .15vw,.825rem);--text-sm:clamp(.875rem,.84rem + .2vw,.95rem);--text-base:clamp(1rem,.96rem + .2vw,1.05rem);--text-lg:clamp(1.125rem,1.04rem + .4vw,1.3rem);--text-xl:clamp(1.55rem,1.3rem + .9vw,2rem);
 --space-1:.25rem;--space-2:.5rem;--space-3:.75rem;--space-4:1rem;--space-5:1.25rem;--space-6:1.5rem;--space-8:2rem;--space-10:2.5rem;--space-12:3rem;--space-16:4rem;
---font-body:'General Sans','Inter',sans-serif;--font-display:'Cabinet Grotesk','Inter',sans-serif;
+--font-body:'Inter','Noto Sans TC','General Sans',sans-serif;--font-display:'Poppins','Noto Sans TC','Inter',sans-serif;
 --transition:180ms cubic-bezier(.16,1,.3,1);
 }
 [data-theme="dark"]{
@@ -33,7 +33,7 @@ button,input{font:inherit}button{border:none;cursor:pointer}a{text-decoration:no
 :focus-visible{outline:2px solid var(--color-primary);outline-offset:3px;border-radius:var(--radius-sm)}
 .app{min-height:100dvh;display:grid;grid-template-columns:1.05fr minmax(420px,520px)}
 .brand-pane{position:relative;padding:32px;display:flex;flex-direction:column;justify-content:space-between;background:linear-gradient(180deg,color-mix(in oklch,var(--color-primary) 4%, var(--color-bg)),var(--color-bg))}
-.brand-top{display:flex;align-items:center;justify-content:space-between;gap:16px}.brand-mark{display:flex;align-items:center;gap:12px;font-weight:700;letter-spacing:.01em}.brand-mark svg{width:26px;height:26px;color:var(--color-primary)}
+.brand-top{display:flex;align-items:center;justify-content:space-between;gap:16px}.brand-mark{display:flex;align-items:center;gap:12px;font-weight:700;letter-spacing:.01em}.brand-mark svg{width:26px;height:26px;color:var(--color-primary)}.brand-mark img{width:44px;height:44px;border-radius:12px;object-fit:cover;box-shadow:var(--shadow-sm)}
 .theme-btn{width:40px;height:40px;border-radius:50%;background:var(--color-surface);border:1px solid var(--color-divider);color:var(--color-text-muted);transition:all var(--transition)}.theme-btn:hover{background:var(--color-surface-offset);color:var(--color-text)}
 .hero-copy{max-width:520px;padding:32px 0 48px}.eyebrow{font-size:var(--text-xs);text-transform:uppercase;letter-spacing:.12em;color:var(--color-text-faint);margin-bottom:18px}.hero-copy h1{font-family:var(--font-display);font-size:clamp(2rem,1.3rem + 2vw,3.4rem);line-height:1.02;letter-spacing:-.03em;max-width:10ch;margin:0 0 16px}.hero-copy p{max-width:42ch;color:var(--color-text-muted);margin:0 0 24px}
 .mini-proof{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;max-width:560px}.proof-card{background:color-mix(in oklch,var(--color-surface) 86%, transparent);backdrop-filter:blur(10px);border:1px solid var(--color-divider);border-radius:var(--radius-lg);padding:16px 16px 14px}.proof-card .n{font-family:var(--font-display);font-size:1.15rem;font-weight:700;margin-bottom:4px}.proof-card .l{font-size:var(--text-xs);color:var(--color-text-muted)}
@@ -76,7 +76,7 @@ button,input{font:inherit}button{border:none;cursor:pointer}a{text-decoration:no
     <div>
       <div class="brand-top">
         <div class="brand-mark" aria-label="Penguin logo">
-          <svg viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="14" cy="14" r="12.5" stroke="currentColor" stroke-width="1.8"/><ellipse cx="14" cy="15.5" rx="6.2" ry="8" fill="currentColor"/><ellipse cx="14" cy="16.5" rx="3.6" ry="5.6" fill="var(--color-surface-2)"/><circle cx="14" cy="8.2" r="3.8" fill="currentColor"/><ellipse cx="14" cy="9" rx="2.1" ry="1.8" fill="var(--color-surface-2)"/><circle cx="12.7" cy="8" r="0.5" fill="var(--color-bg)"/><circle cx="15.3" cy="8" r="0.5" fill="var(--color-bg)"/><path d="M12.9 9.8 L15.1 9.8 L14 10.9 Z" fill="#F27F63"/><path d="M14 4.6 C15.4 3.4 17.2 3.2 18.4 3.6 C17.6 4.6 16.2 5.2 14.8 5.2 Z" fill="#5694A7"/><path d="M11.2 12.6 L14 13.9 L16.8 12.6 L16.8 14.8 L14 13.9 L11.2 14.8 Z" fill="#F27F63"/></svg>
+          <img src="/assets/logo/logo_square.png" alt="PenguinCRM" class="brand-mark-img" />
           <span>Penguin CRM</span>
         </div>
         <button class="theme-btn" data-theme-toggle aria-label="Switch theme">

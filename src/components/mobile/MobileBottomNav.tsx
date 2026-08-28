@@ -3,7 +3,8 @@ import { createPortal } from 'react-dom';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { UsersRound, Store, Activity, BarChart3, Building2, Calendar, CheckSquare, FileText, FolderKanban, LayoutDashboard, ScanLine, Settings, Sparkles, Users } from 'lucide-react'
-import SvcIcon from '../../components/SvcIcon';
+import SvcIcon from '../../components/SvcIcon'
+import BrandIcon from '../BrandIcon';
 import { useAuth } from '../../lib/AuthContext';
 import { apiClient } from '../../lib/api';
 import { useSecretarySettings } from '../../hooks/useSecretarySettings';
@@ -117,10 +118,10 @@ export default function MobileBottomNav({ onOpenAiSearch, onScanCard, onQuickAdd
           <SvcIcon name="file-text" /><span>{t('nav.records', { defaultValue: '紀錄' })}</span>
         </button>
         <div className="mnav-center-wrap">
-          <button type="button" className="mnav-center-btn" onClick={onOpenAiSearch} aria-label="AI assistant and search">
-            <SvcIcon name="sparkles" />
+          <button type="button" className="mnav-center-btn" onClick={onOpenAiSearch} aria-label="Penguin AI">
+            <BrandIcon name="robot" size={22} />
           </button>
-          <span>{t('mobile.aiSearch', { defaultValue: 'AI & 搜尋' })}</span>
+          <span>{t('mobile.aiSearch', { defaultValue: '企鵝管家' })}</span>
         </div>
         <button type="button" className="mnav-item" onClick={() => setSheet('add')}>
           <SvcIcon name="plus" /><span>{t('common.add', { defaultValue: '新增' })}</span>
@@ -222,7 +223,7 @@ export default function MobileBottomNav({ onOpenAiSearch, onScanCard, onQuickAdd
           {/* v6.94: AI 管家設定 4 開關 */}
           <div className="mnav-section-label">{t('mobile.aiButler', { defaultValue: 'AI 管家' })}</div>
           <button type="button" className="mnav-org-row" onClick={toggleBriefing}>
-            <SvcIcon name="sparkles" /><span>{t('mobile.dailyBriefing', { defaultValue: '每日 Briefing' })}</span>
+            <BrandIcon name="robot" size={22} /><span>{t('mobile.dailyBriefing', { defaultValue: '每日 Briefing' })}</span>
             <span className={`mnav-switch ${briefingOn ? 'on' : ''}`} onClick={e => { e.stopPropagation(); toggleBriefing(); }} />
           </button>
           <button type="button" className="mnav-org-row" onClick={toggleCalAwareness}>

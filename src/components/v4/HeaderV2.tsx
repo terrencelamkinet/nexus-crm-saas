@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Menu } from 'lucide-react'
 import SvcIcon from '../../components/SvcIcon'
+import BrandIcon from '../../components/BrandIcon'
 import CommandPalette from './CommandPalette'
 import { apiClient } from '../../lib/api'
 import { useAuth } from '../../lib/AuthContext'
@@ -111,7 +112,7 @@ export default function HeaderV2({ onToggleSidebar }: { onToggleSidebar: () => v
 
         <div className="hdr2-right">
           <button className="hdr2-ai-pill" title={t('header.aiActive', { defaultValue: '點擊詢問 AI 助手' })} onClick={() => setPaletteOpen(true)}>
-            <SvcIcon name="sparkles" size={13} className="hdr2-ai-icon-on" />
+            <BrandIcon name="robot" size={14} className="hdr2-ai-icon-on" />
             <span>AI</span>
             <span className="hdr2-ai-dot on" />
           </button>
