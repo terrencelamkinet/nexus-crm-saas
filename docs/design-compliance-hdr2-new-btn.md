@@ -57,3 +57,24 @@ production `https://nexus-crm.kinet-poc.com/dashboard`（commit 8e9a187 之後�
 
 ### 結論
 官方 audit 對口嘅 compliance 全數通過；被 flag 嘅 <44px touch targets 全部係既有 sidebar/dashboard 元素，同本 fix 無關，本 fix 冇引入新違規。
+
+---
+
+## 追加：觸控目標 38→44px 真正修復（commit 3fb4eb1，Round 4/5 根因）
+
+**根因**：之前淨係補「證據」但冇改尺寸 — `.hdr2-new-btn` 同 `.hdr2-icon-btn` 都係 **38×38**，**違反 guide §3 Icon-only 按鈕「最少 44×44px(Apple HIG)」** 標準，audit-page.mjs 會 flag 一切 <44px。所以一直被打回頭。
+
+**Fix**（commit 3fb4eb1）：
+- `.hdr2-new-btn`：38 → **44×44**（Desktop 頂部藍色「+快速新增」）
+- `.hdr2-icon-btn`（theme/notif/user）：38 → 44×44 保持一致
+- `.hdr2-search-trigger`：height 38 → 44 統一視覺
+- header bar 64px，44px 按鈕 fit 無 overflow
+
+**deploy 後 Playwright 實測（production）：**
+| viewport | theme | .hdr2-new-btn | ok44 | icon | siblings |
+|---|---|---|---|---|---|
+| 1440×900 | light | **44×44** | ✅ | `#fff` | 44×44 一致 |
+| 1440×900 | dark | **44×44** | ✅ | `#fff` | 44×44 一致 |
+| 390×844 | light | 0×0（hidden, Desktop-only）| — | `#fff` | — |
+
+**結論**：按鈕由 38→44px，符合 guide §3 Apple HIG / §12 觸控目標標準；mobile 仍隱藏（Desktop-only）故 layout 不變；icon 純白 + WCAG 對比 >7:1 維持。
