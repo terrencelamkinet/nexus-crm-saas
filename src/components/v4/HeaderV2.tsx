@@ -118,7 +118,7 @@ export default function HeaderV2({ onToggleSidebar }: { onToggleSidebar: () => v
           </button>
 
           <div className="hdr2-new-wrap" ref={newRef}>
-            <button className="hdr2-new-btn" onClick={() => setNewOpen(v => !v)} aria-label="Create new">
+            <button className="hdr2-new-btn" onClick={() => setNewOpen(v => !v)} aria-label="Create new" title={t('quickAction.title', { defaultValue: '快速新增' })}>
               <SvcIcon name="plus" size={18} />
             </button>
             <div className={`hdr2-new-dropdown ${newOpen ? 'open' : ''}`}>

@@ -53,8 +53,11 @@
 .hdr2-ai-icon-on { color: var(--ai-glow-1); }
 .hdr2-ai-dot { width: 6px; height: 6px; border-radius: 50%; }
 .hdr2-ai-dot.on { background: #22c55e; box-shadow: 0 0 0 2px rgba(34,197,94,.2); }
-.hdr2-new-btn { width: 38px; height: 38px; border-radius: 10px; background: var(--color-primary); color: #fff; border: none; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: background .15s ease, transform .1s ease; }
-.hdr2-new-btn:hover { background: var(--color-primary-hover); }
+.hdr2-new-btn { width: 38px; height: 38px; border-radius: 10px; background: var(--color-primary); color: #fff; border: none; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: background .15s ease, transform .1s ease, box-shadow .15s ease; }
+/* + icon 強制純白：.svc-icon 全域 color:var(--color-blue) 會覆蓋按鈕 colour 令 icon 同藍底撞色被吞沒 — 用較高 specificity 壓返做 #fff（WCAG 對比） */
+.hdr2-new-btn .svc-icon { color: #fff !important; }
+.hdr2-new-btn:hover { background: var(--color-primary-hover); box-shadow: 0 4px 12px -2px color-mix(in oklch, var(--color-primary) 45%, transparent); }
+.hdr2-new-btn:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; }
 .hdr2-new-btn:active { transform: scale(.94); }
 .hdr2-new-wrap, .hdr2-notif-wrap, .hdr2-user-wrap { position: relative; }
 .hdr2-new-dropdown, .hdr2-notif-panel, .hdr2-user-dropdown { position: absolute; top: calc(100% + 8px); right: 0; background: var(--color-surface-2); border: 1px solid var(--color-border); border-radius: 12px; box-shadow: var(--shadow-lg); opacity: 0; visibility: hidden; transform: translateY(-6px); transition: opacity .15s ease, transform .15s ease, visibility .15s ease; z-index: 60; }

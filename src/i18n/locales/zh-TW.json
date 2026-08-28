@@ -1863,7 +1863,8 @@
     "newContact": "新增聯絡人",
     "newTask": "新增任務",
     "openAiApps": "開啟 AI Apps",
-    "scanNameCard": "掃描名片"
+    "scanNameCard": "掃描名片",
+    "title": "快速新增聯絡人/任務"
   },
   "sidebar": {
     "collapse": "收合側邊欄",

@@ -1863,7 +1863,8 @@
     "newContact": "New Contact",
     "newTask": "New Task",
     "openAiApps": "Open AI Apps",
-    "scanNameCard": "Scan Name Card"
+    "scanNameCard": "Scan Name Card",
+    "title": "Quick add contact / task"
   },
   "sidebar": {
     "collapse": "Collapse sidebar",
