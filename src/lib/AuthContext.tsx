@@ -46,14 +46,37 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [mfaEmail, setMfaEmail] = useState('');
 
-  // Restore session from localStorage on mount
+  // Fetch real user profile (display_name) from backend — AuthContext only
+  // stores email on login; /auth/me returns display_name + verified flags.
+  const fetchMe = useCallback(async (): Promise<{ email: string; displayName?: string } | null> => {
+    try {
+      const auth = getStoredAuth();
+      if (!auth?.access_token) return null;
+      const res = await fetch('/api/v1/auth/me', {
+        headers: { Authorization: `Bearer ${auth.access_token}` },
+      });
+      if (!res.ok) return null;
+      const me = await res.json();
+      return { email: me.email, displayName: me.display_name || undefined };
+    } catch {
+      return null;
+    }
+  }, []);
+
+  const applyMe = useCallback((me: { email: string; displayName?: string } | null, fallbackEmail?: string) => {
+    if (me) setUser(me);
+    else if (fallbackEmail) setUser({ email: fallbackEmail });
+  }, []);
+
+  // Restore session from localStorage on mount — then refresh real identity
   useEffect(() => {
     const stored = getStoredAuth();
     if (stored && isAuthenticated()) {
       setUser({ email: stored.email });
+      fetchMe().then((me) => applyMe(me, stored.email));
     }
     setLoading(false);
-  }, []);
+  }, [fetchMe, applyMe]);
 
   const login = useCallback(async (email: string, password: string): Promise<'mfa' | 'success'> => {
     const res = await apiLogin(email, password);
@@ -67,9 +90,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Trust device — store both access + refresh tokens
     storeAuth(res.access_token, email, res.refresh_token);
     setUser({ email });
+    fetchMe().then((me) => applyMe(me, email));
     setMfaEmail('');
     return 'success';
-  }, []);
+  }, [fetchMe, applyMe]);
 
   const sendMfaCode = useCallback(async () => {
     if (mfaEmail) {
@@ -82,8 +106,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const res = await apiVerifyMfa(mfaEmail, otp);
     storeAuth(res.access_token, mfaEmail, res.refresh_token);
     setUser({ email: mfaEmail });
+    fetchMe().then((me) => applyMe(me, mfaEmail));
     setMfaEmail('');
-  }, [mfaEmail]);
+  }, [mfaEmail, fetchMe, applyMe]);
 
   const logout = useCallback(() => {
     clearAuth();

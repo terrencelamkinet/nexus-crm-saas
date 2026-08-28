@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom'
 import SvcIcon from '../components/SvcIcon'
 import { CreditCard, Monitor, Puzzle, Users } from 'lucide-react'
 import { apiClient } from '../lib/api'
+import { useAuth } from '../lib/AuthContext'
 import LanguageSwitcher from '../i18n/LanguageSwitcher';
 
 const tabs = [
@@ -17,6 +18,7 @@ const tabs = [
 export default function SettingsPage() {
   const { t } = useTranslation();
   const navigate = useNavigate()
+  const { user } = useAuth()
   const [active, setActive] = useState('profile')
   const [modules, setModules] = useState<Record<string, boolean>>({})
   const [loading, setLoading] = useState(true)
@@ -142,21 +144,17 @@ export default function SettingsPage() {
             <div className="stg-panel">
               <h2>{t('settings.tabs.profile')}</h2>
               <div className="stg-avatar-section">
-                <div className="avatar-lg">TL</div>
+                <div className="avatar-lg">{(user?.displayName || user?.email || '?').split(' ').map((s: string) => s[0]).slice(0, 2).join('').toUpperCase()}</div>
                 <button className="btn-ghost">Change avatar</button>
               </div>
               <div className="stg-fields">
                 <div className="stg-field-row">
                   <label>{t('settings.profile.name')}</label>
-                  <input type="text" value="Terrence Lam" readOnly className="input-field" />
+                  <input type="text" value={user?.displayName || ''} readOnly className="input-field" placeholder={t('settings.profile.namePlaceholder', { defaultValue: '未設定名稱' })} />
                 </div>
                 <div className="stg-field-row">
                   <label>{t('settings.profile.email')}</label>
-                  <input type="email" value="terrence@kinetix.com" readOnly className="input-field" />
-                </div>
-                <div className="stg-field-row">
-                  <label>{t('settings.profile.phone')}</label>
-                  <input type="text" value="+852 9553 5371" readOnly className="input-field" />
+                  <input type="email" value={user?.email || ''} readOnly className="input-field" />
                 </div>
                 <div className="stg-field-row">
                   <label>{t('settings.profile.timezone')}</label>
@@ -178,8 +176,7 @@ export default function SettingsPage() {
               <h2>{t('settings.tabs.team')}</h2>
               <div className="stg-team-list">
                 {[
-                  { name: 'Terrence Lam', email: 'terrence@k.com', role: 'Admin' },
-                  { name: 'Mary Chan', email: 'mary@k.com', role: 'Member' },
+                  { name: user?.displayName || user?.email?.split('@')[0] || 'You', email: user?.email || '', role: 'Admin' },
                 ].map((m, i) => (
                   <div key={i} className="stg-team-row">
                     <div className="stg-team-avatar">{m.name.split(' ').map(n => n[0]).join('')}</div>
