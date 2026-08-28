@@ -41,9 +41,9 @@
 .hdr2-bar { height: 64px; display: flex; align-items: center; justify-content: space-between; padding: 0 20px; border-bottom: 1px solid var(--color-divider); background: var(--color-bg); flex-shrink: 0; gap: 16px; }
 .hdr2-left { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0; }
 .hdr2-right { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
-.hdr2-icon-btn { width: 38px; height: 38px; border-radius: 9px; display: flex; align-items: center; justify-content: center; background: none; border: none; color: var(--color-text-muted); cursor: pointer; transition: background .15s ease, color .15s ease; flex-shrink: 0; }
+.hdr2-icon-btn { width: 44px; height: 44px; border-radius: 10px; display: flex; align-items: center; justify-content: center; background: none; border: none; color: var(--color-text-muted); cursor: pointer; transition: background .15s ease, color .15s ease; flex-shrink: 0; }
 .hdr2-icon-btn:hover { background: var(--color-surface-offset); color: var(--color-text); }
-.hdr2-search-trigger { display: flex; align-items: center; gap: 8px; height: 38px; padding: 0 12px; border-radius: 10px; border: 1px solid var(--color-border); background: var(--color-surface); color: var(--color-text-muted); cursor: pointer; flex: 1; max-width: 480px; transition: border-color .15s ease, background .15s ease; }
+.hdr2-search-trigger { display: flex; align-items: center; gap: 8px; height: 44px; padding: 0 12px; border-radius: 10px; border: 1px solid var(--color-border); background: var(--color-surface); color: var(--color-text-muted); cursor: pointer; flex: 1; max-width: 480px; transition: border-color .15s ease, background .15s ease; }
 .hdr2-search-trigger:hover { border-color: var(--color-primary); background: var(--color-surface); }
 .hdr2-search-placeholder { flex: 1; font-size: 13.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: left; }
 .hdr2-search-kbd { font-size: 11px; font-weight: 700; color: var(--color-text-faint); background: var(--color-surface-offset); padding: 2px 6px; border-radius: 5px; border: 1px solid var(--color-border); }
@@ -53,7 +53,7 @@
 .hdr2-ai-icon-on { color: var(--ai-glow-1); }
 .hdr2-ai-dot { width: 6px; height: 6px; border-radius: 50%; }
 .hdr2-ai-dot.on { background: #22c55e; box-shadow: 0 0 0 2px rgba(34,197,94,.2); }
-.hdr2-new-btn { width: 38px; height: 38px; border-radius: 10px; background: var(--color-primary); color: #fff; border: none; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: background .15s ease, transform .1s ease, box-shadow .15s ease; }
+.hdr2-new-btn { width: 44px; height: 44px; border-radius: 10px; background: var(--color-primary); color: #fff; border: none; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: background .15s ease, transform .1s ease, box-shadow .15s ease; }
 /* + icon 強制純白：.svc-icon 全域 color:var(--color-blue) 會覆蓋按鈕 colour 令 icon 同藍底撞色被吞沒 — 用較高 specificity 壓返做 #fff（WCAG 對比） */
 .hdr2-new-btn .svc-icon { color: #fff !important; }
 .hdr2-new-btn:hover { background: var(--color-primary-hover); box-shadow: 0 4px 12px -2px color-mix(in oklch, var(--color-primary) 45%, transparent); }
