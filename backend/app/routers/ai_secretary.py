@@ -10,13 +10,14 @@ All endpoints derive user_id / tenant_id from the authenticated request
 context (request.state.ai_context) — never from the request body.
 RLS (user_id + tenant_id policy, FORCE) enforces isolation at the DB layer.
 """
+import re
 import uuid
 from datetime import datetime, time, timedelta, timezone
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field, field_validator
-from sqlalchemy import select, func, text
+from sqlalchemy import select, func, text, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db import get_tenant_session
@@ -36,7 +37,13 @@ from app.models.ai.secretary_settings import (
 from app.models.whatsapp import WhatsAppMapping
 from app.models.telegram_bot import TelegramBotMapping
 from app.models.ai.pending_question import PendingAIQuestion
-from app.models.crm import ProjectCalendarEvent
+from app.models.crm import (
+    Company,
+    Contact,
+    Project,
+    ProjectCalendarEvent,
+    Touchpoint,
+)
 from app.services.calendar_awareness import list_pending, scan_calendar_gaps
 
 router = APIRouter(prefix="/api/v1/ai-secretary", tags=["AI Secretary"])
@@ -570,6 +577,113 @@ class AnswerBody(BaseModel):
     answer: str
 
 
+# ── Answer action parsing（v7.06：支援 event/contact/company/touchpoint/project）──
+# 前綴 pattern：「加電話：9123 4567」→ field=phone, value=9123 4567
+_ANSWER_PREFIXES: list[tuple[str, str]] = [
+    ("加地點：", "location"),
+    ("加位置：", "location"),
+    ("加 agenda：", "description"),
+    ("寫低 agenda：", "description"),
+    ("加備註：", "notes"),
+    ("加 notes：", "notes"),
+    ("加電話：", "phone"),
+    ("加 email：", "email"),
+    ("加電郵：", "email"),
+    ("加郵箱：", "email"),
+    ("加地址：", "address"),
+    ("加網址：", "website"),
+    ("加網站：", "website"),
+    ("加 deadline：", "deadline"),
+    ("加死線：", "deadline"),
+    ("加截止：", "deadline"),
+    ("加描述：", "description"),
+]
+
+# Keyword fallback：「電話 9123 4567」「email a@b.com」「9月1日 deadline」等自由輸入
+_ANSWER_KEYWORDS: list[tuple[str, str]] = [
+    ("電話", "phone"), ("手機", "phone"), ("phone", "phone"), ("tel", "phone"),
+    ("email", "email"), ("電郵", "email"), ("郵箱", "email"),
+    ("地址", "address"),
+    ("網址", "website"), ("網站", "website"),
+    ("deadline", "deadline"), ("死線", "deadline"), ("截止", "deadline"), ("限期", "deadline"),
+    ("地點", "location"), ("位置", "location"),
+    ("備註", "notes"), ("notes", "notes"), ("重點", "notes"),
+    ("agenda", "description"),
+]
+
+# 完全自由輸入 fallback：由 source 判斷寫入邊個 field
+_SOURCE_FIELD_HINTS = [
+    ("record_contact", "phone"),
+    ("record_company", "phone"),
+    ("calendar_gap", "location"),
+    ("location", "location"),
+    ("agenda", "description"),
+    ("phone", "phone"),
+    ("email", "email"),
+    ("website", "website"),
+    ("deadline", "deadline"),
+    ("notes", "notes"),
+]
+
+
+def _parse_answer_action(answer: str) -> tuple[str, str] | None:
+    """解析答案 → (field, value)。支援前綴、keyword、自由輸入。"""
+    a = (answer or "").strip()
+    if not a:
+        return None
+    for prefix, field in _ANSWER_PREFIXES:
+        if a.startswith(prefix):
+            val = a[len(prefix):].strip().strip("，,。 ")
+            return (field, val) if val else None
+    low = a.lower()
+    for kw, field in _ANSWER_KEYWORDS:
+        idx = low.find(kw)
+        if idx >= 0:
+            after = a[idx + len(kw):].strip().lstrip("：:，,、 是為")
+            if after:
+                return field, after
+            before = a[:idx].strip().strip("：:，,、 ")
+            if before:
+                return field, before
+    return None
+
+
+def _field_from_source(source: str | None) -> str | None:
+    s = (source or "").lower()
+    for hint, field in _SOURCE_FIELD_HINTS:
+        if hint in s:
+            return field
+    return None
+
+
+def _append_text(existing: str | None, prefix: str, val: str) -> str:
+    """將 val 以 prefix 開頭追加到現有 text（有內容就換行分開）。"""
+    base = (existing or "").strip()
+    line = f"{prefix}{val}"
+    return f"{base}\n\n{line}".strip() if base else line
+
+
+def _parse_date(val: str):
+    """寬鬆日期解析：2026-09-01 / 2026/9/1 / 9月1日 / 9/1 / 下週五（唔識就 None）。"""
+    v = val.strip()
+    for fmt in ("%Y-%m-%d", "%Y/%m/%d", "%Y.%m.%d", "%Y年%m月%d日"):
+        try:
+            return datetime.strptime(v, fmt)
+        except ValueError:
+            pass
+    m = re.match(r"^(\d{1,2})[月/](\d{1,2})日?$", v)
+    if m:
+        month, day = int(m.group(1)), int(m.group(2))
+        year = datetime.now(timezone.utc).year
+        if month < datetime.now(timezone.utc).month:
+            year += 1
+        try:
+            return datetime(year, month, day)
+        except ValueError:
+            return None
+    return None
+
+
 @router.get("/pending-questions")
 async def get_pending_questions(
     request: Request,
@@ -627,25 +741,93 @@ async def answer_pending_question(
     if body.answer.strip() in ("唔使", "不用", "不需要", "skip", "skip it"):
         q.status = "dismissed"
 
-    # 「加地點：X」答案 → 實際更新 event location（AI 管家行為 — 下次 scan 就唔會再問）
-    if body.answer.startswith("加地點：") and q.context_id:
-        loc = body.answer.split("：", 1)[1].strip()
-        if loc:
-            ev = (
-                await db.execute(
-                    select(ProjectCalendarEvent).where(
-                        ProjectCalendarEvent.id == q.context_id,
-                        ProjectCalendarEvent.tenant_id == tenant_id,
-                    )
+    # ── v7.07: 見面活動 → 加入 Touchpoint（用戶要求）──
+    # 撳「加入 Touchpoint」→ 創建 Touchpoint（由 event 帶入 title/date/location）
+    # → 生成 follow-up 問題問「同邊個聯繫？」
+    if body.answer.strip() == "加入 Touchpoint" and q.context_type == "calendar" and q.context_id:
+        ev = (
+            await db.execute(
+                select(ProjectCalendarEvent).where(
+                    ProjectCalendarEvent.id == q.context_id,
+                    ProjectCalendarEvent.tenant_id == tenant_id,
                 )
-            ).scalar_one_or_none()
-            if ev:
-                ev.location = loc
+            )
+        ).scalar_one_or_none()
+        if ev:
+            ws = getattr(request.state, "workspace_id", None)
+            tp = Touchpoint(
+                tenant_id=tenant_id,
+                workspace_id=ws,
+                type="meeting",
+                title=(ev.title or "").strip() or "見面活動",
+                description=(ev.description or "").strip() or None,
+                date=ev.start,
+                location=ev.location,
+                extracted_from="meeting",
+                created_by=user_id,
+            )
+            db.add(tp)
+            await db.flush()
+            follow = PendingAIQuestion(
+                user_id=user_id,
+                tenant_id=tenant_id,
+                question=f"《{ev.title}》嘅 Touchpoint 已加入，同邊個聯繫？",
+                context_type="touchpoint",
+                context_id=tp.id,
+                context_title=ev.title,
+                suggested_answers=["唔使"],
+                source="touchpoint_contact",
+            )
+            db.add(follow)
+            await db.flush()
 
-    # 「加 agenda：X」答案 → 實際更新 event description（agenda 寫入 record）
-    if body.answer.startswith("加 agenda：") and q.context_id:
-        agenda = body.answer.split("：", 1)[1].strip()
-        if agenda:
+    # ── v7.07: follow-up「同邊個聯繫？」→ 搵 contact 綁定去 Touchpoint ──
+    if q.source == "touchpoint_contact" and q.context_type == "touchpoint" and q.context_id:
+        ref = body.answer.strip()
+        if ref and ref not in ("唔使", "不用", "不需要", "skip"):
+            contact = (
+                await db.execute(
+                    select(Contact).where(
+                        Contact.tenant_id == tenant_id,
+                        or_(
+                            Contact.name == ref,
+                            Contact.email == ref,
+                            Contact.phone == ref,
+                        ),
+                    ).limit(1)
+                )
+            ).scalar_one_or_none()
+            if not contact:
+                contact = (
+                    await db.execute(
+                        select(Contact)
+                        .where(Contact.tenant_id == tenant_id, Contact.name.ilike(f"%{ref}%"))
+                        .limit(1)
+                    )
+                ).scalar_one_or_none()
+            if contact:
+                tp = (
+                    await db.execute(
+                        select(Touchpoint).where(
+                            Touchpoint.id == q.context_id,
+                            Touchpoint.tenant_id == tenant_id,
+                        )
+                    )
+                ).scalar_one_or_none()
+                if tp:
+                    tp.contact_id = contact.id
+                    tp.company_id = contact.company_id
+
+    # v7.06: 答案解析 → 實際更新對應 record（event/contact/company/touchpoint/project）
+    parsed = _parse_answer_action(body.answer)
+    if parsed and q.context_id:
+        field, val = parsed
+        # 完全自由輸入（冇前綴冇 keyword）→ 由 source 猜寫入邊個 field
+        if field is None:
+            field = _field_from_source(q.source or "") or ""
+        ctype = q.context_type or ""
+
+        if ctype == "calendar":
             ev = (
                 await db.execute(
                     select(ProjectCalendarEvent).where(
@@ -655,9 +837,84 @@ async def answer_pending_question(
                 )
             ).scalar_one_or_none()
             if ev:
-                ev.description = (ev.description or "").strip()
-                ev.description = f"{ev.description}\n\n📋 Agenda：{agenda}".strip() if ev.description else f"📋 Agenda：{agenda}"
-                ev.description = ev.description.strip()
+                if field == "location":
+                    ev.location = val
+                elif field == "description":
+                    ev.description = _append_text(ev.description, "📋 Agenda：", val)
+
+        elif ctype == "contact":
+            c = (
+                await db.execute(
+                    select(Contact).where(
+                        Contact.id == q.context_id,
+                        Contact.tenant_id == tenant_id,
+                    )
+                )
+            ).scalar_one_or_none()
+            if c:
+                if field == "phone":
+                    c.phone = val
+                elif field == "email":
+                    c.email = val
+                elif field == "address":
+                    c.address = val
+                elif field == "notes":
+                    c.notes = _append_text(c.notes, "📝", val)
+
+        elif ctype == "company":
+            co = (
+                await db.execute(
+                    select(Company).where(
+                        Company.id == q.context_id,
+                        Company.tenant_id == tenant_id,
+                    )
+                )
+            ).scalar_one_or_none()
+            if co:
+                if field == "phone":
+                    co.phone = val
+                elif field == "website":
+                    co.website = val
+                elif field == "address":
+                    co.address = val
+                elif field == "notes":
+                    co.notes = _append_text(co.notes, "📝", val)
+
+        elif ctype == "touchpoint":
+            tp = (
+                await db.execute(
+                    select(Touchpoint).where(
+                        Touchpoint.id == q.context_id,
+                        Touchpoint.tenant_id == tenant_id,
+                    )
+                )
+            ).scalar_one_or_none()
+            if tp:
+                if field == "description":
+                    tp.description = _append_text(tp.description, "📝", val)
+                elif field == "notes":
+                    tp.description = _append_text(tp.description, "📝", val)
+                elif field == "location":
+                    tp.location = val
+
+        elif ctype == "project":
+            p = (
+                await db.execute(
+                    select(Project).where(
+                        Project.id == q.context_id,
+                        Project.tenant_id == tenant_id,
+                    )
+                )
+            ).scalar_one_or_none()
+            if p:
+                if field == "deadline":
+                    d = _parse_date(val)
+                    if d:
+                        p.deadline = d
+                elif field == "description":
+                    p.description = _append_text(p.description, "📝", val)
+                elif field == "notes":
+                    p.description = _append_text(p.description, "📝", val)
 
     await db.commit()
     return {"ok": True, "id": str(qid)}

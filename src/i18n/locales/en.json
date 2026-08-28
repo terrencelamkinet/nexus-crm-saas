@@ -319,10 +319,18 @@
     "noTasksYet": "No tasks yet",
     "noTeamUsers": "No team members",
     "searchWidgets": "Search widgets...",
-    "recordUpdated": "Updated to calendar ✓",
+    "recordUpdated": "Updated record ✓",
     "noted": "Noted",
     "agendaPlaceholder": "Write agenda items…",
-    "saveAgenda": "Save ✓"
+    "saveAgenda": "Save ✓",
+    "customInput": "Type your own",
+    "customInputDefault": "Type what you want to save…",
+    "customInputCalendar": "e.g. 加地點：TST office",
+    "customInputContact": "e.g. 加電話：9123 4567",
+    "customInputCompany": "e.g. 加網址：kinet.com",
+    "customInputTouchpoint": "e.g. 加備註：discussed budget",
+    "customInputProject": "e.g. 加 deadline：2026-09-01",
+    "customInputTouchpointContact": "Type contact name or email…"
   },
   "chat": {
     "title": "AI Assistant",

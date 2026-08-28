@@ -59,7 +59,7 @@ function parseBriefing(content: string): { title: string; sections: AiSection[] 
    Layer 3: 脈絡與趨勢（weather + news，可收合）
    Layer 4: 延伸內容（bible，預設收合）
    ═══════════════════════════════════════════════════════════ */
-function LayeredBriefing({ layers, weather, summary, pendingQs, pqIndex, navigate, i18nLang, onDismiss, onDot, agendaFor, agendaText, onAgendaFor, onAgendaText, onChip, onAgendaSubmit }: {
+function LayeredBriefing({ layers, weather, summary, pendingQs, pqIndex, navigate, i18nLang, onDismiss, onDot, customFor, customText, onCustomFor, onCustomText, onChip, onCustomSubmit, onCustomOpen }: {
   layers: any
   weather: any
   summary: string
@@ -69,13 +69,14 @@ function LayeredBriefing({ layers, weather, summary, pendingQs, pqIndex, navigat
   i18nLang: string
   onDismiss: (id: string) => void
   onDot: (i: number) => void
-  // v7.05: 「寫低 agenda」inline input state + handlers
-  agendaFor: string | null
-  agendaText: string
-  onAgendaFor: (id: string | null) => void
-  onAgendaText: (v: string) => void
+  // v7.06: inline input（自己輸入 / 前綴 chip）state + handlers
+  customFor: string | null
+  customText: string
+  onCustomFor: (id: string | null) => void
+  onCustomText: (v: string) => void
   onChip: (q: any, a: string) => void
-  onAgendaSubmit: (q: any) => void
+  onCustomSubmit: (q: any) => void
+  onCustomOpen: (id: string) => void
 }) {
   const { t } = useTranslation()
   const conflicts: any[] = layers?.conflicts || []
@@ -106,9 +107,18 @@ function LayeredBriefing({ layers, weather, summary, pendingQs, pqIndex, navigat
         </div>
       )}
 
-      {/* ── Layer 0 · AI 主動提問（Calendar Awareness 輪播）── */}
+      {/* ── Layer 0 · AI 主動提問（Calendar + Record Awareness 輪播）── */}
       {pendingQs.length > 0 && (() => {
         const q = pendingQs[pqIndex % pendingQs.length]
+        const customPlaceholder = String(q.source || '').includes('touchpoint_contact')
+          ? t('dashboard.customInputTouchpointContact', { defaultValue: '輸入聯繫人姓名或 email…' })
+          : {
+            calendar: t('dashboard.customInputCalendar', { defaultValue: '例如：加地點：尖沙咀辦公室' }),
+            contact: t('dashboard.customInputContact', { defaultValue: '例如：加電話：9123 4567' }),
+            company: t('dashboard.customInputCompany', { defaultValue: '例如：加網址：kinet.com' }),
+            touchpoint: t('dashboard.customInputTouchpoint', { defaultValue: '例如：加備註：傾咗 budget' }),
+            project: t('dashboard.customInputProject', { defaultValue: '例如：加 deadline：2026-09-01' }),
+          }[String(q.context_type)] || t('dashboard.customInputDefault', { defaultValue: '輸入你想寫入嘅內容…' })
         return (
           <div className="dv2-pq-card" key={q.id}>
             <div className="dv2-pq-head">
@@ -118,25 +128,30 @@ function LayeredBriefing({ layers, weather, summary, pendingQs, pqIndex, navigat
             </div>
             <div className="dv2-pq-body">
               <div className="dv2-pq-question">{q.question}</div>
-              {agendaFor === q.id ? (
+              {customFor === q.id ? (
                 <div className="dv2-pq-agenda">
                   <input
                     className="dv2-pq-agenda-input"
-                    value={agendaText}
-                    onChange={e => onAgendaText(e.target.value)}
-                    onKeyDown={e => { if (e.key === 'Enter') onAgendaSubmit(q) }}
-                    placeholder={t('dashboard.agendaPlaceholder', { defaultValue: '寫低準備事項…' })}
+                    value={customText}
+                    onChange={e => onCustomText(e.target.value)}
+                    onKeyDown={e => { if (e.key === 'Enter') onCustomSubmit(q) }}
+                    placeholder={customPlaceholder}
                     autoFocus
                   />
-                  <button type="button" className="dv2-pq-chip dv2-pq-agenda-save" onClick={() => onAgendaSubmit(q)} disabled={!agendaText.trim()}>{t('dashboard.saveAgenda', { defaultValue: '儲存 ✓' })}</button>
-                  <button type="button" className="dv2-pq-chip" onClick={() => onAgendaFor(null)}>{t('dashboard.cancel', { defaultValue: '取消' })}</button>
+                  <button type="button" className="dv2-pq-chip dv2-pq-agenda-save" onClick={() => onCustomSubmit(q)} disabled={!customText.trim() || customText.trim().endsWith('：') || customText.trim().endsWith(':')}>{t('dashboard.saveAgenda', { defaultValue: '儲存 ✓' })}</button>
+                  <button type="button" className="dv2-pq-chip" onClick={() => onCustomFor(null)}>{t('dashboard.cancel', { defaultValue: '取消' })}</button>
                 </div>
               ) : (
-                <div className="dv2-pq-chips">
-                  {(q.suggested_answers || []).map((a: string) => (
-                    <button key={a} type="button" className="dv2-pq-chip" onClick={() => onChip(q, a)}>{a}</button>
-                  ))}
-                </div>
+                <>
+                  <div className="dv2-pq-chips">
+                    {(q.suggested_answers || []).map((a: string) => (
+                      <button key={a} type="button" className="dv2-pq-chip" onClick={() => onChip(q, a)}>{a}</button>
+                    ))}
+                  </div>
+                  <button type="button" className="dv2-pq-custom-btn" onClick={() => onCustomOpen(q.id)}>
+                    ✏️ {t('dashboard.customInput', { defaultValue: '自己輸入' })}
+                  </button>
+                </>
               )}
               {pendingQs.length > 1 && (
                 <div className="dv2-pq-dots">
@@ -401,9 +416,9 @@ export default function DashboardV2() {
   // v6.94: calendar awareness — AI 主動提問（pending questions 輪播）
   const [pendingQs, setPendingQs] = useState<any[]>([])
   const [pqIndex, setPqIndex] = useState(0)
-  // v7.05: 「寫低 agenda」→ inline input（打 agenda 內容 → 加到 record）
-  const [agendaFor, setAgendaFor] = useState<string | null>(null)
-  const [agendaText, setAgendaText] = useState('')
+  // v7.05: AI 管家提問 → inline input（打內容 → 加到 record；v7.06 支援所有 context type）
+  const [customFor, setCustomFor] = useState<string | null>(null)
+  const [customText, setCustomText] = useState('')
 
   const [customizeMode, setCustomizeMode] = useState(false)
   const [isPhone, setIsPhone] = useState(() => (typeof window !== 'undefined' ? window.matchMedia('(max-width: 640px)').matches : false))
@@ -617,11 +632,13 @@ export default function DashboardV2() {
   const answerPendingQ = async (id: string, answer: string) => {
     try {
       await apiClient.post(`/api/v1/ai-secretary/pending-questions/${id}/answer`, { answer })
-      setPendingQs(prev => prev.filter(q => q.id !== id))
+      // v7.07: refetch 攞 follow-up questions（例如「加入 Touchpoint」→「同邊個聯繫？」）
+      const d = await apiClient.get<{ items: any[] }>('/api/v1/ai-secretary/pending-questions?force_scan=false')
+      setPendingQs(d?.items || [])
       setPqIndex(0)
-      setAgendaFor(null)
-      setAgendaText('')
-      showToast(answer.startsWith('加') ? t('dashboard.recordUpdated', { defaultValue: '已更新到行事曆 ✓' }) : t('dashboard.noted', { defaultValue: '已記錄' }))
+      setCustomFor(null)
+      setCustomText('')
+      showToast(answer.startsWith('加') ? t('dashboard.recordUpdated', { defaultValue: '已更新到 record ✓' }) : t('dashboard.noted', { defaultValue: '已記錄' }))
     } catch { /* keep the question on failure */ }
   }
 
@@ -630,26 +647,33 @@ export default function DashboardV2() {
       await apiClient.post(`/api/v1/ai-secretary/pending-questions/${id}/dismiss`, {})
       setPendingQs(prev => prev.filter(q => q.id !== id))
       setPqIndex(0)
-      setAgendaFor(null)
-      setAgendaText('')
+      setCustomFor(null)
+      setCustomText('')
     } catch { /* keep the question on failure */ }
   }
 
-  // v7.05: chip 撳法 — 「寫低 agenda」開 inline input，其他直接 answer
+  // v7.06: chip 撳法 — 「唔使」→ dismiss；「：」結尾（前綴 chip）→ 開 inline input 預填；其他 → 直接 answer
   const handleChip = (q: any, a: string) => {
-    if (a === '寫低 agenda') {
-      setAgendaFor(q.id)
-      setAgendaText('')
+    if (a === '唔使') { dismissPendingQ(q.id); return }
+    if (a.endsWith('：') || a.endsWith(':')) {
+      setCustomFor(q.id)
+      setCustomText(a)
       return
     }
-    if (a === '唔使') { dismissPendingQ(q.id); return }
     answerPendingQ(q.id, a)
   }
 
-  const submitAgenda = (q: any) => {
-    const txt = agendaText.trim()
-    if (!txt) return
-    answerPendingQ(q.id, `加 agenda：${txt}`)
+  // ✏️ 自己輸入 — 開空白 input（用戶自由打字，後端按前綴/keyword/source 解析）
+  const openCustomInput = (id: string) => {
+    setCustomFor(id)
+    setCustomText('')
+  }
+
+  const submitCustom = (q: any) => {
+    const text = customText.trim()
+    // 得個前綴（「加電話：」）冇實際內容 → 唔提交
+    if (!text || text.endsWith('：') || text.endsWith(':')) return
+    answerPendingQ(q.id, text)
   }
 
   const hour = new Date().getHours()
@@ -861,7 +885,7 @@ export default function DashboardV2() {
                   <div className="dv2-skel-line w70" /><div className="dv2-skel-line w90" /><div className="dv2-skel-line w50" />
                 </div>
               ) : aiLayers ? (
-                <LayeredBriefing layers={aiLayers} weather={aiWeather} summary={aiSummary} pendingQs={pendingQs} pqIndex={pqIndex} navigate={navigate} i18nLang={i18n.language} onDismiss={dismissPendingQ} onDot={setPqIndex} agendaFor={agendaFor} agendaText={agendaText} onAgendaFor={setAgendaFor} onAgendaText={setAgendaText} onChip={handleChip} onAgendaSubmit={submitAgenda} />
+                <LayeredBriefing layers={aiLayers} weather={aiWeather} summary={aiSummary} pendingQs={pendingQs} pqIndex={pqIndex} navigate={navigate} i18nLang={i18n.language} onDismiss={dismissPendingQ} onDot={setPqIndex} customFor={customFor} customText={customText} onCustomFor={setCustomFor} onCustomText={setCustomText} onChip={handleChip} onCustomSubmit={submitCustom} onCustomOpen={openCustomInput} />
               ) : aiInsight ? (
                 <>
                   <p className="dv2-ai-headline">

@@ -196,6 +196,10 @@
 .dv2-pq-body { padding: 9px 12px 10px; }
 .dv2-pq-question { font-size: 13px; line-height: 1.55; color: var(--color-text); font-weight: 600; }
 .dv2-pq-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.dv2-pq-custom-btn { display: inline-flex; align-items: center; gap: 4px; margin-top: 8px; font-size: 11.5px; font-weight: 600; color: #6B7280; background: transparent; border: 1px dashed rgba(107,114,128,.45); border-radius: 999px; padding: 3px 10px; cursor: pointer; font-family: inherit; transition: all .15s; }
+.dv2-pq-custom-btn:hover { color: #8B5CF6; border-color: rgba(139,92,246,.6); background: rgba(139,92,246,.06); }
+:root[data-theme="dark"] .dv2-pq-custom-btn { color: #9CA3AF; border-color: rgba(156,163,175,.4); }
+:root[data-theme="dark"] .dv2-pq-custom-btn:hover { color: #C4B5FD; border-color: rgba(196,181,253,.6); background: rgba(139,92,246,.12); }
 .dv2-pq-chip { font-size: 12px; font-weight: 600; color: #6D28D9; background: rgba(167,139,250,.14); border: 1px solid rgba(167,139,250,.4); border-radius: 999px; padding: 4px 11px; cursor: pointer; font-family: inherit; transition: background .15s; }
 .dv2-pq-chip:hover { background: rgba(167,139,250,.28); }
 :root[data-theme="dark"] .dv2-pq-chip { color: #C4B5FD; background: rgba(167,139,250,.2); border-color: rgba(167,139,250,.4); }

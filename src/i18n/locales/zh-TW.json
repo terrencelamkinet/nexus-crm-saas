@@ -319,10 +319,18 @@
     "noTasksYet": "暫無任務",
     "noTeamUsers": "暫無團隊成員",
     "searchWidgets": "搜尋小工具...",
-    "recordUpdated": "已更新到行事曆 ✓",
+    "recordUpdated": "已更新到 record ✓",
     "noted": "已記錄",
     "agendaPlaceholder": "寫低準備事項…",
-    "saveAgenda": "儲存 ✓"
+    "saveAgenda": "儲存 ✓",
+    "customInput": "自己輸入",
+    "customInputDefault": "輸入你想寫入嘅內容…",
+    "customInputCalendar": "例如：加地點：尖沙咀辦公室",
+    "customInputContact": "例如：加電話：9123 4567",
+    "customInputCompany": "例如：加網址：kinet.com",
+    "customInputTouchpoint": "例如：加備註：傾咗 budget",
+    "customInputProject": "例如：加 deadline：2026-09-01",
+    "customInputTouchpointContact": "輸入聯繫人姓名或 email…"
   },
   "chat": {
     "title": "AI 助手",
