@@ -63,24 +63,40 @@ export default function NameCardsPageV2() {
   const handleUpload = async (files: FileList | File[]) => {
     setUploading(true)
     setUploadError(null)
+    const list = Array.from(files || [])
+    let firstErr: any = null
     try {
-      for (const file of Array.from(files)) {
-        const formData = new FormData()
-        formData.append('image', file)
-        await apiClient.postForm('/api/v1/crm/name-cards/upload', formData)
+      // Sequential to keep the shared upload endpoint from being hammered;
+      // a single bad file must NOT white-screen the whole batch → per-file try.
+      for (const file of list) {
+        try {
+          const formData = new FormData()
+          formData.append('image', file)
+          await apiClient.postForm('/api/v1/crm/name-cards/upload', formData)
+        } catch (e: any) {
+          if (!firstErr) firstErr = e
+        }
       }
       await fetchCards()
     } catch (e: any) {
-      setUploadError(e.detail || e.message || t('nameCard.uploadFailed', { defaultValue: '上載失敗' }))
+      firstErr = e
     } finally {
       setUploading(false)
+      if (firstErr) {
+        setUploadError(firstErr?.detail || firstErr?.message || t('nameCard.uploadFailed', { defaultValue: '上載失敗' }))
+      }
     }
   }
 
+  // Dropzone target is the visible dropzone box only (not the whole page).
+  // NOTE: Do NOT add an extra `onClick` onto the getRootProps spread — react-dropzone
+  // injects its own onClick that opens the hidden file input; overriding it is exactly
+  // what broke "點擊上載" (the click-to-upload dead bug).
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     accept: { 'image/*': ['.png', '.jpg', '.jpeg', '.webp', '.heic'] },
     multiple: true,
     onDrop: (files) => { if (files.length) handleUpload(files) },
+    noClick: true, // handled explicitly by the visible .nc-dropzone click below
   })
 
   // Paste-to-upload support
@@ -130,9 +146,14 @@ export default function NameCardsPageV2() {
   }
 
   return (
-    <div className="nc-page" {...getRootProps()} onClick={(e) => e.stopPropagation()}>
-      <input {...getInputProps()} />
-
+    <div className="nc-page">
+      {/* Hidden file inputs — one per quick-method (camera/gallery/bulk). */}
+      <input ref={cameraInputRef} type="file" accept="image/*" capture="environment" hidden
+        onChange={(e) => e.target.files && handleUpload(e.target.files)} />
+      <input ref={galleryInputRef} type="file" accept="image/*" hidden
+        onChange={(e) => e.target.files && handleUpload(e.target.files)} />
+      <input ref={bulkInputRef} type="file" accept="image/*" multiple hidden
+        onChange={(e) => e.target.files && handleUpload(e.target.files)} />
       <div className="nc-header">
         <div className="nc-header-top">
           <h1 className="nc-title">
@@ -150,8 +171,16 @@ export default function NameCardsPageV2() {
           </div>
         </div>
 
-        {/* Quick upload dropzone */}
-        <div className={`nc-dropzone ${isDragActive ? 'drag-active' : ''}`} style={{ marginBottom: 16 }}>
+        {/* Quick upload dropzone — this box is the drop+click target. Dragging onto
+            the whole page is intentionally NOT captured (that caused white-screen
+            navigation on drop). Clicking opens the gallery file picker. */}
+        <div
+          {...getRootProps()}
+          onClick={() => galleryInputRef.current?.click()}
+          className={`nc-dropzone ${isDragActive ? 'drag-active' : ''}`}
+          style={{ marginBottom: 16 }}
+        >
+          <input {...getInputProps()} />
           <div className="nc-dropzone-icon">
             {uploading ? <span className="nx-spinner" /> : <SvcIcon name="upload-cloud" size={20} />}
           </div>
@@ -163,25 +192,19 @@ export default function NameCardsPageV2() {
           <div className="nc-dropzone-sub">{t('nameCard.dropSub', { defaultValue: '支援拍照、相簿選取、剪貼板貼上 · 上載後自動 OCR 辨識並偵測重複聯絡人' })}</div>
           {uploadError && <div style={{ color: 'var(--color-danger)', fontSize: 12, marginTop: 8 }}>{uploadError}</div>}
           <div className="nc-dropzone-methods">
-            <div className="nc-quick-btn" title={t('nameCard.takePhoto', { defaultValue: '拍照上載' })} onClick={() => cameraInputRef.current?.click()}>
+            <div className="nc-quick-btn" title={t('nameCard.takePhoto', { defaultValue: '拍照上載' })} onClick={(e) => { e.stopPropagation(); cameraInputRef.current?.click() }}>
               <SvcIcon name="camera" size={14} /> <span className="nc-quick-label">{t('nameCard.takePhoto', { defaultValue: '拍照上載' })}</span>
             </div>
-            <div className="nc-quick-btn" title={t('nameCard.pickGallery', { defaultValue: '相簿選取' })} onClick={() => galleryInputRef.current?.click()}>
+            <div className="nc-quick-btn" title={t('nameCard.pickGallery', { defaultValue: '相簿選取' })} onClick={(e) => { e.stopPropagation(); galleryInputRef.current?.click() }}>
               <SvcIcon name="image" size={14} /> <span className="nc-quick-label">{t('nameCard.pickGallery', { defaultValue: '相簿選取' })}</span>
             </div>
             <div className="nc-quick-btn" title={t('nameCard.pasteImage', { defaultValue: '貼上圖片 (Ctrl+V)' })}>
               <SvcIcon name="clipboard" size={14} /> <span className="nc-quick-label">{t('nameCard.pasteImage', { defaultValue: '貼上圖片 (Ctrl+V)' })}</span>
             </div>
-            <div className="nc-quick-btn" title={t('nameCard.bulkUpload', { defaultValue: '批量上載' })} onClick={() => bulkInputRef.current?.click()}>
+            <div className="nc-quick-btn" title={t('nameCard.bulkUpload', { defaultValue: '批量上載' })} onClick={(e) => { e.stopPropagation(); bulkInputRef.current?.click() }}>
               <SvcIcon name="upload-cloud" size={14} /> <span className="nc-quick-label">{t('nameCard.bulkUpload', { defaultValue: '批量上載' })}</span>
             </div>
           </div>
-          <input ref={cameraInputRef} type="file" accept="image/*" capture="environment" hidden
-            onChange={(e) => e.target.files && handleUpload(e.target.files)} />
-          <input ref={galleryInputRef} type="file" accept="image/*" hidden
-            onChange={(e) => e.target.files && handleUpload(e.target.files)} />
-          <input ref={bulkInputRef} type="file" accept="image/*" multiple hidden
-            onChange={(e) => e.target.files && handleUpload(e.target.files)} />
         </div>
 
         {/* Search + tag filter */}
