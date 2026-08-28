@@ -38,3 +38,22 @@ production `https://nexus-crm.kinet-poc.com/dashboard`（commit 8e9a187 之後�
 
 ## 結論
 「+ icon 被藍底吞冇」根因（`.svc-icon` 全域 `color:var(--color-blue)`）已修復，符合 guide §7 對比度、§12 a11y、§5 按鈕狀態。其餘（38px height）與 header 一致，屬刻意保持對齊，符合桌面 WCAG baseline。
+
+---
+
+## 官方 audit-page.mjs 輸出（auth-injected，nexus-design-guide-2026/scripts/audit-page.mjs）
+
+### Desktop 1440×900
+- `inputsUnder16px: []` — 冇任何 input <16px ✅
+- `hOverflow: false` — 冇 horizontal overflow ✅
+- `bodyH: 900`（=viewport）— 內容喺 `.nx2-content` 內 scroll，冇 body 層 overflow ✅
+- touchTargetsUnder44：只有 sidebar `sbv2-nav-item`（221×39，既有 sidebar 連結），**唔包 `.hdr2-new-btn`**
+- dark flip：primary `rgb(27,59,75)`；icon 純白另以 `colorScheme:dark` 證實 ✅
+
+### Mobile 390×844
+- `inputsUnder16px: []` ✅ · `hOverflow: false` ✅
+- touchTargetsUnder44：只有 dashboard `dv2-widget-action` / `dv2-list-row`（既有 widgets，非 header 按鈕）
+- **`.hdr2-new-btn` 唔存在於 mobile**（Desktop-only，mobile header 用 MobileBottomNav，theme toggle 都隱藏）→ §12 mobile≥44 N/A ✅
+
+### 結論
+官方 audit 對口嘅 compliance 全數通過；被 flag 嘅 <44px touch targets 全部係既有 sidebar/dashboard 元素，同本 fix 無關，本 fix 冇引入新違規。
