@@ -47,13 +47,13 @@
    DESIGN TOKENS (CSS custom properties)
    ═══════════════════════════════════════════ */
 :root, [data-theme="light"] {
-  --color-bg: #f7f7f5; --color-surface: #ffffff; --color-surface-2: #ffffff;
+  --color-bg: #F7F3EC; --color-surface: #ffffff; --color-surface-2: #ffffff;
   --color-surface-offset: #f1f0ee; --color-surface-offset-2: #e9e7e4; --color-surface-dynamic: #dfddd9;
   --color-divider: #e7e5e2; --color-border: #dcdad6;
   --color-text: #1f1e1c; --color-text-muted: #6f6d68; --color-text-faint: #a5a29c; --color-text-inverse: #fafaf8;
-  --color-primary: #143D5F; --color-primary-hover: #0f324f; --color-primary-active: #0a2740; --color-primary-highlight: #e2e9f0;
-  --color-teal: #5694A7; --color-teal-highlight: #e3eef2;
-  --color-coral: #F27F63; --color-coral-highlight: #fdeae4;
+  --color-primary: #1B3B4B; --color-primary-hover: #16303E; --color-primary-active: #112732; --color-primary-highlight: #e2e9f0;
+  --color-teal: #2E9E8E; --color-teal-highlight: #e3eef2;
+  --color-coral: #E8825A; --color-coral-highlight: #fdeae4;
   --color-notification: #c23b4a; --color-notification-highlight: #f6dcdf;
   --color-success: #387a3a; --color-success-highlight: #dcebdc;
   --color-warning: #9a5b17; --color-warning-highlight: #efdcc4;
@@ -63,7 +63,7 @@
   --radius-sm: .375rem; --radius-md: .5rem; --radius-lg: .75rem; --radius-xl: 1rem; --radius-full: 9999px;
   --transition-interactive: 150ms cubic-bezier(.2,.8,.2,1); --ease-out: cubic-bezier(.16,1,.3,1);
   --shadow-sm: 0 1px 2px oklch(0.2 0.01 80/.06); --shadow-md: 0 6px 20px oklch(0.2 0.01 80/.09); --shadow-lg: 0 20px 48px oklch(0.2 0.01 80/.16);
-  --font-body: 'General Sans','Inter',-apple-system,BlinkMacSystemFont,'PingFang HK','Microsoft JhengHei','Noto Sans TC',sans-serif; --font-display: 'Switzer','General Sans','Inter',-apple-system,'PingFang HK','Microsoft JhengHei',sans-serif;
+  --font-body: 'Inter','General Sans',-apple-system,BlinkMacSystemFont,'PingFang HK','Microsoft JhengHei','Noto Sans TC',sans-serif; --font-display: 'Poppins','Switzer','General Sans',-apple-system,'PingFang HK','Microsoft JhengHei','Noto Sans TC',sans-serif;
   --sidebar-w: 246px; --topbar-h: 56px;
   --space-1:.25rem; --space-2:.5rem; --space-3:.75rem; --space-4:1rem; --space-5:1.25rem; --space-6:1.5rem; --space-8:2rem; --space-10:2.5rem; --space-12:3rem; --space-16:4rem;
 }
@@ -74,9 +74,9 @@
   --color-surface-offset: #212120; --color-surface-offset-2: #292927;
   --color-divider: #2a2a28; --color-border: #38372f;
   --color-text: #e9e8e4; --color-text-muted: #9c9a94; --color-text-faint: #5f5d57; --color-text-inverse: #1b1b19;
-  --color-primary: #4a9e8c; --color-primary-hover: #3d8a79; --color-primary-active: #2f7264; --color-primary-highlight: #1c332e;
-  --color-teal: #5694A7; --color-teal-highlight: #233332;
-  --color-coral: #F27F63; --color-coral-highlight: #3c2a24;
+  --color-primary: #4A9E8C; --color-primary-hover: #3d8a79; --color-primary-active: #2f7264; --color-primary-highlight: #1c332e;
+  --color-teal: #3F9C8E; --color-teal-highlight: #233332;
+  --color-coral: #E8926E; --color-coral-highlight: #3c2a24;
   --color-error: #dd7d8b; --color-error-highlight: #402a2e;
   --color-success: #7fbf7f; --color-success-highlight: #28361f;
   --color-warning: #dba360; --color-warning-highlight: #3c3120;
@@ -155,6 +155,7 @@ table{border-collapse:collapse;width:100%}
 .login-page .brand-top{display:flex;align-items:center;justify-content:space-between;gap:16px}
 .login-page .brand-mark{display:flex;align-items:center;gap:12px;font-weight:700;letter-spacing:.01em}
 .login-page .brand-mark svg{width:26px;height:26px;color:var(--color-primary)}
+.login-page .brand-mark .brand-mark-img{width:30px;height:30px;border-radius:8px;object-fit:cover;box-shadow:0 2px 8px rgba(27,59,75,.18)}
 .login-page .theme-btn{width:40px;height:40px;border-radius:50%;background:var(--color-surface);border:1px solid var(--color-divider);color:var(--color-text-muted);display:flex;align-items:center;justify-content:center;transition:all var(--transition)}
 .login-page .theme-btn:hover{background:var(--color-surface-offset);color:var(--color-text)}
 .login-page .hero-copy{max-width:520px;padding:32px 0 48px}
