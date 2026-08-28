@@ -318,7 +318,11 @@
     "noProjects": "No projects",
     "noTasksYet": "No tasks yet",
     "noTeamUsers": "No team members",
-    "searchWidgets": "Search widgets..."
+    "searchWidgets": "Search widgets...",
+    "recordUpdated": "Updated to calendar ✓",
+    "noted": "Noted",
+    "agendaPlaceholder": "Write agenda items…",
+    "saveAgenda": "Save ✓"
   },
   "chat": {
     "title": "AI Assistant",

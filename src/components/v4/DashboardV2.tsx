@@ -59,7 +59,7 @@ function parseBriefing(content: string): { title: string; sections: AiSection[] 
    Layer 3: 脈絡與趨勢（weather + news，可收合）
    Layer 4: 延伸內容（bible，預設收合）
    ═══════════════════════════════════════════════════════════ */
-function LayeredBriefing({ layers, weather, summary, pendingQs, pqIndex, navigate, i18nLang, onAnswer, onDismiss, onDot }: {
+function LayeredBriefing({ layers, weather, summary, pendingQs, pqIndex, navigate, i18nLang, onDismiss, onDot, agendaFor, agendaText, onAgendaFor, onAgendaText, onChip, onAgendaSubmit }: {
   layers: any
   weather: any
   summary: string
@@ -67,9 +67,15 @@ function LayeredBriefing({ layers, weather, summary, pendingQs, pqIndex, navigat
   pqIndex: number
   navigate: (to: string) => void
   i18nLang: string
-  onAnswer: (id: string, answer: string) => void
   onDismiss: (id: string) => void
   onDot: (i: number) => void
+  // v7.05: 「寫低 agenda」inline input state + handlers
+  agendaFor: string | null
+  agendaText: string
+  onAgendaFor: (id: string | null) => void
+  onAgendaText: (v: string) => void
+  onChip: (q: any, a: string) => void
+  onAgendaSubmit: (q: any) => void
 }) {
   const { t } = useTranslation()
   const conflicts: any[] = layers?.conflicts || []
@@ -104,7 +110,7 @@ function LayeredBriefing({ layers, weather, summary, pendingQs, pqIndex, navigat
       {pendingQs.length > 0 && (() => {
         const q = pendingQs[pqIndex % pendingQs.length]
         return (
-          <div className="dv2-pq-card">
+          <div className="dv2-pq-card" key={q.id}>
             <div className="dv2-pq-head">
               <span className="dv2-pq-icon">💬</span>
               <span className="dv2-pq-title">{t('dashboard.aiPrompt', { defaultValue: 'AI 管家提問' })}</span>
@@ -112,11 +118,26 @@ function LayeredBriefing({ layers, weather, summary, pendingQs, pqIndex, navigat
             </div>
             <div className="dv2-pq-body">
               <div className="dv2-pq-question">{q.question}</div>
-              <div className="dv2-pq-chips">
-                {(q.suggested_answers || []).map((a: string) => (
-                  <button key={a} type="button" className="dv2-pq-chip" onClick={() => onAnswer(q.id, a)}>{a}</button>
-                ))}
-              </div>
+              {agendaFor === q.id ? (
+                <div className="dv2-pq-agenda">
+                  <input
+                    className="dv2-pq-agenda-input"
+                    value={agendaText}
+                    onChange={e => onAgendaText(e.target.value)}
+                    onKeyDown={e => { if (e.key === 'Enter') onAgendaSubmit(q) }}
+                    placeholder={t('dashboard.agendaPlaceholder', { defaultValue: '寫低準備事項…' })}
+                    autoFocus
+                  />
+                  <button type="button" className="dv2-pq-chip dv2-pq-agenda-save" onClick={() => onAgendaSubmit(q)} disabled={!agendaText.trim()}>{t('dashboard.saveAgenda', { defaultValue: '儲存 ✓' })}</button>
+                  <button type="button" className="dv2-pq-chip" onClick={() => onAgendaFor(null)}>{t('dashboard.cancel', { defaultValue: '取消' })}</button>
+                </div>
+              ) : (
+                <div className="dv2-pq-chips">
+                  {(q.suggested_answers || []).map((a: string) => (
+                    <button key={a} type="button" className="dv2-pq-chip" onClick={() => onChip(q, a)}>{a}</button>
+                  ))}
+                </div>
+              )}
               {pendingQs.length > 1 && (
                 <div className="dv2-pq-dots">
                   {pendingQs.map((_, i) => (
@@ -380,6 +401,9 @@ export default function DashboardV2() {
   // v6.94: calendar awareness — AI 主動提問（pending questions 輪播）
   const [pendingQs, setPendingQs] = useState<any[]>([])
   const [pqIndex, setPqIndex] = useState(0)
+  // v7.05: 「寫低 agenda」→ inline input（打 agenda 內容 → 加到 record）
+  const [agendaFor, setAgendaFor] = useState<string | null>(null)
+  const [agendaText, setAgendaText] = useState('')
 
   const [customizeMode, setCustomizeMode] = useState(false)
   const [isPhone, setIsPhone] = useState(() => (typeof window !== 'undefined' ? window.matchMedia('(max-width: 640px)').matches : false))
@@ -583,10 +607,10 @@ export default function DashboardV2() {
       .catch(() => {})
   }, [])
 
-  // 輪播 — 每 7 秒轉下一條（多過 1 條先轉）
+  // 輪播 — 每 10 秒轉下一條（用戶 2026-08-26：10s 轉一個 + slider effect）
   useEffect(() => {
     if (pendingQs.length <= 1) return
-    const t = setInterval(() => setPqIndex(i => (i + 1) % pendingQs.length), 7000)
+    const t = setInterval(() => setPqIndex(i => (i + 1) % pendingQs.length), 10000)
     return () => clearInterval(t)
   }, [pendingQs.length])
 
@@ -595,6 +619,9 @@ export default function DashboardV2() {
       await apiClient.post(`/api/v1/ai-secretary/pending-questions/${id}/answer`, { answer })
       setPendingQs(prev => prev.filter(q => q.id !== id))
       setPqIndex(0)
+      setAgendaFor(null)
+      setAgendaText('')
+      showToast(answer.startsWith('加') ? t('dashboard.recordUpdated', { defaultValue: '已更新到行事曆 ✓' }) : t('dashboard.noted', { defaultValue: '已記錄' }))
     } catch { /* keep the question on failure */ }
   }
 
@@ -603,7 +630,26 @@ export default function DashboardV2() {
       await apiClient.post(`/api/v1/ai-secretary/pending-questions/${id}/dismiss`, {})
       setPendingQs(prev => prev.filter(q => q.id !== id))
       setPqIndex(0)
+      setAgendaFor(null)
+      setAgendaText('')
     } catch { /* keep the question on failure */ }
+  }
+
+  // v7.05: chip 撳法 — 「寫低 agenda」開 inline input，其他直接 answer
+  const handleChip = (q: any, a: string) => {
+    if (a === '寫低 agenda') {
+      setAgendaFor(q.id)
+      setAgendaText('')
+      return
+    }
+    if (a === '唔使') { dismissPendingQ(q.id); return }
+    answerPendingQ(q.id, a)
+  }
+
+  const submitAgenda = (q: any) => {
+    const txt = agendaText.trim()
+    if (!txt) return
+    answerPendingQ(q.id, `加 agenda：${txt}`)
   }
 
   const hour = new Date().getHours()
@@ -815,7 +861,7 @@ export default function DashboardV2() {
                   <div className="dv2-skel-line w70" /><div className="dv2-skel-line w90" /><div className="dv2-skel-line w50" />
                 </div>
               ) : aiLayers ? (
-                <LayeredBriefing layers={aiLayers} weather={aiWeather} summary={aiSummary} pendingQs={pendingQs} pqIndex={pqIndex} navigate={navigate} i18nLang={i18n.language} onAnswer={answerPendingQ} onDismiss={dismissPendingQ} onDot={setPqIndex} />
+                <LayeredBriefing layers={aiLayers} weather={aiWeather} summary={aiSummary} pendingQs={pendingQs} pqIndex={pqIndex} navigate={navigate} i18nLang={i18n.language} onDismiss={dismissPendingQ} onDot={setPqIndex} agendaFor={agendaFor} agendaText={agendaText} onAgendaFor={setAgendaFor} onAgendaText={setAgendaText} onChip={handleChip} onAgendaSubmit={submitAgenda} />
               ) : aiInsight ? (
                 <>
                   <p className="dv2-ai-headline">

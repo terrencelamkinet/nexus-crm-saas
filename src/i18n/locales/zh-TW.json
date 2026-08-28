@@ -318,7 +318,11 @@
     "noProjects": "暫無專案",
     "noTasksYet": "暫無任務",
     "noTeamUsers": "暫無團隊成員",
-    "searchWidgets": "搜尋小工具..."
+    "searchWidgets": "搜尋小工具...",
+    "recordUpdated": "已更新到行事曆 ✓",
+    "noted": "已記錄",
+    "agendaPlaceholder": "寫低準備事項…",
+    "saveAgenda": "儲存 ✓"
   },
   "chat": {
     "title": "AI 助手",

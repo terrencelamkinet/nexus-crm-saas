@@ -623,6 +623,10 @@ async def answer_pending_question(
     q.answer = body.answer
     q.answered_at = datetime.now(timezone.utc)
 
+    # 「唔使」→ 等同 dismiss（唔使再出現）
+    if body.answer.strip() in ("唔使", "不用", "不需要", "skip", "skip it"):
+        q.status = "dismissed"
+
     # 「加地點：X」答案 → 實際更新 event location（AI 管家行為 — 下次 scan 就唔會再問）
     if body.answer.startswith("加地點：") and q.context_id:
         loc = body.answer.split("：", 1)[1].strip()
@@ -637,6 +641,23 @@ async def answer_pending_question(
             ).scalar_one_or_none()
             if ev:
                 ev.location = loc
+
+    # 「加 agenda：X」答案 → 實際更新 event description（agenda 寫入 record）
+    if body.answer.startswith("加 agenda：") and q.context_id:
+        agenda = body.answer.split("：", 1)[1].strip()
+        if agenda:
+            ev = (
+                await db.execute(
+                    select(ProjectCalendarEvent).where(
+                        ProjectCalendarEvent.id == q.context_id,
+                        ProjectCalendarEvent.tenant_id == tenant_id,
+                    )
+                )
+            ).scalar_one_or_none()
+            if ev:
+                ev.description = (ev.description or "").strip()
+                ev.description = f"{ev.description}\n\n📋 Agenda：{agenda}".strip() if ev.description else f"📋 Agenda：{agenda}"
+                ev.description = ev.description.strip()
 
     await db.commit()
     return {"ok": True, "id": str(qid)}
