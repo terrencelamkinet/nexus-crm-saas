@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════
-//  NEXUS CRM — Touchpoints Module Config
+//  Penguin CRM — Touchpoints Module Config
 //  ═══════════════════════════════════════════
 
 import type { ResourceConfig } from '../module-types'

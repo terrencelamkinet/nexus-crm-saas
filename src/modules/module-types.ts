@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════
-//  NEXUS CRM — Module System Types (v2)
+//  Penguin CRM — Module System Types (v2)
 //  Config-driven CRUD module pattern
 //  Aligned with Notion Database spec
 //  ═══════════════════════════════════════════

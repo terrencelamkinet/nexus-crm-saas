@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════
-//  NEXUS CRM — Projects Module Config
+//  Penguin CRM — Projects Module Config
 //  ═══════════════════════════════════════════
 
 import type { ResourceConfig } from '../module-types'

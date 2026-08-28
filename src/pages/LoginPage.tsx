@@ -190,11 +190,8 @@ export default function LoginPage() {
         <aside className="brand-pane">
           <div>
             <div className="brand-top">
-              <div className="brand-mark" aria-label="NEXUS logo">
-                <svg viewBox="0 0 28 28" fill="none" stroke="currentColor" strokeWidth="2.2">
-                  <path d="M4 24V4l10 16V4l10 16"/>
-                  <path d="M24 20v4H4"/>
-                </svg>
+              <div className="brand-mark" aria-label="Penguin logo">
+                <svg viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="14" cy="14" r="12.5" stroke="currentColor" strokeWidth="1.8"/><ellipse cx="14" cy="15.5" rx="6.2" ry="8" fill="currentColor"/><ellipse cx="14" cy="16.5" rx="3.6" ry="5.6" fill="var(--color-surface-2)"/><circle cx="14" cy="8.2" r="3.8" fill="currentColor"/><ellipse cx="14" cy="9" rx="2.1" ry="1.8" fill="var(--color-surface-2)"/><circle cx="12.7" cy="8" r="0.5" fill="var(--color-bg)"/><circle cx="15.3" cy="8" r="0.5" fill="var(--color-bg)"/><path d="M12.9 9.8 L15.1 9.8 L14 10.9 Z" fill="#F27F63"/><path d="M14 4.6 C15.4 3.4 17.2 3.2 18.4 3.6 C17.6 4.6 16.2 5.2 14.8 5.2 Z" fill="#5694A7"/><path d="M11.2 12.6 L14 13.9 L16.8 12.6 L16.8 14.8 L14 13.9 L11.2 14.8 Z" fill="#F27F63"/></svg>
                 <span>{t('app.name')}</span>
               </div>
               <button className="theme-btn" onClick={toggleTheme} aria-label="Switch theme">

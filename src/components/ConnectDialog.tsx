@@ -228,7 +228,7 @@ export default function ConnectDialog({ integration, onClose, onConnected }: Pro
           {integration.connectionMethod === 'webhook' && (
             <>
               <p style={{ fontSize: 13, color: 'var(--color-text-muted)', margin: '0 0 16px' }}>
-                Use this webhook URL in {integration.name} to send data to NEXUS:
+                Use this webhook URL in {integration.name} to send data to Penguin:
               </p>
               <div className="mkt-url-row">
                 <code className="mkt-url-display">{webhookUrl}</code>
@@ -348,7 +348,7 @@ export default function ConnectDialog({ integration, onClose, onConnected }: Pro
             !icsMode ? (
               <div style={{ textAlign: 'center', padding: 12 }}>
                 <p style={{ fontSize: 14, marginBottom: 12 }}>
-                  Click Connect to authorize NEXUS via {integration.name}
+                  Click Connect to authorize Penguin via {integration.name}
                 </p>
                 <p style={{ fontSize: 12, color: 'var(--color-text-muted)', lineHeight: 1.5 }}>
                   {integration.howItWorks}

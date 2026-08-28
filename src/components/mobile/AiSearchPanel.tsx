@@ -46,7 +46,7 @@ function nextId() { msgCounter += 1; return `msg_${Date.now()}_${msgCounter}`; }
 function userMessage(content: string): ChatMessage { return { id: nextId(), role: 'user', content, timestamp: Date.now() }; }
 function assistantMessage(content: string): ChatMessage { return { id: nextId(), role: 'assistant', content, timestamp: Date.now() }; }
 
-const GREETING = "Hi! I'm NEXUS AI. How can I help you today?";
+const GREETING = "Hi! I'm Penguin AI. How can I help you today?";
 const CAPABILITIES = [
   { icon: Plus,        title: i18n.t('ai.capabilityAdd', { defaultValue: '新增資料' }), desc: i18n.t('ai.capabilityAddDesc', { defaultValue: '「幫我新增一個聯絡人…」— AI 直接寫入你嘅 tenant 資料庫' }) },
   { icon: PencilLine,  title: i18n.t('ai.capabilityEdit', { defaultValue: '修改資料' }), desc: i18n.t('ai.capabilityEditDesc', { defaultValue: '「將 Kong API 專案到期日改成 9月20日」— AI 直接更新現有記錄' }) },
@@ -363,9 +363,9 @@ export default function AiSearchPanel({ open, onClose, onScanCard }: Props) {
                 return (
                   <div key={m.id} className="cb-msg-ai-row">
                     <div className="cb-msg-ai-body ai-card">
-                      {/* v6.88: 對話者名 — NEXUS AI（唔用框，用 meta 標示） */}
+                      {/* v6.88: 對話者名 — Penguin AI（唔用框，用 meta 標示） */}
                       <div className="cb-msg-ai-meta">
-                        <span className="cb-msg-time">NEXUS AI</span>
+                        <span className="cb-msg-time">Penguin AI</span>
                       </div>
                       <div className="msg-ai-content cb-msg-ai-content">
                         <MarkdownMessage content={m.content} />

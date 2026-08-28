@@ -9,7 +9,7 @@ import { apiClient } from '../../lib/api';
 import { useSecretarySettings } from '../../hooks/useSecretarySettings';
 
 /**
- * NEXUS CRM — Mobile Bottom Navigation v3 (AI 管家秘書 theme) — v6.70
+ * Penguin CRM — Mobile Bottom Navigation v3 (AI 管家秘書 theme) — v6.70
  * Mobile view 吸收 sidebar + top bar：
  *   工作區 tab ← sidebar 工作區選項
  *   紀錄   tab ← sidebar 記錄選項

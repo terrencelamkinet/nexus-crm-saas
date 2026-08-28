@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════
-//  NEXUS CRM — Enabled Modules Registry
+//  Penguin CRM — Enabled Modules Registry
 //  ═══════════════════════════════════════════
 //  Tenant-level feature toggle for modules.
 //  Fetched from backend DB (tenant_modules table)

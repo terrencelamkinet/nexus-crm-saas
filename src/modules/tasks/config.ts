@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════
-//  NEXUS CRM — Tasks Module Config
+//  Penguin CRM — Tasks Module Config
 //  ═══════════════════════════════════════════
 
 import type { ResourceConfig } from '../module-types'

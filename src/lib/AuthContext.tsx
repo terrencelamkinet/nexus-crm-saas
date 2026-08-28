@@ -1,5 +1,5 @@
 /**
- * NEXUS CRM Auth Context
+ * Penguin CRM Auth Context
  * 
  * Provides login, logout, and user state across the app.
  * Token storage + refresh handled by api.ts.

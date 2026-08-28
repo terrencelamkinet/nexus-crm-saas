@@ -280,7 +280,7 @@ export default function IntegrationDetailPage() {
         <div className="mkt-detail-section">
           <h2>Sync calendars</h2>
           <p style={{ fontSize: 13, color: 'var(--color-text-muted)', margin: '4px 0 14px' }}>
-            Pick which Google Calendars to mirror into NEXUS CRM. Default: primary only. Events sync within 15 minutes of a change.
+            Pick which Google Calendars to mirror into Penguin CRM. Default: primary only. Events sync within 15 minutes of a change.
           </p>
 
           {calLoading ? (

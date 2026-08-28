@@ -1,5 +1,5 @@
 /**
- * Shared data-fetching hook for NEXUS CRM
+ * Shared data-fetching hook for Penguin CRM
  * Uses useEffect + useState — no extra dependencies.
  */
 import { useState, useEffect, useCallback, useRef } from 'react';

@@ -1,5 +1,5 @@
 /**
- * NEXUS CRM API Client
+ * Penguin CRM API Client
  * 
  * Fetch wrapper with JWT auto-attach, token refresh on 401,
  * and typed response helpers.

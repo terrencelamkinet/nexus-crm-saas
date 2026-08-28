@@ -178,7 +178,7 @@ function AiMessageBubble({ msg, prevMsg, hovered, onHover, onCopy, onRetry, onFe
           {!prevSameRole && (
             <div className="cb-msg-ai-meta">
               <span className="cb-msg-time">
-                NEXUS AI · {formatTime(msg.timestamp)}
+                Penguin AI · {formatTime(msg.timestamp)}
               </span>
             </div>
           )}
@@ -543,7 +543,7 @@ export default function ChatboxPanel() {
       if (active) await switchSession(active.session_id)
       else createNewSession()
     } catch {
-      setMessages([assistantMessage("Hi! I'm NEXUS AI. How can I help you today?")])
+      setMessages([assistantMessage("Hi! I'm Penguin AI. How can I help you today?")])
     } finally {
       setLoadingSession(false)
     }
@@ -559,7 +559,7 @@ export default function ChatboxPanel() {
       const resp = await apiClient.get<{ messages: any[] }>(`/api/v1/ai/sessions/${sid}/messages`)
       const msgs = resp?.messages || []
       if (msgs.length === 0) {
-        setMessages([assistantMessage("Hi! I'm NEXUS AI. How can I help you today?")])
+        setMessages([assistantMessage("Hi! I'm Penguin AI. How can I help you today?")])
       } else {
         setMessages(msgs.map((m: any) => ({
           id: m.id, role: m.role, content: m.content,
@@ -567,7 +567,7 @@ export default function ChatboxPanel() {
         })))
       }
     } catch {
-      setMessages([assistantMessage("Hi! I'm NEXUS AI. How can I help you today?")])
+      setMessages([assistantMessage("Hi! I'm Penguin AI. How can I help you today?")])
     } finally {
       setLoadingSession(false)
     }
@@ -856,7 +856,7 @@ export default function ChatboxPanel() {
             </div>
             <div className="cb-header-titles">
               <div className="cb-header-title">
-                NEXUS AI
+                Penguin AI
               </div>
               <div className="cb-header-subtitle">
                 {selectedAgentId && agents.find(a => a.id === selectedAgentId)

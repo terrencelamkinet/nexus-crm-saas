@@ -1,6 +1,6 @@
 {
   "app": {
-    "name": "NEXUS CRM",
+    "name": "Penguin CRM",
     "tagline": "AI 驅動嘅客戶關係管理系統"
   },
   "nav": {
@@ -64,7 +64,7 @@
     "errorInvalid": "電郵或密碼無效",
     "errorMfa": "驗證碼無效",
     "errorNetwork": "網絡錯誤，請再試一次",
-    "legalFooter": "© 2026 NEXUS CRM。版權所有。",
+    "legalFooter": "© 2026 Penguin CRM。版權所有。",
     "registerSubtitle": "輸入你嘅資料開始使用。",
     "forgotSubtitle": "輸入你嘅電郵，我哋會寄一個重設連結俾你。",
     "resetTitle": "設定新密碼",
@@ -322,7 +322,7 @@
   },
   "chat": {
     "title": "AI 助手",
-    "placeholder": "問 NEXUS AI 任何問題…",
+    "placeholder": "問 Penguin AI 任何問題…",
     "send": "傳送",
     "stop": "停止生成",
     "newChat": "新對話",

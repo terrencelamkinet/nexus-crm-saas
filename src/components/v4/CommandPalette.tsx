@@ -192,7 +192,7 @@ export default function CommandPalette({ open, onClose }: { open: boolean; onClo
         <div className="cmdp-footer">
           <span><kbd>↑</kbd><kbd>↓</kbd> {t('search.navigate', { defaultValue: '導航' })}</span>
           <span><kbd>↵</kbd> {t('search.select', { defaultValue: '選擇' })}</span>
-          <span className="cmdp-footer-brand"><Command size={11} /> NEXUS AI Search</span>
+          <span className="cmdp-footer-brand"><Command size={11} /> Penguin AI Search</span>
         </div>
       </div>
     </div>

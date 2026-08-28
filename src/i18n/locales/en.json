@@ -1,6 +1,6 @@
 {
   "app": {
-    "name": "NEXUS CRM",
+    "name": "Penguin CRM",
     "tagline": "AI-powered Customer Relationship Management"
   },
   "nav": {
@@ -64,7 +64,7 @@
     "errorInvalid": "Invalid email or password",
     "errorMfa": "Invalid verification code",
     "errorNetwork": "Network error. Please try again.",
-    "legalFooter": "© 2026 NEXUS CRM. All rights reserved.",
+    "legalFooter": "© 2026 Penguin CRM. All rights reserved.",
     "registerSubtitle": "Enter your details to get started.",
     "forgotSubtitle": "Enter your email and we'll send you a reset link.",
     "resetTitle": "Set new password",
@@ -322,7 +322,7 @@
   },
   "chat": {
     "title": "AI Assistant",
-    "placeholder": "Ask NEXUS AI anything…",
+    "placeholder": "Ask Penguin AI anything…",
     "send": "Send",
     "stop": "Stop generating",
     "newChat": "New Chat",
