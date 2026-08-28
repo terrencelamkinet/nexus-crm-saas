@@ -381,6 +381,7 @@ table{border-collapse:collapse;width:100%}
 .db-search:hover,.db-search:focus-within{border-color:var(--color-primary)}
 .db-search svg{width:14px;height:14px;color:var(--color-text-faint);flex-shrink:0}
 .db-search input{background:none;border:none;outline:none;width:100%;font-size:13px;color:var(--color-text)}
+.db-search input::placeholder{color:var(--color-text-faint);opacity:.75;font-weight:400}
 .toolbar-actions{display:flex;align-items:center;gap:4px;margin-left:auto}
 .toolbar-btn{display:flex;align-items:center;gap:6px;height:32px;padding:0 10px;border-radius:var(--radius-md);font-size:12.5px;font-weight:500;color:var(--color-text-muted);transition:background var(--transition-interactive),color var(--transition-interactive)}
 .toolbar-btn:hover{background:var(--color-surface-offset-2);color:var(--color-text)}

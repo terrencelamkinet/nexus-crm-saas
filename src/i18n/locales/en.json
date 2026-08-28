@@ -1209,7 +1209,7 @@
       "address": "Address",
       "description": "Description",
       "content": "Content",
-      "searchPlaceholder": "Search contacts...",
+      "searchPlaceholder": "Search contacts (e.g. Brian Leung)...",
       "taskPlaceholder": "Add a task...",
       "detail": {
         "tasks": "Tasks",

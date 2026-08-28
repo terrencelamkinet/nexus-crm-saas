@@ -1209,7 +1209,7 @@
       "address": "地址",
       "description": "描述",
       "content": "內容",
-      "searchPlaceholder": "搜尋聯絡人...",
+      "searchPlaceholder": "搜尋聯絡人 (例: Brian Leung)...",
       "taskPlaceholder": "新增任務...",
       "detail": {
         "tasks": "任務",
