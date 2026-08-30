@@ -3,6 +3,9 @@ from pydantic_settings import BaseSettings
 class Settings(BaseSettings):
     app_name: str = "NEXUS CRM Auth"
     debug: bool = True
+    # Public-facing base URL (for OAuth redirect URIs behind cloudflared).
+    # Set in production .env: PUBLIC_BASE_URL=https://nexus-crm.kinet-poc.com
+    public_base_url: str = ""
 
     # Database — via PgBouncer (transaction pool, port 6432) for 50k-scale
     # connection multiplexing. Direct 5432 fallback kept in comments.

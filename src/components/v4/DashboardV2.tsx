@@ -323,7 +323,6 @@ const SLOT_LABELS: Record<string, { emoji: string; labelKey: string }> = {
 
 const ALL_WIDGETS = [
   { id: 'ai', labelKey: 'dashboard.aiInsight', group: 'ai', required: true },
-  { id: 'stats', labelKey: 'dashboard.keyIndicators', group: 'core', required: true },
   { id: 'todos', labelKey: 'dashboard.widgets.todayTodos', group: 'core' },
   { id: 'events', labelKey: 'dashboard.upcoming', group: 'core' },
   { id: 'interactions', labelKey: 'dashboard.recentInteractions', group: 'core' },
@@ -364,7 +363,7 @@ const WIDGET_GROUPS: { key: string; labelKey: string }[] = [
 ]
 const WIDGET_PREF_KEY = 'nexus-dashboard-widgets'
 const WIDGET_ORDER_KEY = 'nexus-dashboard-widget-order'
-const DEFAULT_ORDER = ['stats:0', 'stats:1', 'stats:2', 'stats:3', 'c1', 'co1', 'p1', 'todos', 'events', 'interactions', 'activity', 'ask_ai', 'c2', 'co3', 'te2', 'touchpoints', 'c3', 'c5', 'co2', 'co4', 'co5', 'p2', 'p3', 'p4', 't2', 't3', 't4', 'cal2', 'cal3', 's5']
+const DEFAULT_ORDER = ['c1', 'co1', 'p1', 'todos', 'events', 'interactions', 'activity', 'ask_ai', 'c2', 'co3', 'te2', 'touchpoints', 'c3', 'c5', 'co2', 'co4', 'co5', 'p2', 'p3', 'p4', 't2', 't3', 't4', 'cal2', 'cal3', 's5']
 
 const WIDGET_SIZE_KEY = 'nexus-dashboard-widget-sizes'
 
@@ -1286,7 +1285,8 @@ export default function DashboardV2() {
       <div className={`dv2-grid ${customizeMode ? 'customizing' : ''}`}>
         {widgetOrder.map(wid => {
           if (wid === 'ai') return null
-          if (wid.startsWith('stats:')) return has('stats') ? renderWidget(wid) : null
+          // Key Metrics (stats) widgets removed — skip any stale saved ids
+          if (wid.startsWith('stats:')) return null
           // v6.93: project-centric — deal widgets removed; also guard against stale saved widget ids
           if (!ALL_WIDGETS.some(w => w.id === wid) && !wid.startsWith('stats:')) return null
           return has(wid) ? renderWidget(wid) : null

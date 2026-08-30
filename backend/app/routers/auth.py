@@ -408,11 +408,23 @@ def _google_creds() -> tuple[str, str]:
     return client_id, client_secret
 
 
+def _public_base(request: Request) -> str:
+    """Resolve the public-facing base URL. Behind cloudflared the Host header
+    is rewritten to localhost:8001, so prefer an explicit PUBLIC_BASE_URL
+    (set in production .env). Fall back to the Host header for direct dev
+    access via the Vite proxy (localhost:5173)."""
+    if settings.public_base_url:
+        return settings.public_base_url.rstrip("/")
+    host = request.headers.get("host", "")
+    scheme = request.url.scheme
+    return f"{scheme}://{host}".rstrip("/")
+
+
 @router.get("/google/start")
 async def google_start(request: Request, origin: str = ""):
-    """Start Google OAuth login — returns the Google authorization URL."""
+    """Start Google OAuth login — redirects to the Google authorization page."""
     client_id, _ = _google_creds()
-    base = str(request.base_url).rstrip("/")
+    base = _public_base(request)
     redirect_uri = f"{base}/api/v1/auth/google/callback"
     origin = origin or base
     state = _secrets.token_urlsafe(24)
@@ -457,7 +469,7 @@ async def google_callback(
 
     # ── Exchange code → tokens ──
     client_id, client_secret = _google_creds()
-    base = str(request.base_url).rstrip("/")
+    base = _public_base(request)
     redirect_uri = f"{base}/api/v1/auth/google/callback"
     try:
         async with httpx.AsyncClient(timeout=15) as client:
