@@ -369,3 +369,166 @@ async def get_me(request: Request, db: AsyncSession = Depends(get_db)):
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     return user
+
+
+# ═══════════════════════════════════════════════════════════════
+# Google OAuth Login（2026-08-30）— 一鍵登入 / 註冊
+# Reuses the google_calendar OAuth client (same Google Cloud project).
+# Flow: /google/start → Google consent → /google/callback → token
+# exchange → userinfo → find-or-create user → redirect back with
+# tokens in URL fragment (#google_token=...) — fragment never hits
+# the server, so JWT stays out of access logs.
+# ═══════════════════════════════════════════════════════════════
+
+import os as _os
+import json as _json
+import secrets as _secrets
+from urllib.parse import urlencode
+import httpx
+from fastapi.responses import RedirectResponse
+
+GOOGLE_AUTH_URL = "https://accounts.google.com/o/oauth2/v2/auth"
+GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token"
+GOOGLE_USERINFO_URL = "https://www.googleapis.com/oauth2/v3/userinfo"
+
+
+def _google_creds() -> tuple[str, str]:
+    """Read Google OAuth client creds (reuses google_calendar client)."""
+    path = _os.path.join(_os.path.dirname(__file__), "..", "oauth_clients.json")
+    try:
+        with open(path) as f:
+            data = _json.load(f)
+    except FileNotFoundError:
+        raise HTTPException(400, "Google OAuth not configured")
+    entry = data.get("google_calendar") or data.get("google_login") or {}
+    client_id = entry.get("client_id", "")
+    client_secret = entry.get("client_secret", "")
+    if not client_id or not client_secret:
+        raise HTTPException(400, "Google OAuth not configured")
+    return client_id, client_secret
+
+
+@router.get("/google/start")
+async def google_start(request: Request, origin: str = ""):
+    """Start Google OAuth login — returns the Google authorization URL."""
+    client_id, _ = _google_creds()
+    base = str(request.base_url).rstrip("/")
+    redirect_uri = f"{base}/api/v1/auth/google/callback"
+    origin = origin or base
+    state = _secrets.token_urlsafe(24)
+    r = await get_redis()
+    await r.setex(f"google_oauth_state:{state}", 600, origin)
+    params = {
+        "client_id": client_id,
+        "redirect_uri": redirect_uri,
+        "response_type": "code",
+        "scope": "openid email profile",
+        "state": state,
+        "access_type": "online",
+        "prompt": "select_account",
+    }
+    return RedirectResponse(GOOGLE_AUTH_URL + "?" + urlencode(params))
+
+
+@router.get("/google/callback")
+async def google_callback(
+    request: Request,
+    code: str = "",
+    state: str = "",
+    error: str = "",
+    db: AsyncSession = Depends(get_db),
+):
+    """Google OAuth callback — exchange code → userinfo → find-or-create
+    user → issue JWT → redirect back to {origin}/login/#google_token=..."""
+    def fail(msg: str) -> RedirectResponse:
+        return RedirectResponse(f"/login/?google_error={msg}")
+
+    if error:
+        return fail(f"google_denied:{error}")
+    if not code or not state:
+        return fail("missing_params")
+
+    # ── Verify state (CSRF) ──
+    r = await get_redis()
+    origin = await r.get(f"google_oauth_state:{state}")
+    if not origin:
+        return fail("invalid_state")
+    await r.delete(f"google_oauth_state:{state}")
+
+    # ── Exchange code → tokens ──
+    client_id, client_secret = _google_creds()
+    base = str(request.base_url).rstrip("/")
+    redirect_uri = f"{base}/api/v1/auth/google/callback"
+    try:
+        async with httpx.AsyncClient(timeout=15) as client:
+            tok_resp = await client.post(GOOGLE_TOKEN_URL, data={
+                "code": code,
+                "client_id": client_id,
+                "client_secret": client_secret,
+                "redirect_uri": redirect_uri,
+                "grant_type": "authorization_code",
+            })
+            if tok_resp.status_code != 200:
+                return fail("token_exchange")
+            tokens = tok_resp.json()
+            info_resp = await client.get(
+                GOOGLE_USERINFO_URL,
+                headers={"Authorization": f"Bearer {tokens['access_token']}"},
+            )
+            if info_resp.status_code != 200:
+                return fail("userinfo")
+            info = info_resp.json()
+    except httpx.HTTPError:
+        return fail("network")
+
+    email = (info.get("email") or "").lower()
+    if not email:
+        return fail("no_email")
+    display_name = info.get("name") or email.split("@")[0]
+
+    # ── Find or create user + tenant + notification prefs ──
+    user = (await db.execute(select(User).where(User.email == email))).scalar_one_or_none()
+    if user is None:
+        tenant = Tenant(name=display_name, subdomain=f"p-{uuid.uuid4().hex[:12]}")
+        db.add(tenant)
+        await db.flush()
+        user = User(
+            email=email,
+            password_hash="",  # Google-only account — no password
+            display_name=display_name,
+            email_verified=True,
+            mfa_enabled=False,
+            role="member",
+        )
+        db.add(user)
+        await db.flush()
+        db.add(TenantMember(tenant_id=tenant.id, user_id=user.id, role="owner"))
+        await db.flush()
+        # ensure_default_preferences sets RLS GUC internally (v7.11 fix)
+        from app.services.notification_service import ensure_default_preferences
+        await ensure_default_preferences(db, tenant.id, user.id)
+        tenant_id = str(tenant.id)
+    else:
+        tm = (await db.execute(
+            select(TenantMember).where(TenantMember.user_id == user.id).limit(1)
+        )).scalar_one_or_none()
+        tenant_id = str(tm.tenant_id) if tm else ""
+
+    # ── Issue tokens + session ──
+    access_token = create_access_token(str(user.id), user.email, user.role, tenant_id)
+    refresh_token_str, expires_at = create_refresh_token(str(user.id))
+    db.add(Session(
+        user_id=user.id,
+        refresh_token=refresh_token_str,
+        user_agent=request.headers.get("user-agent", ""),
+        ip_address=request.client.host if request.client else "unknown",
+        expires_at=expires_at,
+    ))
+    await db.commit()
+
+    # Tokens in fragment — never sent to server, never in logs
+    redirect = (
+        f"{origin}/login/#google_token={access_token}"
+        f"&google_refresh={refresh_token_str}&google_email={email}"
+    )
+    return RedirectResponse(redirect)

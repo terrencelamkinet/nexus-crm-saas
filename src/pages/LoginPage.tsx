@@ -31,6 +31,17 @@ export default function LoginPage() {
   }, [resetToken]);
 
   useEffect(() => {
+    // Google OAuth return: /sign-in/#google_token=...&google_refresh=...&google_email=...
+    const params = new URLSearchParams(location.hash.replace(/^#/, ''));
+    const token = params.get('google_token');
+    if (token) {
+      storeAuth(token, params.get('google_email') || '', params.get('google_refresh') || '');
+      navigate('/dashboard', { replace: true });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
     const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
     const t = prefersDark ? 'dark' : 'light';
     setTheme(t);
@@ -263,7 +274,7 @@ export default function LoginPage() {
                   <section className="page active" data-page="login">
                     <div className={`notice error ${error ? 'show' : ''}`}>{error}</div>
                     <div className={`notice success ${success ? 'show' : ''}`}>{success}</div>
-                    <button className="btn btn-secondary google-btn" type="button">
+                    <button className="btn btn-secondary google-btn" type="button" onClick={() => { window.location.href = '/api/v1/auth/google/start'; }}>
                       <span className="gmark" aria-hidden="true"></span>
                       <span className="btn-label">{t('login.continueGoogle')}</span>
                     </button>
