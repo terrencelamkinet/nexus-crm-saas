@@ -15,7 +15,7 @@ from datetime import datetime, time, timezone
 from typing import Optional
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.notification import Notification, NotificationPreference
@@ -141,5 +141,12 @@ async def _get_pref(
 
 async def ensure_default_preferences(db: AsyncSession, tenant_id: UUID, user_id: UUID) -> None:
     """Create default preference rows for all modules (called on user signup)."""
+    # ⚠️ Register flow has NO JWT → no tenant middleware → RLS GUC unset →
+    # INSERT into FORCE-RLS notification_preferences raises InsufficientPrivilegeError.
+    # Set tenant/user GUC explicitly (transaction-local, same pattern as get_tenant_session).
+    await db.execute(
+        text("SELECT set_config('app.tenant_id', :t, true), set_config('app.user_id', :u, true)"),
+        {"t": str(tenant_id), "u": str(user_id)},
+    )
     for module in MODULES:
         await _get_pref(db, tenant_id, user_id, module)
