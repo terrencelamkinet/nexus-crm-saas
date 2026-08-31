@@ -342,6 +342,34 @@ def _build_prompt(slot: str, settings: SecretarySettings, data: dict[str, Any]) 
             "願神的話語成為你今日的力量 ❤️\n"
         )
         user += bible_rule + "\n"
+    # 新聞專屬格式規則（用戶 2026-09-01：「新聞 module 格式唔好，參考晨早
+    # 新聞 Digest」）— 分類 + 來源標記 + 分隔線
+    news_data = data.get("news_industry") or []
+    if news_data:
+        _wd = ["一", "二", "三", "四", "五", "六", "日"][_now_hkt().weekday()]
+        news_rule = (
+            "📰 新聞 section 必須用以下格式（用戶指定，唔好加減）：\n"
+            f"📰 晨早新聞 Digest · {_now_hkt().strftime('%-m月%-d日')}（{_wd}）\n"
+            "（空行）\n"
+            "🏙 香港要聞\n"
+            "• {標題}（{來源}）\n"
+            "（空行）\n"
+            "💼 科技/商業\n"
+            "• {標題}（{來源}）\n"
+            "（空行）\n"
+            "🌍 國際\n"
+            "• {標題}（{來源}）\n"
+            "（空行）\n"
+            "───────\n"
+            "規則：\n"
+            "• 分類由標題內容判斷（香港本地/社會 = 香港要聞；科技、金融、商業、企業業績 = 科技/商業；"
+            "外國/兩岸/國際事件 = 國際），category_hint 只係參考，唔係鐵律\n"
+            "• 每條 bullet 必須以（來源）結尾，來源用 data 嘅 source 欄位（Yahoo／Yahoo財經／SCMP／BBC）\n"
+            "• 標題保持原文，唔好翻譯、唔好改寫\n"
+            "• 每類 2-5 條，冇嗰類內容就省略該 section\n"
+            "• 最後一條之後出 ─────── 分隔線收尾\n"
+        )
+        user += news_rule + "\n"
     user += (
         "輸出格式：第一行用 <summary>...</summary> 包住一段 1-2 句嘅全日整合摘要"
         "（用上述語言，簡短精煉，整合下面所有數據嘅重點），跟住將完整簡報內容"

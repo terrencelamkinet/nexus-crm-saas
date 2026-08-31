@@ -685,23 +685,29 @@ async def calendar_conflicts(ctx: AISessionContext, db: AsyncSession, options: d
 
 
 async def news_industry(ctx: AISessionContext, db: AsyncSession, options: dict | None = None) -> list[dict[str, Any]]:
-    """Latest business/industry headlines from public RSS feeds.
+    """Latest HK + business/industry headlines from public RSS feeds.
 
     Deep options:
       - topics: subset of ['tech','finance','logistics','retail'] or 'all'
         （keyword 篩選 title；'all' = 唔篩）
-      - lang: 'zh' | 'en' | 'both'（zh = SCMP，en = BBC，both = 兩個 feed）
+      - lang: 'zh' | 'en' | 'both'（zh = Yahoo HK + SCMP，en = BBC，both = 全部）
     """
     opts = options or {}
     topics = opts.get("topics")
     if topics in (None, "all", ["all"]):
         topics = []
     lang = opts.get("lang", "both")
-    feeds = []
+    # feed → (source label, category hint) — 用戶 2026-09-01 要求新聞有分類 +
+    # 來源標記（格式參考晨早新聞 Digest：🏙 香港要聞 / 💼 科技/商業 / 🌍 國際）
+    feeds: list[tuple[str, str, str]] = []
     if lang in ("zh", "both"):
-        feeds.append("https://www.scmp.com/rss/91/feed")
+        feeds.append(("https://hk.news.yahoo.com/rss/", "Yahoo", "hk"))
+        feeds.append(("https://hk.news.yahoo.com/rss/world", "Yahoo", "world"))
+        feeds.append(("https://hk.news.yahoo.com/rss/business", "Yahoo財經", "biz"))
+        feeds.append(("https://www.scmp.com/rss/91/feed", "SCMP", "biz"))
     if lang in ("en", "both"):
-        feeds.append("https://feeds.bbci.co.uk/news/business/rss.xml")
+        feeds.append(("https://feeds.bbci.co.uk/news/business/rss.xml", "BBC", "biz"))
+        feeds.append(("https://feeds.bbci.co.uk/news/world/rss.xml", "BBC", "world"))
 
     # topic keyword map（英文 + 中文 keyword 兜底）
     TOPIC_KEYWORDS = {
@@ -711,15 +717,21 @@ async def news_industry(ctx: AISessionContext, db: AsyncSession, options: dict |
         "retail": ["retail", "consumer", "shop", "e-commerce", "零售", "消費", "電商"],
     }
     items: list[dict[str, Any]] = []
+    seen_titles: set[str] = set()
+    PER_FEED_MAX = 5  # 每 feed 最多 5 條 — 確保 world/business feed 都有 quota
+    TOTAL_MAX = 15
     try:
         async with httpx.AsyncClient(timeout=_HTTP_TIMEOUT, headers={"User-Agent": _USER_AGENT}, follow_redirects=True) as client:
-            for url in feeds:
+            for url, source, hint in feeds:
+                feed_count = 0
                 try:
                     r = await client.get(url)
                     if r.status_code != 200:
                         continue
                     root = ET.fromstring(r.text)
                     for item in root.iter("item"):
+                        if feed_count >= PER_FEED_MAX:
+                            break
                         title = item.findtext("title") or ""
                         if topics:
                             tl = title.lower()
@@ -729,19 +741,26 @@ async def news_industry(ctx: AISessionContext, db: AsyncSession, options: dict |
                                 for kw in TOPIC_KEYWORDS.get(t, [t])
                             ):
                                 continue
+                        tkey = title.strip().lower()
+                        if tkey in seen_titles:
+                            continue
+                        seen_titles.add(tkey)
                         link = item.findtext("link") or ""
                         pub = item.findtext("pubDate") or ""
                         items.append({
                             "feed": url.split("/")[2],
+                            "source": source,
+                            "category_hint": hint,
                             "title": title.strip(),
                             "link": link.strip(),
                             "published": pub.strip(),
                         })
-                        if len(items) >= 10:
+                        feed_count += 1
+                        if len(items) >= TOTAL_MAX:
                             break
                 except Exception:
                     continue
-                if len(items) >= 10:
+                if len(items) >= TOTAL_MAX:
                     break
     except Exception:
         return []
