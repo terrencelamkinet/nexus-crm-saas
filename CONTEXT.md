@@ -17,6 +17,7 @@
 7. **design04 範例庫** — design04 = NEXUS CRM UI/UX 範例庫（dark #5b8cff），源檔參考該庫。
 8. **50k tenants 設計原則** — settings/features 為 50k tenants 設計（非單一用戶）；Infra 修復要 phased TOTAL + clarify scope。G08 AI zh-HK = 書面語為主 + 小量廣東話口語。
 9. **SiliconFlow Qwen3-VL** — 只出軸對齊 bbox（四角定位做唔到）；vision_analyze 用於需要精確定位嘅場景。
+10. **Special Access Link（2026-08-31 v7.16）** — 加密 magic link 登入通道，GG family debug 直入 terrence_lam tenant（唔使 MFA）。用法：`~/.hermes/scripts/g08_special_access.py on [hours] [purpose]` → 出 `https://nexus-crm.kinet-poc.com/login/#sa=<token>` link → 撳入即登入 dashboard。開關控制：`off [token]`（冇 token = 全部關）、`status` 睇狀態。Terrence（JWT）開 → default 3h 自動關；GG family（Cron-Api-Key）開 → default 1h，用完即 off。token 只存 sha256 hash（DB leak 都安全）；expired/revoked link verify 即 reject。Endpoints：`POST /special-access`（create）、`POST /special-access/verify`（exchange JWT）、`GET /special-access`（list）、`DELETE /special-access`（revoke）。**每次用完整個流程後記得 off**（唔好留 active link）。
 
 ---
 
