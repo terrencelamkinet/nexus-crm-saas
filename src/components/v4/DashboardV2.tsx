@@ -394,6 +394,12 @@ export default function DashboardV2() {
     if (isNaN(dt.getTime())) return String(d).slice(0, 10)
     return dt.toLocaleString(i18n.language, { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })
   }
+  const fmtDay = (d: string) => {
+    if (!d) return ''
+    const dt = new Date(d)
+    if (isNaN(dt.getTime())) return String(d).slice(0, 10)
+    return dt.toLocaleDateString(i18n.language, { month: 'numeric', day: 'numeric' })
+  }
   const { showToast } = useToast()
   const [stats, setStats] = useState<Stats>({ contacts: 0, companies: 0, tasksDue: 0 })
   const [todos, setTodos] = useState<Todo[]>([])
@@ -990,7 +996,7 @@ export default function DashboardV2() {
               events.slice(0, 4).map((ev) => (
                 <button key={ev.id} className="dv2-list-row dv2-list-row-btn" onClick={() => navigate('/calendar')}>
                   <SvcIcon name="calendar" size={13} className="dv2-list-row-icon" />
-                  <span className="dv2-list-row-title">{ev.time} {ev.title}</span>
+                  <span className="dv2-list-row-title">{fmtDay(ev.start || ev.time)} {ev.time} {ev.title}</span>
                   <span className="dv2-list-row-tag">{ev.type}</span>
                 </button>
               ))}
