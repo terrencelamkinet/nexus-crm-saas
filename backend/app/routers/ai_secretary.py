@@ -516,13 +516,13 @@ async def get_llm_usage(
         await db.execute(
             text(
                 """
-                SELECT module, count(*) AS calls,
+                SELECT provider AS module, count(*) AS calls,
                        COALESCE(sum(input_tokens), 0) AS input,
                        COALESCE(sum(output_tokens), 0) AS output,
                        COALESCE(sum(cost_estimate), 0) AS cost
                 FROM nexus_ai.ai_usage_events
                 WHERE user_id = :uid AND created_at >= :since
-                GROUP BY module ORDER BY calls DESC
+                GROUP BY provider ORDER BY calls DESC
                 """
             ),
             {"uid": user_id, "since": since},

@@ -26,12 +26,17 @@ class AISessionMiddleware(BaseHTTPMiddleware):
 
     AI_PREFIX = "/api/v1/ai/"
     AI_SECRETARY_PREFIX = "/api/v1/ai-secretary/"
+    AI_CORE_PREFIX = "/api/v1/crm/ai/"  # ai_core.py router（agents / provider-health 等）
 
     async def dispatch(
         self, request: Request, call_next: RequestResponseEndpoint
     ) -> Response:
         path = request.url.path
-        if not (path.startswith(self.AI_PREFIX) or path.startswith(self.AI_SECRETARY_PREFIX)):
+        if not (
+            path.startswith(self.AI_PREFIX)
+            or path.startswith(self.AI_SECRETARY_PREFIX)
+            or path.startswith(self.AI_CORE_PREFIX)
+        ):
             return await call_next(request)
 
         # /api/v1/ai/health is public — no auth, no session context
