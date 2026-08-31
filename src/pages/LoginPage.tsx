@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, type FormEvent } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../lib/AuthContext';
-import { signup, forgotPassword, resetPassword, storeAuth } from '../lib/api';
+import { signup, forgotPassword, resetPassword, storeAuth, apiClient } from '../lib/api';
 
 export default function LoginPage() {
   const { t } = useTranslation();
@@ -32,11 +32,24 @@ export default function LoginPage() {
 
   useEffect(() => {
     // Google OAuth return: /sign-in/#google_token=...&google_refresh=...&google_email=...
+    // Special access link: /login/#sa=<token>（GG family debug 通道，2026-08-31）
     const params = new URLSearchParams(location.hash.replace(/^#/, ''));
     const token = params.get('google_token');
+    const saToken = params.get('sa');
     if (token) {
       storeAuth(token, params.get('google_email') || '', params.get('google_refresh') || '');
       navigate('/dashboard', { replace: true });
+    } else if (saToken) {
+      // Exchange special access token for a normal JWT (no MFA)
+      apiClient.post('/api/v1/auth/special-access/verify', { token: saToken })
+        .then((res: any) => {
+          storeAuth(res.access_token, res.email || '', res.refresh_token || '');
+          navigate('/dashboard', { replace: true });
+        })
+        .catch(() => {
+          // 過期 / revoke — fallback 正常登入
+          location.hash = '';
+        });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

@@ -63,3 +63,28 @@ class TenantMember(Base):
 
     tenant = relationship("Tenant", back_populates="members")
     user = relationship("User", back_populates="tenants")
+
+
+class SpecialAccessLink(Base):
+    """加密 magic link — GG family debug 專用登入通道（terrence_lam tenant）。
+
+    - token 只存 sha256 hash（DB leak 都唔會直接洩漏 token）
+    - created_by: 'terrence' | 'gg_family' — Terrence 開 default 3h 自動關；
+      GG family 開可以指定時長，用完即 revoke
+    - expires_at 過期後 verify 自動 reject
+    - revoke / disable 即時生效
+    """
+
+    __tablename__ = "special_access_links"
+    __table_args__ = {"schema": "nexus_auth"}
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(UUID(as_uuid=True), nullable=False, index=True)
+    tenant_id = Column(UUID(as_uuid=True), nullable=False, index=True)
+    token_hash = Column(String(128), unique=True, nullable=False, index=True)
+    created_by = Column(String(20), default="terrence", nullable=False)  # terrence | gg_family
+    purpose = Column(Text, default="", nullable=False)
+    expires_at = Column(DateTime(timezone=True), nullable=False)
+    enabled = Column(Boolean, default=True, nullable=False)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    last_used_at = Column(DateTime(timezone=True), nullable=True)

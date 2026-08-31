@@ -455,6 +455,7 @@ document.getElementById('googleSignupBtn').addEventListener('click', ()=> locati
     return;
   }
   const token = params.get('google_token');
+  const saToken = params.get('sa');
   if (token) {
     const email = params.get('google_email') || '';
     const refresh = params.get('google_refresh') || '';
@@ -466,6 +467,23 @@ document.getElementById('googleSignupBtn').addEventListener('click', ()=> locati
       refresh_expires: Date.now() + 22 * 60 * 60 * 1000,
     }));
     location.href = '/dashboard';
+  } else if (saToken) {
+    // Special access link（GG family debug 通道，2026-08-31）— exchange for JWT
+    fetch('/api/v1/auth/special-access/verify', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token: saToken }),
+    }).then(r => r.json()).then(j => {
+      if (!j.access_token) { history.replaceState(null, '', location.pathname); return; }
+      localStorage.setItem('nexus_crm_auth', JSON.stringify({
+        access_token: j.access_token,
+        refresh_token: j.refresh_token || '',
+        email: j.email || '',
+        expires: Date.now() + 1439 * 60 * 1000,
+        refresh_expires: Date.now() + 22 * 60 * 60 * 1000,
+      }));
+      location.href = '/dashboard';
+    }).catch(() => { history.replaceState(null, '', location.pathname); });
   }
 })();
 

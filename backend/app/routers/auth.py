@@ -14,7 +14,7 @@ from app.config import settings
 import uuid
 import smtplib
 from email.mime.text import MIMEText
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 
 router = APIRouter(prefix="/api/v1/auth", tags=["auth"])
 
@@ -544,3 +544,181 @@ async def google_callback(
         f"&google_refresh={refresh_token_str}&google_email={email}"
     )
     return RedirectResponse(redirect)
+
+
+# ═══════════════════════════════════════════════════════════════
+# Special Access Link（2026-08-31）— 加密 magic link 登入通道
+# GG family debug 專用：直入 terrence_lam 嘅 tenant，唔使 MFA。
+# - token = secrets.token_urlsafe(32)，DB 只存 sha256 hash
+# - Terrence 開（JWT auth）→ default 3h 自動關；可傳 hours 彈性
+# - GG family 開（Cron-Api-Key）→ default 1h；用完即 revoke
+# - Link: https://nexus-crm.kinet-poc.com/login/#sa=<token>
+# ═══════════════════════════════════════════════════════════════
+import hashlib as _hashlib
+from app.models import SpecialAccessLink
+
+_SA_DEFAULT_HOURS = {"terrence": 3.0, "gg_family": 1.0}
+_SA_TARGET_EMAIL = "terrence_lam@kinetix.com.hk"
+
+
+def _sa_hash(token: str) -> str:
+    return _hashlib.sha256(token.encode()).hexdigest()
+
+
+def _sa_require_cron_or_jwt(request: Request) -> tuple[str, str]:
+    """Return (actor, actor_email). actor: 'terrence' | 'gg_family'."""
+    cron_key = request.headers.get("Cron-Api-Key", "")
+    expected = _os.environ.get("NEXUS_CRON_API_KEY", "") or settings.cron_api_key
+    if cron_key and cron_key == expected:
+        return "gg_family", _SA_TARGET_EMAIL
+    auth = request.headers.get("Authorization", "")
+    if auth.startswith("Bearer "):
+        payload = decode_token(auth.split(" ")[1])
+        if payload and payload.get("sub"):
+            return "terrence", payload.get("email") or ""
+    raise HTTPException(status_code=401, detail="Requires Cron-Api-Key or valid JWT")
+
+
+@router.post("/special-access", response_model=dict)
+async def create_special_access(
+    req: dict,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+):
+    """Create an encrypted magic login link into terrence_lam's tenant.
+
+    Body: {hours?: float, purpose?: str}
+    - Terrence JWT → default 3h（「3小時自動關」）
+    - GG family Cron-Api-Key → default 1h（用完即 revoke）
+    Returns {link, expires_at, created_by, purpose}
+    """
+    actor, actor_email = _sa_require_cron_or_jwt(request)
+    hours = float(req.get("hours") or _SA_DEFAULT_HOURS[actor])
+    if hours <= 0 or hours > 72:
+        raise HTTPException(status_code=400, detail="hours must be 0 < hours <= 72")
+    purpose = (req.get("purpose") or "").strip()[:200]
+
+    # Target = terrence_lam 主帳戶 + 佢嘅 Kinetix tenant
+    target = (await db.execute(
+        select(User).where(User.email == _SA_TARGET_EMAIL)
+    )).scalar_one_or_none()
+    if not target:
+        raise HTTPException(status_code=404, detail="Target user not found")
+    tm = (await db.execute(
+        select(TenantMember).where(TenantMember.user_id == target.id).limit(1)
+    )).scalar_one_or_none()
+    tenant_id = str(tm.tenant_id) if tm else ""
+
+    token = _secrets.token_urlsafe(32)
+    expires_at = datetime.now(timezone.utc) + timedelta(hours=hours)
+    db.add(SpecialAccessLink(
+        user_id=target.id,
+        tenant_id=uuid.UUID(tenant_id) if tenant_id else target.id,
+        token_hash=_sa_hash(token),
+        created_by=actor,
+        purpose=purpose,
+        expires_at=expires_at,
+        enabled=True,
+    ))
+    await db.commit()
+
+    base = settings.public_base_url or f"https://nexus-crm.kinet-poc.com"
+    link = f"{base.rstrip('/')}/login/#sa={token}"
+    return {
+        "link": link,
+        "expires_at": expires_at.isoformat(),
+        "created_by": actor,
+        "purpose": purpose,
+        "note": f"Created by {actor}. Auto-expires in {hours}h.",
+    }
+
+
+@router.post("/special-access/verify", response_model=TokenResponse)
+async def verify_special_access(req: dict, request: Request, db: AsyncSession = Depends(get_db)):
+    """Exchange a special access token for a normal JWT (no MFA).
+
+    Body: {token: str} — from the #sa= fragment in the login URL.
+    """
+    token = (req.get("token") or "").strip()
+    if not token:
+        raise HTTPException(status_code=400, detail="Missing token")
+    row = (await db.execute(
+        select(SpecialAccessLink).where(SpecialAccessLink.token_hash == _sa_hash(token))
+    )).scalar_one_or_none()
+    if not row:
+        raise HTTPException(status_code=401, detail="Invalid special access token")
+    if not row.enabled:
+        raise HTTPException(status_code=401, detail="Special access link is disabled")
+    if datetime.now(timezone.utc) > row.expires_at:
+        row.enabled = False
+        await db.commit()
+        raise HTTPException(status_code=401, detail="Special access link has expired")
+
+    user = await db.get(User, row.user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    row.last_used_at = datetime.now(timezone.utc)
+    access_token = create_access_token(str(user.id), user.email, user.role, str(row.tenant_id))
+    refresh_token_str, expires_at = create_refresh_token(str(user.id))
+    db.add(Session(
+        user_id=user.id,
+        refresh_token=refresh_token_str,
+        user_agent=request.headers.get("user-agent", ""),
+        ip_address=request.client.host if request.client else "unknown",
+        expires_at=expires_at,
+    ))
+    await db.commit()
+    return TokenResponse(
+        access_token=access_token,
+        refresh_token=refresh_token_str,
+        token_type="bearer",
+        email=user.email,
+        mfa_required=False,
+    )
+
+
+@router.get("/special-access", response_model=dict)
+async def list_special_access(request: Request, db: AsyncSession = Depends(get_db)):
+    """List active special access links (GG family status check)."""
+    actor, _ = _sa_require_cron_or_jwt(request)
+    rows = (await db.execute(
+        select(SpecialAccessLink).order_by(SpecialAccessLink.created_at.desc()).limit(20)
+    )).scalars().all()
+    now = datetime.now(timezone.utc)
+    out = []
+    for r in rows:
+        out.append({
+            "id": str(r.id),
+            "created_by": r.created_by,
+            "purpose": r.purpose,
+            "enabled": r.enabled,
+            "expires_at": r.expires_at.isoformat(),
+            "created_at": r.created_at.isoformat() if r.created_at else None,
+            "last_used_at": r.last_used_at.isoformat() if r.last_used_at else None,
+            "expired": now > r.expires_at,
+        })
+    return {"actor": actor, "links": out}
+
+
+@router.delete("/special-access", response_model=dict)
+async def revoke_special_access(req: dict, request: Request, db: AsyncSession = Depends(get_db)):
+    """Revoke special access link(s). Body: {token?: str} — 冇 token 就 revoke 全部 active。"""
+    actor, _ = _sa_require_cron_or_jwt(request)
+    token = (req.get("token") or "").strip()
+    if token:
+        row = (await db.execute(
+            select(SpecialAccessLink).where(SpecialAccessLink.token_hash == _sa_hash(token))
+        )).scalar_one_or_none()
+        if row:
+            row.enabled = False
+            await db.commit()
+            return {"revoked": 1, "actor": actor}
+        return {"revoked": 0, "actor": actor}
+    rows = (await db.execute(
+        select(SpecialAccessLink).where(SpecialAccessLink.enabled == True)  # noqa: E712
+    )).scalars().all()
+    for r in rows:
+        r.enabled = False
+    await db.commit()
+    return {"revoked": len(rows), "actor": actor}
