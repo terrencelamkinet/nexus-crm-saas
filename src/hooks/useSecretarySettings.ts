@@ -396,6 +396,24 @@ export const MODULES: SecretaryModule[] = [
         ],
         default: 'public',
       },
+      {
+        key: 'mtr_line', type: 'single_select', labelKey: 'settings.aiApps.mtrLine', showWhen: { key: 'mode', equals: 'public' },
+        choices: [
+          { value: 'KTL', labelKey: 'settings.aiApps.mtrLineKtl' },
+          { value: 'WRL', labelKey: 'settings.aiApps.mtrLineWrl' },
+          { value: 'TWL', labelKey: 'settings.aiApps.mtrLineTwl' },
+          { value: 'ISL', labelKey: 'settings.aiApps.mtrLineIsl' },
+          { value: 'TKL', labelKey: 'settings.aiApps.mtrLineTkl' },
+          { value: 'EAL', labelKey: 'settings.aiApps.mtrLineEal' },
+          { value: 'TCL', labelKey: 'settings.aiApps.mtrLineTcl' },
+          { value: 'SIL', labelKey: 'settings.aiApps.mtrLineSil' },
+        ],
+        default: 'KTL',
+      },
+      {
+        key: 'mtr_station', type: 'text', labelKey: 'settings.aiApps.mtrStation', placeholderKey: 'settings.aiApps.mtrStationPh', showWhen: { key: 'mode', equals: 'public' },
+        default: '',
+      },
     ],
   },
   {

@@ -800,34 +800,118 @@ def _simplify_traffic(text: str, is_en: bool) -> str:
     return t
 
 
+# MTR 線 code → 中文名（data.gov.hk MTR ETA API 用）
+_MTR_LINES: dict[str, str] = {
+    "AEL": "機場快線", "DRL": "迪士尼線", "EAL": "東鐵線", "ISL": "港島線",
+    "KTL": "觀塘線", "SIL": "南港島線", "TCL": "東涌線", "TKL": "將軍澳線",
+    "TWL": "荃灣線", "WRL": "屯馬線",
+}
+
+# MTR 站 code → 中文名（常用站 — ETA dest 顯示用）
+_MTR_STATIONS: dict[str, str] = {
+    # 觀塘線 KTL
+    "KWT": "觀塘", "NOP": "牛頭角", "KOB": "九龍灣", "NTK": "牛頭角",
+    "DIA": "鑽石山", "HOM": "何文田", "WHA": "黃埔", "TIK": "調景嶺",
+    "LAT": "藍田", "YAT": "油塘", "CHH": "彩虹", "SKM": "石硤尾",
+    "PRE": "樂富", "KOT": "九龍塘", "LOF": "旺角", "YMT": "油麻地",
+    "MOK": "旺角", "JOR": "佐敦", "TST": "尖沙咀", "ADM": "金鐘",
+    "SOH": "上環", "SHM": "深水埗", "CKW": "長沙灣", "LCK": "荔枝角",
+    "MEF": "美孚", "TSW": "荃灣", "TWH": "荃灣西",
+    # 屯馬線 WRL
+    "KSR": "錦上路", "TUM": "屯門", "SIH": "兆康", "TIS": "天水圍",
+    "YUL": "元朗", "LKS": "朗屏", "TUN": "屯門", "TAP": "大埔墟",
+    "UNI": "大學", "SHT": "沙田", "CIF": "城門河", "FOT": "火炭",
+    "MOS": "馬鞍山", "HIK": "恆安", "SHW": "沙田圍", "STW": "沙田",
+    "KAT": "啟德", "TKW": "土瓜灣", "SOH": "宋皇臺", "HOM": "何文田",
+    "KOB": "九龍灣", "TIK": "調景嶺", "NAC": "南昌", "EXC": "會展",
+    "TIH": "尖東", "KOT": "九龍塘",
+    # 荃灣線 TWL
+    "TST": "尖沙咀", "ADM": "金鐘", "CEN": "中環", "KOW": "九龍",
+    "LKF": "荔枝角", "LCK": "荔枝角", "MEF": "美孚", "TSW": "荃灣",
+    # 東鐵線 EAL
+    "ADM": "金鐘", "EXC": "會展", "MKK": "旺角東", "KOT": "九龍塘",
+    "TAI": "大圍", "SHT": "沙田", "UNI": "大學", "TAP": "大埔墟",
+    "FAN": "粉嶺", "SHS": "上水", "LOW": "羅湖", "LMC": "落馬洲",
+    # 港島線 ISL
+    "KET": "堅尼地城", "HKU": "香港大學", "SYP": "西營盤", "SHW": "上環",
+    "CEN": "中環", "ADM": "金鐘", "WAC": "灣仔", "CAB": "銅鑼灣",
+    "TIH": "天后", "FOH": "炮台山", "NQU": "北角", "QUB": "鰂魚涌",
+    "TAK": "太古", "SWH": "西灣河", "SKW": "筲箕灣", "HFC": "杏花邨",
+    "CHW": "柴灣",
+}
+
+
 async def traffic_commute(
     ctx: AISessionContext,
     db: AsyncSession,
     lang_pref: str = "zh-HK",
     options: dict | None = None,
 ) -> list[dict[str, Any]]:
-    """Live HK traffic incidents from Transport Department (data.gov.hk).
-
-    用 ChinShort/EngShort 短版 + 分析壓縮成「地點：事件」重點，只保留
-    status 1/3，limit 5。`lang_pref` 控制語言（zh-HK → 中文，en → 英文）。
+    """Live HK traffic incidents + MTR ETA for the user's commute route.
 
     Deep options:
       - origin: 起點地址（text，用戶輸入）— 用嚟 keyword 過濾交通消息
       - destination: 目的地地址（text）— 同上
-      - mode: 'driving' | 'public' — 保留（未來 commute 設定）
+      - mode: 'driving' | 'public' — public 時加 MTR ETA
+      - mtr_line: MTR 線 code（KTL/WRL/TWL/...）— public mode 用嚟 fetch ETA
+      - mtr_station: MTR 站 code（KWT/KSR/...）— 同上
+
+    時段自動方向：05:00-11:59 = 返工時段（origin→destination 語意），
+    12:00-23:59 = 收工時段（destination→origin 語意）。實際 ETA 由
+    MTR API 俾 UP/DOWN 兩方向，LLM 自己組織「去邊個方向」。
     """
     opts = options or {}
     # origin/destination 提供 keyword 過濾（例如「吐露港」「西隧」「觀塘」）
     origin = (opts.get("origin") or "").strip()
     destination = (opts.get("destination") or "").strip()
     keywords = [k for k in (origin, destination) if k]
-    items: list[dict[str, Any]] = []
     is_en = lang_pref.startswith("en")
+    items: list[dict[str, Any]] = []
+
+    # ── 1. MTR ETA（public mode + 有設定線/站）──
+    mtr_line = (opts.get("mtr_line") or "").strip().upper()
+    mtr_station = (opts.get("mtr_station") or "").strip().upper()
+    mode = (opts.get("mode") or "public").strip().lower()
+    if mode == "public" and mtr_line and mtr_station:
+        try:
+            async with httpx.AsyncClient(timeout=_HTTP_TIMEOUT, headers={"User-Agent": _USER_AGENT}) as client:
+                r = await client.get(
+                    "https://rt.data.gov.hk/v1/transport/mtr/getSchedule.php",
+                    params={"line": mtr_line, "sta": mtr_station},
+                )
+                if r.status_code == 200:
+                    body = r.json()
+                    key = f"{mtr_line}-{mtr_station}"
+                    data = body.get("data", {}).get(key, {})
+                    line_zh = _MTR_LINES.get(mtr_line, mtr_line)
+                    station_zh = _MTR_STATIONS.get(mtr_station, mtr_station)
+                    mtr_entry: dict[str, Any] = {
+                        "type": "mtr_eta",
+                        "line": line_zh,
+                        "station": station_zh,
+                        "eta": [],
+                    }
+                    for direction in ("UP", "DOWN"):
+                        trains = data.get(direction, [])[:3]
+                        for tr in trains:
+                            dest_code = tr.get("dest", "")
+                            dest_zh = _MTR_STATIONS.get(dest_code, dest_code)
+                            ttnt = tr.get("ttnt", "")
+                            if str(ttnt).isdigit():
+                                mtr_entry["eta"].append(
+                                    f"{direction}往{dest_zh}：{ttnt}分鐘"
+                                )
+                    if mtr_entry["eta"]:
+                        items.append(mtr_entry)
+        except Exception:
+            pass  # MTR ETA failure — 唔 crash，淨係出 traffic incidents
+
+    # ── 2. Traffic incidents（TD special traffic news）──
     try:
         async with httpx.AsyncClient(timeout=_HTTP_TIMEOUT, headers={"User-Agent": _USER_AGENT}) as client:
             r = await client.get("https://resource.data.one.gov.hk/td/en/specialtrafficnews.xml")
             if r.status_code != 200:
-                return []
+                return items
             root = ET.fromstring(r.text)
             for msg in root.iter("{http://data.one.gov.hk/td}message"):
                 status = msg.findtext("{http://data.one.gov.hk/td}CurrentStatus") or ""
@@ -854,12 +938,12 @@ async def traffic_commute(
                     if not any(k.lower() in haystack.lower() for k in keywords):
                         continue
                 items.append({
-                    "id": msg.findtext("{http://data.one.gov.hk/td}msgID") or "",
+                    "type": "traffic",
                     "text": _simplify_traffic(raw, is_en),
                 })
     except Exception:
-        return []
-    return items[:5]
+        return items
+    return items[:8]
 
 
 async def email_draft_review(ctx: AISessionContext, db: AsyncSession, options: dict | None = None) -> list[dict[str, Any]]:
