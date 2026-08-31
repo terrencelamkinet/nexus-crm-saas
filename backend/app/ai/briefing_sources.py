@@ -841,38 +841,126 @@ _MTR_STATIONS: dict[str, str] = {
 }
 
 
+# ── 全球 geocoding（Photon/OSM — 同 geo router 一致，免費唔使 key）──
+_PHOTON_HEADERS = {"User-Agent": "NexusCRM/1.0 (contact: terrence@kinetix.com.hk)"}
+_OSRM_API = "https://router.project-osrm.org/route/v1/driving"
+
+
+async def _geocode_place(query: str) -> dict[str, Any] | None:
+    """Geocode 一個地址 → {label, lat, lng, city, country}（全球）。失敗 → None。"""
+    try:
+        async with httpx.AsyncClient(timeout=_HTTP_TIMEOUT, headers=_PHOTON_HEADERS) as client:
+            r = await client.get(
+                "https://photon.komoot.io/api/",
+                params={"q": query, "limit": 1},
+            )
+            if r.status_code != 200:
+                return None
+            feats = (r.json().get("features") or [])
+            if not feats:
+                return None
+            props = feats[0].get("properties") or {}
+            geom = feats[0].get("geometry") or {}
+            coords = geom.get("coordinates") or [0, 0]
+            name = props.get("name") or ""
+            street = props.get("street") or ""
+            city = props.get("city") or props.get("district") or ""
+            country = props.get("country") or ""
+            parts = [x for x in (name or street, city, country) if x]
+            return {
+                "label": ", ".join(dict.fromkeys(parts)) or query,
+                "lat": coords[1],
+                "lng": coords[0],
+                "city": city,
+                "country": country,
+            }
+    except Exception:
+        return None
+
+
+async def _osrm_route(origin: dict, destination: dict) -> dict[str, Any] | None:
+    """OSRM driving route（全球）→ {duration_min, distance_km}。失敗 → None。"""
+    try:
+        url = (
+            f"{_OSRM_API}/{origin['lng']},{origin['lat']};"
+            f"{destination['lng']},{destination['lat']}?overview=false"
+        )
+        async with httpx.AsyncClient(timeout=_HTTP_TIMEOUT, headers={"User-Agent": _PHOTON_HEADERS["User-Agent"]}) as client:
+            r = await client.get(url)
+            if r.status_code != 200:
+                return None
+            routes = (r.json().get("routes") or [])
+            if not routes:
+                return None
+            dur = routes[0].get("duration", 0)
+            dist = routes[0].get("distance", 0)
+            return {
+                "duration_min": round(dur / 60),
+                "distance_km": round(dist / 1000, 1),
+            }
+    except Exception:
+        return None
+
+
+def _is_hk(lat: float, lng: float) -> bool:
+    """香港 bounding box 偵測（地區增強 gate — 全球用戶唔會見到 HK 數據）。"""
+    return 22.0 <= lat <= 22.7 and 113.8 <= lng <= 114.6
+
+
 async def traffic_commute(
     ctx: AISessionContext,
     db: AsyncSession,
     lang_pref: str = "zh-HK",
     options: dict | None = None,
 ) -> list[dict[str, Any]]:
-    """Live HK traffic incidents + MTR ETA for the user's commute route.
+    """Global commute route + region-specific live data (HK: MTR ETA + TD incidents).
+
+    Core（全球適用）:
+      - origin/destination 用 Photon geocode（OSM）→ OSRM driving route →
+        預計車程時間 + 距離。全球任何城市都 work。
+    HK 地區增強（bounding box 偵測，非 HK 用戶唔會見到）:
+      - mode=public + mtr_line/station 設定 → MTR 實時 ETA（data.gov.hk）
+      - TD special traffic news（keyword 過濾）
 
     Deep options:
-      - origin: 起點地址（text，用戶輸入）— 用嚟 keyword 過濾交通消息
-      - destination: 目的地地址（text）— 同上
-      - mode: 'driving' | 'public' — public 時加 MTR ETA
-      - mtr_line: MTR 線 code（KTL/WRL/TWL/...）— public mode 用嚟 fetch ETA
-      - mtr_station: MTR 站 code（KWT/KSR/...）— 同上
-
-    時段自動方向：05:00-11:59 = 返工時段（origin→destination 語意），
-    12:00-23:59 = 收工時段（destination→origin 語意）。實際 ETA 由
-    MTR API 俾 UP/DOWN 兩方向，LLM 自己組織「去邊個方向」。
+      - origin: 起點地址（text，全球，address autocomplete）
+      - destination: 目的地地址（text）
+      - mode: 'driving' | 'public'
+      - mtr_line / mtr_station: HK public mode 用嚟 fetch MTR ETA
     """
     opts = options or {}
-    # origin/destination 提供 keyword 過濾（例如「吐露港」「西隧」「觀塘」）
     origin = (opts.get("origin") or "").strip()
     destination = (opts.get("destination") or "").strip()
-    keywords = [k for k in (origin, destination) if k]
     is_en = lang_pref.startswith("en")
     items: list[dict[str, Any]] = []
 
-    # ── 1. MTR ETA（public mode + 有設定線/站）──
+    # ── 1. 全球路線（geocode + OSRM driving route）──
+    if origin and destination:
+        o_geo = await _geocode_place(origin)
+        d_geo = await _geocode_place(destination)
+        if o_geo and d_geo:
+            route = await _osrm_route(o_geo, d_geo)
+            if route:
+                o_label = o_geo["label"] if is_en else origin
+                d_label = d_geo["label"] if is_en else destination
+                hk_route = _is_hk(o_geo["lat"], o_geo["lng"]) and _is_hk(d_geo["lat"], d_geo["lng"])
+                items.append({
+                    "type": "commute_route",
+                    "origin": o_label,
+                    "destination": d_label,
+                    "duration_min": route["duration_min"],
+                    "distance_km": route["distance_km"],
+                    "hk": hk_route,
+                })
+
+    # ── 2. HK 地區增強：MTR ETA（public mode + 有設定線/站）──
     mtr_line = (opts.get("mtr_line") or "").strip().upper()
     mtr_station = (opts.get("mtr_station") or "").strip().upper()
     mode = (opts.get("mode") or "public").strip().lower()
-    if mode == "public" and mtr_line and mtr_station:
+    # 全球 fallback：route 存在且非 HK → 唔出 MTR（用戶可能 set 咗舊 config）
+    route_is_hk = any(i.get("type") == "commute_route" and i.get("hk") for i in items)
+    route_exists = any(i.get("type") == "commute_route" for i in items)
+    if mode == "public" and mtr_line and mtr_station and (not route_exists or route_is_hk):
         try:
             async with httpx.AsyncClient(timeout=_HTTP_TIMEOUT, headers={"User-Agent": _USER_AGENT}) as client:
                 r = await client.get(
@@ -904,9 +992,16 @@ async def traffic_commute(
                     if mtr_entry["eta"]:
                         items.append(mtr_entry)
         except Exception:
-            pass  # MTR ETA failure — 唔 crash，淨係出 traffic incidents
+            pass  # MTR ETA failure — 唔 crash
 
-    # ── 2. Traffic incidents（TD special traffic news）──
+    # ── 3. HK 地區增強：TD traffic incidents（淨係 HK context 先出 — 全球用戶唔會見到）──
+    # gate: 有 MTR ETA（即用戶 set 咗 HK 站）或者 route 係 HK 先出 TD 消息
+    hk_context = any(i.get("type") == "mtr_eta" for i in items) or any(
+        i.get("type") == "commute_route" and i.get("hk") for i in items
+    )
+    if not hk_context:
+        return items
+    keywords = [k for k in (origin, destination) if k]
     try:
         async with httpx.AsyncClient(timeout=_HTTP_TIMEOUT, headers={"User-Agent": _USER_AGENT}) as client:
             r = await client.get("https://resource.data.one.gov.hk/td/en/specialtrafficnews.xml")
