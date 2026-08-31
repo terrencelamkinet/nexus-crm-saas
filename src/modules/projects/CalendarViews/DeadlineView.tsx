@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import SvcIcon from '../../../components/SvcIcon';
 import { isSameDay } from './calendar-utils';
 import type { CalendarEventFormatted } from './types';
@@ -14,17 +15,17 @@ interface DeadlineViewProps {
 type DeadlineGroup = 'today' | 'thisWeek' | 'thisMonth' | 'future';
 
 interface GroupInfo {
-  label: string;
   comparator: (d: Date, today: Date) => boolean;
+  labelKey: string;
 }
 
 const GROUP_CONFIG: Record<DeadlineGroup, GroupInfo> = {
   today: {
-    label: 'Today',
+    labelKey: 'common.today',
     comparator: (d: Date, today: Date) => isSameDay(d, today),
   },
   thisWeek: {
-    label: 'This Week',
+    labelKey: 'common.thisWeek',
     comparator: (d: Date, today: Date) => {
       const endOfWeek = new Date(today);
       endOfWeek.setDate(today.getDate() + (6 - today.getDay()));
@@ -33,7 +34,7 @@ const GROUP_CONFIG: Record<DeadlineGroup, GroupInfo> = {
     },
   },
   thisMonth: {
-    label: 'This Month',
+    labelKey: 'common.thisMonth',
     comparator: (d: Date, today: Date) => {
       const endOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0, 23, 59, 59, 999);
       const startOfNextWeek = new Date(today);
@@ -43,7 +44,7 @@ const GROUP_CONFIG: Record<DeadlineGroup, GroupInfo> = {
     },
   },
   future: {
-    label: 'Future',
+    labelKey: 'common.future',
     comparator: (d: Date, today: Date) => {
       const endOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0, 23, 59, 59, 999);
       return d > endOfMonth;
@@ -60,6 +61,8 @@ function getEventBadgeColor(eventType: string | null): string {
 }
 
 export default function DeadlineView({ events, onEventClick }: DeadlineViewProps) {
+  const { t, i18n } = useTranslation()
+  const locale = i18n.language || 'en'
   const today = useMemo(() => {
     const d = new Date();
     d.setHours(0, 0, 0, 0);
@@ -120,7 +123,7 @@ export default function DeadlineView({ events, onEventClick }: DeadlineViewProps
             <div key={key}>
               {/* Group header */}
               <div className="deadline-header">
-                <h3>{config.label}</h3>
+                <h3>{t(config.labelKey)}</h3>
                 <span className="count-chip">{evs.length}</span>
               </div>
 
@@ -138,7 +141,7 @@ export default function DeadlineView({ events, onEventClick }: DeadlineViewProps
                   <div className="deadline-date">
                     <div className="day-num">{ev.start.getDate()}</div>
                     <div className="day-mon">
-                      {ev.start.toLocaleDateString('en-US', { month: 'short' })}
+                      {ev.start.toLocaleDateString(locale, { month: 'short' })}
                     </div>
                   </div>
 
@@ -164,7 +167,7 @@ export default function DeadlineView({ events, onEventClick }: DeadlineViewProps
                   {/* Time */}
                   {!ev.allDay && (
                     <div className="deadline-time">
-                      {ev.start.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      {ev.start.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' })}
                     </div>
                   )}
 

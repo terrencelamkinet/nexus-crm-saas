@@ -1,4 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Presentation, Calendar, LayoutGrid, List } from 'lucide-react'
 import SvcIcon from '../../../components/SvcIcon';
 import type { CalendarViewType, CalendarEventFormatted } from './types';
@@ -29,11 +30,11 @@ interface CalendarViewsProps {
   onRefresh: () => void;
 }
 
-const VIEW_TABS: { key: CalendarViewType; label: string; Icon: React.FC<{ className?: string }> }[] = [
-  { key: 'month', label: 'Month', Icon: LayoutGrid },
-  { key: 'week', label: 'Week', Icon: Presentation },
-  { key: 'day', label: 'Day', Icon: Calendar },
-  { key: 'deadline', label: 'Event', Icon: List },
+const VIEW_TABS: { key: CalendarViewType; labelKey: string; Icon: React.FC<{ className?: string }> }[] = [
+  { key: 'month', labelKey: 'common.month', Icon: LayoutGrid },
+  { key: 'week', labelKey: 'common.week', Icon: Presentation },
+  { key: 'day', labelKey: 'common.day', Icon: Calendar },
+  { key: 'deadline', labelKey: 'common.event', Icon: List },
 ];
 
 const SHOW_WEEKENDS_KEY = 'nexus_crm_show_weekends';
@@ -56,6 +57,8 @@ function getStoredShowWeekends(): boolean {
 }
 
 export default function CalendarViews({ events, loading, onRefresh }: CalendarViewsProps) {
+  const { t, i18n } = useTranslation()
+  const locale = i18n.language || 'en'
   // Device-based default view: month on desktop, day on mobile.
   const isMobile = useMediaQuery('(max-width: 768px)');
   const [viewType, setViewType] = useState<CalendarViewType>(() => (isMobile ? 'day' : 'month'));
@@ -142,14 +145,14 @@ export default function CalendarViews({ events, loading, onRefresh }: CalendarVi
         </button>
         <button onClick={handleToday}
           className="px-3 py-1.5 rounded-lg text-xs font-medium text-[var(--color-primary)] hover:bg-[var(--color-primary-highlight)] transition-colors min-h-[36px]">
-          Today
+          {t('common.today')}
         </button>
         <button onClick={handleNext}
           className="px-3 py-1.5 rounded-lg text-xs font-medium text-[var(--color-text-muted)] hover:bg-[var(--color-surface-offset)] transition-colors min-h-[36px] min-w-[36px] flex items-center justify-center">
           <SvcIcon name="chevron-right" className="w-4 h-4" />
         </button>
         <span className="text-sm font-semibold text-[var(--color-text)] px-3 select-none font-[var(--font-display)]">
-          {formatMonthYear(date)}
+          {formatMonthYear(date, locale)}
         </span>
       </div>
 
@@ -163,13 +166,13 @@ export default function CalendarViews({ events, loading, onRefresh }: CalendarVi
             aria-expanded={viewMenuOpen}
           >
             <currentView.Icon className="w-3.5 h-3.5" />
-            <span>{currentView.label}</span>
+            <span>{t(currentView.labelKey)}</span>
             <SvcIcon name="chevron-down" className={`w-3.5 h-3.5 cv-view-chevron${viewMenuOpen ? ' open' : ''}`} />
           </button>
 
           {viewMenuOpen && (
             <div className="cv-view-menu" role="menu">
-              {VIEW_TABS.map(({ key, label, Icon }) => (
+              {VIEW_TABS.map(({ key, labelKey, Icon }) => (
                 <button
                   key={key}
                   role="menuitem"
@@ -177,7 +180,7 @@ export default function CalendarViews({ events, loading, onRefresh }: CalendarVi
                   className={`cv-view-item${viewType === key ? ' active' : ''}`}
                 >
                   <Icon className="w-3.5 h-3.5" />
-                  <span>{label}</span>
+                  <span>{t(labelKey)}</span>
                   {viewType === key && <span className="cv-view-check">✓</span>}
                 </button>
               ))}
@@ -188,14 +191,14 @@ export default function CalendarViews({ events, loading, onRefresh }: CalendarVi
         {/* Add event — icon only, matches Refresh button style */}
         <button onClick={() => setCreating(new Date())}
           className="px-3 py-1.5 rounded-lg text-xs font-medium text-[var(--color-text-muted)] hover:bg-[var(--color-surface-offset)] transition-colors min-h-[36px] min-w-[36px] flex items-center justify-center"
-          title="New event">
+          title={t('common.newEvent')}>
           <SvcIcon name="plus" className="w-3.5 h-3.5" />
         </button>
 
         {/* Refresh */}
         <button onClick={onRefresh}
           className="px-3 py-1.5 rounded-lg text-xs font-medium text-[var(--color-text-muted)] hover:bg-[var(--color-surface-offset)] transition-colors min-h-[36px] min-w-[36px] flex items-center justify-center"
-          title="Refresh">
+          title={t('common.refresh')}>
           <SvcIcon name="refresh-cw" className="w-4 h-4" />
         </button>
       </div>
@@ -235,7 +238,7 @@ export default function CalendarViews({ events, loading, onRefresh }: CalendarVi
           >
             <div className="month-more-header">
               <span className="month-more-title">
-                {morePopup.date.toLocaleDateString('en-US', { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' })}
+                {morePopup.date.toLocaleDateString(locale, { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' })}
               </span>
               <button className="month-more-close" onClick={handleMoreClose} aria-label="Close">
                 <SvcIcon name="x" className="w-4 h-4" />
@@ -250,7 +253,7 @@ export default function CalendarViews({ events, loading, onRefresh }: CalendarVi
                 >
                   <span className="month-more-dot" style={{ backgroundColor: ev.color || '#6B7280' }} />
                   <span className="month-more-time">
-                    {ev.allDay ? 'All day' : ev.start.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    {ev.allDay ? t('common.allDay') : ev.start.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' })}
                   </span>
                   <span className="month-more-text">{ev.title}</span>
                 </button>

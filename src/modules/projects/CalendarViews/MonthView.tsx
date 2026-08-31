@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   getMonthGrid,
   DAY_NAMES,
@@ -22,11 +23,23 @@ const MAX_EVENTS_PER_CELL = 3;
 const MAX_DOTS = 6;
 
 export default function MonthView({ events, date, onDateChange, onEventClick, onMoreClick, onCreate }: MonthViewProps) {
+  const { i18n } = useTranslation()
+  const locale = i18n.language || 'en'
   const year = date.getFullYear();
   const month = date.getMonth();
   const grid = useMemo(() => getMonthGrid(year, month), [year, month]);
 
   const todayRef = useMemo(() => new Date(), []);
+
+  // Locale-aware weekday names (e.g. 日/一/二… for zh, Sun/Mon for en)
+  const dayNames = useMemo(() => {
+    try {
+      return DAY_NAMES.map((_, idx) =>
+        new Intl.DateTimeFormat(locale, { weekday: 'short' }).format(new Date(2026, 0, 4 + idx)))
+    } catch {
+      return DAY_NAMES
+    }
+  }, [locale])
 
   // Group events by date key — a multi-day event (e.g. Annual leave 8/24-26)
   // is added to EVERY day it spans (not just its start day). Within each day,
@@ -57,7 +70,7 @@ export default function MonthView({ events, date, onDateChange, onEventClick, on
       <div className="month-calendar">
         {/* Day names header */}
         <div className="month-header">
-          {DAY_NAMES.map((name) => (
+          {dayNames.map((name) => (
             <div key={name} className="month-day-name">
               {name}
             </div>

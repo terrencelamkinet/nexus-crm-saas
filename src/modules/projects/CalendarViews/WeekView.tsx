@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import SvcIcon from '../../../components/SvcIcon';
 import {
   getWeekDatesMonFri,
@@ -90,12 +91,26 @@ function getEventStatus(ev: CalendarEventFormatted): string {
 const SHORT_DAY_NAMES = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
 const FULL_DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
+/** Locale-aware weekday short names: weekdays 0-6 (Sun=0). */
+function weekdayNames(locale: string, count: number, startIdx: number): string[] {
+  try {
+    return Array.from({ length: count }, (_, i) =>
+      new Intl.DateTimeFormat(locale, { weekday: 'short' }).format(new Date(2026, 0, 4 + startIdx + i)))
+  } catch {
+    return (startIdx === 0 ? FULL_DAY_NAMES : SHORT_DAY_NAMES).slice(0, count)
+  }
+}
+
 export default function WeekView({ events, date, onDateChange, showWeekends, onEventClick, focusSignal, onCreate, onToggleWeekends }: WeekViewProps) {
+  const { i18n } = useTranslation()
+  const locale = i18n.language || 'en'
   const [now, setNow] = useState<Date>(new Date());
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const weekDates = useMemo(() => showWeekends ? getWeekDates(date) : getWeekDatesMonFri(date), [date, showWeekends]);
-  const dayNames = useMemo(() => showWeekends ? FULL_DAY_NAMES : SHORT_DAY_NAMES, [showWeekends]);
+  const dayNames = useMemo(() => showWeekends
+    ? weekdayNames(locale, 7, 0)
+    : weekdayNames(locale, 5, 1), [showWeekends, locale]);
   const numDays = weekDates.length;
   const gridCols = `52px repeat(${numDays},1fr)`;
   const hourSlots = useMemo(() => getHourSlots(), []);

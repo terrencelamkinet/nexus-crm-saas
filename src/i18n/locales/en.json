@@ -841,7 +841,16 @@
       "Warm": "Warm",
       "Cold": "Cold",
       "VIP": "VIP",
-      "Inactive": "Inactive"
+      "Inactive": "Inactive",
+      "Planning": "Planning",
+      "In Progress": "In Progress",
+      "On Hold": "On Hold",
+      "Completed": "Completed",
+      "Cancelled": "Cancelled",
+      "Low": "Low",
+      "Medium": "Medium",
+      "High": "High",
+      "Critical": "Critical"
     },
     "always": "Always",
     "layout": "Layout",
@@ -991,7 +1000,25 @@
     "touchpoints": "Touchpoints",
     "unlink": "Unlink",
     "viewDetails": "View full record",
-    "saved": "Saved"
+    "saved": "Saved",
+    "category": "Category",
+    "priority": "Priority",
+    "salesOwner": "Sales Owner",
+    "startDate": "Start Date",
+    "budget": "Budget",
+    "inchargeClient": "Incharge Client",
+    "projectManager": "Project Manager",
+    "today": "Today",
+    "month": "Month",
+    "week": "Week",
+    "day": "Day",
+    "year": "Year",
+    "event": "Event",
+    "thisWeek": "This Week",
+    "thisMonth": "This Month",
+    "future": "Future",
+    "newEvent": "New event",
+    "allDay": "All day"
   },
   "contacts": {
     "title": "Contacts",
@@ -1401,7 +1428,9 @@
     "projects": {
       "title": "Projects",
       "table": "Table",
-      "calendar": "Calendar"
+      "calendar": "Calendar",
+      "new": "New Project",
+      "searchPlaceholder": "Search projects..."
     },
     "tasks": {
       "title": "Tasks",
@@ -1529,6 +1558,12 @@
       "notes": "Notes",
       "searchPlaceholder": "Search touchpoints…",
       "empty": "No touchpoints yet"
+    },
+    "reports": {
+      "title": "Reports & Analytics"
+    },
+    "team": {
+      "title": "Team"
     }
   },
   "filter": {
@@ -1599,13 +1634,38 @@
     "empty": "No projects yet"
   },
   "calendar": {
-    "today": "Today",
-    "month": "Month",
-    "week": "Week",
-    "day": "Day",
-    "agenda": "Agenda",
-    "noEvents": "No events",
-    "loading": "Loading calendar..."
+    "weekdays": [
+      "Sunday",
+      "Monday",
+      "Tuesday",
+      "Wednesday",
+      "Thursday",
+      "Friday",
+      "Saturday"
+    ],
+    "weekdaysShort": [
+      "Sun",
+      "Mon",
+      "Tue",
+      "Wed",
+      "Thu",
+      "Fri",
+      "Sat"
+    ],
+    "months": [
+      "January",
+      "February",
+      "March",
+      "April",
+      "May",
+      "June",
+      "July",
+      "August",
+      "September",
+      "October",
+      "November",
+      "December"
+    ]
   },
   "greeting": {
     "morning": "Good morning, {{name}} 👋",

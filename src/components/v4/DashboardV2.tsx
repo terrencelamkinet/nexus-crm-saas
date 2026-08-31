@@ -388,6 +388,12 @@ const levelOf = (val: number, map: Record<number, number>): number => {
 export default function DashboardV2() {
   const { t, i18n } = useTranslation()
   const navigate = useNavigate()
+  const fmtDT = (d: string) => {
+    if (!d) return '—'
+    const dt = new Date(d)
+    if (isNaN(dt.getTime())) return String(d).slice(0, 10)
+    return dt.toLocaleString(i18n.language, { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })
+  }
   const { showToast } = useToast()
   const [stats, setStats] = useState<Stats>({ contacts: 0, companies: 0, tasksDue: 0 })
   const [todos, setTodos] = useState<Todo[]>([])
@@ -1034,7 +1040,7 @@ export default function DashboardV2() {
                     <td><span className="dv2-table-type-tag">{tp.type}</span></td>
                     <td>{tp.title}</td>
                     <td>{tp.company?.name || '—'}</td>
-                    <td className="dv2-table-date">{tp.created_at}</td>
+                    <td className="dv2-table-date">{fmtDT(tp.created_at)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -1354,7 +1360,7 @@ export default function DashboardV2() {
               <button className="dv2-modal-x" onClick={() => setActivityDrawer(null)}><SvcIcon name="x" size={16} /></button>
             </div>
             <div className="dv2-modal-body">
-              <div className="dv2-drawer-row"><SvcIcon name="clock" size={14} /><span>{activityDrawer.created_at || '—'}</span></div>
+              <div className="dv2-drawer-row"><SvcIcon name="clock" size={14} /><span>{fmtDT(activityDrawer.created_at)}</span></div>
               <div className="dv2-drawer-row"><SvcIcon name="building-2" size={14} /><span>{activityDrawer.company?.name || '—'}</span></div>
               <div className="dv2-drawer-row"><SvcIcon name="activity" size={14} /><span className="dv2-table-type-tag">{activityDrawer.type}</span></div>
               <p className="dv2-drawer-desc">{activityDrawer.description || t('dashboard.noDetailNotes', { defaultValue: '暫無詳細備註。' })}</p>

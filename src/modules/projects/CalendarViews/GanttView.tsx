@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import SvcIcon from '../../../components/SvcIcon';
 import { formatDateKey, DAY_NAMES, isSameDay } from './calendar-utils';
 import type { CalendarEventFormatted } from './types';
@@ -32,6 +33,8 @@ interface ProjectTimeline {
 }
 
 export default function GanttView({ events, onEventClick }: GanttViewProps) {
+  const { i18n } = useTranslation()
+  const locale = i18n.language || 'en'
   // Compute project timelines
   const { projects, dayRange, dayHeaders } = useMemo(() => {
     if (events.length === 0) {
@@ -138,7 +141,10 @@ export default function GanttView({ events, onEventClick }: GanttViewProps) {
                     className={`gantt-day-cell${isWeekend ? ' weekend' : ''}${isToday ? ' today' : ''}`}
                     style={{ width: DAY_WIDTH }}
                   >
-                    <div className="dw">{DAY_NAMES[d.getDay()].charAt(0)}</div>
+                    <div className="dw">{(() => {
+                      try { return new Intl.DateTimeFormat(locale, { weekday: 'narrow' }).format(d) }
+                      catch { return DAY_NAMES[d.getDay()].charAt(0) }
+                    })()}</div>
                     <div className="dd">{d.getDate()}</div>
                   </div>
                 );

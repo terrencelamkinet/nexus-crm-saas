@@ -126,20 +126,30 @@ export function isToday(d: Date): boolean {
 }
 
 /**
- * Formats a date as "Month YYYY", e.g. "March 2026".
+ * Formats a date as "Month YYYY", e.g. "March 2026" / "2026年3月".
  */
-export function formatMonthYear(date: Date): string {
-  return `${MONTH_NAMES[date.getMonth()]} ${date.getFullYear()}`;
+export function formatMonthYear(date: Date, locale: string = 'en'): string {
+  try {
+    return new Intl.DateTimeFormat(locale, { month: 'long', year: 'numeric' }).format(date)
+  } catch {
+    return `${MONTH_NAMES[date.getMonth()]} ${date.getFullYear()}`
+  }
 }
 
 /**
  * Formats a date as "Dow, Mon DD", e.g. "Sun, Mar 15".
  */
-export function formatDayHeader(date: Date): string {
-  const dayName = DAY_NAMES[date.getDay()];
-  const monthAbbr = MONTH_NAMES[date.getMonth()].slice(0, 3);
-  const dayNum = date.getDate();
-  return `${dayName}, ${monthAbbr} ${dayNum}`;
+export function formatDayHeader(date: Date, locale: string = 'en'): string {
+  try {
+    const wk = new Intl.DateTimeFormat(locale, { weekday: 'short' }).format(date)
+    const mo = new Intl.DateTimeFormat(locale, { month: 'short' }).format(date)
+    return `${wk}, ${mo} ${date.getDate()}`
+  } catch {
+    const dayName = DAY_NAMES[date.getDay()];
+    const monthAbbr = MONTH_NAMES[date.getMonth()].slice(0, 3);
+    const dayNum = date.getDate();
+    return `${dayName}, ${monthAbbr} ${dayNum}`;
+  }
 }
 
 /**

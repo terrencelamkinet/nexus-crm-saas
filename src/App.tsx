@@ -27,8 +27,10 @@ import SearchPage from './pages/SearchPage';
 import AiPage from './pages/AiPage';
 import DeepLinkEventPage from './pages/DeepLinkEventPage';
 import ProjectGate from './components/ProjectGate';
+import { useTranslation } from 'react-i18next';
 
 function App() {
+  const { t } = useTranslation()
   return (
     <BrowserRouter>
       <ScrollReflow />
@@ -76,16 +78,16 @@ function App() {
           <Route path="newicon" element={<SvcIconsPage />} />
           <Route path="reports" element={
             <div className="p-8">
-              <h1 className="text-2xl font-bold text-slate-900">Reports & Analytics</h1>
-              <p className="text-slate-500 mt-2">Coming soon</p>
+              <h1 className="text-2xl font-bold text-slate-900">{t('pages.reports.title')}</h1>
+              <p className="text-slate-500 mt-2">{t('common.comingSoon')}</p>
             </div>
           } />
           <Route path="marketplace" element={<MarketplacePage />} />
           <Route path="marketplace/:id" element={<IntegrationDetailPage />} />
           <Route path="team" element={
             <div className="p-8">
-              <h1 className="text-2xl font-bold c-text">Team</h1>
-              <p className="c-text-muted">Team management coming soon</p>
+              <h1 className="text-2xl font-bold c-text">{t('pages.team.title')}</h1>
+              <p className="c-text-muted">{t('common.comingSoon')}</p>
             </div>
           } />
           <Route path="ai-apps" element={<AIAppsPage />} />

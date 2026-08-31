@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import SvcIcon from '../../../components/SvcIcon';
 import {
   getHourSlots,
@@ -75,6 +76,8 @@ function getEventStatus(ev: CalendarEventFormatted): string {
 }
 
 export default function DayView({ events, date, onDateChange, onEventClick, focusSignal, onCreate }: DayViewProps) {
+  const { i18n } = useTranslation()
+  const locale = i18n.language || 'en'
   const [now, setNow] = useState<Date>(new Date());
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -212,7 +215,7 @@ export default function DayView({ events, date, onDateChange, onEventClick, focu
         {/* Day header */}
         <div className={`day-header${isDateToday ? ' today' : ''}`}>
           <div className="day-name">
-            {date.toLocaleDateString('en-US', { weekday: 'long' })}
+            {date.toLocaleDateString(locale, { weekday: 'long' })}
           </div>
           <div className="day-date">
             {date.getDate()}
@@ -274,7 +277,7 @@ export default function DayView({ events, date, onDateChange, onEventClick, focu
               const { top, height } = computeEventPosition(ev.start, ev.end, date);
               const sevClass = getEventSeverityClass(ev);
               const status = getEventStatus(ev);
-              const timeStr = `${ev.start.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} – ${ev.end.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+              const timeStr = `${ev.start.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' })} – ${ev.end.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' })}`;
               return (
                 <div
                   key={ev.id}

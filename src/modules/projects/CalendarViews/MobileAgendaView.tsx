@@ -1,4 +1,5 @@
 import { useState, useMemo, useRef, useEffect, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   formatMonthYear,
   formatDayHeader,
@@ -11,10 +12,10 @@ import { TYPE_COLORS } from './types';
 
 /* ── Shared helpers ── */
 
-function formatTime(ev: CalendarEventFormatted): string {
-  if (ev.allDay) return 'All day';
-  const startStr = ev.start.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-  const endStr = ev.end.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+function formatTime(ev: CalendarEventFormatted, locale: string = 'en'): string {
+  if (ev.allDay) return locale.startsWith('zh') ? '全天' : 'All day';
+  const startStr = ev.start.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' });
+  const endStr = ev.end.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' });
   return `${startStr} – ${endStr}`;
 }
 
@@ -32,6 +33,8 @@ interface MobileAgendaListProps {
 }
 
 export function MobileAgendaList({ events, date, onEventClick }: MobileAgendaListProps) {
+  const { i18n } = useTranslation()
+  const locale = i18n.language || 'en'
   const dayEvents = useMemo(
     () => events.filter((ev) => isSameDay(ev.start, date)),
     [events, date],
@@ -41,7 +44,7 @@ export function MobileAgendaList({ events, date, onEventClick }: MobileAgendaLis
     <div className="mobile-agenda-list">
       {/* Liquid glass sticky header */}
       <div className="ma-list-header">
-        <h2>{formatDayHeader(date)}</h2>
+        <h2>{formatDayHeader(date, locale)}</h2>
       </div>
 
       <div className="ma-list-body">
@@ -69,7 +72,7 @@ export function MobileAgendaList({ events, date, onEventClick }: MobileAgendaLis
               />
               <div className="ma-info">
                 <div className="ma-title">{ev.title}</div>
-                <div className="ma-meta">{formatTime(ev)}</div>
+                <div className="ma-meta">{formatTime(ev, locale)}</div>
                 {ev.location && (
                   <div className="ma-location">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ width: 12, height: 12 }}>
@@ -98,6 +101,8 @@ interface MobileAgendaViewProps {
 }
 
 export default function MobileAgendaView({ events, date, onDateChange, onEventClick }: MobileAgendaViewProps) {
+  const { i18n } = useTranslation()
+  const locale = i18n.language || 'en'
   const [selectedDate, setSelectedDate] = useState<Date>(date);
   const stripRef = useRef<HTMLDivElement>(null);
 
@@ -132,10 +137,10 @@ export default function MobileAgendaView({ events, date, onDateChange, onEventCl
   return (
     <div className="mobile-agenda">
       <div className="mobile-agenda-strip">
-        <div className="mobile-agenda-header">{formatMonthYear(selectedDate)}</div>
+        <div className="mobile-agenda-header">{formatMonthYear(selectedDate, locale)}</div>
         <div className="mobile-agenda-dates" ref={stripRef}>
           {weekDates.map((d) => {
-            const dayName = d.toLocaleDateString('en-US', { weekday: 'short' }).slice(0, 3);
+            const dayName = d.toLocaleDateString(locale, { weekday: 'short' }).slice(0, 3);
             const dayNum = d.getDate();
             const active = isSameDay(d, selectedDate);
             const cellToday = isToday(d);

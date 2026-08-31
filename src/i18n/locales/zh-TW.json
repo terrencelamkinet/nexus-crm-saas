@@ -304,9 +304,9 @@
     "aiExpandHint": "點擊展開詳細資料",
     "aiInsight": "AI 洞察摘要",
     "aiUpdated": "AI 更新",
-    "goodAfternoon": "Good afternoon",
-    "goodEvening": "Good evening",
-    "goodMorning": "Good morning",
+    "goodAfternoon": "下午好",
+    "goodEvening": "晚上好",
+    "goodMorning": "早上好",
     "manageWidgets": "管理小工具",
     "noActivity": "暫無活動記錄",
     "noAiInsight": "暫無 AI 洞察",
@@ -840,7 +840,16 @@
       "Warm": "溫熱",
       "Cold": "冷淡",
       "VIP": "VIP",
-      "Inactive": "停用"
+      "Inactive": "停用",
+      "Planning": "規劃中",
+      "In Progress": "進行中",
+      "On Hold": "暫緩",
+      "Completed": "已完成",
+      "Cancelled": "已取消",
+      "Low": "低",
+      "Medium": "中",
+      "High": "高",
+      "Critical": "緊急"
     },
     "always": "永遠",
     "layout": "版面",
@@ -971,7 +980,7 @@
     "aiSummary": "AI 客戶摘要",
     "askAI": "Ask AI",
     "contacts": "Contacts",
-    "deadline": "Deadline",
+    "deadline": "截止日期",
     "deals": "Deals",
     "editing": "編輯",
     "generalInfo": "General Info",
@@ -991,7 +1000,25 @@
     "touchpoints": "Touchpoints",
     "unlink": "取消連結",
     "viewDetails": "查看完整記錄",
-    "saved": "已儲存"
+    "saved": "已儲存",
+    "category": "類別",
+    "priority": "優先度",
+    "salesOwner": "銷售負責人",
+    "startDate": "開始日期",
+    "budget": "預算",
+    "inchargeClient": "負責客戶",
+    "projectManager": "項目經理",
+    "today": "今日",
+    "month": "月",
+    "week": "週",
+    "day": "日",
+    "year": "年",
+    "event": "事件",
+    "thisWeek": "本週",
+    "thisMonth": "本月",
+    "future": "未來",
+    "newEvent": "新增事件",
+    "allDay": "全天"
   },
   "contacts": {
     "title": "聯絡人",
@@ -1494,7 +1521,9 @@
     "projects": {
       "title": "項目",
       "table": "表格",
-      "calendar": "日曆"
+      "calendar": "日曆",
+      "new": "新增項目",
+      "searchPlaceholder": "搜尋項目..."
     },
     "contact": {
       "title": "聯絡人",
@@ -1529,6 +1558,12 @@
       "notes": "備註",
       "searchPlaceholder": "搜尋互動記錄…",
       "empty": "未有互動記錄"
+    },
+    "reports": {
+      "title": "報告與分析"
+    },
+    "team": {
+      "title": "團隊"
     }
   },
   "filter": {
@@ -1599,13 +1634,38 @@
     "empty": "未有項目"
   },
   "calendar": {
-    "today": "今日",
-    "month": "月",
-    "week": "週",
-    "day": "日",
-    "agenda": "議程",
-    "noEvents": "冇活動",
-    "loading": "載入日曆中..."
+    "weekdays": [
+      "日",
+      "一",
+      "二",
+      "三",
+      "四",
+      "五",
+      "六"
+    ],
+    "weekdaysShort": [
+      "日",
+      "一",
+      "二",
+      "三",
+      "四",
+      "五",
+      "六"
+    ],
+    "months": [
+      "1月",
+      "2月",
+      "3月",
+      "4月",
+      "5月",
+      "6月",
+      "7月",
+      "8月",
+      "9月",
+      "10月",
+      "11月",
+      "12月"
+    ]
   },
   "greeting": {
     "morning": "早安，{{name}} 👋",

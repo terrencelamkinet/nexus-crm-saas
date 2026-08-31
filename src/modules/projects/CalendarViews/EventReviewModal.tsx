@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import SvcIcon from '../../../components/SvcIcon';
 import type { CalendarEventFormatted } from './types';
 import { TYPE_COLORS, SOURCE_LABELS } from './types';
@@ -29,6 +30,8 @@ function formatDateLong(d: Date): string {
 }
 
 export default function EventReviewModal({ event, initialDate, onClose, onSaved }: EventReviewModalProps) {
+  const { i18n } = useTranslation()
+  const locale = i18n.language || 'en'
   // Real calendar events come from project_calendar_events (id: `cal-<uuid>`).
   // Touchpoints (tp-*) and tasks (task-*) are read-only here.
   // No event = create mode (Add button / double-click).
@@ -227,8 +230,8 @@ export default function EventReviewModal({ event, initialDate, onClose, onSaved 
                 <span>
                   {formatDateLong(event!.start)}
                   {!event!.allDay && (
-                    <> · {event!.start.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                      {event!.end && ` – ${event!.end.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`}</>
+                    <> · {event!.start.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' })}
+                      {event!.end && ` – ${event!.end.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' })}`}</>
                   )}
                 </span>
               </div>
