@@ -455,7 +455,17 @@ async def _analyze_plain_image(
                     try:
                         u = result.get("usage") or {}
                         from app.models.ai.usage import UsageEvent
+                        from sqlalchemy import text as _sqltext
                         async with async_session() as db:
+                            # v7.28: 新 session 冇 GUC → RLS 擋 INSERT（usage 靜默
+                            # 記錄唔到）— 開頭 set 返
+                            await db.execute(
+                                _sqltext(
+                                    "SELECT set_config('app.tenant_id', :t, true), "
+                                    "set_config('app.user_id', :u, true)"
+                                ),
+                                {"t": str(tenant_id), "u": str(user_id)},
+                            )
                             db.add(UsageEvent(
                                 session_id=None,
                                 user_id=user_id,
@@ -541,8 +551,17 @@ async def _handle_photo(mapping: TelegramBotMapping, token: str, photo_sizes: li
     if tg_usage:
         try:
             from app.models.ai.usage import UsageEvent
+            from sqlalchemy import text as _sqltext
             from uuid import uuid4 as _uuid4
             async with async_session() as db:
+                # v7.28: 新 session 冇 GUC → RLS 擋 INSERT（usage 靜默記錄唔到）
+                await db.execute(
+                    _sqltext(
+                        "SELECT set_config('app.tenant_id', :t, true), "
+                        "set_config('app.user_id', :u, true)"
+                    ),
+                    {"t": str(mapping.tenant_id), "u": str(mapping.user_id)},
+                )
                 for r in tg_usage:
                     db.add(UsageEvent(
                         session_id=None,

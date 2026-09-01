@@ -914,7 +914,22 @@ async def _record_usage_event(
     Core rule (G08): EVERY LLM call site MUST record a UsageEvent with its
     module name — central token/cost collection lives in nexus_ai.usage_events
     (module column added by migrations/007_usage_module.sql).
+
+    ⚠️ v7.28: 開頭重新 set GUC — chat 流程中途有 commit（tool call /
+    memory extract）會令 transaction-local GUC 消失，之後 INSERT usage_events
+    喺冇 GUC 嘅新 transaction → RLS violation → teardown commit 500（實測
+    POST /api/v1/ai/chat?channel=telegram 500，2026-09-01）。
     """
+    try:
+        await db.execute(
+            text(
+                "SELECT set_config('app.tenant_id', :t, true), "
+                "set_config('app.user_id', :u, true)"
+            ),
+            {"t": str(ctx.tenant_id), "u": str(ctx.user_id)},
+        )
+    except Exception:
+        pass  # best-effort — usage recording never blocks the reply
     ev = UsageEvent(
         session_id=session_id,
         user_id=ctx.user_id,
