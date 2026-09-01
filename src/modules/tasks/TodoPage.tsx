@@ -4,7 +4,7 @@ import { useSearchParams, useNavigate } from 'react-router-dom'
 import { apiClient } from '../../lib/api'
 import { useTranslation } from 'react-i18next'
 import NexusEditor from '../../components/editor/NexusEditor'
-import { Repeat, Paperclip, Share2, MoreVertical, ArrowDown, Palette, Inbox, Star, Flag, Briefcase, Home, Heart, Bookmark } from 'lucide-react'
+import { Repeat, Paperclip, Share2, MoreVertical, ArrowDown, Palette, Bookmark } from 'lucide-react'
 import SvcIcon from '../../components/SvcIcon'
 
 /* ── Types ── */
@@ -24,19 +24,19 @@ interface TaskStep { id: string; title: string; is_completed: boolean; sort_orde
 interface TaskCategory { id: string; name: string; color: string }
 interface TaskAttachment { id: string; filename: string; file_size?: number; content_type?: string }
 
-// ── List icon options (lucide design-system icons — 唔用 emoji) ──
+// ── List icon options (PenguinCRM SVG kit — v7.24) ──
 const LIST_ICON_OPTIONS: { value: string; icon: React.ReactNode; label: string }[] = [
-  { value: 'inbox', icon: <Inbox size={16} />, label: 'Inbox' },
-  { value: 'star', icon: <Star size={16} />, label: 'Star' },
+  { value: 'inbox', icon: <SvcIcon name="task-list" size={16} />, label: 'Inbox' },
+  { value: 'star', icon: <SvcIcon name="task-important" size={16} />, label: 'Star' },
   { value: 'calendar', icon: <SvcIcon name="calendar" size={16} />, label: 'Calendar' },
-  { value: 'sun', icon: <SvcIcon name="sun" size={16} />, label: 'Sun' },
-  { value: 'check', icon: <SvcIcon name="check-circle-2" size={16} />, label: 'Check' },
-  { value: 'user', icon: <SvcIcon name="user" size={16} />, label: 'User' },
-  { value: 'bell', icon: <SvcIcon name="bell" size={16} />, label: 'Bell' },
-  { value: 'flag', icon: <Flag size={16} />, label: 'Flag' },
-  { value: 'briefcase', icon: <Briefcase size={16} />, label: 'Briefcase' },
-  { value: 'home', icon: <Home size={16} />, label: 'Home' },
-  { value: 'heart', icon: <Heart size={16} />, label: 'Heart' },
+  { value: 'sun', icon: <SvcIcon name="task-my-day" size={16} />, label: 'Sun' },
+  { value: 'check', icon: <SvcIcon name="task-complete" size={16} />, label: 'Check' },
+  { value: 'user', icon: <SvcIcon name="task-assigned" size={16} />, label: 'User' },
+  { value: 'bell', icon: <SvcIcon name="task-due" size={16} />, label: 'Bell' },
+  { value: 'flag', icon: <SvcIcon name="task-priority" size={16} />, label: 'Flag' },
+  { value: 'briefcase', icon: <SvcIcon name="project-active" size={16} />, label: 'Briefcase' },
+  { value: 'home', icon: <SvcIcon name="company-branch" size={16} />, label: 'Home' },
+  { value: 'heart', icon: <SvcIcon name="vip-contact" size={16} />, label: 'Heart' },
   { value: 'bookmark', icon: <Bookmark size={16} />, label: 'Bookmark' },
 ]
 
@@ -204,7 +204,7 @@ export default function TodoPage() {
   const renderListIcon = (list: TaskList) => {
     if (!list.icon) return <span className="l-color" style={{ background: list.color || '#999' }} />
     const opt = LIST_ICON_OPTIONS.find(o => o.value === list.icon)
-    return <span className="l-icon" style={{ color: list.color || 'var(--color-text-muted)' }}>{opt?.icon || <Inbox size={16} />}</span>
+    return <span className="l-icon" style={{ color: list.color || 'var(--color-text-muted)' }}>{opt?.icon || <SvcIcon name="task-list" size={16} />}</span>
   }
 
   // ── Create task ──

@@ -1,6 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Presentation, Calendar, LayoutGrid, List } from 'lucide-react'
 import SvcIcon from '../../../components/SvcIcon';
 import type { CalendarViewType, CalendarEventFormatted } from './types';
 import { formatMonthYear } from './calendar-utils';
@@ -30,11 +29,11 @@ interface CalendarViewsProps {
   onRefresh: () => void;
 }
 
-const VIEW_TABS: { key: CalendarViewType; labelKey: string; Icon: React.FC<{ className?: string }> }[] = [
-  { key: 'month', labelKey: 'common.month', Icon: LayoutGrid },
-  { key: 'week', labelKey: 'common.week', Icon: Presentation },
-  { key: 'day', labelKey: 'common.day', Icon: Calendar },
-  { key: 'deadline', labelKey: 'common.event', Icon: List },
+const VIEW_TABS: { key: CalendarViewType; labelKey: string; icon: string }[] = [
+  { key: 'month', labelKey: 'common.month', icon: 'calendar-month' },
+  { key: 'week', labelKey: 'common.week', icon: 'calendar-week' },
+  { key: 'day', labelKey: 'common.day', icon: 'calendar-day' },
+  { key: 'deadline', labelKey: 'common.event', icon: 'event' },
 ];
 
 const SHOW_WEEKENDS_KEY = 'nexus_crm_show_weekends';
@@ -165,21 +164,21 @@ export default function CalendarViews({ events, loading, onRefresh }: CalendarVi
             title="Switch view"
             aria-expanded={viewMenuOpen}
           >
-            <currentView.Icon className="w-3.5 h-3.5" />
+            <SvcIcon name={currentView.icon} className="w-3.5 h-3.5" />
             <span>{t(currentView.labelKey)}</span>
             <SvcIcon name="chevron-down" className={`w-3.5 h-3.5 cv-view-chevron${viewMenuOpen ? ' open' : ''}`} />
           </button>
 
           {viewMenuOpen && (
             <div className="cv-view-menu" role="menu">
-              {VIEW_TABS.map(({ key, labelKey, Icon }) => (
+              {VIEW_TABS.map(({ key, labelKey, icon }) => (
                 <button
                   key={key}
                   role="menuitem"
                   onClick={() => handleViewChange(key)}
                   className={`cv-view-item${viewType === key ? ' active' : ''}`}
                 >
-                  <Icon className="w-3.5 h-3.5" />
+                  <SvcIcon name={icon} className="w-3.5 h-3.5" />
                   <span>{t(labelKey)}</span>
                   {viewType === key && <span className="cv-view-check">✓</span>}
                 </button>

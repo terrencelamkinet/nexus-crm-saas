@@ -8,7 +8,6 @@ import FollowUpChips from '../ai/chat/core/FollowUpChips';
 import MarkdownMessage from '../MarkdownRenderer';
 import { PencilLine, CalendarClock, Maximize2, Plus, Trash2 } from 'lucide-react'
 import SvcIcon from '../../components/SvcIcon'
-import BrandIcon from '../BrandIcon';
 
 /**
  * AI & Search dual panel — center nav button（v6.71）
@@ -299,7 +298,7 @@ export default function AiSearchPanel({ open, onClose, onScanCard }: Props) {
           {/* v6.87: tabs 搬入標題行 — 慳返成條 tab 欄，button 收窄做 pills */}
           <div className="aisp-tabs">
             <button type="button" className={`aisp-tab ${mode === 'ai' ? 'active' : ''}`} onClick={() => setMode('ai')}>
-              <BrandIcon name="robot" size={14} className="aisp-tab-icon" /> {t('ai.askAi', { defaultValue: '問 AI' })}
+              <SvcIcon name="penguin-ai" size={14} className="aisp-tab-icon" /> {t('ai.askAi', { defaultValue: '問 AI' })}
             </button>
             <button type="button" className={`aisp-tab ${mode === 'search' ? 'active' : ''}`} onClick={() => setMode('search')}>
               <SvcIcon name="search" className="aisp-tab-icon" />{t('ai.tabSearch', { defaultValue: '搜尋' })}

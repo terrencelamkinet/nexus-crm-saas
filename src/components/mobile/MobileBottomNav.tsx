@@ -2,9 +2,7 @@ import { useState, useEffect, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { UsersRound, Store, Activity, BarChart3, Building2, Calendar, CheckSquare, FileText, FolderKanban, LayoutDashboard, ScanLine, Settings, Sparkles, Users } from 'lucide-react'
 import SvcIcon from '../../components/SvcIcon'
-import BrandIcon from '../BrandIcon';
 import { useAuth } from '../../lib/AuthContext';
 import { apiClient } from '../../lib/api';
 import { useSecretarySettings } from '../../hooks/useSecretarySettings';
@@ -60,24 +58,25 @@ export default function MobileBottomNav({ onOpenAiSearch, onScanCard, onQuickAdd
 
   /* ── Sidebar mirror（同 SidebarV2 一致）── */
   /* v6.93: project-centric — Deals 完全移除（設計文件：Deal/Pipeline 唔再顯示） */
+  /* v7.24: icons 換 PenguinCRM SVG kit（SvcIcon name） */
   const workspaceItems = [
-    { to: '/dashboard',  label: t('nav.dashboard', { defaultValue: 'Dashboard' }), icon: LayoutDashboard },
-    { to: '/contacts',   label: t('nav.contacts', { defaultValue: '聯絡人' }), icon: Users },
-    { to: '/calendar',   label: t('nav.calendar', { defaultValue: '日曆' }), icon: Calendar },
-    { to: '/companies',  label: t('nav.companies', { defaultValue: '公司' }), icon: Building2 },
-    { to: '/projects',   label: t('nav.projects', { defaultValue: '項目' }), icon: FolderKanban },
-    { to: '/tasks',      label: t('nav.tasks', { defaultValue: '任務' }), icon: CheckSquare },
+    { to: '/dashboard',  label: t('nav.dashboard', { defaultValue: 'Dashboard' }), icon: 'dashboard' },
+    { to: '/contacts',   label: t('nav.contacts', { defaultValue: '聯絡人' }), icon: 'contacts' },
+    { to: '/calendar',   label: t('nav.calendar', { defaultValue: '日曆' }), icon: 'calendar' },
+    { to: '/companies',  label: t('nav.companies', { defaultValue: '公司' }), icon: 'companies' },
+    { to: '/projects',   label: t('nav.projects', { defaultValue: '項目' }), icon: 'projects' },
+    { to: '/tasks',      label: t('nav.tasks', { defaultValue: '任務' }), icon: 'tasks' },
   ];
   const recordItems = [
-    { to: '/touchpoints', label: t('nav.touchpoints', { defaultValue: '聯繫記錄' }), icon: Activity },
-    { to: '/namecards',   label: t('nav.namecards', { defaultValue: '名片庫' }), icon: ScanLine },
-    { to: '/reports',     label: t('nav.reports', { defaultValue: '報表' }), icon: BarChart3 },
+    { to: '/touchpoints', label: t('nav.touchpoints', { defaultValue: '聯繫記錄' }), icon: 'touchpoints' },
+    { to: '/namecards',   label: t('nav.namecards', { defaultValue: '名片庫' }), icon: 'name-cards' },
+    { to: '/reports',     label: t('nav.reports', { defaultValue: '報表' }), icon: 'reports' },
   ];
   const settingsItems = [
-    { to: '/team',         label: t('nav.team', { defaultValue: '團隊' }), icon: UsersRound },
-    { to: '/ai-apps',      label: t('nav.aiApps', { defaultValue: 'AI Apps' }), icon: Sparkles },
-    { to: '/marketplace',  label: t('nav.marketplace', { defaultValue: 'Marketplace' }), icon: Store },
-    { to: '/settings',     label: t('nav.settings', { defaultValue: '設定' }), icon: Settings },
+    { to: '/team',         label: t('nav.team', { defaultValue: '團隊' }), icon: 'team' },
+    { to: '/ai-apps',      label: t('nav.aiApps', { defaultValue: 'AI Apps' }), icon: 'ai-apps' },
+    { to: '/marketplace',  label: t('nav.marketplace', { defaultValue: 'Marketplace' }), icon: 'marketplace' },
+    { to: '/settings',     label: t('nav.settings', { defaultValue: '設定' }), icon: 'settings' },
   ];
 
   /* ── Notifications（吸收 top bar bell）── */
@@ -112,10 +111,10 @@ export default function MobileBottomNav({ onOpenAiSearch, onScanCard, onQuickAdd
     <>
       <nav className="mnav-bar" role="navigation" aria-label="Primary">
         <button type="button" className={`mnav-item ${activeTab === 'workspace' ? 'active' : ''}`} onClick={() => setSheet('workspace')}>
-          <SvcIcon name="layout-dashboard" /><span>{t('nav.workspace', { defaultValue: '工作區' })}</span>
+          <SvcIcon name="workspace" /><span>{t('nav.workspace', { defaultValue: '工作區' })}</span>
         </button>
         <button type="button" className={`mnav-item ${activeTab === 'records' ? 'active' : ''}`} onClick={() => setSheet('record')}>
-          <SvcIcon name="file-text" /><span>{t('nav.records', { defaultValue: '紀錄' })}</span>
+          <SvcIcon name="touchpoints" /><span>{t('nav.records', { defaultValue: '紀錄' })}</span>
         </button>
         <div className="mnav-center-wrap">
           <button type="button" className="mnav-center-btn" onClick={onOpenAiSearch} aria-label="Penguin AI">
@@ -139,7 +138,7 @@ export default function MobileBottomNav({ onOpenAiSearch, onScanCard, onQuickAdd
           <div className="mnav-section-label">{t('nav.workspace', { defaultValue: 'Workspace' })}</div>
           {workspaceItems.map(item => (
             <button key={item.to} type="button" className={`mnav-row ${isActive(item.to) ? 'active' : ''}`} onClick={() => go(item.to)}>
-              <span className="mnav-row-icon mnav-row-icon-neutral"><item.icon /></span>
+              <span className="mnav-row-icon mnav-row-icon-neutral"><SvcIcon name={item.icon} size={18} /></span>
               <span className="txt"><strong>{item.label}</strong></span>
               <SvcIcon name="chevron-right" className="mnav-row-chev" />
             </button>
@@ -153,7 +152,7 @@ export default function MobileBottomNav({ onOpenAiSearch, onScanCard, onQuickAdd
           <div className="mnav-section-label">{t('nav.records', { defaultValue: 'Records' })}</div>
           {recordItems.map(item => (
             <button key={item.to} type="button" className={`mnav-row ${isActive(item.to) ? 'active' : ''}`} onClick={() => go(item.to)}>
-              <span className="mnav-row-icon mnav-row-icon-neutral"><item.icon /></span>
+              <span className="mnav-row-icon mnav-row-icon-neutral"><SvcIcon name={item.icon} size={18} /></span>
               <span className="txt"><strong>{item.label}</strong></span>
               <SvcIcon name="chevron-right" className="mnav-row-chev" />
             </button>
@@ -173,7 +172,7 @@ export default function MobileBottomNav({ onOpenAiSearch, onScanCard, onQuickAdd
           <div className="mnav-add-grid">
             {addTiles.map(tile => (
               <button key={tile.id} type="button" className="mnav-add-tile" onClick={() => { setSheet(null); onQuickAdd(tile.id); }}>
-                <span className="mnav-add-tile-icon" style={{ background: tile.color }}><tile.icon /></span>
+                <span className="mnav-add-tile-icon" style={{ background: tile.color }}><SvcIcon name={tile.icon} size={18} /></span>
                 <span>{tile.label}</span>
               </button>
             ))}
@@ -216,14 +215,14 @@ export default function MobileBottomNav({ onOpenAiSearch, onScanCard, onQuickAdd
           <div className="mnav-section-label">{t('nav.organization', { defaultValue: 'Organization' })}</div>
           {settingsItems.map(item => (
             <button key={item.to} type="button" className="mnav-org-row" onClick={() => go(item.to)}>
-              <item.icon /><span>{item.label}</span><SvcIcon name="chevron-right" className="chev" />
+              <SvcIcon name={item.icon} size={18} /><span>{item.label}</span><SvcIcon name="chevron-right" className="chev" />
             </button>
           ))}
 
           {/* v6.94: AI 管家設定 4 開關 */}
           <div className="mnav-section-label">{t('mobile.aiButler', { defaultValue: 'AI 管家' })}</div>
           <button type="button" className="mnav-org-row" onClick={toggleBriefing}>
-            <BrandIcon name="robot" size={22} /><span>{t('mobile.dailyBriefing', { defaultValue: '每日 Briefing' })}</span>
+            <SvcIcon name="penguin-ai" size={22} /><span>{t('mobile.dailyBriefing', { defaultValue: '每日 Briefing' })}</span>
             <span className={`mnav-switch ${briefingOn ? 'on' : ''}`} onClick={e => { e.stopPropagation(); toggleBriefing(); }} />
           </button>
           <button type="button" className="mnav-org-row" onClick={toggleCalAwareness}>
@@ -258,12 +257,12 @@ export default function MobileBottomNav({ onOpenAiSearch, onScanCard, onQuickAdd
 }
 
 const ADD_TILES_BASE = [
-  { id: 'project', labelKey: 'mobile.addTiles.project', label: 'Project', icon: FolderKanban, color: 'var(--color-primary)' },
-  { id: 'contact', labelKey: 'mobile.addTiles.contact', label: 'Contact', icon: Users,        color: 'var(--color-blue)' },
-  { id: 'company', labelKey: 'mobile.addTiles.company', label: 'Company', icon: Building2,    color: 'var(--color-warning)' },
-  { id: 'task',    labelKey: 'mobile.addTiles.task',    label: 'Task',    icon: CheckSquare,  color: 'var(--color-purple)' },
-  { id: 'event',   labelKey: 'mobile.addTiles.event',   label: 'Event',   icon: Calendar,     color: 'var(--color-success)' },
-  { id: 'note',    labelKey: 'mobile.addTiles.note',    label: 'Note',    icon: FileText,     color: 'var(--color-gold, #b8901a)' },
+  { id: 'project', labelKey: 'mobile.addTiles.project', label: 'Project', icon: 'projects', color: 'var(--color-primary)' },
+  { id: 'contact', labelKey: 'mobile.addTiles.contact', label: 'Contact', icon: 'contacts', color: 'var(--color-blue)' },
+  { id: 'company', labelKey: 'mobile.addTiles.company', label: 'Company', icon: 'companies', color: 'var(--color-warning)' },
+  { id: 'task',    labelKey: 'mobile.addTiles.task',    label: 'Task',    icon: 'tasks',    color: 'var(--color-purple)' },
+  { id: 'event',   labelKey: 'mobile.addTiles.event',   label: 'Event',   icon: 'event',    color: 'var(--color-success)' },
+  { id: 'note',    labelKey: 'mobile.addTiles.note',    label: 'Note',    icon: 'touchpoint-note', color: 'var(--color-gold, #b8901a)' },
 ];
 
 function Sheet({ title, onClose, children, tall = false }: { title: string; onClose: () => void; children: ReactNode; tall?: boolean }) {

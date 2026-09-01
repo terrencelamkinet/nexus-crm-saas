@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
-import { CloudSun, MessageSquare, Truck, Percent } from 'lucide-react'
+import { MessageSquare, Truck, Percent } from 'lucide-react'
 import SvcIcon from '../../components/SvcIcon'
 import { apiClient } from '../../lib/api'
 import { useToast } from './useToast'
@@ -840,10 +840,10 @@ export default function DashboardV2() {
     if (wid.startsWith('stats:')) {
       const i = Number(wid.split(':')[1])
       const cards = [
-        { icon: <SvcIcon name="users" size={15} />, label: t('dashboard.widgets.totalCustomers', { defaultValue: '累計聯絡人' }), value: stats.contacts, color: 'var(--color-primary)', onClick: () => navigate('/contacts') },
-        { icon: <SvcIcon name="building-2" size={15} />, label: t('dashboard.widgets.totalCompanies', { defaultValue: '總公司數' }), value: stats.companies, color: 'var(--color-purple, #7c3aed)', onClick: () => navigate('/companies') },
-        { icon: <SvcIcon name="check-square" size={15} />, label: t('dashboard.widgets.tasksDue', { defaultValue: '待辦任務' }), value: stats.tasksDue, color: 'var(--color-amber, #d97706)', accent: true, onClick: () => navigate('/tasks') },
-        { icon: <SvcIcon name="folder-kanban" size={15} />, label: t('dashboard.widgets.activeProjects', { defaultValue: '進行中專案' }), value: projectsTotal, color: 'var(--color-green, #16a34a)', onClick: () => navigate('/projects') },
+        { icon: <SvcIcon name="contacts" size={15} />, label: t('dashboard.widgets.totalCustomers', { defaultValue: '累計聯絡人' }), value: stats.contacts, color: 'var(--color-primary)', onClick: () => navigate('/contacts') },
+        { icon: <SvcIcon name="companies" size={15} />, label: t('dashboard.widgets.totalCompanies', { defaultValue: '總公司數' }), value: stats.companies, color: 'var(--color-purple, #7c3aed)', onClick: () => navigate('/companies') },
+        { icon: <SvcIcon name="tasks" size={15} />, label: t('dashboard.widgets.tasksDue', { defaultValue: '待辦任務' }), value: stats.tasksDue, color: 'var(--color-amber, #d97706)', accent: true, onClick: () => navigate('/tasks') },
+        { icon: <SvcIcon name="projects" size={15} />, label: t('dashboard.widgets.activeProjects', { defaultValue: '進行中專案' }), value: projectsTotal, color: 'var(--color-green, #16a34a)', onClick: () => navigate('/projects') },
       ]
       const c = cards[i]
       if (!c) return null
@@ -1389,9 +1389,9 @@ export default function DashboardV2() {
 function SectionIcon({ kind }: { kind: string }) {
   const s = 13
   switch (kind) {
-    case 'weather': return <CloudSun size={s} style={{ color: 'var(--color-amber, #d97706)' }} />
+    case 'weather': return <SvcIcon name="ai-weather" size={s} style={{ color: 'var(--color-amber, #d97706)' }} />
     case 'calendar': return <SvcIcon name="calendar" size={s} style={{ color: 'var(--color-primary)' }} />
-    case 'tasks': return <SvcIcon name="check-square" size={s} style={{ color: 'var(--color-amber, #d97706)' }} />
+    case 'tasks': return <SvcIcon name="tasks" size={s} style={{ color: 'var(--color-amber, #d97706)' }} />
     case 'risk': return <SvcIcon name="alert-triangle" size={s} style={{ color: 'var(--color-danger, #dc2626)' }} />
     case 'opp': return <SvcIcon name="trending-up" size={s} style={{ color: 'var(--color-green, #16a34a)' }} />
     case 'crm': return <SvcIcon name="building-2" size={s} style={{ color: 'var(--color-purple, #7c3aed)' }} />

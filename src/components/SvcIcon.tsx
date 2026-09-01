@@ -1,5 +1,7 @@
-// Vite glob: 動態載入所有 svc icons（raw svg content）
-const iconModules = import.meta.glob('../assets/svc-icons/*.svg', {
+import { PCRM_ICONS } from '../lib/pcrmIcons';
+
+// Vite glob: 動態載入 svc icons（raw svg content）
+const svcModules = import.meta.glob('../assets/svc-icons/*.svg', {
   eager: true,
   query: '?raw',
   import: 'default',
@@ -7,14 +9,20 @@ const iconModules = import.meta.glob('../assets/svc-icons/*.svg', {
 
 // name -> svg inner content（strip <svg> wrapper + 將 hardcoded stroke 換成 currentColor）
 const ICON_CACHE: Record<string, string> = {};
-for (const [path, raw] of Object.entries(iconModules)) {
-  const file = path.split('/').pop() ?? '';
-  const name = file.replace(/-blue\.svg$/, '');
+const ingest = (name: string, raw: string) => {
   const inner = raw
     .replace(/<svg[^>]*>/, '')
     .replace(/<\/svg>/, '')
     .replace(/stroke="#2563EB"/g, 'stroke="currentColor"');
   ICON_CACHE[name] = inner;
+};
+for (const [path, raw] of Object.entries(svcModules)) {
+  const file = path.split('/').pop() ?? '';
+  ingest(file.replace(/-blue\.svg$/, ''), raw);
+}
+// 靜態 import（pcrmIcons.ts）— 後處理，新 kit 覆蓋同名舊 icons
+for (const [name, raw] of Object.entries(PCRM_ICONS)) {
+  ingest(name, raw);
 }
 
 interface SvcIconProps {
