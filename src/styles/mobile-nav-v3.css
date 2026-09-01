@@ -70,17 +70,21 @@
   box-shadow: 0 10px 24px -6px color-mix(in oklch, var(--color-primary) 60%, transparent),
               0 0 0 5px var(--color-bg);
   border: none; cursor: pointer;
-  padding: 3px;  /* v7.22: 保留外圍 5px ring 可見 */
+  padding: 0;  /* logo 自己放大裁切，唔使 padding */
+  overflow: hidden;  /* v7.23: 圓形 clip — 放大嘅 logo 邊緣（乳白背景）被裁走 */
   transition: transform 160ms cubic-bezier(.16,1,.3,1);
 }
 .mnav-center-btn svg { width: 24px; height: 24px; color: #fff; }
-/* v7.22: Penguin logo 填滿成個 center button（用戶要求「用 logo replace，盡量
-   放大到貼近整個 icon」）— 100% fill + 圓形裁切，配合 button 3px padding */
+/* v7.22→v7.23: Penguin logo 放大 140% 填滿 center button — logo_square.png 本身
+   係「企鵝喺乳白色背景」嘅方形圖（主體佔 ~77%），放大 + overflow:hidden 將
+   外層乳白 padding 裁走，企鵝貼滿成個圓形 icon */
 .mnav-center-logo {
-  width: 100%; height: 100%;
+  width: 150%; height: 150%;
+  max-width: none;
   border-radius: 999px;
   object-fit: cover;
   display: block;
+  margin: -25%;  /* (150-100)/2 = 25% — 置中；外層乳白背景 padding 由 overflow:hidden 裁走 */
 }
 .mnav-center-btn:active { transform: scale(0.9); }
 .mnav-center-wrap > span { font-size: 10.5px; font-weight: 700; color: var(--color-primary); margin-top: 2px; }
