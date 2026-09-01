@@ -119,7 +119,7 @@ export default function MobileBottomNav({ onOpenAiSearch, onScanCard, onQuickAdd
         </button>
         <div className="mnav-center-wrap">
           <button type="button" className="mnav-center-btn" onClick={onOpenAiSearch} aria-label="Penguin AI">
-            <BrandIcon name="robot" size={22} />
+            <img src="/assets/logo/logo_square.png" alt="Penguin AI" className="mnav-center-logo" />
           </button>
           <span>{t('mobile.aiSearch', { defaultValue: '企鵝管家' })}</span>
         </div>
