@@ -239,13 +239,24 @@ async def handle_telegram_message(mapping: TelegramBotMapping, text: str) -> str
         settings_row = await _resolve_settings(db, mapping)
         system_prompt = _build_system_prompt(settings_row)
 
-        # Reuse today's session (HKT) so the AI remembers the conversation
+        # Reuse recent session (v7.28: 24 小時內，唔止同一日曆日) so the AI
+        # remembers the conversation — 用戶 2026-09-01：「最起碼儲存一天」
         hkt_now = datetime.now(timezone.utc) + timedelta(hours=8)
-        today_hkt = hkt_now.strftime("%Y-%m-%d")
         cfg: dict[str, Any] = dict(mapping.config or {})
         session_id: str | None = None
-        if cfg.get("ai_session_date") == today_hkt and cfg.get("ai_session_id"):
-            session_id = str(cfg["ai_session_id"])
+        sid = cfg.get("ai_session_id")
+        ts = cfg.get("ai_session_ts")
+        # 舊 config 冇 ai_session_ts → fallback 同日曆日比較
+        if sid:
+            if ts:
+                try:
+                    ts_f = float(ts)
+                    if hkt_now.timestamp() - ts_f <= 24 * 3600:
+                        session_id = str(sid)
+                except (TypeError, ValueError):
+                    pass
+            elif cfg.get("ai_session_date") == hkt_now.strftime("%Y-%m-%d"):
+                session_id = str(sid)
 
     token = _make_internal_token(mapping.user_id, mapping.tenant_id)
 
@@ -289,9 +300,10 @@ async def handle_telegram_message(mapping: TelegramBotMapping, text: str) -> str
     data = resp.json()
     reply = data.get("text") or "抱歉，我暫時未能處理呢個請求。"
 
-    # Persist session id for today's reuse
+    # Persist session id for reuse (v7.28: 存 unix ts，24 小時內都 reuse)
     new_session_id = data.get("session_id")
     if new_session_id and new_session_id != session_id:
+        hkt_now = datetime.now(timezone.utc) + timedelta(hours=8)
         async with async_session() as db:
             m = (
                 await db.execute(
@@ -301,7 +313,8 @@ async def handle_telegram_message(mapping: TelegramBotMapping, text: str) -> str
             if m:
                 m_cfg: dict[str, Any] = dict(m.config or {})
                 m_cfg["ai_session_id"] = new_session_id
-                m_cfg["ai_session_date"] = today_hkt
+                m_cfg["ai_session_date"] = hkt_now.strftime("%Y-%m-%d")
+                m_cfg["ai_session_ts"] = str(hkt_now.timestamp())
                 m.config = m_cfg
                 await db.commit()
 
