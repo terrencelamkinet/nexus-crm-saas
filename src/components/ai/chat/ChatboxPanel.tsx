@@ -114,7 +114,7 @@ export function ChatboxToggleButton({ onClick, open }: { onClick: () => void; op
       <span className="cb-fab-icon" style={{
         transform: open ? 'rotate(90deg) scale(0.85)' : 'rotate(0deg) scale(1)',
       }}>
-        {open ? <SvcIcon name="x" size={20} /> : <SvcIcon name="sparkles" size={22} />}
+        {open ? <SvcIcon name="x" size={20} /> : <SvcIcon name="penguin-ai" size={22} />}
       </span>
     </button>
   )
