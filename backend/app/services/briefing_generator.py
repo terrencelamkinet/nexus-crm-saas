@@ -92,16 +92,17 @@ MODULE_CATEGORY: dict[str, str] = {
     # 通知：衝突、逾期、需要立即處理
     "calendar_conflicts": "notifications",
     "overdue_followup": "notifications",
-    # 提醒：任務、費用、發票、電郵、生日、個人
+    # 提醒：任務、費用、發票、電郵、生日、個人 + 天氣、行程（用戶 2026-09-01：
+    # 「天氣/行程應該放到提醒那一邊」— 唔係資訊）
     "today_tasks": "reminders",
     "expense_reminders": "reminders",
     "invoice_reminders": "reminders",
     "email_draft_review": "reminders",
     "birthday_reminders": "reminders",
     "personal_reminders": "reminders",
-    # 資訊：天氣、行程、新聞、報價、交通、項目、團隊、KPI、商機、潛在、訊息、情緒
-    "weather": "info",
-    "meetings": "info",
+    "weather": "reminders",
+    "meetings": "reminders",
+    # 資訊：新聞、報價、交通、項目、團隊、KPI、商機、潛在、訊息、情緒
     "news_industry": "info",
     "quote_tracking": "info",
     "traffic_commute": "info",
@@ -376,7 +377,10 @@ def _build_prompt(slot: str, settings: SecretarySettings, data: dict[str, Any]) 
         "按以下 4 個類別分節輸出，每個類別用 <<<category:XXX>>> 開頭標記，"
         "XXX 只可以係 notifications / reminders / info / bible：\n"
         "<<<category:notifications>>> 通知（行程衝突、逾期任務、需要立即處理嘅警報）\n"
-        "<<<category:reminders>>> 提醒 — 今日任務部分必須用以下固定格式（用戶 2026-09-01 指定，唔好加減）：\n"
+        "<<<category:reminders>>> 提醒 — 今日天氣 + 今日/未來行程 + 今日任務（用戶 2026-09-01：天氣同行程屬於提醒，唔係資訊）：\n"
+        "🌦️ 天氣 section 放最前（有 weather data 先用 module tag 格式）\n"
+        "📅 行程 section（有 meetings data 時，列出今日及聽日嘅行程，每個 event 標明來源 label [Kinetix]/[Personal] 等）\n"
+        "之後先到今日任務部分，必須用以下固定格式（用戶 2026-09-01 指定，唔好加減）：\n"
         "✅ 今日完成\n"
         "• {今日完成嘅任務 title，逐項}（完全冇就用「• 今日暫無 task 標記完成」）\n"
         "（空行）\n"
@@ -395,7 +399,7 @@ def _build_prompt(slot: str, settings: SecretarySettings, data: dict[str, Any]) 
         "（空行）\n"
         "其他提醒（費用/發票/電郵草稿/生日/個人）繼續用 module tag 格式，放喺 Tasks Summary 之後。\n"
         "每個任務配相關 emoji 分類：📚 書/考試/溫書、💼 工作/客戶/報價/會議、💰 費用/發票、🏠 個人/家庭、📋 其他。\n"
-        "<<<category:info>>> 資訊（天氣、行程、新聞、CRM 概覽等一般資訊）\n"
+        "<<<category:info>>> 資訊（新聞、CRM 概覽等一般資訊 — 天氣同行程已經歸提醒，唔好放喺呢度）\n"
         "<<<category:bible>>> 聖經（靈修內容）\n"
         "冇內容嘅類別就省略該 tag。每個類別內用 bullet points，高密度。\n"
         "唔好加任何 metadata 或解釋。"
