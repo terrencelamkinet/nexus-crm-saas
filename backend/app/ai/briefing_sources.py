@@ -959,6 +959,9 @@ async def traffic_commute(
         d_geo = await _geocode_place(destination)
         if o_geo and d_geo:
             route = await _osrm_route(o_geo, d_geo)
+            # v7.27: 來回 — 回程（destination → origin）都查埋，用戶
+            # 2026-09-01：「交通應該可以做到來回」
+            return_route = await _osrm_route(d_geo, o_geo) if route else None
             if route:
                 o_label = o_geo["label"] if is_en else origin
                 d_label = d_geo["label"] if is_en else destination
@@ -969,6 +972,8 @@ async def traffic_commute(
                     "destination": d_label,
                     "duration_min": route["duration_min"],
                     "distance_km": route["distance_km"],
+                    "return_duration_min": return_route["duration_min"] if return_route else None,
+                    "return_distance_km": return_route["distance_km"] if return_route else None,
                     "hk": hk_route,
                 })
 

@@ -102,11 +102,13 @@ MODULE_CATEGORY: dict[str, str] = {
     "personal_reminders": "reminders",
     "weather": "reminders",
     "meetings": "reminders",
-    # 資訊：新聞、報價、交通、項目、團隊、KPI、商機、潛在、訊息、情緒
+    # v7.27: 項目都歸提醒 — deadline 係 actionable（用戶 2026-09-01：「P仔
+    # 建議：先重要後次要，項目放提醒」）
+    "project_status": "reminders",
+    "traffic_commute": "reminders",
+    # 資訊：新聞、報價、團隊、KPI、商機、潛在、訊息、情緒
     "news_industry": "info",
     "quote_tracking": "info",
-    "traffic_commute": "info",
-    "project_status": "info",
     "team_updates": "info",
     "sales_kpi": "info",
     "stale_deals": "info",
@@ -245,7 +247,10 @@ async def _collect_modules(ctx: AISessionContext, db: AsyncSession, modules: dic
         "unread_messages": bs.unread_messages,
         "calendar_conflicts": bs.calendar_conflicts,
         "news_industry": bs.news_industry,
-        "traffic_commute": bs.traffic_commute,
+        # v7.27: traffic_commute signature 係 (ctx, db, lang_pref, options) —
+        # 通用 fn(ctx, db, opts) 會將 opts 綁去 lang_pref → AttributeError →
+        # savepoint 靜默吞 → 通勤永遠空（實測 debug 到）
+        "traffic_commute": lambda ctx, db, opts: bs.traffic_commute(ctx, db, "zh-HK", opts or {}),
         "email_draft_review": bs.email_draft_review,
         "customer_sentiment": bs.customer_sentiment,
         "expense_reminders": bs.expense_reminders,
@@ -371,6 +376,37 @@ def _build_prompt(slot: str, settings: SecretarySettings, data: dict[str, Any]) 
             "• 最後一條之後出 ─────── 分隔線收尾\n"
         )
         user += news_rule + "\n"
+    # 交通專屬格式規則（v7.27：去程 + 回程，用戶 2026-09-01：「交通應該可以做到來回」）
+    traffic_data = data.get("traffic_commute") or []
+    if any(i.get("type") == "commute_route" for i in traffic_data):
+        traffic_rule = (
+            "🚗 交通 section 格式（來回）：\n"
+            "去程同回程各一行，格式：\n"
+            "🚗 去程 {origin} → {destination}：{duration} 分鐘（{distance} km）\n"
+            "🚗 回程 {destination} → {origin}：{duration} 分鐘（{distance} km）\n"
+            "如果 data 冇 return_duration_min 就淨係顯示去程。每行 20 字內。\n"
+        )
+        user += traffic_rule + "\n"
+    # 項目專屬格式規則（v7.27：project_status module 新開）
+    project_data = data.get("project_status") or []
+    if project_data:
+        project_rule = (
+            "📊 項目 section 格式（每個項目一行，20-30 字）：\n"
+            "• 🏗 {項目名} — {公司}（{狀態}，{deadline 剩 N 日／已逾期}）\n"
+            "最多 5 個，按 deadline 由近至遠排。\n"
+        )
+        user += project_rule + "\n"
+    # Display 原則（v7.27：小P UX 建議，用戶 2026-09-01：「整理而方便閱讀」）
+    user += (
+        "Display 原則（必須跟）：\n"
+        "1. 先重要後次要：通知（衝突/逾期）→ 提醒（天氣→行程→交通→任務→項目）→ 資訊（團隊→新聞）→ 聖經\n"
+        "2. 一條一個意思：每條 bullet 只講一件事，唔好一條塞三個訊息\n"
+        "3. 一致格式：`對象｜狀態｜建議動作`，用清楚動詞（改期/出門/回覆/確認）\n"
+        "4. 精簡上限：每個 module 最多 3-5 條（行程 5 條 +「+X 個」、項目 5 個、新聞每類 2-5 條、團隊 3-5 條、交通 2 行）\n"
+        "5. 冇內容嘅 module 完全省略，唔好出「暫無」除非係任務 section 嘅固定格式\n"
+        "6. 每個 module 內容每行以 module tag 開頭（`- {tag} {內容}`）\n"
+    )
+
     user += (
         "輸出格式：第一行用 <summary>...</summary> 包住一段 1-2 句嘅全日整合摘要"
         "（用上述語言，簡短精煉，整合下面所有數據嘅重點），跟住將完整簡報內容"
@@ -579,6 +615,9 @@ async def generate_briefing(
             cat = m.group(1)
             end = cat_m[i + 1].start() if i + 1 < len(cat_m) else len(content)
             body = content[m.end():end].strip()
+            # 清走 LLM 偶爾輸出嘅 close-tag artifact（`</<category:xxx>`）—
+            # 唔屬於任何 category 內容（v7.27 實測出現）
+            body = _re.sub(r"</?<category:\w+>\s*$", "", body).strip()
             if cat in CATEGORY_LABELS and body:
                 categories[cat] = body
         # content 剝走 category tags → 保留 section headers（dashboard
