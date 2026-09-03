@@ -147,6 +147,29 @@ MODULE_PRIORITY: dict[str, str] = {
     "team_updates": "P3",
 }
 
+# v2 SPEC §Solution slot × module matrix — 每個 slot 只 collect 對應 modules。
+# Morning = 全部（None = 唔 filter）；noon = 輕量；evening = 收工回顧（通知 +
+# 行程 + 待辦，**唔重複**天氣/新聞/靈修/團隊 — 用戶 G2）；night = 聽日預告精簡。
+# 做法：source 層 filter → LLM 冇 data 就自然唔出該 section（比 prompt 叫佢
+# 「唔好出」可靠 — LLM 見到 data 就會想報）。
+SLOT_MODULES: dict[str, set[str] | None] = {
+    "morning": None,  # 全部 enabled modules
+    "noon": {
+        "weather", "meetings", "today_tasks", "traffic_commute",
+        "calendar_conflicts", "overdue_followup", "personal_reminders",
+    },
+    "evening": {
+        # 收工回顧：衝突/逾期通知 + 行程（聽日預告）+ 任務/項目（今日回顧）
+        "calendar_conflicts", "overdue_followup",
+        "meetings", "traffic_commute",
+        "today_tasks", "project_status", "stale_deals", "hot_leads", "sales_kpi",
+    },
+    "night": {
+        # 深夜：聽日預告精簡（行程 + 任務）
+        "meetings", "today_tasks",
+    },
+}
+
 
 def _now_hkt() -> datetime:
     return datetime.now(HKT)
@@ -300,6 +323,14 @@ async def _collect_modules(ctx: AISessionContext, db: AsyncSession, modules: dic
             out[key] = []
 
     # 日期 label 輔助：schedule item 帶 calendar label（如有）
+
+    # T1.3: base keys（schedule/tasks/weather/completed_today）跟 module filter —
+    # 如果該 slot 冇 meetings 就唔好帶 schedule（evening 冇 weather 就唔帶）
+    _base_owner = {"schedule": "meetings", "tasks": "today_tasks",
+                   "completed_today": "today_tasks", "weather": "weather"}
+    for bkey, owner in _base_owner.items():
+        if owner not in modules:
+            out.pop(bkey, None)
     return out
 
 
@@ -435,6 +466,43 @@ def _build_prompt(slot: str, settings: SecretarySettings, data: dict[str, Any]) 
         "6. 每個 module 內容每行以 module tag 開頭（`- {tag} {內容}`）\n"
     )
 
+    # ── Tasks Summary 格式（slot-aware，v2 T1.3）──
+    # Morning = 完整版（用戶 2026-09-01 指定固定格式）；evening/night = 精簡版
+    # （收工回顧 / 聽日預告 — 淨係 ✅今日完成 + 🔴 優先，用戶 G2「保留精簡版」）
+    if slot == "morning":
+        tasks_block = (
+            "今日任務部分，必須用以下固定格式（用戶 2026-09-01 指定，唔好加減）：\n"
+            "✅ 今日完成\n"
+            "• {今日完成嘅任務 title，逐項}（完全冇就用「• 今日暫無 task 標記完成」）\n"
+            "（空行）\n"
+            "📋 Tasks Summary · {今日日期 YYYY-MM-DD}\n"
+            "（空行）\n"
+            "🔴 優先（有 deadline 或 overdue）\n"
+            "• {emoji} {title} — {已逾期 (M/D) ／ M/D 到期 ／ 今日到期}（{狀態}）\n"
+            "（空行）\n"
+            "📌 進行中\n"
+            "• {emoji} {title}（冇 deadline 但 status = 進行中/in_progress 嘅任務）\n"
+            "（空行）\n"
+            "⚪ 其他（未有日期）\n"
+            "• {emoji} {title}（冇 deadline 嘅任務，逐項列出）\n"
+            "（空行）\n"
+            "💭 {1-2 句整合建議：逾期/臨近死線優先、前置關係、今日安排，用廣東話語感}\n"
+            "（空行）\n"
+        )
+    else:
+        tasks_block = (
+            "今日任務部分用收工/預告精簡格式：\n"
+            "✅ 今日完成\n"
+            "• {今日完成嘅任務 title，逐項}（完全冇就用「• 今日暫無 task 標記完成」）\n"
+            "（空行）\n"
+            "📋 Tasks Summary · {今日日期 YYYY-MM-DD}\n"
+            "（空行）\n"
+            "🔴 優先（未完 / 逾期 / 聽日到期 — 精簡列出，每項一行）\n"
+            "• {emoji} {title} — {已逾期 (M/D) ／ M/D 到期 ／ 聽日到期}\n"
+            "（空行）\n"
+            "（精簡版：唔好出 📌 進行中 / ⚪ 其他 / 💭 建議 section）\n"
+            "（空行）\n"
+        )
     user += (
         "輸出格式：第一行用 <summary>...</summary> 包住一段 1-2 句嘅全日整合摘要"
         "（用上述語言，簡短精煉，整合下面所有數據嘅重點），跟住將完整簡報內容"
@@ -446,23 +514,7 @@ def _build_prompt(slot: str, settings: SecretarySettings, data: dict[str, Any]) 
         "🌦️ 天氣 section 放最前（有 weather data 先用 module tag 格式）\n"
         "<<<category:schedule>>> 行程（今日及聽日嘅會議/行程，每個 event 標明來源 label [Kinetix]/[Personal] 等；有 traffic_commute data 就加去程/回程兩行；已取消行程標「已取消」排後面）\n"
         "<<<category:tasks_projects>>> 待辦/項目 — 今日任務 + 項目 + 商機：\n"
-        "今日任務部分，必須用以下固定格式（用戶 2026-09-01 指定，唔好加減）：\n"
-        "✅ 今日完成\n"
-        "• {今日完成嘅任務 title，逐項}（完全冇就用「• 今日暫無 task 標記完成」）\n"
-        "（空行）\n"
-        "📋 Tasks Summary · {今日日期 YYYY-MM-DD}\n"
-        "（空行）\n"
-        "🔴 優先（有 deadline 或 overdue）\n"
-        "• {emoji} {title} — {已逾期 (M/D) ／ M/D 到期 ／ 今日到期}（{狀態}）\n"
-        "（空行）\n"
-        "📌 進行中\n"
-        "• {emoji} {title}（冇 deadline 但 status = 進行中/in_progress 嘅任務）\n"
-        "（空行）\n"
-        "⚪ 其他（未有日期）\n"
-        "• {emoji} {title}（冇 deadline 嘅任務，逐項列出）\n"
-        "（空行）\n"
-        "💭 {1-2 句整合建議：逾期/臨近死線優先、前置關係、今日安排，用廣東話語感}\n"
-        "（空行）\n"
+        f"{tasks_block}"
         "每個任務配相關 emoji 分類：📚 書/考試/溫書、💼 工作/客戶/報價/會議、💰 費用/發票、🏠 個人/家庭、📋 其他。\n"
         "Tasks Summary 之後先到項目 section（project_status/stale_deals/hot_leads/sales_kpi 有 data 先出，每個項目一行 20-30 字）。\n"
         "<<<category:info>>> 資訊（新聞、團隊更新等一般資訊 — 行程/任務/項目唔好放喺呢度）\n"
@@ -594,6 +646,12 @@ async def generate_briefing(
         modules = {k: v for k, v in modules.items() if k in only_modules}
         if not modules:
             return {"user_id": str(user_id), "slot": slot, "status": "empty_content", "im": "disabled"}
+    elif SLOT_MODULES.get(slot):
+        # v2 T1.3: slot × module matrix — noon/evening/night 只 collect 對應
+        # modules（source 層 filter → LLM 冇 data 就自然唔出該 section）。
+        # 收工回顧唔重複天氣/新聞/靈修/團隊；深夜淨係聽日預告。
+        allowed = SLOT_MODULES[slot]
+        modules = {k: v for k, v in modules.items() if k in allowed}
 
     from app.ai.session.context import AISessionContext
     ctx = AISessionContext(
