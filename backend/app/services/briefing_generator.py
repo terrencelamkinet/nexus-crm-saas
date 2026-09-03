@@ -155,7 +155,7 @@ MODULE_PRIORITY: dict[str, str] = {
 SLOT_MODULES: dict[str, set[str] | None] = {
     "morning": None,  # 全部 enabled modules
     "noon": {
-        "weather", "meetings", "today_tasks", "traffic_commute",
+        "weather", "meetings", "today_tasks",
         "calendar_conflicts", "overdue_followup", "personal_reminders",
     },
     "evening": {
@@ -344,9 +344,14 @@ def _build_prompt(slot: str, settings: SecretarySettings, data: dict[str, Any]) 
     system = SYSTEM_PROMPT.format(lang=lang_name, tone=tone, instructions=user_extra)
 
     # 壓縮 data：tasks/schedule 用精簡 list；modules data 原樣（但截斷長 list）
+    # v2 T2.2: 長內容摺疊 — payload 層 pre-collapse（數據先截，唔靠 LLM 自律）：
+    #   schedule > 5 條 → 顯示 5 + schedule_more 記低數目（prompt 指示 LLM 出「+X 個」）
+    #   tasks 已有 limit 15 喺 source；news 每子類由 source 限 2-5
+    schedule_all = data.get("schedule", [])[:10]
+    schedule = schedule_all[:5]
+    schedule_more = len(schedule_all) - len(schedule)
     tasks = data.get("tasks", [])[:15]
     completed = data.get("completed_today", [])[:10]
-    schedule = data.get("schedule", [])[:10]
     modules_summary = {k: v for k, v in data.items() if k not in ("tasks", "schedule", "weather", "completed_today")}
     for k in modules_summary:
         if isinstance(modules_summary[k], list):
@@ -358,6 +363,7 @@ def _build_prompt(slot: str, settings: SecretarySettings, data: dict[str, Any]) 
         "slot_label": f"{slot_meta['emoji']} {slot_meta['label']}",
         "weather": data.get("weather", {}),
         "schedule": schedule,
+        "schedule_more": schedule_more,
         "tasks": tasks,
         "completed_today": completed,
         "modules": modules_summary,
@@ -461,7 +467,7 @@ def _build_prompt(slot: str, settings: SecretarySettings, data: dict[str, Any]) 
         "1. 先重要後次要：通知 → 提醒 → 行程 → 待辦/項目 → 資訊 → 聖經（6 類順序，v2 骨架）\n"
         "2. 一條一個意思：每條 bullet 只講一件事，唔好一條塞三個訊息\n"
         "3. 一致格式：`對象｜狀態｜建議動作`，用清楚動詞（改期/出門/回覆/確認）\n"
-        "4. 精簡上限：每個 module 最多 3-5 條（行程 5 條 +「+X 個」、項目 5 個、新聞每類 2-5 條、團隊 3-5 條、交通 2 行）\n"
+        "4. 精簡上限：行程最多 5 條（payload 已截，schedule_more > 0 時最後加一行「+X 個更多行程」）、📋 P0-P1 全列 ≤8 條、新聞每類 2-5 條、團隊 3-5 條、交通 2 行\n"
         "5. 冇內容嘅 module 完全省略，唔好出「暫無」除非係任務 section 嘅固定格式\n"
         "6. 每個 module 內容每行以 module tag 開頭（`- {tag} {內容}`）\n"
     )
