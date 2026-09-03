@@ -75,6 +75,27 @@ def test_slot_off_blocks():
     assert _run(bs._channel_gate(db, USER, "whatsapp", "evening")) == "slot_off"
 
 
+def test_missing_slot_key_is_default_on():
+    """T0.2: prefs slots 缺 key（例：lateNight 未 sync）→ 當 ON，唔係 slot_off。
+
+    背景：greeting key drift（noon→afternoon/lateNight）令 slots.get()=None →
+    永遠 slot_off → 用戶靜默收唔到。Missing ≠ 用戶意願 off。
+    """
+    db = _FakeDB(_pref("whatsapp", slots={"morning": True, "evening": False}))
+    # 用中午時間（非 quiet hours）— 淨係測 slot key 邏輯
+    noon = datetime(2026, 9, 3, 12, 0, tzinfo=HKT)
+    orig = bs._now_hkt
+    bs._now_hkt = lambda: noon
+    try:
+        # evening 明確 false → off
+        assert _run(bs._channel_gate(db, USER, "whatsapp", "evening")) == "slot_off"
+        # lateNight / noon missing → 當 ON（唔會被 slot_off 擋）
+        assert _run(bs._channel_gate(db, USER, "whatsapp", "lateNight")) == ""
+        assert _run(bs._channel_gate(db, USER, "whatsapp", "noon")) == ""
+    finally:
+        bs._now_hkt = orig
+
+
 # ---- C: weekend_mute ----
 def test_weekend_mute_on_saturday():
     # Force _now_hkt to a Saturday for determinism

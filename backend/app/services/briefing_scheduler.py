@@ -243,7 +243,12 @@ async def _channel_gate(db, user, channel: str, slot: str) -> str:
         if not pref.enabled:
             return "disabled"
         slots = pref.slots or {}
-        if slots and not slots.get(slot):
+        # T0.2（2026-09-04）：key missing ≠ slot_off。Missing key 視為 ON
+        # （同 missing row 嘅 frictionless 一致）— 只有明確 false 先 off。
+        # 背景：greeting_slots 用 lateNight 但 prefs.slots 用舊 noon key →
+        # slots.get('lateNight')=None → 永遠 slot_off，用戶靜默收唔到深夜。
+        # Missing key 多數係 UI 寫入 key drift，唔應該懲罰用戶。
+        if slots.get(slot) is False:
             return "slot_off"
         if pref.weekend_mute and _hkt_weekend(now):
             return "weekend_mute"
