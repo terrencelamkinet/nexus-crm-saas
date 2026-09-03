@@ -266,3 +266,89 @@ def test_module_priority_complete():
         assert MODULE_PRIORITY[m] in valid_p
     # bible 唔應該有 priority
     assert "bible_reading" not in MODULE_PRIORITY
+
+
+# ---- T1.4: push 合併（schedule + tasks_projects → 5 條 message）----
+class _PushDB:
+    """Fake DB for _push_telegram: returns telegram mapping, no credentials."""
+
+    def __init__(self):
+        self.logs = []
+
+    async def execute(self, stmt, *a, **kw):
+        sql = str(stmt)
+        if "telegram_mappings" in sql:
+            return NS(scalar_one_or_none=lambda: NS(chat_id="123", bot_token="tok"))
+        return NS(scalar_one_or_none=lambda: None)  # credentials / prefs etc.
+
+    def add(self, o):
+        self.logs.append(o)
+
+
+def test_push_merges_schedule_and_tasks_into_5_messages():
+    """T1.4: 6 類 → 5 條 message — schedule+tasks_projects 合併 header「📅📋 行程與待辦」"""
+    cats = {
+        "notifications": "⚠️ 衝突",
+        "reminders": "🌦️ 天氣",
+        "schedule": "📅 10:00 HKMA PoC\n📅 11:30 CS1466433",
+        "tasks_projects": "✅ 今日完成\n📋 Tasks Summary\n🔴 返還圖書",
+        "info": "📰 新聞",
+        "bible": "📖 靈修",
+    }
+    sent = []
+
+    async def fake_send(token, chat_id, styled):
+        sent.append(styled)
+        return {"ok": True}
+
+    db = _PushDB()
+    user = NS(user_id="u1", tenant_id="t1")
+
+    orig_gate = bs._channel_gate
+    orig_now = bs._now_hkt
+    orig_send = bs.telegram_service.send_message
+    bs._channel_gate = AsyncMock(return_value="")
+    bs._now_hkt = lambda: datetime(2026, 9, 4, 5, 0, tzinfo=HKT)
+    bs.telegram_service.send_message = fake_send
+    try:
+        status = _run(bs._push_telegram(db, user, "morning", "full content", cats))
+        assert status == "sent"
+        assert len(sent) == 5, f"expected 5 messages, got {len(sent)}"
+        # 合併嗰條 header 係「📅📋 行程與待辦」
+        merged_msgs = [s for s in sent if "行程與待辦" in s.split("\n")[0]]
+        assert len(merged_msgs) == 1, "should have exactly 1 merged 📅📋 message"
+        m = merged_msgs[0]
+        assert "10:00 HKMA" in m and "返還圖書" in m, "merged msg should contain both schedule + tasks content"
+    finally:
+        bs._channel_gate = orig_gate
+        bs._now_hkt = orig_now
+        bs.telegram_service.send_message = orig_send
+
+
+def test_push_no_merge_when_only_tasks():
+    """得一類（tasks_projects 冇 schedule）→ 照原 label「📋 待辦/項目」"""
+    cats = {
+        "notifications": "⚠️ 衝突",
+        "tasks_projects": "✅ 今日完成\n🔴 返還圖書",
+        "info": "📰 新聞",
+    }
+    sent = []
+
+    async def fake_send(token, chat_id, styled):
+        sent.append(styled)
+        return {"ok": True}
+
+    db = _PushDB()
+    user = NS(user_id="u1", tenant_id="t1")
+    orig_gate, orig_now, orig_send = bs._channel_gate, bs._now_hkt, bs.telegram_service.send_message
+    bs._channel_gate = AsyncMock(return_value="")
+    bs._now_hkt = lambda: datetime(2026, 9, 4, 5, 0, tzinfo=HKT)
+    bs.telegram_service.send_message = fake_send
+    try:
+        status = _run(bs._push_telegram(db, user, "morning", "full", cats))
+        assert status == "sent"
+        assert len(sent) == 3  # notifications + tasks_projects + info
+        assert any("待辦/項目" in s.split("\n")[0] for s in sent)
+        assert not any("行程與待辦" in s.split("\n")[0] for s in sent)
+    finally:
+        bs._channel_gate, bs._now_hkt, bs.telegram_service.send_message = orig_gate, orig_now, orig_send

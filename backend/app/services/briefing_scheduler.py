@@ -380,15 +380,35 @@ async def _push_telegram(db, user, slot: str, content: str, categories: dict | N
     try:
         now = _now_hkt()
         if categories:
-            # 按類別分開 send — 每類一條 message（🔔通知/⏰提醒/📰資訊/📖聖經）
+            # 按類別分開 send — v2 G3：📅schedule + 📋tasks_projects 合併一條
+            # （header「📅📋 行程與待辦」），共 5 條：🔔通知 / ⏰提醒 / 📅📋 /
+            # 📰資訊 / 📖聖經。內部保留各自 module tag 分隔，唔混合內容。
             all_ok = True
-            # 6 類分開 send（v2 骨架）。T1.4 會將 schedule + tasks_projects
-            # 合併一條（SPEC G3：5 條 message）— 暫時分開確保唔漏內容
+            # 固定順序砌 send list（schedule + tasks_projects 相鄰）
+            _send_order: list[tuple[str, str]] = []
             for cat_key in ("notifications", "reminders", "schedule", "tasks_projects", "info", "bible"):
                 body = (categories.get(cat_key) or "").strip()
-                if not body:
-                    continue
-                label = _CATEGORY_LABELS.get(cat_key, cat_key)
+                if body:
+                    _send_order.append((cat_key, body))
+            # v2 G3：schedule + tasks_projects 兩條都非空 → 合併一條
+            # （header「📅📋 行程與待辦」）；得一條就照原 label
+            has_sched = any(c == "schedule" for c, _ in _send_order)
+            has_tasks = any(c == "tasks_projects" for c, _ in _send_order)
+            merged: list[tuple[str, str]] = []
+            for cat_key, body in _send_order:
+                if has_sched and has_tasks and cat_key in ("schedule", "tasks_projects"):
+                    if not merged or merged[-1][0] != "combined_schedule_tasks":
+                        merged.append(("combined_schedule_tasks", body))
+                    else:
+                        prev_cat, prev_body = merged[-1]
+                        merged[-1] = (prev_cat, f"{prev_body}\n\n{body}")
+                else:
+                    merged.append((cat_key, body))
+            for cat_key, body in merged:
+                if cat_key == "combined_schedule_tasks":
+                    label = "📅📋 行程與待辦"
+                else:
+                    label = _CATEGORY_LABELS.get(cat_key, cat_key)
                 styled = _style_for_channel(
                     body, "telegram", slot, now,
                     header=f"🕐 {now.strftime('%H:%M')} · {label}",
