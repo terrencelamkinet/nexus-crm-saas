@@ -346,6 +346,8 @@ async def _push_telegram(db, user, slot: str, content: str, categories: dict | N
         )
     ).scalar_one_or_none()
     if not tg:
+        db.add(PushLog(tenant_id=user.tenant_id, user_id=user.user_id, channel="telegram",
+                       slot=slot, status="skipped", reason="no_mapping"))
         return "skipped"
     cred = (
         await db.execute(
@@ -370,6 +372,8 @@ async def _push_telegram(db, user, slot: str, content: str, categories: dict | N
         if token == "None":
             token = ""
     if not token:
+        db.add(PushLog(tenant_id=user.tenant_id, user_id=user.user_id, channel="telegram",
+                       slot=slot, status="skipped", reason="no_token"))
         return "skipped"
     try:
         now = _now_hkt()
@@ -388,12 +392,21 @@ async def _push_telegram(db, user, slot: str, content: str, categories: dict | N
                 result = await telegram_service.send_message(token, str(tg.chat_id), styled)
                 if not (isinstance(result, dict) and result.get("ok")):
                     all_ok = False
-            return "sent" if all_ok else "failed"
+            status = "sent" if all_ok else "failed"
+            db.add(PushLog(tenant_id=user.tenant_id, user_id=user.user_id, channel="telegram",
+                           slot=slot, status=status,
+                           error="" if status == "sent" else "one_or_more_category_failed"))
+            return status
         styled = _style_for_channel(content, "telegram", slot, now)
         result = await telegram_service.send_message(token, str(tg.chat_id), styled)
         ok = isinstance(result, dict) and result.get("ok")
+        db.add(PushLog(tenant_id=user.tenant_id, user_id=user.user_id, channel="telegram",
+                       slot=slot, status="sent" if ok else "failed",
+                       error="" if ok else str(result)[:300]))
         return "sent" if ok else "failed"
-    except Exception:
+    except Exception as e:  # noqa: BLE001
+        db.add(PushLog(tenant_id=user.tenant_id, user_id=user.user_id, channel="telegram",
+                       slot=slot, status="failed", error=str(e)[:300]))
         return "failed"
 
 
@@ -422,13 +435,20 @@ async def _push_whatsapp(db, user, slot: str, content: str, categories: dict | N
         )
     ).scalar_one_or_none()
     if not mapping:
+        db.add(PushLog(tenant_id=user.tenant_id, user_id=user.user_id, channel="whatsapp",
+                       slot=slot, status="skipped", reason="no_mapping"))
         return "skipped"
     try:
         styled = _style_for_channel(content, "whatsapp", slot, _now_hkt())
         result = await whatsapp_service.send_text(mapping.wa_id, styled)
         ok = isinstance(result, dict) and result.get("messages")
+        db.add(PushLog(tenant_id=user.tenant_id, user_id=user.user_id, channel="whatsapp",
+                       slot=slot, status="sent" if ok else "failed",
+                       error="" if ok else str(result)[:300]))
         return "sent" if ok else "failed"
-    except Exception:
+    except Exception as e:  # noqa: BLE001
+        db.add(PushLog(tenant_id=user.tenant_id, user_id=user.user_id, channel="whatsapp",
+                       slot=slot, status="failed", error=str(e)[:300]))
         return "failed"
 
 
@@ -525,12 +545,9 @@ async def run_scheduler(dry_run: bool = False) -> dict:
                     status = await _push_telegram(db, user, key, content, categories)
                     if status == "skipped":
                         status = await _push_whatsapp(db, user, key, content, categories)
-                    db.add(PushLog(
-                        tenant_id=tenant_id, user_id=user_id,
-                        channel="telegram" if status != "skipped" else "whatsapp",
-                        slot=key, status=status,
-                        error="" if status == "sent" else (status if status == "failed" else "no_channel"),
-                    ))
+                    # T0.3: PushLog 由 _push_telegram/_push_whatsapp 內部寫晒
+                    # （gate skip 有 reason、sent/failed 有 error）— 外層唔再
+                    # duplicate，每 tick 每 channel ≤1 條
                     stats[status] += 1
                     stats["details"].append(f"{str(user_id)[:8]} {key}@{start}: {status}")
                     # 讀經進度推進：morning greeting push 成功 → 每日一章
@@ -564,12 +581,7 @@ async def run_scheduler(dry_run: bool = False) -> dict:
                                 bstatus = await _push_telegram(db, user, b_slot, bres["content"], bres.get("categories") or {})
                                 if bstatus == "skipped":
                                     bstatus = await _push_whatsapp(db, user, b_slot, bres["content"], bres.get("categories") or {})
-                                db.add(PushLog(
-                                    tenant_id=tenant_id, user_id=user_id,
-                                    channel="telegram" if bstatus != "skipped" else "whatsapp",
-                                    slot=b_slot, status=bstatus,
-                                    error="" if bstatus == "sent" else (bstatus if bstatus == "failed" else "no_channel"),
-                                ))
+                                # T0.3: log 由 push function 內部寫（同上）
                                 stats[bstatus] += 1
                                 stats["details"].append(f"{str(user_id)[:8]} {b_slot}@{b_start}: {bstatus}")
                                 # 讀經進度推進：bible-only custom push 成功 → 每日一章
