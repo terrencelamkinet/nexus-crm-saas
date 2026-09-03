@@ -87,36 +87,64 @@ MODULE_TAGS: dict[str, str] = {
     "personal_reminders": "🏠 個人",
 }
 
-# module → 4 大發送類別歸屬（LLM 分類準確性 — 固定歸屬，唔靠 LLM 自己估）
+# module → 6 大發送類別歸屬（v2 分類骨架，2026-09-04 SPEC G1）
+# 固定歸屬，唔靠 LLM 自己估。6 類 = notifications/reminders/schedule/
+# tasks_projects/info/bible。Push 時 📅schedule + 📋tasks_projects 合併一條
+# （SPEC G3：5 條 message），生成骨架仍分開。
 MODULE_CATEGORY: dict[str, str] = {
-    # 通知：衝突、逾期、需要立即處理
+    # 🔔 通知 — 事件性、需要立即留意
     "calendar_conflicts": "notifications",
     "overdue_followup": "notifications",
-    # 提醒：任務、費用、發票、電郵、生日、個人 + 天氣、行程（用戶 2026-09-01：
-    # 「天氣/行程應該放到提醒那一邊」— 唔係資訊）
-    "today_tasks": "reminders",
-    "expense_reminders": "reminders",
+    "unread_messages": "notifications",
+    "customer_sentiment": "notifications",
+    # ⏰ 提醒 — 行動導向（天氣/個人/發票/報價/費用/電郵/生日）
+    "weather": "reminders",
+    "personal_reminders": "reminders",
+    "quote_tracking": "reminders",
     "invoice_reminders": "reminders",
+    "expense_reminders": "reminders",
     "email_draft_review": "reminders",
     "birthday_reminders": "reminders",
-    "personal_reminders": "reminders",
-    "weather": "reminders",
-    "meetings": "reminders",
-    # v7.27: 項目都歸提醒 — deadline 係 actionable（用戶 2026-09-01：「P仔
-    # 建議：先重要後次要，項目放提醒」）
-    "project_status": "reminders",
-    "traffic_commute": "reminders",
-    # 資訊：新聞、報價、團隊、KPI、商機、潛在、訊息、情緒
+    # 📅 行程 — 會議/交通（v2：由 reminders 抽出行程獨立分類）
+    "meetings": "schedule",
+    "traffic_commute": "schedule",
+    # 📋 待辦/項目 — 任務 + 項目 + 商機（v2：由 reminders/info 抽出）
+    "today_tasks": "tasks_projects",
+    "project_status": "tasks_projects",
+    "stale_deals": "tasks_projects",
+    "hot_leads": "tasks_projects",
+    "sales_kpi": "tasks_projects",
+    # 📰 資訊 — 新聞/團隊
     "news_industry": "info",
-    "quote_tracking": "info",
     "team_updates": "info",
-    "sales_kpi": "info",
-    "stale_deals": "info",
-    "hot_leads": "info",
-    "unread_messages": "info",
-    "customer_sentiment": "info",
-    # 聖經
+    # 📖 靈修
     "bible_reading": "bible",
+}
+
+# module → default P 級（v2 SPEC §Solution）。Item 級 P 由 source function
+# 按 deadline/逾期日數規則計（T2.1）；呢個係 module 層 fallback。
+# bible 冇 P 級（靈修唔受優先級影響）。
+MODULE_PRIORITY: dict[str, str] = {
+    "calendar_conflicts": "P0",
+    "overdue_followup": "P1",
+    "unread_messages": "P1",
+    "customer_sentiment": "P2",
+    "weather": "P2",
+    "personal_reminders": "P2",
+    "quote_tracking": "P1",
+    "invoice_reminders": "P1",
+    "expense_reminders": "P1",
+    "email_draft_review": "P2",
+    "birthday_reminders": "P3",
+    "meetings": "P1",
+    "traffic_commute": "P2",
+    "today_tasks": "P1",
+    "project_status": "P2",
+    "stale_deals": "P2",
+    "hot_leads": "P2",
+    "sales_kpi": "P2",
+    "news_industry": "P3",
+    "team_updates": "P3",
 }
 
 
@@ -316,7 +344,7 @@ def _build_prompt(slot: str, settings: SecretarySettings, data: dict[str, Any]) 
     user += (
         "Module tag 表（每個 module 嘅內容每行必須以對應 tag 開頭，格式 `- {tag} {內容}`）：\n"
         f"{tag_lines}\n\n"
-        "Module 類別歸屬（module → 4 大類別，分類時跟呢個表）：\n"
+        "Module 類別歸屬（module → 6 大類別，分類時跟呢個表）：\n"
         f"{cat_lines}\n\n"
     )
     # Bible 專屬格式規則（有 bible_reading data 時）— 只提供 reference + 連結，
@@ -399,7 +427,7 @@ def _build_prompt(slot: str, settings: SecretarySettings, data: dict[str, Any]) 
     # Display 原則（v7.27：小P UX 建議，用戶 2026-09-01：「整理而方便閱讀」）
     user += (
         "Display 原則（必須跟）：\n"
-        "1. 先重要後次要：通知（衝突/逾期）→ 提醒（天氣→行程→交通→任務→項目）→ 資訊（團隊→新聞）→ 聖經\n"
+        "1. 先重要後次要：通知 → 提醒 → 行程 → 待辦/項目 → 資訊 → 聖經（6 類順序，v2 骨架）\n"
         "2. 一條一個意思：每條 bullet 只講一件事，唔好一條塞三個訊息\n"
         "3. 一致格式：`對象｜狀態｜建議動作`，用清楚動詞（改期/出門/回覆/確認）\n"
         "4. 精簡上限：每個 module 最多 3-5 條（行程 5 條 +「+X 個」、項目 5 個、新聞每類 2-5 條、團隊 3-5 條、交通 2 行）\n"
@@ -410,13 +438,15 @@ def _build_prompt(slot: str, settings: SecretarySettings, data: dict[str, Any]) 
     user += (
         "輸出格式：第一行用 <summary>...</summary> 包住一段 1-2 句嘅全日整合摘要"
         "（用上述語言，簡短精煉，整合下面所有數據嘅重點），跟住將完整簡報內容"
-        "按以下 4 個類別分節輸出，每個類別用 <<<category:XXX>>> 開頭標記，"
-        "XXX 只可以係 notifications / reminders / info / bible：\n"
-        "<<<category:notifications>>> 通知（行程衝突、逾期任務、需要立即處理嘅警報）\n"
-        "<<<category:reminders>>> 提醒 — 今日天氣 + 今日/未來行程 + 今日任務（用戶 2026-09-01：天氣同行程屬於提醒，唔係資訊）：\n"
+        "按以下 6 個類別分節輸出，每個類別用 <<<category:XXX>>> 開頭標記，"
+        "XXX 只可以係 notifications / reminders / schedule / tasks_projects / info / bible"
+        "（v2 分類骨架，2026-09-04）：\n"
+        "<<<category:notifications>>> 通知（行程衝突、逾期跟進、需要立即處理嘅警報）\n"
+        "<<<category:reminders>>> 提醒 — 天氣 + 個人/費用/發票/報價/電郵草稿/生日（行動導向，唔包行程同任務）：\n"
         "🌦️ 天氣 section 放最前（有 weather data 先用 module tag 格式）\n"
-        "📅 行程 section（有 meetings data 時，列出今日及聽日嘅行程，每個 event 標明來源 label [Kinetix]/[Personal] 等）\n"
-        "之後先到今日任務部分，必須用以下固定格式（用戶 2026-09-01 指定，唔好加減）：\n"
+        "<<<category:schedule>>> 行程（今日及聽日嘅會議/行程，每個 event 標明來源 label [Kinetix]/[Personal] 等；有 traffic_commute data 就加去程/回程兩行；已取消行程標「已取消」排後面）\n"
+        "<<<category:tasks_projects>>> 待辦/項目 — 今日任務 + 項目 + 商機：\n"
+        "今日任務部分，必須用以下固定格式（用戶 2026-09-01 指定，唔好加減）：\n"
         "✅ 今日完成\n"
         "• {今日完成嘅任務 title，逐項}（完全冇就用「• 今日暫無 task 標記完成」）\n"
         "（空行）\n"
@@ -433,9 +463,9 @@ def _build_prompt(slot: str, settings: SecretarySettings, data: dict[str, Any]) 
         "（空行）\n"
         "💭 {1-2 句整合建議：逾期/臨近死線優先、前置關係、今日安排，用廣東話語感}\n"
         "（空行）\n"
-        "其他提醒（費用/發票/電郵草稿/生日/個人）繼續用 module tag 格式，放喺 Tasks Summary 之後。\n"
         "每個任務配相關 emoji 分類：📚 書/考試/溫書、💼 工作/客戶/報價/會議、💰 費用/發票、🏠 個人/家庭、📋 其他。\n"
-        "<<<category:info>>> 資訊（新聞、CRM 概覽等一般資訊 — 天氣同行程已經歸提醒，唔好放喺呢度）\n"
+        "Tasks Summary 之後先到項目 section（project_status/stale_deals/hot_leads/sales_kpi 有 data 先出，每個項目一行 20-30 字）。\n"
+        "<<<category:info>>> 資訊（新聞、團隊更新等一般資訊 — 行程/任務/項目唔好放喺呢度）\n"
         "<<<category:bible>>> 聖經（靈修內容）\n"
         "冇內容嘅類別就省略該 tag。每個類別內用 bullet points，高密度。\n"
         "唔好加任何 metadata 或解釋。"
@@ -623,10 +653,12 @@ async def generate_briefing(
 
     # v7.00: 按類別拆 section（<<<category:XXX>>> tags）— 每類獨立推送用。
     # Dashboard 讀完整 content（剝走 tags 嘅版本）；categories dict 存 DB 俾
-    # scheduler 分開發送（通知/提醒/資訊/聖經）。
+    # scheduler 分開發送。v2（2026-09-04）：4 類 → 6 類骨架。
     CATEGORY_LABELS = {
         "notifications": "🔔 通知",
         "reminders": "⏰ 提醒",
+        "schedule": "📅 行程",
+        "tasks_projects": "📋 待辦/項目",
         "info": "📰 資訊",
         "bible": "📖 聖經",
     }

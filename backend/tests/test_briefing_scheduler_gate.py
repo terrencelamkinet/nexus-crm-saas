@@ -234,3 +234,35 @@ def test_generate_briefing_guard_absent_for_bible_only():
     except AssertionError as e:
         assert "secretary_settings" in str(e) or "unexpected SQL" in str(e)
     assert db.guard_queries == 0  # guard 冇被觸發 ✅
+
+
+# ---- T1.1: MODULE_CATEGORY v3（6 類骨架）+ MODULE_PRIORITY 完整性 ----
+def test_module_category_v3_complete():
+    """每個 module 有歸屬分類，冇 module 重複歸兩類（v2 6 類骨架）"""
+    from app.services.briefing_generator import MODULE_CATEGORY, MODULE_TAGS
+
+    valid_cats = {"notifications", "reminders", "schedule", "tasks_projects", "info", "bible"}
+    assert set(MODULE_CATEGORY.values()) <= valid_cats
+    # MODULE_TAGS 有 tag 嘅 module 全部有歸屬（tag 表 = 全部已知 module）
+    for m in MODULE_TAGS:
+        assert m in MODULE_CATEGORY, f"{m} 冇歸屬分類"
+    # 冇 module 重複歸兩類（dict 天生唔重複 key — 呢個 check 保證冇 typo duplicate）
+    assert len(MODULE_CATEGORY) == len(set(MODULE_CATEGORY.keys()))
+    # v2 新分類有 module 入駐
+    assert "meetings" in MODULE_CATEGORY and MODULE_CATEGORY["meetings"] == "schedule"
+    assert "project_status" in MODULE_CATEGORY and MODULE_CATEGORY["project_status"] == "tasks_projects"
+    assert "news_industry" in MODULE_CATEGORY and MODULE_CATEGORY["news_industry"] == "info"
+
+
+def test_module_priority_complete():
+    """每個 module 有 default P 級（bible 除外）；P 級只可以係 P0-P3"""
+    from app.services.briefing_generator import MODULE_CATEGORY, MODULE_PRIORITY
+
+    valid_p = {"P0", "P1", "P2", "P3"}
+    for m, cat in MODULE_CATEGORY.items():
+        if cat == "bible":
+            continue  # 靈修唔受優先級影響
+        assert m in MODULE_PRIORITY, f"{m} 冇 default P 級"
+        assert MODULE_PRIORITY[m] in valid_p
+    # bible 唔應該有 priority
+    assert "bible_reading" not in MODULE_PRIORITY

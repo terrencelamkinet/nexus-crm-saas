@@ -309,6 +309,8 @@ async def _advance_bible_progress(db, user, modules_raw, slot_key: str) -> None:
 _CATEGORY_LABELS = {
     "notifications": "🔔 通知",
     "reminders": "⏰ 提醒",
+    "schedule": "📅 行程",
+    "tasks_projects": "📋 待辦/項目",
     "info": "📰 資訊",
     "bible": "📖 聖經",
 }
@@ -380,7 +382,9 @@ async def _push_telegram(db, user, slot: str, content: str, categories: dict | N
         if categories:
             # 按類別分開 send — 每類一條 message（🔔通知/⏰提醒/📰資訊/📖聖經）
             all_ok = True
-            for cat_key in ("notifications", "reminders", "info", "bible"):
+            # 6 類分開 send（v2 骨架）。T1.4 會將 schedule + tasks_projects
+            # 合併一條（SPEC G3：5 條 message）— 暫時分開確保唔漏內容
+            for cat_key in ("notifications", "reminders", "schedule", "tasks_projects", "info", "bible"):
                 body = (categories.get(cat_key) or "").strip()
                 if not body:
                     continue
