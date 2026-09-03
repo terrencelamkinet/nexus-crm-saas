@@ -352,3 +352,43 @@ def test_push_no_merge_when_only_tasks():
         assert not any("行程與待辦" in s.split("\n")[0] for s in sent)
     finally:
         bs._channel_gate, bs._now_hkt, bs.telegram_service.send_message = orig_gate, orig_now, orig_send
+
+
+# ---- T2.1: compute_p_level 邊界測試 ----
+def test_p_level_task_boundaries():
+    from app.ai.briefing_sources import compute_p_level
+    from datetime import date as _date
+    today = datetime(2026, 9, 4, 12, 0, tzinfo=HKT)
+
+    def d(offset):
+        return (datetime(2026, 9, 4, 0, 0, tzinfo=HKT) + timedelta(days=offset)).date()
+
+    # overdue > 7 → P0
+    assert compute_p_level("task", d(-8), today) == "P0"
+    # overdue 7 或以下 → P1
+    assert compute_p_level("task", d(-7), today) == "P1"
+    assert compute_p_level("task", d(0), today) == "P1"   # 今日到期
+    assert compute_p_level("task", d(1), today) == "P2"   # 聽日
+    assert compute_p_level("task", d(30), today) == "P2"  # 未來
+    assert compute_p_level("task", None, today) == "P3"   # 冇日期
+
+
+def test_p_level_project_and_invoice_boundaries():
+    from app.ai.briefing_sources import compute_p_level
+    today = datetime(2026, 9, 4, 12, 0, tzinfo=HKT)
+
+    def d(offset):
+        return (datetime(2026, 9, 4, 0, 0, tzinfo=HKT) + timedelta(days=offset)).date()
+
+    # project: overdue > 90 → P3
+    assert compute_p_level("project", d(-91), today) == "P3"
+    assert compute_p_level("project", d(-90), today) == "P2"
+    assert compute_p_level("project", d(0), today) == "P2"
+    assert compute_p_level("project", d(1), today) == "P1"  # 聽日 deadline
+    assert compute_p_level("project", None, today) == "P3"
+    # invoice: 到期 ≤3 日（含已過期）→ P0
+    assert compute_p_level("invoice", d(0), today) == "P0"
+    assert compute_p_level("invoice", d(-2), today) == "P0"
+    assert compute_p_level("invoice", d(3), today) == "P0"
+    assert compute_p_level("invoice", d(4), today) == "P1"
+    assert compute_p_level("invoice", None, today) == "P3"

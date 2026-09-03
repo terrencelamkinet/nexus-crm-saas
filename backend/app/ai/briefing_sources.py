@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import re
 import uuid
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 from typing import Any
 
 from sqlalchemy import select, func, or_
@@ -29,6 +29,63 @@ HKT = timezone(timedelta(hours=8))
 
 def _now_hkt() -> datetime:
     return datetime.now(HKT)
+
+
+# ── v2 T2.1: Item P 級規則計（SPEC §Solution — 唔靠 LLM 判斷）──
+def _parse_due(value: Any) -> datetime | None:
+    """Parse due date (date/datetime/str) → HKT-aware datetime at 00:00."""
+    if value is None:
+        return None
+    try:
+        if isinstance(value, datetime):
+            dt = value
+        elif isinstance(value, date):
+            dt = datetime(value.year, value.month, value.day)
+        else:
+            s = str(value)[:10]
+            dt = datetime.strptime(s, "%Y-%m-%d")
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=HKT)
+        return dt.replace(hour=0, minute=0, second=0, microsecond=0)
+    except Exception:
+        return None
+
+
+def compute_p_level(entity_type: str, due: Any, today: datetime | None = None) -> str:
+    """Item-level P by rule — task / project / invoice.
+
+    SPEC 2026-09-04（v2 §Solution）：
+      task:    overdue > 7日 → P0；overdue ≤7 或 今日到期 → P1；有 deadline → P2；冇日期 → P3
+      project: overdue > 90日 → P3；overdue ≤90 → P2；今日/聽日 deadline → P1
+      invoice: 到期 ≤3日 → P0；其餘有到期 → P1；冇日期 → P3
+    """
+    today_dt = (today or _now_hkt()).replace(hour=0, minute=0, second=0, microsecond=0)
+    d = _parse_due(due)
+    if d is None:
+        return "P3"
+    overdue = (today_dt - d).days  # >0 = 已逾期
+    if entity_type == "task":
+        if overdue > 7:
+            return "P0"
+        if overdue >= 0:  # 逾期 0-7 或今日到期
+            return "P1"
+        return "P2"  # 未來 deadline
+    if entity_type == "project":
+        if overdue > 90:
+            return "P3"
+        if overdue >= 0:
+            return "P2"
+        if overdue >= -1:  # 聽日 deadline
+            return "P1"
+        return "P2"
+    # invoice / quote / expense — 到期前 3 日升 P0
+    if entity_type == "invoice":
+        if overdue >= 0:  # 已到期
+            return "P0"
+        if overdue >= -3:  # 3 日內到期
+            return "P0"
+        return "P1"
+    return "P2"
 
 
 def _liturgical_season(now: datetime) -> dict[str, str]:
@@ -114,6 +171,7 @@ async def project_status(ctx: AISessionContext, db: AsyncSession, options: dict 
     for r, company_name in rows:
         d = _row_to_dict(r)
         d["company_name"] = company_name
+        d["p_level"] = compute_p_level("project", d.get("deadline"))
         items.append(d)
     return items
 

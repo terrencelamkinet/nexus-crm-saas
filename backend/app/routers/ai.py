@@ -2800,6 +2800,7 @@ async def _build_crm_briefing(ctx, db, lang_pref: str = "zh-HK") -> dict:
     #    because real G08 data uses medium/P2/P3; the old filter hid everything) ──
     brief_tasks: list[dict[str, Any]] = []
     try:
+        from app.ai.briefing_sources import compute_p_level  # v2 T2.1
         tasks = await _list_tasks(
             ctx, {"status": "pending", "limit": 30}, db
         )
@@ -2813,6 +2814,8 @@ async def _build_crm_briefing(ctx, db, lang_pref: str = "zh-HK") -> dict:
                 "priority": pri.upper() if len(str(pri)) == 2 else ("P0" if pri in ("urgent",) else "P1"),
                 "status": t.get("status", ""),
                 "due_date": t.get("due_date"),
+                # v2 T2.1: item P 級規則計（overdue 日數）— 唔靠 LLM 判斷
+                "p_level": compute_p_level("task", t.get("due_date")),
             })
     except Exception:
         pass

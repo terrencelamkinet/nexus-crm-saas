@@ -466,9 +466,12 @@ def _build_prompt(slot: str, settings: SecretarySettings, data: dict[str, Any]) 
         "6. 每個 module 內容每行以 module tag 開頭（`- {tag} {內容}`）\n"
     )
 
-    # ── Tasks Summary 格式（slot-aware，v2 T1.3）──
-    # Morning = 完整版（用戶 2026-09-01 指定固定格式）；evening/night = 精簡版
-    # （收工回顧 / 聽日預告 — 淨係 ✅今日完成 + 🔴 優先，用戶 G2「保留精簡版」）
+    # ── Tasks Summary 格式（slot-aware，v2 T1.3 + T2.1）──
+    # T2.1: 分層改用 item p_level（payload 每 task/project 帶 p_level，
+    # 由 source 規則計 overdue 日數 — 唔靠 LLM 自己估）：
+    #   🔴 P0-P1（已逾期/今日/聽日到期）全數列出
+    #   🟡 P2（有 deadline 未到期）摺疊一行（如 >3 項）
+    #   ⚪ P3（冇 deadline）壓縮
     if slot == "morning":
         tasks_block = (
             "今日任務部分，必須用以下固定格式（用戶 2026-09-01 指定，唔好加減）：\n"
@@ -477,14 +480,14 @@ def _build_prompt(slot: str, settings: SecretarySettings, data: dict[str, Any]) 
             "（空行）\n"
             "📋 Tasks Summary · {今日日期 YYYY-MM-DD}\n"
             "（空行）\n"
-            "🔴 優先（有 deadline 或 overdue）\n"
-            "• {emoji} {title} — {已逾期 (M/D) ／ M/D 到期 ／ 今日到期}（{狀態}）\n"
+            "🔴 P0-P1（已逾期 / 今日或聽日到期 — 需要行動）\n"
+            "• {emoji} {title} — {已逾期 (M/D) ／ M/D 到期}（p_level P0/P1）\n"
             "（空行）\n"
-            "📌 進行中\n"
-            "• {emoji} {title}（冇 deadline 但 status = 進行中/in_progress 嘅任務）\n"
+            "🟡 P2（有 deadline 未到期）\n"
+            "• {emoji} {title} — {M/D 到期}（p_level P2；超過 3 項就摺疊成一行「+X 項其他任務」）\n"
             "（空行）\n"
-            "⚪ 其他（未有日期）\n"
-            "• {emoji} {title}（冇 deadline 嘅任務，逐項列出）\n"
+            "⚪ P3（冇日期）\n"
+            "• {emoji} {title}（p_level P3，冇 deadline）\n"
             "（空行）\n"
             "💭 {1-2 句整合建議：逾期/臨近死線優先、前置關係、今日安排，用廣東話語感}\n"
             "（空行）\n"
@@ -497,10 +500,10 @@ def _build_prompt(slot: str, settings: SecretarySettings, data: dict[str, Any]) 
             "（空行）\n"
             "📋 Tasks Summary · {今日日期 YYYY-MM-DD}\n"
             "（空行）\n"
-            "🔴 優先（未完 / 逾期 / 聽日到期 — 精簡列出，每項一行）\n"
+            "🔴 優先（未完 / 逾期 / 聽日到期 — p_level P0/P1 精簡列出，每項一行）\n"
             "• {emoji} {title} — {已逾期 (M/D) ／ M/D 到期 ／ 聽日到期}\n"
             "（空行）\n"
-            "（精簡版：唔好出 📌 進行中 / ⚪ 其他 / 💭 建議 section）\n"
+            "（精簡版：唔好出 🟡 P2 / ⚪ P3 / 💭 建議 section）\n"
             "（空行）\n"
         )
     user += (
