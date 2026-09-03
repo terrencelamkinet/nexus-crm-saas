@@ -2788,6 +2788,8 @@ async def _build_crm_briefing(ctx, db, lang_pref: str = "zh-HK") -> dict:
                     "title": e.get("title", e.get("summary", "Event")),
                     "time": _hkt_time_str(e.get("start")),
                     "location": e.get("location", ""),
+                    # T1.2: sync prefix「Canceled: 」→ status=cancelled（tool_registry 已剝 prefix）
+                    "status": e.get("status", "confirmed"),
                 }
                 for e in evts
             ]

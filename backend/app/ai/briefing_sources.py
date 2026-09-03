@@ -654,6 +654,10 @@ async def calendar_conflicts(ctx: AISessionContext, db: AsyncSession, options: d
         )
     ).scalars().all()
 
+    # T1.2: 已取消 event（sync prefix「Canceled: 」）唔參與衝突偵測 — 9/3
+    # 實證：Canceled HPE Dinner 同正常版被當衝突報出「與已取消同名」
+    rows = [r for r in rows if not str(r.title or "").startswith("Canceled: ")]
+
     # Cross-source duplicates（同一 event 被 Outlook + Google 各自 mirror —
     # title + start + end 完全一樣）唔可以當衝突：先按 (title, start, end) 去重
     seen_keys: set[tuple[str, str, str]] = set()

@@ -534,7 +534,30 @@ async def _get_upcoming_events(
     )
 
     rows = (await db.execute(base)).scalars().all()
-    return [_row_to_dict(r) for r in rows]
+    evts = [_row_to_dict(r) for r in rows]
+
+    # T1.2（2026-09-04）：Canceled event 處理 — Outlook/Google sync 會將取消咗
+    # 嘅 event 以 title prefix「Canceled: 」另起一條（原 event 保留唔刪）。
+    # 9/3 briefing 實證 bug：正常版 + Canceled 版兩條並排出街，canceled 當正常行程。
+    # 處理：① Canceled 版 title 剝走 prefix + 標 status=cancelled（照出，等 LLM/
+    #     UI 顯示「已取消」+ 原時間）② 有 canceled 對應嘅正常版 skip（避免 duplicate）
+    _cancel_keys: set[tuple[str, str]] = set()
+    for e in evts:
+        t = (e.get("title") or "").strip()
+        if t.startswith("Canceled: "):
+            _cancel_keys.add((t[len("Canceled: "):].strip(), str(e.get("start") or "")))
+    deduped: list[dict[str, Any]] = []
+    for e in evts:
+        t = (e.get("title") or "").strip()
+        if t.startswith("Canceled: "):
+            e["title"] = t[len("Canceled: "):].strip()
+            e["status"] = "cancelled"  # 原 row 冇 status column — 由 sync prefix 推斷
+            deduped.append(e)
+        elif (t, str(e.get("start") or "")) in _cancel_keys:
+            continue  # 正常版但有 canceled 對應 → 已取消，唔當有效行程出
+        else:
+            deduped.append(e)
+    return deduped
 
 
 # ---------------------------------------------------------------------------
