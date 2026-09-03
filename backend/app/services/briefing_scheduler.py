@@ -148,12 +148,14 @@ def _is_due(now: datetime, start_hhmm: str) -> bool:
     return 0 <= diff < DUE_WINDOW_MIN
 
 
-async def _already_sent(db, user_id, slot: str, now: datetime) -> bool:
-    """True if this slot already pushed today on ANY channel.
+async def _already_processed(db, user_id, slot: str, now: datetime) -> bool:
+    """True if this slot already attempted today (sent/skipped/failed).
 
-    Channel-agnostic dedup: a WhatsApp-only send (Telegram gate skipped) must
-    still suppress the next 15-min tick — otherwise the same slot pushes twice
-    a day via the fallback path.
+    T0.1（2026-09-04）：語意由「sent」擴展做「任何結果」— 被 gate 擋
+    （quiet_hours/slot_off/weekend_mute）或 push failed 都算已處理，唔可以
+    令下一個 15-min tick regenerate 再燒 LLM call（9/3 實測：evening gate
+    擋咗 → 每 15 min regenerate 13 次）。缺點：transient push failure 唔會
+    自動 retry — 接受（寧願 miss 一次都唔好無限燒；聽日自然有新 briefing）。
     """
     day_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
     row = (
@@ -161,7 +163,7 @@ async def _already_sent(db, user_id, slot: str, now: datetime) -> bool:
             select(PushLog.id).where(
                 PushLog.user_id == user_id,
                 PushLog.slot == slot,
-                PushLog.status == "sent",
+                PushLog.status.in_(("sent", "skipped", "failed")),
                 PushLog.sent_at >= day_start,
             ).limit(1)
         )
@@ -316,7 +318,7 @@ async def _push_telegram(db, user, slot: str, content: str, categories: dict | N
     # ⚠️ Caller（generate_briefing）已經 commit — transaction-local GUC 隨
     # transaction 完結消失，必須重新 set 先讀到 IMDeliveryPref / 寫 push_log
     # （兩者都有 RLS）。唔 set 嘅話 push_log INSERT 會 RLS violation → 永遠
-    # 寫唔入 → _already_sent 永遠 False → 每 15 分鐘 regenerate。
+    # 寫唔入 → _already_processed 永遠 False → 每 15 分鐘 regenerate。
     try:
         await db.execute(
             text("SELECT set_config('app.tenant_id', :t, true), set_config('app.user_id', :u, true)"),
@@ -495,7 +497,7 @@ async def run_scheduler(dry_run: bool = False) -> dict:
                         continue
                     stats["due"] += 1
                     # Dedup per day — any channel sent for this slot today
-                    if await _already_sent(db, user_id, key, now):
+                    if await _already_processed(db, user_id, key, now):
                         stats["skipped"] += 1
                         stats["details"].append(f"{str(user_id)[:8]} {key}: already sent")
                         continue
@@ -504,6 +506,14 @@ async def run_scheduler(dry_run: bool = False) -> dict:
                         continue
                     content, categories = await _generate_content(db, user, key)
                     if not content:
+                        # T0.1: empty 都要寫 push_log（skipped/empty_content）→
+                        # _already_processed 下次 tick 擋住，唔好無限 regenerate
+                        # 燒 LLM（SPEC edge case：空內容記 skipped + 已處理）
+                        db.add(PushLog(
+                            tenant_id=tenant_id, user_id=user_id,
+                            channel="telegram", slot=key,
+                            status="skipped", reason="empty_content",
+                        ))
                         stats["skipped"] += 1
                         stats["details"].append(f"{str(user_id)[:8]} {key}: empty content")
                         continue
@@ -533,7 +543,7 @@ async def run_scheduler(dry_run: bool = False) -> dict:
                     b_start = BIBLE_SLOT_TIMES.get(tod)
                     if b_start and _is_due(now, b_start):
                         b_slot = f"bible_{tod}"
-                        if await _already_sent(db, user_id, b_slot, now):
+                        if await _already_processed(db, user_id, b_slot, now):
                             stats["skipped"] += 1
                             stats["details"].append(f"{str(user_id)[:8]} {b_slot}: already sent")
                         elif dry_run:

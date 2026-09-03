@@ -692,3 +692,16 @@ GET    /api/v1/crm/sales-reports/{id}   — read
 - Note: `company_id` set but API response `company` field is `None` — backend doesn't JOIN, data is correct
 
 ⚠️ **IMPORTANT for next session**: Before reporting project completeness, re-read this CONTEXT.md + G08-PRODUCTION-ARCHITECTURE.md verbatim. Do NOT rely on memory — cross-reference all sections against the actual code/files.
+
+---
+
+## Memory Migrated Entries（2026-09-03 — 由 GG-Fighter L0 memory 遷移，釋放注入層）
+
+- **G08 repo**: `/home/airoot/projects/nexus-crm-saas`（`~/projects/g08-nexus-crm` 係 stale pointer）
+- **G08 rebrand → Penguin CRM（v7.04）**: NEXUS→Penguin 用戶可見；技術層保留 NEXUS
+- **Dashboard 時間顯示**: ALL displayed times/dates/greetings 必須 HKT
+- **產品定位**: NEXUS CRM = AI-native permission-first + 全球 50k tenants 設計
+- **知識庫**: `backend/docs/KB/` 係中央問題知識庫（KB core rules 喺度）
+- **AI 渠道**: tenant 內容 AI 可加減，系統框架不可改；CRM AI 渠道只服務用戶對話（2026-08-22 確立）
+- **Mobile nav v3 用詞**: contacts=「聯絡人」、company 分類=「...」（見 nexus-crm-development refs）
+- **Perplexity**: 用戶叫小P/P仔；G08 briefing 偏好：天氣/行程歸提醒（v7.26）

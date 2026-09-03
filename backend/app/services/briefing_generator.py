@@ -533,6 +533,29 @@ async def generate_briefing(
     only_modules: 指定只生成呢啲 module（例：bible custom push time 只推 bible_reading）。
     skip_im_push: True 時唔做 IM push（scheduler 自己控制 channel 推送，避免 double push）。
     """
+    # ── T0.1 dedup guard（2026-09-04）：同一 briefing_date 同一 slot 已生成過
+    # full briefing（modules > 1）→ 直接 return，唔燒 LLM。
+    # 背景：run.sh（07/12/18/00）+ scheduler（*/15）雙入口 + _already_sent 只認
+    # push_log sent → gate skip 後每 15 min regenerate（9/3 實測 29 條/日）。
+    # Bible-only row（modules = [bible_reading]）唔當 full briefing，唔誤擋。
+    if only_modules is None:
+        try:
+            _dup = (
+                await db.execute(
+                    text(
+                        "SELECT 1 FROM nexus_crm.generated_briefings "
+                        "WHERE tenant_id = :t AND user_id = :u AND slot = :s "
+                        "AND briefing_date = :d AND cardinality(modules) > 1 LIMIT 1"
+                    ),
+                    {"t": tenant_id, "u": user_id, "s": slot, "d": _now_hkt().date()},
+                )
+            ).scalar_one_or_none()
+            if _dup:
+                return {"user_id": str(user_id), "slot": slot,
+                        "status": "already_exists", "im": "skipped",
+                        "content": "", "content_len": 0, "categories": {}}
+        except Exception:
+            pass  # guard 失敗（RLS GUC 未 set 等）→ 照生成，保守唔擋
     settings = await _load_settings(db, user_id)
     modules = _enabled_modules(settings)  # {module_key: options_dict} — 深層選項
     if not modules:
